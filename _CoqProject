@@ -1,0 +1,11 @@
+-Q theories gitrees
+-arg -w -arg -ssr-search-moved
+
+theories/prelude.v
+
+theories/pcf/lang.v
+theories/pcf/typed/model.v
+theories/pcf/typed/logrel.v
+theories/pcf/untyped/model.v
+theories/pcf/untyped/logrel.v
+
