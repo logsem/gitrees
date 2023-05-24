@@ -9,3 +9,8 @@ theories/pcf/typed/logrel.v
 theories/pcf/untyped/model.v
 theories/pcf/untyped/logrel.v
 
+theories/gitree/core.v
+theories/gitree/lambda.v
+theories/gitree/reify.v
+theories/gitree/reductions.v
+

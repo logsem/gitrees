@@ -8,6 +8,8 @@ From stdpp Require Import nat_cancel.
 From iris.prelude Require Export options prelude.
 
 (** OFEs stuff *)
+Notation "F ♯ E" := (oFunctor_apply F E) (at level 20, right associativity).
+
 Program Definition flipO {A B C : ofe} : (A -n> B -n> C) -n> B -n> A -n> C
   := λne f x y, f y x.
 Next Obligation. solve_proper. Qed.

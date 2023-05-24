@@ -232,3 +232,4 @@ Makefile.coq.conf
 Makefile.coq
 .Makefile.coq.d
 .*.aux
+.lia.cache
