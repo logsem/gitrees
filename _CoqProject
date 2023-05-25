@@ -13,4 +13,8 @@ theories/gitree/core.v
 theories/gitree/lambda.v
 theories/gitree/reify.v
 theories/gitree/reductions.v
+theories/gitree/weakestpre.v
+theories/gitree.v
 
+theories/input_lang/lang.v
+theories/input_lang/interp.v

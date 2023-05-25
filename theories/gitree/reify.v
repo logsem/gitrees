@@ -374,7 +374,7 @@ Qed.
   : subReifier reF (reifiers_cons E stateE reE rs) (stateE * rest).
 Proof.
   unshelve esplit.
-  { eapply subState_there; eauto. apply _. } (** XXX *)
+  { eapply subState_there; eauto. apply _. } (** XXX: why does typeclass search fail? *)
   intros op X HX i s s_rest.
   destruct (subState_conv_state s_rest s) as [sE' sR] eqn:Hdecomp.
   destruct s_rest as [sE s_rest].
