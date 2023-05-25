@@ -1,6 +1,10 @@
 # denotational semantics with guarded interaction trees
 
-...
+- `gitree/core.v` -- the main definitions for Guarded Interaction Trees, and the recursion principle
+- `gitree/reify.v`, `gitree/reductions.v` -- reification of effects and reductions of gITrees
+- `gitree/lambda.v` -- programmming language combinators on the gITrees
+- `gitree/weakestpre.v` -- program logic on gITrees
+- `input_lang/` -- a language with recursion and an INPUT effect; model and adequacy
 
 ## other stuff
 
