@@ -67,12 +67,6 @@ Section weakestpre.
     - iApply ("IH" with "H2").
   Admitted.
 
-  (* TODO: move *)
-  Lemma unit_local_update (x y : unitR) : (x, y) ~l~> ((), ()).
-  Proof.
-    apply local_update_unital=> n [] Hx Heq.
-    split; eauto.
-  Qed.
   Lemma of_state_update {E} (rs : reifiers E) X `{!Cofe X} σ σ' σ0 :
      ● of_state rs X σ ⋅ ◯ of_state rs X σ' ~~> ● of_state rs X σ0 ⋅ ◯ of_state rs X σ0.
   Proof.

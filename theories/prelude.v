@@ -1,11 +1,17 @@
 (** Useful theorems/functions on OFEs and other stuff missing from Iris *)
-From iris.algebra Require ofe.
+From stdpp Require Import nat_cancel.
+From iris.prelude Require Export options prelude.
+From iris.algebra Require Import ofe local_updates.
 From iris.bi Require Import notation.
 From iris.si_logic Require Import bi siprop.
 From iris.proofmode Require Import classes tactics modality_instances
                                    coq_tactics reduction.
-From stdpp Require Import nat_cancel.
-From iris.prelude Require Export options prelude.
+
+Lemma unit_local_update (x y : unitR) : (x, y) ~l~> ((), ()).
+Proof.
+  apply local_update_unital=> n [] Hx Heq.
+  split; eauto.
+Qed.
 
 (** OFEs stuff *)
 Notation "F ♯ E" := (oFunctor_apply F E) (at level 20, right associativity).
@@ -145,7 +151,9 @@ Qed.
 
 End siProp.
 
-(** "Beefed up" version of iRewrite  *)
+(** "Beefed up" version of iRewrite.
+See also : https://gitlab.mpi-sws.org/iris/iris/-/issues/519
+ *)
 Local Ltac iClearHyp H :=
   eapply tac_clear with H _ _; (* (i:=H) *)
     [pm_reflexivity ||
