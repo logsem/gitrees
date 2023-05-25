@@ -362,7 +362,7 @@ Proof.
   intros op X HX i s rest. simpl.
   destruct (re op X HX (i, s)) as [[o s']|] eqn:Hre;
     rewrite Hre; reflexivity.
-Qed.
+Defined. (* we need it to be able to simplify .. *)
 
 #[export] Instance subReifier_there {F E E'} {stateF stateE}
   (reE : reify_eff E stateE)
@@ -398,5 +398,5 @@ Proof.
       as [[o' s'_rest]|] eqn:Hre.
     + rewrite Hre. simpl. inversion 1.
     + rewrite Hre. simpl. done.
-Qed.
+Defined. (* ditto *)
 
