@@ -35,10 +35,7 @@ Proof.
   intros HP.
   eapply (fupd_soundness_lc (2*n) ⊤ ⊤ P); [apply _..|].
   iIntros (Hinv) "Hlc".
-  iPoseProof HP as "#Hupd". iRevert "Hupd".
-  rewrite bi.intuitionistically_elim.
-  iIntros "Hupd".
-  clear HP.
+  iPoseProof HP as "-#Hupd". clear HP.
   iInduction n as [|n] "IH".
   - by iModIntro.
   - rewrite Nat.mul_succ_r.
@@ -168,6 +165,25 @@ Section weakestpre.
     pose (sg := {| stateG_inG := _; stateG_name := γ |}).
     iModIntro. iExists sg. by iFrame.
   Qed.
+  Lemma state_interp_has_state_agree σ1 σ2 `{!stateG Σ} :
+    state_interp σ1 -∗ has_state σ2 -∗ σ1 ≡ σ2.
+  Proof.
+    iIntros "H1 H2".
+    iDestruct (own_valid_2 with "H1 H2") as "Hs".
+    rewrite auth_both_validI.
+    iDestruct "Hs" as "[Hs _]".
+    iDestruct "Hs" as (f) "Hs".
+    by rewrite of_state_agree.
+  Qed.
+  Lemma state_interp_has_state_update σ σ1 σ2 `{!stateG Σ} :
+    state_interp σ1 -∗ has_state σ2 ==∗ state_interp σ ∗ has_state σ.
+  Proof.
+    iIntros "H1 H2".
+    iMod (own_update_2 with "H1 H2") as "H".
+    { apply (of_state_update _ _ _ _ σ). }
+    iDestruct "H" as "[$ $]". done.
+  Qed.
+
   #[export] Instance subG_stateΣ {Σ} : subG stateΣ Σ → statePreG Σ.
   Proof. solve_inG. Qed.
 
@@ -420,28 +436,20 @@ Section weakestpre.
     iApply fupd_mask_intro; first solve_ndisj.
     iIntros "Hcl".
     (* we know what the real state is *)
-    iAssert (σ ≡ σ0)%I with "[Hs Hσ0]" as "#Hss".
-    { rewrite /has_state /state_interp.
-      iDestruct (own_valid_2 with "Hσ0 Hs") as "Hs".
-      rewrite auth_both_validI.
-      iDestruct "Hs" as "[Hs _]".
-      iDestruct "Hs" as (f) "Hs".
-      rewrite of_state_agree.
-      by iApply (internal_eq_sym (σ0 : stateO) (σ : stateO)). }
+    iPoseProof (state_interp_has_state_agree with "Hσ0 Hs") as "#Hss".
     iSplit.
     { (* it is safe *)
       iExists β,σ'. iRight. iExists op,i,ko.
-      iRewrite -"Hss". eauto. }
+      iRewrite "Hss". eauto. }
     iIntros (σ0' α0) "Hst". rewrite istep_vis.
-    iRewrite -"Hss" in "Hst".
+    iRewrite "Hss" in "Hst".
     iAssert (▷ (α0 ≡ β) ∧ σ0' ≡ σ')%I with "[Hst]" as "[Ha1 Hss']".
     { rewrite Hreify.
       iPoseProof (prod_equivI with "Hst") as "[Ha Hs]". simpl.
       iSplit.
       + iNext. by iApply internal_eq_sym.
       + by iApply internal_eq_sym.  }
-    iMod (own_update_2 with "Hσ0 Hs") as "[Hs0 Hs]".
-    { apply (of_state_update _ _ _ _ σ'). }
+    iMod (state_interp_has_state_update σ' with "Hσ0 Hs") as "[Hs0 Hs]".
     iRewrite -"Hss'" in "Hs0".
     iSpecialize ("Hb" with "Hs"). iFrame "Hs0".
     iModIntro. iNext. iModIntro.
