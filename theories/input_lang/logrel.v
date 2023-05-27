@@ -15,11 +15,11 @@ Section logrel.
   Canonical Structure exprO S := leibnizO (expr S).
   Canonical Structure valO S := leibnizO (val S).
 
-  Notation "'WP' α {{ β , Φ } }" := (wp rs α (λ β, Φ))
+  Notation "'WP' α {{ β , Φ } }" := (wp rs α ⊤ (λ β, Φ))
     (at level 20, α, Φ at level 200,
      format "'WP'  α  {{  β ,  Φ  } }") : bi_scope.
 
-  Notation "'WP' α {{ Φ } }" := (wp rs α Φ)
+  Notation "'WP' α {{ Φ } }" := (wp rs α ⊤ Φ)
     (at level 20, α, Φ at level 200,
      format "'WP'  α  {{  Φ  } }") : bi_scope.
 
@@ -80,7 +80,7 @@ Section logrel.
     iApply (wp_wand with "H1").
     iIntros (αv). iDestruct 1 as ([m m'] v σ' Hsteps) "[H1 Hs]".
     iSpecialize ("H2" with "H1 Hs").
-    iApply (wp_wand with "H2").
+    iApply (wp_wand with "H2"). iModIntro.
     iIntros (βv). iDestruct 1 as ([m2 m2'] v2 σ2' Hsteps2) "[H2 Hs]".
     iExists (m + m2, m' + m2'),v2,σ2'. iFrame "H2 Hs".
     iPureIntro. eapply (prim_steps_app (m,m') (m2,m2')); eauto.
@@ -279,7 +279,7 @@ Section logrel.
     iApply wp_val.
     { rewrite IT_to_V_Nat//. }
     iExists (1,1),(Lit n),σ'.
-    iFrame "Hs". iSplit.
+    iFrame "Hs". iModIntro. iSplit.
     { iPureIntro.
       simp subst_expr.
       apply prim_step_steps.
@@ -393,7 +393,7 @@ Proof.
   iIntros ( βv). iIntros "H".
   iDestruct "H" as (m' v σ1' Hsts) "[Hi Hsts]".
   unfold Φ. iDestruct "Hi" as (l) "[Hβ %]". simplify_eq/=.
-  iExists l. iSplit; eauto.
+  iExists l. iModIntro. iSplit; eauto.
   iExists l. iSplit; eauto.
 Qed.
 
