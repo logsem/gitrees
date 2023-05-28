@@ -59,7 +59,7 @@ Section lambda.
     intro. simpl. solve_proper.
   Qed.
 
-  Lemma APP_Err x : APP Err x ≡ Err.
+  Lemma APP_Err e x : APP (Err e) x ≡ Err e.
   Proof. simpl. by rewrite get_fun_err. Qed.
   Lemma APP_Fun f x : APP (Fun f) x ≡ Tau $ laterO_ap f x.
   Proof. simpl. rewrite get_fun_fun. done. Qed.
@@ -78,7 +78,7 @@ Section lambda.
     rewrite get_fun_vis. repeat f_equiv.
     intro f. simpl. reflexivity.
   Qed.
-  Lemma APP'_Err f : APP' f Err ≡ Err.
+  Lemma APP'_Err f e : APP' f (Err e) ≡ Err e.
   Proof. simpl. by rewrite get_val_err. Qed.
   Lemma APP'_Nat f x : APP' f (Nat x) ≡ APP f (Next (Nat x)).
   Proof. simpl. rewrite get_val_nat. done. Qed.
@@ -107,7 +107,7 @@ Section lambda.
     rewrite APP_APP'_ITV'//.
   Qed.
 
-  Lemma IF_Err t1 t2 : IF Err t1 t2 ≡ Err.
+  Lemma IF_Err e t1 t2 : IF (Err e) t1 t2 ≡ Err e.
   Proof. unfold IF. simpl. by rewrite get_nat_err. Qed.
   Lemma IF_True n t1 t2 :
     0 < n → IF (Nat n) t1 t2 ≡ t1.
@@ -141,9 +141,9 @@ Section lambda.
     by intro.
   Qed.
 
-  Lemma NATOP_Err_r f t1 : NATOP f t1 Err ≡ Err.
+  Lemma NATOP_Err_r f e t1 : NATOP f t1 (Err e) ≡ Err e.
   Proof. simpl. by rewrite get_val_err. Qed.
-  Lemma NATOP_Err_l f β : AsVal β → NATOP f Err β ≡ Err.
+  Lemma NATOP_Err_l f e β : AsVal β → NATOP f (Err e) β ≡ Err e.
   Proof.
     intros ?. simpl.
     rewrite get_val_ITV /= get_val_err //.
@@ -228,7 +228,7 @@ Section lambda.
     - intros op i k. rewrite !APP_APP'_ITV.
       rewrite APP_Vis. repeat f_equiv.
       intro x ; simpl. by rewrite APP_APP'_ITV.
-    - by rewrite !APP_APP'_ITV APP_Err.
+    - intros e. by rewrite !APP_APP'_ITV APP_Err.
   Qed.
   #[export] Instance AppRSCtx_hom (β : IT) : IT_hom (AppRSCtx β) | 0.
   Proof.
@@ -237,7 +237,7 @@ Section lambda.
     - solve_proper.
     - intros a. by rewrite APP'_Tick_r.
     - intros op i k. rewrite APP'_Vis_r. repeat f_equiv.
-    - by rewrite APP'_Err.
+    - intros e. by rewrite APP'_Err.
   Qed.
   #[local] Instance NatOpLSCtx_ne op (β : IT) : NonExpansive (NatOpLSCtx op β).
   Proof.
@@ -251,7 +251,7 @@ Section lambda.
     - intro a. simpl. rewrite NATOP_ITV_Tick_l//.
     - intros op' i k. simpl. rewrite NATOP_ITV_Vis_l//.
       repeat f_equiv. intro. reflexivity.
-    - simpl. rewrite NATOP_Err_l//.
+    - intros e. simpl. rewrite NATOP_Err_l//.
   Qed.
   #[local] Instance NatOpRSCtx_ne op (β : IT) : NonExpansive (NatOpRSCtx op β).
   Proof.
@@ -266,7 +266,7 @@ Section lambda.
     - intro a. simpl. rewrite NATOP_Tick_r//.
     - intros op' i k. simpl. rewrite NATOP_Vis_r//.
       repeat f_equiv. intro. reflexivity.
-    - simpl. rewrite NATOP_Err_r//.
+    - intros e. simpl. rewrite NATOP_Err_r//.
   Qed.
   #[local] Instance IFSCtx_ne (β1 β2 : IT) : NonExpansive (IFSCtx β1 β2).
   Proof. unfold IFSCtx. solve_proper. Qed.
@@ -277,7 +277,7 @@ Section lambda.
     - intro a. simpl. rewrite IF_Tick//.
     - intros op i k. simpl. rewrite IF_Vis.
       repeat f_equiv. intro α. reflexivity.
-    - simpl. rewrite IF_Err//.
+    - intros e. simpl. rewrite IF_Err//.
   Qed.
 
 End lambda.

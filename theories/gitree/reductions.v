@@ -182,7 +182,7 @@ Section istep.
   Proof.
     intros Hprf.
     destruct (IT_dont_confuse α)
-        as [Ha | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
+        as [[e Ha] | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ') "[Ha Hs]". rewrite Ha.
@@ -208,7 +208,7 @@ Section istep.
   Proof.
     intros Hprf.
     destruct (IT_dont_confuse α)
-        as [Ha | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
+        as [[e Ha] | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ' op i k) "[Ha _]". rewrite Ha.
@@ -226,7 +226,7 @@ Section istep.
       iDestruct "H" as (β σ' op i k) "[Ha _]". rewrite Ha.
       iApply (IT_tick_vis_ne with "Ha").
     + destruct (reify rs (Vis op i k) σ) as [σ1 α1] eqn:Hr.
-      assert ((∃ α' : IT, α1 ≡ Tick α') ∨ α1 ≡ Err) as [[α' Ha']| Ha'].
+      assert ((∃ α' : IT, α1 ≡ Tick α') ∨ (α1 ≡ Err RuntimeErr)) as [[α' Ha']| Ha'].
       { eapply (reify_is_always_a_tick _ _ op i k σ).
         by rewrite Hr. }
       * exists α',σ1. eapply sstep_reify; eauto.
@@ -240,7 +240,7 @@ Section istep.
         iEval (rewrite Hr) in "Hb".
         iPoseProof (prod_equivI with "Hb") as "[_ Hb']".
         simpl. rewrite Ha'.
-        iApply (IT_tick_err_ne). by iApply internal_eq_sym.
+        iApply (IT_tick_err_ne). iApply (internal_eq_sym with "Hb'").
   Qed.
 
   Local Lemma istep_safe_disj α σ :
@@ -254,15 +254,15 @@ Section istep.
   Qed.
 
   (* this is true only for iProp/uPred? *)
-  Local Lemma iprop_disjunction (P Q : iProp) :
-    (⊢ P ∨ Q) → (⊢ P) ∨ (⊢ Q).
-  Proof. Admitted.
+  Definition disjunction_property (P Q : iProp) := (⊢ P ∨ Q) → (⊢ P) ∨ (⊢ Q).
 
   Lemma istep_safe_sstep α σ :
+    (∀ P Q, disjunction_property P Q) →
     (⊢ ∃ β σ', istep α σ β σ') → ∃ β σ', sstep rs α σ β σ'.
   Proof.
+    intros Hdisj.
     rewrite istep_safe_disj.
-    intros [H|H]%iprop_disjunction.
+    intros [H|H]%Hdisj.
     - by apply tick_safe_externalize.
     - by apply effect_safe_externalize.
   Qed.
@@ -278,11 +278,11 @@ Section istep.
       iApply (option_equivI with "Hv").
   Qed.
 
-  Lemma istep_err σ β σ' : istep Err σ β σ' ⊢ False.
+  Lemma istep_err σ e β σ' : istep (Err e) σ β σ' ⊢ False.
   Proof.
     rewrite /istep/=. iDestruct 1 as "[[H _]|H]".
     - iApply (IT_tick_err_ne).
-      by iApply internal_eq_sym.
+      by iApply (internal_eq_sym with "H").
     - iDestruct "H" as (op i k) "[H _]". iApply (IT_vis_err_ne).
       by iApply internal_eq_sym.
   Qed.
@@ -357,9 +357,9 @@ Section istep.
   Proof.
     iIntros "H".
     destruct (IT_dont_confuse α)
-      as [Ha | [[n Ha] | [ [g Ha] | [[la Ha]|[op [i [k Ha]]]] ]]].
-    - iExFalso. iApply (istep_err σ β σ').
-      iAssert (f α ≡ Err)%I as "Hf".
+      as [[e Ha] | [[n Ha] | [ [g Ha] | [[la Ha]|[op [i [k Ha]]]] ]]].
+    - iExFalso. iApply (istep_err σ e β σ').
+      iAssert (f α ≡ Err e)%I as "Hf".
       { iPureIntro. by rewrite Ha hom_err. }
       iRewrite "Hf" in "H". done.
     - iLeft. iPureIntro. rewrite Ha IT_to_V_Nat. done.

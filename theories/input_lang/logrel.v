@@ -92,7 +92,6 @@ Section logrel.
   Proof.
     iIntros "H1". iIntros (K σ ?) "Hs".
     iApply wp_val.
-    { by rewrite IT_to_of_V. }
     iExists (0,0),v,σ. iFrame. iPureIntro.
     by econstructor.
   Qed.
@@ -277,7 +276,6 @@ Section logrel.
     iApply (wp_input with "Hs []"); first eauto.
     iIntros "Hs". iNext. simpl.
     iApply wp_val.
-    { rewrite IT_to_V_Nat//. }
     iExists (1,1),(Lit n),σ'.
     iFrame "Hs". iModIntro. iSplit.
     { iPureIntro.

@@ -70,7 +70,8 @@ Section reify.
   Notation stateM := ((stateF ♯ IT -n> (stateF ♯ IT) * IT))%type.
   #[local] Instance stateT_inhab : Inhabited stateM.
   Proof.
-    simple refine (populate (λne s, (s, Err))).
+    simple refine (populate (λne s, (s, inhabitant))).
+    { apply _. }
     solve_proper.
   Qed.
   #[local] Instance stateM_cofe : Cofe stateM.
@@ -96,22 +97,22 @@ Section reify.
       simple refine (from_option (λ ns,
                          let out2' := k $ oFunctor_map (Outs (E op)) (fstO,inlO) ns.1 in
                          (ns.2, Tau $ laterO_map fstO out2'))
-                       (s, Err) ns).
+                       (s, Err RuntimeErr) ns).
     - intros n s1 s2 Hs. simpl. eapply (from_option_ne (dist n)); solve_proper.
     - intros n k1 k2 Hk s. simpl. eapply (from_option_ne (dist n)); solve_proper.
     - intros n i1 i2 Hi k s. simpl. eapply (from_option_ne (dist n)); solve_proper.
   Defined.
 
-  Program Definition reify_err : stateM := λne s, (s, Err).
+  Program Definition reify_err : errorO -n> stateM := λne e s, (s, Err e).
   Solve All Obligations with solve_proper.
 
   Program Definition reify_nat : natO -n> stateM := λne n s, (s, Nat n).
   Solve All Obligations with solve_proper.
 
   Program Definition unr : stateM -n>
-    sumO (sumO (sumO (sumO natO unitO) (laterO (stateM -n> stateM))) (laterO stateM))
+    sumO (sumO (sumO (sumO natO errorO) (laterO (stateM -n> stateM))) (laterO stateM))
       (sigTO (λ op : opid E, prodO (oFunctor_apply (Ins (E op)) stateM) (oFunctor_apply (Outs (E op)) stateM -n> laterO stateM))).
-  Proof. simple refine (λne d, inl (inl (inl (inr ())))). Qed.
+  Proof. simple refine (λne d, inl (inl (inl (inr (RuntimeErr))))). Qed.
 
   Definition reify : IT -n> stateM
     := IT_rec1 _
@@ -177,7 +178,7 @@ Section reify.
                 (k
                    (oFunctor_map (Outs (E op)) (prod_in idfun reify, sumO_rec idfun unreify)
                       (oFunctor_map (Outs (E op)) (fstO, inlO) ns.1)))))))
-             (σ, Err) (Some (o,σ'))).
+             (σ, Err RuntimeErr) (Some (o,σ'))).
     { apply from_option_proper; solve_proper. }
     simpl. repeat f_equiv.
     rewrite -laterO_map_compose.
@@ -191,7 +192,7 @@ Section reify.
 
   Lemma reify_vis_None op i k σ :
     reifiers_re rs op _ (i,σ) ≡ None →
-    reify (Vis op i k) σ ≡ (σ, Err).
+    reify (Vis op i k) σ ≡ (σ, Err RuntimeErr).
   Proof.
     intros Hs.
     trans (reify_vis op
@@ -220,7 +221,7 @@ Section reify.
                 (k
                    (oFunctor_map (Outs (E op)) (prod_in idfun reify, sumO_rec idfun unreify)
                       (oFunctor_map (Outs (E op)) (fstO, inlO) ns.1)))))))
-             (σ, Err) None).
+             (σ, Err RuntimeErr) None).
     { apply from_option_proper; solve_proper. }
     reflexivity.
   Qed.
@@ -281,7 +282,7 @@ Section reify.
   Qed.
 
   Lemma reify_is_always_a_tick i op k σ β σ' :
-    reify (Vis i op k) σ ≡ (σ', β) → (∃ β', β ≡ Tick β') ∨ (β ≡ Err).
+    reify (Vis i op k) σ ≡ (σ', β) → (∃ β', β ≡ Tick β') ∨ (β ≡ Err RuntimeErr).
   Proof.
     destruct (reifiers_re rs i _ (op, σ)) as [[o σ'']|] eqn:Hre; last first.
     - rewrite reify_vis_None; last by rewrite Hre//.
