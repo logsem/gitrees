@@ -106,6 +106,19 @@ Section lambda.
     intros [βv <-].
     rewrite APP_APP'_ITV'//.
   Qed.
+  Lemma APP'_Vis_l β op i k `{!AsVal β} :
+    APP' (Vis op i k) β ≡ Vis op i (laterO_map (flipO APP' β) ◎ k).
+  Proof.
+    rewrite APP_APP'_ITV.
+    rewrite APP_Vis. repeat f_equiv.
+    intro α. cbn-[APP]. by rewrite -APP_APP'_ITV.
+  Qed.
+  Lemma APP'_Tick_l α β `{!AsVal β} : APP' (Tick α) β ≡ Tick $ APP' α β.
+  Proof. rewrite !APP_APP'_ITV. by rewrite APP_Tick. Qed.
+  Lemma APP'_Tick_l_n α n β `{!AsVal β} : APP' (Tick_n n α) β ≡ Tick_n n $ APP' α β.
+  Proof.
+    induction n; eauto. by rewrite APP'_Tick_l IHn.
+  Qed.
 
   Lemma IF_Err e t1 t2 : IF (Err e) t1 t2 ≡ Err e.
   Proof. unfold IF. simpl. by rewrite get_nat_err. Qed.
