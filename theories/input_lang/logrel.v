@@ -225,11 +225,35 @@ Section logrel.
     iApply (wp_wand with "H").
     iIntros (v).
     iDestruct 1 as ([m m'] v0  σ0 Hsteps) "[Hv Hs]".
-    iExists (1+m,1+m'),v0,σ0. iFrame "Hv Hs".
+    iExists (1+m,0+m'),v0,σ0. iFrame "Hv Hs".
     iPureIntro. econstructor; eauto.
     apply (Ectx_step' K).
-    admit.
-  Admitted.
+    apply BetaS.
+    clear.
+    unfold subst2.
+    rewrite subst_expr_appsub.
+    apply subst_expr_proper.
+    intro v.
+    dependent elimination v.
+    { simp subs_of_subs2. unfold appsub.
+      simp subs_lift. simp subst_expr.
+      simp conssub. reflexivity. }
+    dependent elimination v.
+    { simp subs_of_subs2. unfold appsub.
+      simp subs_lift. unfold expr_lift.
+      simp ren_expr. simp subst_expr.
+      simp conssub. reflexivity. }
+    { simp subs_of_subs2. unfold appsub.
+      simp subs_lift. unfold expr_lift.
+      fold s. remember (s v) as e1.
+      rewrite ren_ren_expr.
+      rewrite subst_ren_expr.
+      trans (subst_expr e1 idsub).
+      - symmetry. apply subst_expr_idsub.
+      - apply subst_expr_proper.
+        intro v'. simpl. simp conssub.
+        reflexivity. }
+  Qed.
 
   Lemma compat_rec {S} Γ (e : expr (()::()::S)) τ1 τ2 α :
     ⊢ □ logrel_valid (consC (Tarr τ1 τ2) (consC τ1 Γ)) e α τ2 -∗
