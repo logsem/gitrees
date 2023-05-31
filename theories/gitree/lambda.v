@@ -59,6 +59,8 @@ Section lambda.
     intro. simpl. solve_proper.
   Qed.
 
+  Lemma APP_Nat x y : APP (Nat x) y ≡ Err RuntimeErr.
+  Proof. simpl. by rewrite get_fun_nat. Qed.
   Lemma APP_Err e x : APP (Err e) x ≡ Err e.
   Proof. simpl. by rewrite get_fun_err. Qed.
   Lemma APP_Fun f x : APP (Fun f) x ≡ Tau $ laterO_ap f x.
@@ -78,11 +80,11 @@ Section lambda.
     rewrite get_fun_vis. repeat f_equiv.
     intro f. simpl. reflexivity.
   Qed.
-  Lemma APP'_Err f e : APP' f (Err e) ≡ Err e.
+  Lemma APP'_Err_r f e : APP' f (Err e) ≡ Err e.
   Proof. simpl. by rewrite get_val_err. Qed.
-  Lemma APP'_Nat f x : APP' f (Nat x) ≡ APP f (Next (Nat x)).
+  Lemma APP'_Nat_r f x : APP' f (Nat x) ≡ APP f (Next (Nat x)).
   Proof. simpl. rewrite get_val_nat. done. Qed.
-  Lemma APP'_Fun f x : APP' f (Fun x) ≡ APP f (Next (Fun x)).
+  Lemma APP'_Fun_r f x : APP' f (Fun x) ≡ APP f (Next (Fun x)).
   Proof. simpl. rewrite get_val_fun. done. Qed.
   Lemma APP'_Tick_r f t : APP' f (Tick t) ≡ Tick $ APP' f t.
   Proof. by rewrite get_val_tick. Qed.
@@ -96,8 +98,8 @@ Section lambda.
     APP' α (IT_of_V βv) ≡ APP α (Next (IT_of_V βv)).
   Proof.
     destruct βv as [n|f]; simpl.
-    - rewrite APP'_Nat//.
-    - rewrite APP'_Fun//.
+    - rewrite APP'_Nat_r//.
+    - rewrite APP'_Fun_r//.
   Qed.
   (* XXX: the names here are weird *)
   Lemma APP_APP'_ITV α β :
@@ -119,6 +121,12 @@ Section lambda.
   Proof.
     induction n; eauto. by rewrite APP'_Tick_l IHn.
   Qed.
+  Lemma APP'_Err_l e x `{!AsVal x}: APP' (Err e) x ≡ Err e.
+  Proof. rewrite APP_APP'_ITV. by rewrite APP_Err. Qed.
+  Lemma APP'_Nat_l x t `{!AsVal t}: APP' (Nat x) t ≡ Err RuntimeErr.
+  Proof. rewrite APP_APP'_ITV. by rewrite APP_Nat. Qed.
+  Lemma APP'_Fun_l f x `{!AsVal x} : APP' (Fun f) x ≡ Tau $ laterO_ap f (Next x).
+  Proof. rewrite APP_APP'_ITV. by rewrite APP_Fun. Qed.
 
   Lemma IF_Err e t1 t2 : IF (Err e) t1 t2 ≡ Err e.
   Proof. unfold IF. simpl. by rewrite get_nat_err. Qed.
@@ -250,7 +258,7 @@ Section lambda.
     - solve_proper.
     - intros a. by rewrite APP'_Tick_r.
     - intros op i k. rewrite APP'_Vis_r. repeat f_equiv.
-    - intros e. by rewrite APP'_Err.
+    - intros e. by rewrite APP'_Err_r.
   Qed.
   #[local] Instance NatOpLSCtx_ne op (β : IT) : NonExpansive (NatOpLSCtx op β).
   Proof.
@@ -296,3 +304,11 @@ Section lambda.
 End lambda.
 
 #[global] Opaque APP APP' IF NATOP.
+
+Notation "'λit' x .. y , P" := (Fun (Next (λne x, .. (Fun (Next (λne y, P))) .. )))
+  (at level 200, x binder, y binder, right associativity,
+    format "λit  x  ..  y ,  P").
+
+Notation "f ⊙ x" := (APP' f x)
+                      (at level 10,  left associativity).
+
