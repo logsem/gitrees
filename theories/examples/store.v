@@ -158,7 +158,7 @@ Section logrel.
 
   Definition logrel_inv (σ : stateO) (r : restO) : iProp :=
     (has_state (subState_conv_state r σ) ∗ own γ (●V σ)).
-  Definition has_loc (l : loc) (α : IT) : iProp :=
+  Definition pointsto (l : loc) (α : IT) : iProp :=
     own γ $ gmap_view_frag l (DfracOwn 1) (Next α).
 
   #[local] Instance logrel_inv_ne : NonExpansive2 logrel_inv.
@@ -167,7 +167,7 @@ Section logrel.
   #[local] Lemma istate_alloc α l σ :
     σ !! l = None →
     own γ (●V σ) ==∗ own γ (●V (<[l:=(Next α)]>σ))
-                   ∗ has_loc l α.
+                   ∗ pointsto l α.
   Proof.
     iIntros (Hl) "H".
     iMod (own_update with "H") as "[$ $]".
@@ -177,7 +177,7 @@ Section logrel.
   Qed.
 
   #[local] Lemma istate_read l α σ :
-    own γ (●V σ) -∗ has_loc l α -∗ σ !! l ≡ Some (Next α).
+    own γ (●V σ) -∗ pointsto l α -∗ σ !! l ≡ Some (Next α).
   Proof.
     iIntros "Ha Hf".
     iPoseProof (own_valid_2 with "Ha Hf") as "H".
@@ -186,7 +186,7 @@ Section logrel.
   Qed.
 
   #[local] Lemma istate_loc_dom l α σ :
-    own γ (●V σ) -∗ has_loc l α -∗ ⌜is_Some (σ !! l)⌝.
+    own γ (●V σ) -∗ pointsto l α -∗ ⌜is_Some (σ !! l)⌝.
   Proof.
     iIntros "Hinv Hloc".
     iPoseProof (istate_read with "Hinv Hloc") as "Hl".
@@ -195,8 +195,8 @@ Section logrel.
   Qed.
 
   #[local] Lemma istate_write l α β σ :
-    own γ (●V σ) -∗ has_loc l α ==∗ own γ (●V <[l:=(Next β)]>σ)
-                                  ∗ has_loc l β.
+    own γ (●V σ) -∗ pointsto l α ==∗ own γ (●V <[l:=(Next β)]>σ)
+                                  ∗ pointsto l β.
   Proof.
     iIntros "H Hl".
     iMod (own_update_2 with "H Hl") as "[$ $]".
@@ -207,7 +207,7 @@ Section logrel.
   Definition N := nroot.@"heh".
   Definition logrel_expr V (α : IT) : iProp :=
     (∀ (σ : stateO) (σr : restO),
-        logrel_inv σ σr -∗
+        logrel_inv σ σr -∗ (* has_state (.. , sigma) * our_heap sigma *)
         WP@{rs} α {{ βv, ∃ σ', V βv ∗ logrel_inv σ' σr }})%I.
 
   Definition logrel_nat (βv : ITV) : iProp :=
@@ -216,7 +216,7 @@ Section logrel.
     (∃ f, IT_of_V βv ≡ Fun f ∧ □ ∀ αv, V1 αv -∗
        logrel_expr V2 (APP' (Fun f) (IT_of_V αv)))%I.
   Definition logrel_ref V (l : loc) : iProp :=
-    (inv (N.@l) (∃ βv, has_loc l (IT_of_V βv) ∗ V βv))%I.
+    (inv (N.@l) (∃ βv, pointsto l (IT_of_V βv) ∗ V βv))%I.
 
   Lemma logrel_alloc V V2 (αv :ITV) (k : locO -n> IT) `{!forall v, Persistent (V v)}
     `{NonExpansive V2} :
@@ -238,7 +238,7 @@ Section logrel.
     iMod (istate_alloc (IT_of_V αv) l with "H2") as "[H3 Hr]".
     { apply (not_elem_of_dom_1 (M:=gmap loc)).
       rewrite -(Loc.add_0 l). apply Loc.fresh_fresh. lia. }
-    iMod (inv_alloc (N.@l) _ (∃ βv, has_loc l (IT_of_V βv) ∗ V βv)%I with "[Hr]")
+    iMod (inv_alloc (N.@l) _ (∃ βv, pointsto l (IT_of_V βv) ∗ V βv)%I with "[Hr]")
       as "#Hinv".
     { eauto with iFrame. }
     iSpecialize ("H" with "Hinv").
