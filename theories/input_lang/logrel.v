@@ -24,9 +24,9 @@ Section logrel.
      format "'WP'  α  {{  Φ  } }") : bi_scope.
 
   Definition logrel_expr {S} V (α : IT) (e : expr S) : iProp :=
-    (∀ K (σ : stateO) (σr : restO),
+    (∀ (σ : stateO) (σr : restO),
         has_state (subState_conv_state σr σ) -∗
-        WP α {{ βv, ∃ m v σ', ⌜prim_steps (fill K e) σ (fill K (Val v)) σ' m⌝
+        WP α {{ βv, ∃ m v σ', ⌜prim_steps e σ (Val v) σ' m⌝
                          ∗ V βv v ∗ has_state (subState_conv_state σr σ') }})%I.
   Definition logrel_nat {S} (βv : ITV) (v : val S) : iProp :=
     (∃ n, βv ≡ NatV n ∧ ⌜v = Lit n⌝)%I.
@@ -73,24 +73,24 @@ Section logrel.
   Proof.
     iIntros "H1 H2".
     iLöb as "IH" forall (α e).
-    iIntros (K1 σ ?) "Hs".
+    iIntros (σ ?) "Hs".
     iApply wp_bind.
     { solve_proper. }
-    iSpecialize ("H1" $! (K++K1) with "Hs").
+    iSpecialize ("H1" with "Hs").
     iApply (wp_wand with "H1").
     iIntros (αv). iDestruct 1 as ([m m'] v σ' Hsteps) "[H1 Hs]".
+    apply (prim_steps_ctx K) in Hsteps.
     iSpecialize ("H2" with "H1 Hs").
     iApply (wp_wand with "H2"). iModIntro.
     iIntros (βv). iDestruct 1 as ([m2 m2'] v2 σ2' Hsteps2) "[H2 Hs]".
     iExists (m + m2, m' + m2'),v2,σ2'. iFrame "H2 Hs".
     iPureIntro. eapply (prim_steps_app (m,m') (m2,m2')); eauto.
-    rewrite -!fill_app. eauto.
   Qed.
 
   Lemma logrel_of_val {S} αv (v : val S) V :
     V αv v -∗ logrel_expr V (IT_of_V αv) (Val v).
   Proof.
-    iIntros "H1". iIntros (K σ ?) "Hs".
+    iIntros "H1". iIntros (σ ?) "Hs".
     iApply wp_val.
     iExists (0,0),v,σ. iFrame. iPureIntro.
     by econstructor.
@@ -102,15 +102,14 @@ Section logrel.
   Proof.
     intros Hpure.
     iIntros "H".
-    iIntros (K σ ?) "Hs".
-    iSpecialize ("H" $! K with "Hs").
+    iIntros (σ ?) "Hs".
+    iSpecialize ("H" with "Hs").
     iApply (wp_wand with "H").
     iIntros (βv). iDestruct 1 as ([m m'] v σ' Hsteps) "[H2 Hs]".
     iExists (m,m'),v,σ'. iFrame "H2 Hs".
     iPureIntro.
     eapply (prim_steps_app (0,0) (m,m')); eauto.
-    { eapply prim_step_steps.
-      eapply prim_step_ctx; done. }
+    { eapply prim_step_steps, Hpure. }
   Qed.
 
   (* a matching list of closing substitutions *)
@@ -211,14 +210,14 @@ Section logrel.
     { iPureIntro. rewrite APP_APP'_ITV.
       rewrite APP_Fun. simpl. done. }
     iRewrite "Htick". iClear "Htick".
-    iIntros (K σ ?) "Hs".
+    iIntros (σ ?) "Hs".
     iApply wp_tick. iNext. simpl.
     pose (ss' := cons_subs2 (RecV (subst_expr e (subs_lift (subs_lift s)))) (FunV (Next (ir_unf α env))) (cons_subs2 w βv  ss)).
     iSpecialize ("H" $! ss' with "[Hss]").
     { rewrite {2}/subs2_valid /ss'. simp list_of_tyctx list_of_subs2.
       cbn-[logrel_val]. iFrame "Hss Hw". fold f. iRewrite -"Hf".
       by iApply "IH". }
-    iSpecialize ("H" $! K with "Hs").
+    iSpecialize ("H"  with "Hs").
     iClear "IH Hss Hw".
     unfold ss'. simpl. simp its_of_subs2. fold f env.
     iRewrite "Hf". simpl.
@@ -227,7 +226,7 @@ Section logrel.
     iDestruct 1 as ([m m'] v0  σ0 Hsteps) "[Hv Hs]".
     iExists (1+m,0+m'),v0,σ0. iFrame "Hv Hs".
     iPureIntro. econstructor; eauto.
-    apply (Ectx_step' K).
+    apply (Ectx_step' []).
     apply BetaS.
     clear.
     unfold subst2.
@@ -295,7 +294,7 @@ Section logrel.
     ⊢ logrel_valid Γ (Input : expr S) (interp_input rs) Tnat.
   Proof.
     iIntros (ss) "Hss".
-    iIntros (K σ σr) "Hs".
+    iIntros (σ σr) "Hs".
     destruct (update_input σ) as [n σ'] eqn:Hinp.
     iApply (wp_input with "Hs []"); first eauto.
     iIntros "Hs". iNext. simpl.
@@ -305,7 +304,7 @@ Section logrel.
     { iPureIntro.
       simp subst_expr.
       apply prim_step_steps.
-      apply (Ectx_step' K).
+      apply (Ectx_step' []).
       by constructor. }
     iExists n. eauto.
   Qed.
@@ -410,7 +409,7 @@ Proof.
     eauto. }
   iIntros "Hs".
   iPoseProof (Hlog with "[//]") as "Hlog".
-  iSpecialize ("Hlog" $! [] σ () with "Hs").
+  iSpecialize ("Hlog" $! σ () with "Hs").
   iApply (wp_wand with"Hlog").
   iIntros ( βv). iIntros "H".
   iDestruct "H" as (m' v σ1' Hsts) "[Hi Hsts]".
