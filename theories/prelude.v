@@ -209,3 +209,5 @@ Tactic Notation "iRewrite" open_constr(lem) "in" constr(H) :=
 Tactic Notation "iRewrite" "-" open_constr(lem) "in" constr(H) :=
   iRewriteCore Left lem in H.
 
+(** Beefed up solve_proper *)
+Ltac solve_proper_please := repeat (repeat intro; simpl; repeat f_equiv); solve_proper.

@@ -39,11 +39,9 @@ Module Export liftF_solution.
 End liftF_solution.
 
 Program Definition lift_unit `{!Cofe A} : A -n> liftO A :=
-  (* @locked (A -n> liftO A) *)
-          nosimpl (liftO_fold ◎ (λne x, inl x)).
+  nosimpl (liftO_fold ◎ (λne x, inl x)).
 
 Program Definition lift_delay `{!Cofe A} : laterO (liftO A) -n> liftO A :=
-  (* @locked (laterO (liftO A) -n> liftO A) *)
   nosimpl (liftO_fold ◎ (λne x, inr x)).
 
 

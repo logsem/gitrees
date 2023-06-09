@@ -50,9 +50,9 @@ Notation "@[ Σ1 ; .. ; Σn ]" :=
 Class subEff (F E : opsInterp) := {
     subEff_opid : opid F → opid E;
     subEff_ins (op: opid F) {X} `{Cofe X} :
-    ofe_iso (Ins (F op) ♯ X) (Ins (E (subEff_opid op)) ♯ X);
+      ofe_iso (Ins (F op) ♯ X) (Ins (E (subEff_opid op)) ♯ X);
     subEff_outs (op: opid F) {X} `{Cofe X} :
-    ofe_iso (Outs (F op) ♯ X) (Outs (E (subEff_opid op)) ♯ X);
+      ofe_iso (Outs (F op) ♯ X) (Outs (E (subEff_opid op)) ♯ X);
   }.
 Definition subEff_conv_ins {F E : opsInterp} {op} `{!subEff F E} {X} `{!Cofe X} :
   (Ins (F op) ♯ X) -n> (Ins (E (subEff_opid op)) ♯ X) := ofe_iso_1 (subEff_ins op).

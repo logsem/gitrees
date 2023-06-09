@@ -22,25 +22,15 @@ Section lambda.
 
   (** A non-strict application, does not recurse under the effects of the argument *)
   Program Definition APP : IT -n> laterO IT -n> IT := λne f x,
-    get_fun (λne f, Tau $ laterO_ap f x) f.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation.
-    repeat intro. repeat f_equiv. intro. solve_proper.
-  Qed.
-  Next Obligation.
-    repeat intro. repeat f_equiv.
-    repeat intro. solve_proper.
-  Qed.
+      get_fun (λne f, Tau $ laterO_ap f x) f.
+  Solve All Obligations with solve_proper_please.
+
   Program Definition Ppa : laterO IT -n> IT -n> IT := λne x f, APP f x.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation.
-    repeat intro. repeat f_equiv. repeat intro. simpl.
-    repeat f_equiv. intro. solve_proper.
-  Qed.
+  Solve All Obligations with solve_proper_please.
 
   (** Strict version of APP *)
   Program Definition APP' : IT -n> IT -n> IT := λne f, get_val (APP f ◎ NextO).
-  Next Obligation. repeat intro; by repeat f_equiv. Qed.
+  Solve All Obligations with solve_proper_please.
 
   (** We define the interpretation of NatOp in two stages.
       First, we recurse under ticks and visitors in both arguments, and only then perform the op
@@ -49,15 +39,7 @@ Section lambda.
       get_val (λne v2,
         get_val (λne v1,
                    get_nat2 (λ n1 n2, Nat (f n1 n2)) v1 v2) t1) t2.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation.
-    repeat intro. repeat f_equiv. solve_proper.
-  Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation.
-    repeat intro. simpl. repeat f_equiv.
-    intro. simpl. solve_proper.
-  Qed.
+  Solve All Obligations with solve_proper_please.
 
   Lemma APP_Nat x y : APP (Nat x) y ≡ Err RuntimeErr.
   Proof. simpl. by rewrite get_fun_nat. Qed.

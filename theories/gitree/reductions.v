@@ -95,11 +95,8 @@ Section istep.
   Program Definition istep :
     IT -n> stateO -n> IT -n> stateO -n> iProp :=
     λne α σ β σ', ((α ≡ Tick β ∧ σ ≡ σ')
-                    ∨ (∃ op i k, α ≡ Vis op i k ∧ reify rs α σ ≡ (σ', Tick β)))%I.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
+                   ∨ (∃ op i k, α ≡ Vis op i k ∧ reify rs α σ ≡ (σ', Tick β)))%I.
+  Solve All Obligations with solve_proper.
 
   Program Definition isteps_pre
           (self : IT -n> stateO -n> IT -n> stateO -n> natO -n> iProp):
@@ -107,11 +104,7 @@ Section istep.
     λne α σ β σ' n, ((n ≡ 0 ∧ α ≡ β ∧ σ ≡ σ')
                  ∨ (∃ n' α0 σ0, n ≡ (1+n') ∧ istep α σ α0 σ0 ∧
                      ▷ self α0 σ0 β σ' n'))%I.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
+  Solve All Obligations with solve_proper.
 
   Global Instance isteps_pre_ne : NonExpansive isteps_pre.
   Proof. solve_proper. Qed.

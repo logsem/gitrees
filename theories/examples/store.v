@@ -117,8 +117,36 @@ Section wp.
   Context `{!invGS_gen hlc Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
 
-  (* this is a bit useless as of now *)
+  (* a separate ghost state for keeping track of locations *)
+  Definition istate := gmap_viewUR loc (laterO IT).
+  Context `{!inG Σ (istate)}.
+  Variable γ : gname.
+
+  Definition has_istate σ := own γ (●V σ).
+  Definition pointsto (l : loc) (α : IT) : iProp :=
+    own γ $ gmap_view_frag l (DfracOwn 1) (Next α).
+
+  (* this is a bit useless as of now? *)
   Lemma wp_read (σ : stateO) σr (l : loc) (α : IT) Φ :
+    σ !! l ≡ Some (Next α) →
+    has_state (subState_conv_state σr σ) -∗
+    has_istate σ -∗
+    pointsto l α -∗
+    (has_state (subState_conv_state σr σ) -∗
+     has_istate σ -∗
+     
+                          ▷ WP@{rs} α {{ Φ }}) -∗
+    WP@{rs} (READ l) {{ Φ }}.
+  Proof.
+    intros Hs. iIntros "Hs Ha".
+    unfold READ. simpl.
+    iApply (wp_subreify with "Hs Ha").
+    { simpl. trans (Some (Next α) ≫= (λ x : laterO IT, Some (x, σ))).
+      - apply option_bind_proper; solve_proper.
+      - simpl. reflexivity. }
+    { apply ofe_iso_21. }
+  Qed.
+  Lemma wp_alloc (σ : stateO) σr (l : loc) (α : IT) Φ :
     σ !! l ≡ Some (Next α) →
     has_state (subState_conv_state σr σ) -∗
     (has_state (subState_conv_state σr σ) -∗ ▷ WP@{rs} α {{ Φ }}) -∗
@@ -157,9 +185,7 @@ Section logrel.
   Variable γ : gname.
 
   Definition logrel_inv (σ : stateO) (r : restO) : iProp :=
-    (has_state (subState_conv_state r σ) ∗ own γ (●V σ)).
-  Definition pointsto (l : loc) (α : IT) : iProp :=
-    own γ $ gmap_view_frag l (DfracOwn 1) (Next α).
+    (has_state (subState_conv_state r σ) ∗ has_istate γ σ).
 
   #[local] Instance logrel_inv_ne : NonExpansive2 logrel_inv.
   Proof. unfold logrel_inv, has_state. solve_proper. Qed.
