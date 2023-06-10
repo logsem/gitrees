@@ -4,11 +4,15 @@ From gitrees Require Import prelude.
 From gitrees.gitree Require Import core reify.
 
 Section sstep.
-  Variable (E : opsInterp) (rs : reifiers E).
-  Notation IT := (IT E).
-  Notation ITV := (ITV E).
-  Notation stateF := (reifiers_state rs).
+  Context {sz : nat} (rs : gReifiers sz).
+  Notation F := (gReifiers_ops rs).
+  Notation stateF := (gReifiers_state rs).
+  Notation IT := (IT F).
+  Notation ITV := (ITV F).
   Notation stateO := (stateF ♯ IT).
+  Implicit Type op : opid F.
+  Implicit Type α β : IT.
+  Implicit Type σ : stateO.
 
   (** ** Reductions at the Prop level *)
   Inductive sstep : IT → stateO → IT → stateO → Prop :=
@@ -79,14 +83,15 @@ Section sstep.
   Qed.
 End sstep.
 
-Arguments sstep {E} rs _ _ _ _.
-Arguments ssteps {E} rs _ _ _ _ _.
+Arguments sstep {sz} rs _ _ _ _.
+Arguments ssteps {sz} rs _ _ _ _ _.
 
 Section istep.
-  Variable (E : opsInterp) (rs : reifiers E).
-  Notation IT := (IT E).
-  Notation ITV := (ITV E).
-  Notation stateF := (reifiers_state rs).
+  Context {sz : nat} (rs : gReifiers sz).
+  Notation F := (gReifiers_ops rs).
+  Notation stateF := (gReifiers_state rs).
+  Notation IT := (IT F).
+  Notation ITV := (ITV F).
   Notation stateO := (stateF ♯ IT).
 
   Context `{!invGS_gen hlc Σ}.
@@ -150,6 +155,7 @@ Section istep.
     - rewrite isteps_S. apply _.
   Qed.
 
+  Local Opaque gReifiers_ops.
   Lemma sstep_istep α β σ σ' :
     sstep rs α σ β σ' → (⊢ istep α σ β σ').
   Proof.
@@ -220,7 +226,7 @@ Section istep.
       iApply (IT_tick_vis_ne with "Ha").
     + destruct (reify rs (Vis op i k) σ) as [σ1 α1] eqn:Hr.
       assert ((∃ α' : IT, α1 ≡ Tick α') ∨ (α1 ≡ Err RuntimeErr)) as [[α' Ha']| Ha'].
-      { eapply (reify_is_always_a_tick _ _ op i k σ).
+      { eapply (reify_is_always_a_tick rs op i k σ).
         by rewrite Hr. }
       * exists α',σ1. eapply sstep_reify; eauto.
         rewrite Hr -Ha'//.
@@ -378,7 +384,7 @@ Section istep.
       + iDestruct "H" as (op' i' k') "[#Ha Hr]".
         iPoseProof (Vis_inj_op' with "Ha") as "<-".
         iPoseProof (Vis_inj' with "Ha") as "[Hi Hk]".
-        iPoseProof (reify_input_cont_inv _ _ _ _ k fi with "Hr") as (α') "[Hr Ha']".
+        iPoseProof (reify_input_cont_inv rs op i k fi with "Hr") as (α') "[Hr Ha']".
         iAssert (reify rs α σ ≡ (σ', Tick α'))%I with "[Hr]" as "Hr".
         { iRewrite -"Hr". iPureIntro. repeat f_equiv.
           apply Ha. }
