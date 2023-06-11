@@ -30,7 +30,7 @@ Section reifiers.
                       | gReifiers_cons sR v => λ P Hcons, Hcons sR v end.
   Defined.
 
-  Global Instance gReifiers_lookup_total : ∀ m, LookupTotal (fin m) sReifier (gReifiers m) :=
+  #[global] Instance gReifiers_lookup_total : ∀ m, LookupTotal (fin m) sReifier (gReifiers m) :=
   fix go m i {struct i} := let _ : ∀ m, LookupTotal _ _ _ := @go in
   match i in fin m return gReifiers m → sReifier with
   | 0%fin => grs_S_inv (λ _, sReifier) (λ x _, x)
@@ -112,6 +112,14 @@ Section reifiers.
     (σ : sReifier_state (rs !!! i) ♯ X) rest :
     gState_decomp i (gState_recomp rest σ) ≡ (σ, rest).
   Proof. rewrite ofe_iso_12. reflexivity. Qed.
+  Lemma gState_recomp_decomp {m} (i : fin m) {rs : gReifiers m} {X} `{!Cofe X}
+    (σ : sReifier_state (rs !!! i) ♯ X) rest fs :
+      gState_decomp i fs ≡ (σ, rest) →
+      gState_recomp rest σ ≡ fs.
+  Proof.
+    unfold gState_recomp. simpl.
+    intros <-. rewrite ofe_iso_21//.
+  Qed.
   Opaque gState_recomp gState_decomp.
 
   Program Definition gReifiers_re {n} (rs : gReifiers n) {X} `{!Cofe X}
@@ -164,13 +172,13 @@ Section reifiers.
       sR_ops :: subEff (sReifier_ops r) (sReifier_ops (rs !!! sR_idx));
       sR_state  {X} `{!Cofe X} :
         ofe_iso (sReifier_state r ♯ X) (sReifier_state (rs !!! sR_idx) ♯ X);
-      sR_re {X} `{!Cofe X} (op : opid (sReifier_ops r))
+      sR_re m {X} `{!Cofe X} (op : opid (sReifier_ops r))
         (x : Ins (sReifier_ops _ op) ♯ X)
         (y : Outs (sReifier_ops _ op) ♯ X)
         (s1 s2 : sReifier_state r ♯ X) :
-        sReifier_re r op (x, s1) ≡ Some (y, s2) →
+        sReifier_re r op (x, s1) ≡{m}≡ Some (y, s2) →
         sReifier_re (rs !!! sR_idx) (subEff_opid op)
-          (subEff_conv_ins x, ofe_iso_1 sR_state s1) ≡
+          (subEff_conv_ins x, ofe_iso_1 sR_state s1) ≡{m}≡
           Some (subEff_conv_outs y, ofe_iso_1 sR_state s2) }.
 
   #[global] Instance subReifier_here {n} (r : sReifier) (rs : gReifiers n) :
@@ -203,7 +211,7 @@ Section reifiers.
     {X} `{!Cofe X}:
     (sReifier_state r ♯ X) -n> (sReifier_state (rs !!! sR_idx) ♯ X) :=
     ofe_iso_1 sR_state.
-  Instance subReifier_subEff {n} {r : sReifier} {rs : gReifiers n} `{!subReifier r rs} :
+  #[export] Instance subReifier_subEff {n} {r : sReifier} {rs : gReifiers n} `{!subReifier r rs} :
     subEff (sReifier_ops r) (gReifiers_ops rs).
   Proof.
     simple refine {| subEff_opid := subR_op |}.
@@ -213,6 +221,20 @@ Section reifiers.
       apply subEff_outs.
   Defined.
 
+  Lemma subReifier_reify_idx {n} (r : sReifier) (rs : gReifiers n)
+    `{!subReifier r rs} {X} `{!Cofe X} (op : opid (sReifier_ops r))
+    (x : Ins (sReifier_ops _ op) ♯ X)
+    (y : Outs (sReifier_ops _ op) ♯ X)
+    (s1 s2 : sReifier_state r ♯ X) :
+        sReifier_re r op (x, s1) ≡ Some (y, s2) →
+        sReifier_re (rs !!! sR_idx) (subEff_opid op)
+          (subEff_conv_ins x, ofe_iso_1 sR_state s1) ≡
+          Some (subEff_conv_outs y, ofe_iso_1 sR_state s2).
+  Proof.
+    intros Hx. apply equiv_dist=>m.
+    apply sR_re. by apply equiv_dist.
+  Qed.
+  
   Lemma subReifier_reify {n} (r : sReifier)
     (rs : gReifiers n) `{!subReifier r rs} {X} `{!Cofe X}
     (op : opid (sReifier_ops r))
@@ -224,7 +246,7 @@ Section reifiers.
       ≡ Some (subEff_conv_outs y, gState_recomp rest (subR_conv_state σ')).
   Proof.
     intros Hre.
-    apply sR_re in Hre.
+    eapply subReifier_reify_idx in Hre.
     rewrite gReifiers_re_idx//.
     rewrite Hre. simpl. reflexivity.
   Qed.
@@ -319,17 +341,16 @@ Section reifiers.
     apply laterO_map_id.
   Qed.
 
-  Lemma reify_vis_eq op i o k σ σ' :
-    gReifiers_re rs op (i,σ) ≡ Some (o,σ') →
-    reify (Vis op i k) σ ≡ (σ', Tau $ k o).
+  Lemma reify_vis_dist m op i o k σ σ' :
+    gReifiers_re rs op (i,σ) ≡{m}≡ Some (o,σ') →
+    reify (Vis op i k) σ ≡{m}≡ (σ', Tau $ k o).
   Proof.
     intros Hst.
     trans (reify_vis op
              (oFunctor_map _ (sumO_rec idfun unreify,prod_in idfun reify) i)
              (laterO_map (prod_in idfun reify) ◎ k ◎ (oFunctor_map _ (prod_in idfun reify,sumO_rec idfun unreify)))
              σ).
-    { f_equiv.
-      apply IT_rec1_vis. }
+    { f_equiv. rewrite IT_rec1_vis//. }
     Opaque prod_in. simpl.
     pose (r := (gReifiers_re rs op
       (oFunctor_map (Ins (F op)) (inlO, fstO)
@@ -340,7 +361,7 @@ Section reifiers.
       rewrite -oFunctor_map_compose.
       etrans; last by apply oFunctor_map_id.
       repeat f_equiv; intro; done. }
-    assert (r ≡ Some (o,σ')) as Hr.
+    assert (r ≡{m}≡ Some (o,σ')) as Hr.
     { by rewrite Hr' Hst. }
     trans (from_option (λ ns,
        (ns.2,
@@ -351,16 +372,27 @@ Section reifiers.
                    (oFunctor_map (Outs (F op)) (prod_in idfun reify, sumO_rec idfun unreify)
                       (oFunctor_map (Outs (F op)) (fstO, inlO) ns.1)))))))
              (σ, Err RuntimeErr) (Some (o,σ'))).
-    { apply from_option_proper; solve_proper. }
+    { eapply (from_option_ne (dist m)); solve_proper. }
     simpl. repeat f_equiv.
     rewrite -laterO_map_compose.
     rewrite -oFunctor_map_compose.
-    etrans; last by apply laterO_map_id.
+    trans (laterO_map idfun (k o)); last first.
+    { by rewrite laterO_map_id. }
     repeat f_equiv.
     { intro; done. }
-    etrans; last by apply oFunctor_map_id.
+    trans (oFunctor_map _ (idfun, idfun) o); last first.
+    { by rewrite oFunctor_map_id.  }
     simpl.
     repeat f_equiv; intro; done.
+  Qed.
+
+  Lemma reify_vis_eq op i o k σ σ' :
+    gReifiers_re rs op (i,σ) ≡ Some (o,σ') →
+    reify (Vis op i k) σ ≡ (σ', Tau $ k o).
+  Proof.
+    intros H. apply equiv_dist=>m.
+    apply reify_vis_dist.
+    by apply equiv_dist.
   Qed.
 
   Lemma reify_vis_None op i k σ :
