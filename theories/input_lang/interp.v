@@ -5,14 +5,17 @@ From gitrees.input_lang Require Import lang.
 
 Notation stateO := (leibnizO state).
 
-Program Definition InputΣ : opInterp :=  {|
+Program Definition inputE : opInterp :=  {|
   Ins := unitO;
   Outs := (natO)%OF;
 |}.
 
-Definition reify_input : reify_eff InputΣ stateO.
+Definition reify_input : sReifier.
 Proof.
-  intros op X HX.
+  simple refine {| sReifier_ops := inputE;
+                   sReifier_state := stateO
+                |}.
+  intros X HX op.
   destruct op as []; simpl.
   simple refine (λne (us : prodO unitO stateO),
     Some $ update_input (sndO us) : optionO (prodO natO stateO)).
@@ -20,54 +23,69 @@ Proof.
   repeat f_equiv. apply Hs.
 Defined.
 
+
 Section constructors.
   Context {E : opsInterp}.
-  Context {subEff0 : subEff InputΣ E}.
+  Context {subEff0 : subEff inputE E}.
   Notation IT := (IT E).
   Notation ITV := (ITV E).
 
   Definition INPUT : (natO -n> IT) -n> IT.
   Proof using E subEff0.
     simple refine (λne k, Vis (E:=E) (subEff_opid (()))
-                            (subEff_conv_ins (F:=InputΣ) (op:=(())) ())
-                            (NextO ◎ k ◎ subEff_conv_outs2 (F:=InputΣ) (op:=(())))).
+                            (subEff_conv_ins (F:=inputE) (op:=(())) ())
+                            (NextO ◎ k ◎ subEff_conv_outs2 (F:=inputE) (op:=(())))).
     solve_proper.
   Defined.
 
 End constructors.
 
 Section weakestpre.
-  Context {E : opsInterp}.
-  Variable (rs : reifiers E).
-  Context `{!subReifier reify_input rs rest}.
-  Notation IT := (IT E).
-  Notation ITV := (ITV E).
-  Notation restO := (rest ♯ IT).
+  Context {sz : nat}.
+  Variable (rs : gReifiers sz).
+  Context {subR : subReifier reify_input rs}.
+  Notation F := (gReifiers_ops rs).
+  Notation IT := (IT F).
+  Notation ITV := (ITV F).
   Context `{!invGS_gen hlc Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
 
-  Lemma wp_input (σ σ' : stateO) (n : nat) (σr : restO) (k : natO -n> IT) Φ :
+  (** XXX: wth?? *)
+  #[local] Instance sss : subEff inputE F.
+  Proof using sz rs subR.
+    apply (subReifier_subEff (r:=reify_input)).
+  Defined.
+
+  Lemma wp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ :
     update_input σ = (n, σ') →
-    has_state (subState_conv_state σr σ) -∗
-    (has_state (subState_conv_state σr σ') -∗ ▷ WP@{rs} (k n) {{ Φ }}) -∗
+    has_substate σ -∗
+    ▷ (has_substate σ' -∗ WP@{rs} (k n) {{ Φ }}) -∗
     WP@{rs} (INPUT k) {{ Φ }}.
   Proof.
     intros Hs. iIntros "Hs Ha".
     unfold INPUT. simpl.
-    iApply (wp_subreify with "Hs Ha").
-    { simpl. rewrite Hs. reflexivity. }
-    { simpl. repeat f_equiv. apply ofe_iso_21. }
+    iApply (wp_subreify' with "Hs").
+    { simpl. iModIntro.
+      iExists n, σ', (k n). rewrite Hs.
+      repeat iSplit; eauto.
+      by rewrite ofe_iso_21. }
   Qed.
 
 End weakestpre.
 
 Section interp.
-  Context {E : opsInterp}.
-  Notation IT := (IT E).
-  Notation ITV := (ITV E).
-  Variable (rs : reifiers E).
-  Context `{!subReifier reify_input rs rest}.
-  Notation restO := (rest ♯ IT).
+  Context {sz : nat}.
+  Variable (rs : gReifiers sz).
+  Context {subR : subReifier reify_input rs}.
+  Notation F := (gReifiers_ops rs).
+  Notation IT := (IT F).
+  Notation ITV := (ITV F).
+
+  (** reeeeeemove this *)
+  #[local] Instance sss' : subEff inputE F.
+  Proof using sz rs subR.
+    apply (subReifier_subEff (r:=reify_input)).
+  Defined.
 
   Definition do_natop (op : nat_op) (x y : nat) : nat :=
     match op with
@@ -298,9 +316,9 @@ Section interp.
 
   Lemma interp_rens_scope_idren {S} (D : interp_scope S) :
     interp_rens_scope D (@idren S) ≡ D.
-  Proof using E rest rs subReifier0. (** XXX why? *)
+  Proof.
     induction S as [|[] S]; simp interp_rens_scope.
-    { by destruct E. }
+    { by destruct D. }
     destruct D as [x D]. simp interp_var. simpl.
     f_equiv.
     trans (interp_rens_scope ((x, D) : interp_scope (()::S)) (tl_ren (rens_lift idren))).
@@ -357,7 +375,7 @@ Section interp.
   Lemma interp_subs_scope_tl_sub {S S2} x D (s : subs S S2) :
     interp_subs_scope ((x, D) : interp_scope (()::S2)) (tl_sub (subs_lift s))
                     ≡ interp_subs_scope D s.
-  Proof using E rest rs subReifier0.
+  Proof.
     induction S as [|[] S]; simp interp_subs_scope; first done.
     f_equiv.
     { unfold hd_sub, tl_sub. simp subs_lift interp_var.
@@ -374,7 +392,7 @@ Section interp.
 
   Lemma interp_subs_scope_idsub {S} (env : interp_scope S) :
     interp_subs_scope env idsub ≡ env.
-  Proof using E rest rs subReifier0.
+  Proof.
     induction S as [|[] S]; simp interp_subs_scope.
     { by destruct env. }
     destruct env as [x env].
@@ -393,7 +411,7 @@ Section interp.
   with interp_val_subst {S D : scope} (v : val S) (s : subs S D) :
     ∀ (E : interp_scope D),
       interp_val (subst_val v s) E ≡ interp_val v (interp_subs_scope E s).
-  Proof using E rest rs subReifier0.
+  Proof.
     - revert D s. induction M=> D r D2; simpl; simp subst_expr.
       all: try by (simpl; repeat intro; simpl; repeat f_equiv; eauto).
       + (* variable *) revert r.
@@ -489,7 +507,7 @@ Section interp.
   Lemma interp_expr_head_step {S} env (e : expr S) e' σ σ' n :
     head_step e σ e' σ' (n,0) →
     interp_expr e env ≡ Tick_n n $ interp_expr e' env.
-  Proof using E rest rs subReifier0.
+  Proof.
     inversion 1; cbn-[IF APP' INPUT Tick get_nat2].
     - (*fun->val*)
       reflexivity.
@@ -533,51 +551,54 @@ Section interp.
     apply interp_ectx_tick.
   Qed.
 
-  Lemma interp_expr_fill_yes_reify {S} K env (e e' : expr S) σ σ' (σr : restO) n :
+  Lemma interp_expr_fill_yes_reify {S} K env (e e' : expr S)
+    (σ σ' : stateO) (σr : gState_rest sR_idx rs ♯ IT) n :
     head_step e σ e' σ' (n,1) →
-    reify rs (interp_expr (fill K e) env)  (subState_conv_state σr σ)
-      ≡ (subState_conv_state σr σ', Tick_n n $ interp_expr (fill K e') env).
+    reify rs (interp_expr (fill K e) env)  (gState_recomp σr (subR_conv_state σ))
+      ≡ (gState_recomp σr (subR_conv_state σ'), Tick_n n $ interp_expr (fill K e') env).
   Proof.
     inversion 1; simplify_eq.
-    trans (reify rs (interp_ectx K env (interp_expr Input env)) (subState_conv_state σr σ)).
+    trans (reify rs (interp_ectx K env (interp_expr Input env))
+             (gState_recomp σr (subR_conv_state σ))).
     { f_equiv. by rewrite interp_ectx_fill. }
     simpl.
-    trans (reify rs (INPUT (interp_ectx K env ◎ Nat)) (subState_conv_state σr σ)).
+    trans (reify rs (INPUT (interp_ectx K env ◎ Nat)) (gState_recomp σr (subR_conv_state σ))).
     { f_equiv; eauto.
       by rewrite interp_ectx_INPUT. }
-    rewrite reify_vis_eq /= //; last first.
-    { rewrite subR_reify.
-      simpl. rewrite H5. simpl. done. }
-    repeat f_equiv. rewrite Tick_eq. repeat f_equiv.
+    rewrite reify_vis_eq //; last first.
+    { rewrite subReifier_reify/=//.
+      rewrite H5. done. }
+    repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
     rewrite interp_ectx_fill.
     rewrite ofe_iso_21.
     done.
   Qed.
 
-  Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : restO) n m env :
+  Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m env :
     prim_step e1 σ1 e2 σ2 (n,m) →
-    ssteps rs (interp_expr e1 env) (subState_conv_state σr σ1)
-              (interp_expr e2 env) (subState_conv_state σr σ2) n.
+    ssteps rs (interp_expr e1 env) (gState_recomp σr (subR_conv_state σ1))
+              (interp_expr e2 env) (gState_recomp σr (subR_conv_state σ2)) n.
   Proof.
+    Opaque gState_decomp gState_recomp.
     inversion 1; simplify_eq/=.
     destruct (head_step_io_01 _ _ _ _ _ _ H2); subst.
     - assert (σ1 = σ2) as ->.
       { eapply head_step_no_io; eauto. }
       eapply (interp_expr_fill_no_reify K) in H2.
       rewrite H2. eapply ssteps_tick_n.
-    - inversion H2;subst. eapply (interp_expr_fill_yes_reify K env) in H2.
+    - inversion H2;subst. eapply (interp_expr_fill_yes_reify K env _ _ _ _ σr) in H2.
       rewrite interp_ectx_fill interp_ectx_INPUT.
       change 1 with (1+0). econstructor; last first.
       { apply ssteps_zero; reflexivity. }
       eapply sstep_reify.
       { Transparent INPUT. unfold INPUT. simpl.
         f_equiv. reflexivity. }
+      simpl in H2.
       rewrite -H2.
       repeat f_equiv; eauto.
       rewrite interp_ectx_fill interp_ectx_INPUT.
       eauto.
   Qed.
-
 
 End interp.
 
