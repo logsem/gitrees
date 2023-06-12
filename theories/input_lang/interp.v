@@ -50,10 +50,16 @@ Section weakestpre.
   Context `{!invGS_gen hlc Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
 
+  Canonical Structure reify_input.
+  Print Canonical Projections reify_input.
+
   (** XXX: wth?? *)
   #[local] Instance sss : subEff inputE F.
   Proof using sz rs subR.
+    apply _.
+    eapply @subReifier_subEff.
     apply (subReifier_subEff (r:=reify_input)).
+    
   Defined.
 
   Lemma wp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ :

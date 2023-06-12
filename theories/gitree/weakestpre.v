@@ -51,57 +51,97 @@ Proof.
     by iApply ("IH" with "Hn Hupd").
 Qed.
 
+
+Definition gReifiers_ucmra {n} (rs : gReifiers n) (X : ofe) `{!Cofe X} : ucmra :=
+  discrete_funUR (λ (i : fin n), optionUR (exclR (sReifier_state (rs !!! i) ♯ X))).
+
+Definition of_state {n} (rs : gReifiers n) (X : ofe) `{!Cofe X} (st : gReifiers_state rs ♯ X) : gReifiers_ucmra rs X :=
+  λ i, Excl' (fstO (gState_decomp i st)).
+
+Definition of_idx {n} (rs : gReifiers n) (X : ofe) `{!Cofe X} (i : fin n)
+  (st : sReifier_state (rs !!! i) ♯ X) : gReifiers_ucmra rs X.
+Proof.
+  simple refine (λ j, if (decide (j = i)) then _ else None).
+  simpl. induction e. exact (Excl' st).
+Defined.
+Lemma of_state_recomp_lookup_ne {n} (rs : gReifiers n) (X : ofe) `{!Cofe X}
+  i j (σ1 σ2 : sReifier_state (rs !!! i) ♯ X) rest :
+  i ≠ j →
+  of_state rs X (gState_recomp rest σ1) j ≡ of_state rs X (gState_recomp rest σ2) j.
+Proof.
+  intros Hij. revert σ1 σ2 rest.
+  unfold of_state.
+  induction rs as [|n r rs'].
+  { inversion i. }
+  inv_fin i; simpl.
+  { inv_fin j; first naive_solver.
+    intros i s1 s2 rest H0.
+    simpl. reflexivity. }
+  inv_fin j.
+  { intros i s1 s2 rest H0.
+    simpl. reflexivity. }
+  intros i j s1 s2 rest H0.
+  simpl. apply IHrs'.
+  intro. simplify_eq/=.
+Qed.
+
+
 Section ucmra.
   (** The camera for the global ghost state *)
   Context {n : nat} (rs : gReifiers n).
   Context (X : ofe) `{!Cofe X}.
-
-  Definition gReifiers_ucmra : ucmra :=
-    discrete_funUR (λ (i : fin n), optionUR (exclR (sReifier_state (rs !!! i) ♯ X))).
-
-  Definition of_state (st : gReifiers_state rs ♯ X) : gReifiers_ucmra :=
-    λ i, Excl' (fstO (gState_decomp i st)).
-
-  Definition of_idx (i : fin n)
-    (st : sReifier_state (rs !!! i) ♯ X) : gReifiers_ucmra.
-  Proof.
-    simple refine (λ j, if (decide (j = i)) then _ else None).
-    simpl. induction e. exact (Excl' st).
-  Defined.
-
+  Notation gReifiers_ucmra := (gReifiers_ucmra rs X).
+  Notation of_state := (of_state rs X).
+  Notation of_idx := (of_idx rs X).
   #[export] Instance of_state_ne : NonExpansive of_state.
   Proof. solve_proper. Qed.
   #[export] Instance of_state_proper : Proper ((≡) ==> (≡)) of_state.
   Proof. apply ne_proper, _. Qed.
 
-
   Lemma of_state_valid (σ : gReifiers_state rs ♯ X) : ✓ (of_state σ).
   Proof. intro; done. Qed.
 
-  Lemma of_state_agree' (σ σ' : gReifiers_state rs ♯ X) :
-    (of_state σ ≼ of_state σ') → σ ≡ σ'.
+  (** XXX: move *)
+  Lemma discrete_fun_local_update {A} {B : A → ucmra}
+    (f g f' g' : discrete_funUR B) :
+    (∀ i, (f i, g i) ~l~> (f' i, g' i)) →
+    (f, g) ~l~> (f', g').
   Proof.
-  (*   induction rs; simpl in *. *)
-  (*   { by destruct σ, σ'. } *)
-  (*   destruct σ as [σ1 σ2], σ' as [σ'1 σ'2]; simpl. *)
-  (*   intros Hinc. *)
-  (*   assert (∀ (i : fin (S n)), of_state (gReifiers_cons s rs) (σ1, σ2) i ≼ of_state (gReifiers_cons s rs) (σ'1, σ'2) i) as H. *)
-  (*   { by apply discrete_fun_included_spec. } *)
-  (*   unfold of_state in H. revert H. *)
-  (*   setoid_rewrite Excl_included. intros H. *)
-  (*   f_equiv. *)
-  (*   - apply (H 0%fin). *)
-  (*   - eapply IHrs. *)
-  (*     apply discrete_fun_included_spec. *)
-  (*     intros x. unfold of_state. *)
-  (*     rewrite Excl_included. apply (H (FS x)). *)
-  (* Qed. *)
-  Abort.
+    intros Hupd.
+    apply  local_update_unital=>m h Hf Hg.
+    split.
+    - intros i. specialize (Hupd i).
+      rewrite local_update_unital in Hupd.
+      eapply Hupd; eauto.
+      apply Hg.
+    - intros i. specialize (Hupd i).
+      rewrite local_update_unital in Hupd.
+      eapply Hupd; eauto.
+  Qed.
 
-  Lemma of_state_decomp_local_update i σ σ1 σ2 rest :
+  Lemma of_state_recomp_lookup i (σ : sReifier_state (rs !!! i) ♯ X) rest :
+    of_state (gState_recomp rest σ) i ≡ Excl' σ.
+  Proof.
+    unfold of_state.
+    rewrite gState_decomp_recomp. done.
+  Qed.
+  Lemma of_state_decomp_local_update i (σ σ1 σ2 : sReifier_state (rs !!! i) ♯ X)
+    rest :
     (of_state (gState_recomp rest σ1), of_idx i σ2)
       ~l~> (of_state (gState_recomp rest σ), of_idx i σ).
-  Proof. Admitted.
+  Proof.
+    apply discrete_fun_local_update.
+    intros j.
+    destruct (decide (j = i)) as [->|Hneq].
+    - unfold of_idx.
+      destruct decide as [Heq|Hneq]; last done.
+      rewrite (eq_pi i i Heq eq_refl). simpl.
+      rewrite !of_state_recomp_lookup.
+      by apply option_local_update, exclusive_local_update.
+    - unfold of_idx.
+      destruct decide as [Heq|Hneq']; first done.
+      rewrite of_state_recomp_lookup_ne//.
+  Qed.
 
   Lemma of_state_of_idx_agree i σ1 σ2 rest f Σ :
     of_state (gState_recomp rest σ1) ≡ of_idx i σ2 ⋅ f ⊢@{iProp Σ} σ1 ≡ σ2.
@@ -114,13 +154,10 @@ Section ucmra.
     rewrite discrete_fun_lookup_op.
     unfold of_idx.
     simpl.
-    assert (decide (i = i) = left (@eq_refl _ i)).
-    {
-      clear. admit.
-    }
-    rewrite H. simpl.
+    destruct decide as [Heq|Hneq]; last done.
+    rewrite (eq_pi i i Heq eq_refl). simpl.
     destruct (f i) as [fi|]; rewrite option_equivI/= excl_equivI/=//.
-  Admitted.
+  Qed.
 
 End ucmra.
 
@@ -600,7 +637,25 @@ Section weakestpre.
     iFrame "H Hk".
     by iApply subReifier_reify_idxI.
   Qed.
-
+  Lemma wp_subreify E1 Φ sR `{!subReifier sR rs}
+    (op : opid (sReifier_ops sR))
+    (x : Ins (sReifier_ops sR op) ♯ IT) (y : Outs (sReifier_ops sR op) ♯ IT)
+    (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT)
+    (σ σ' : sReifier_state sR ♯ IT) β :
+    sReifier_re sR op (x, σ) ≡ Some (y, σ') →
+    k (subEff_conv_outs y)  ≡ Next β →
+    has_substate σ -∗
+    ▷ (has_substate σ' -∗ WP β @ E1 {{ Φ }})
+    -∗ WP (Vis (subEff_opid op) (subEff_conv_ins x) k) @ E1 {{ Φ }}.
+  Proof.
+    intros HSR Hk.
+    iIntros "Hlst H".
+    iApply (wp_reify with "Hlst H").
+    intros rest.
+    rewrite Tick_eq. rewrite -Hk.
+    rewrite reify_vis_eq //.
+    by apply subReifier_reify.
+  Qed.
 
   Lemma wp_istep α σ β σ' Ψ :
     ⊢ istep α σ β σ' -∗ state_interp σ -∗ WP α {{ Ψ }}
