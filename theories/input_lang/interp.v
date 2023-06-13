@@ -10,7 +10,7 @@ Program Definition inputE : opInterp :=  {|
   Outs := (natO)%OF;
 |}.
 
-Definition reify_input : sReifier.
+Canonical Structure reify_input : sReifier.
 Proof.
   simple refine {| sReifier_ops := inputE;
                    sReifier_state := stateO
@@ -49,18 +49,6 @@ Section weakestpre.
   Notation ITV := (ITV F).
   Context `{!invGS_gen hlc Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
-
-  Canonical Structure reify_input.
-  Print Canonical Projections reify_input.
-
-  (** XXX: wth?? *)
-  #[local] Instance sss : subEff inputE F.
-  Proof using sz rs subR.
-    apply _.
-    eapply @subReifier_subEff.
-    apply (subReifier_subEff (r:=reify_input)).
-    
-  Defined.
 
   Lemma wp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ :
     update_input σ = (n, σ') →

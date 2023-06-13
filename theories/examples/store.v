@@ -70,7 +70,7 @@ Program Definition AllocE : opInterp :=  {|
 |}.
 
 Definition storeE : opsInterp := @[ReadE;WriteE;AllocE].
-Definition reify_store : sReifier.
+Canonical Structure reify_store : sReifier.
 Proof.
   simple refine {| sReifier_ops := storeE |}.
   intros X HX op.
@@ -118,12 +118,6 @@ Section wp.
   Context `{!subReifier reify_store rs}.
   Context `{!invGS_gen hlc Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
-
-   (** reeeeeemove this *)
-  #[local] Instance sss' : subEff storeE F.
-  Proof using n rs subReifier0.
-    apply (subReifier_subEff (r:=reify_store)).
-  Defined.
 
   (* a separate ghost state for keeping track of locations *)
   Definition istate := gmap_viewUR loc (laterO IT).
@@ -256,25 +250,24 @@ Section wp.
   Proof.
     iIntros "#HV H".
     iIntros "Hh".
-    iDestruct "Hh" as 
-    iDestruct "Hst" as "[H1 H2]".
+    iDestruct "Hh" as (σ) "[Hs Hh]".
     set (l:=Loc.fresh (dom σ)).
-    iApply (wp_subreify with "H1").
+    iApply (wp_subreify with "Hs").
     { simpl. change (Loc.fresh (dom σ)) with l.
       reflexivity. }
     { simpl. rewrite ofe_iso_21. reflexivity. }
-    iIntros "Hs".
-    iNext. iApply fupd_wp.
+    iNext. iIntros "Hs".
+    iApply fupd_wp.
     { solve_proper. }
-    iMod (istate_alloc (IT_of_V αv) l with "H2") as "[H3 Hr]".
+    iMod (istate_alloc (IT_of_V αv) l with "Hh") as "[Hh Hl]".
     { apply (not_elem_of_dom_1 (M:=gmap loc)).
       rewrite -(Loc.add_0 l). apply Loc.fresh_fresh. lia. }
-    iMod (inv_alloc (N.@l) _ (∃ βv, pointsto l (IT_of_V βv) ∗ V βv)%I with "[Hr]")
+    iMod (inv_alloc (N.@l) _ (∃ βv, pointsto l (IT_of_V βv) ∗ V βv)%I with "[Hl]")
       as "#Hinv".
     { eauto with iFrame. }
     iSpecialize ("H" with "Hinv").
     iModIntro. iApply "H".
-    rewrite /logrel_inv. by iFrame.
+    iExists _. by iFrame.
   Qed.
 
   Lemma logrel_write V αv l `{!forall v, Persistent (V v)} :
@@ -283,27 +276,24 @@ Section wp.
     logrel_expr logrel_nat (WRITE l (IT_of_V  αv)).
   Proof.
     iIntros "#Hl #Hav".
-    iIntros (σ σr) "Hst".
-    iDestruct "Hst" as "[H1 H2]".
-    iApply (wp_reify_annoying with "H1").
+    iDestruct 1 as (σ) "[Hs Hh]".
+    iApply (wp_subreify' with "Hs").
     iInv (N.@l) as "HH" "Hcl".
     iDestruct "HH" as (βv) "[Hbv #HV]".
     iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom".
-    { iNext. iApply (istate_loc_dom with "H2 Hbv"). }
+    { iNext. iApply (istate_loc_dom with "Hh Hbv"). }
     iModIntro.
-    iExists (Nat 0),(subState_conv_state σr (<[l:=Next (IT_of_V αv)]>σ)).
-    iSplit.
-    { rewrite reify_vis_eq; last first.
-      - rewrite subR_reify. simpl. done.
-      - iPureIntro. f_equiv; eauto. }
+    iExists (),(<[l:=Next (IT_of_V αv)]>σ),(Nat 0).
+    iSimpl. repeat iSplit; [ done | done | ].
     iNext. iNext.
-    iMod (istate_write _ _ (IT_of_V αv) with "H2 Hbv") as "[H2 Hlav]".
+    iMod (istate_write _ _ (IT_of_V αv) with "Hh Hbv") as "[Hh Hlav]".
     iMod ("Hcl" with "[Hlav]") as "_".
     { iNext. iExists _; by iFrame. }
     iModIntro. iIntros "Hs".
     iApply wp_val. iModIntro.
-    iExists _. iFrame "H2 Hs".
-    iExists 0. done.
+    iSplit.
+    - iExists 0. done.
+    - iExists _. iFrame "Hh Hs".
   Qed.
 
   Lemma logrel_read V l `{!forall v, Persistent (V v)} :
@@ -311,32 +301,26 @@ Section wp.
     logrel_expr V (READ l).
   Proof.
     iIntros "#Hr".
-    iIntros (σ σr) "[Hst Hgst]".
-    unfold logrel_ref.
-
-    iApply (wp_reify_annoying with "Hst").
-    rewrite /logrel_ref.
+    iDestruct 1 as (σ) "[Hs Hh]".
+    iApply (wp_subreify' with "Hs").
     iInv (N.@l) as "HH" "Hcl".
     iDestruct "HH" as (βv) "[Hbv #HV]".
     iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom".
-    { iNext. iApply (istate_loc_dom with "Hgst Hbv"). }
+    { iNext. iApply (istate_loc_dom with "Hh Hbv"). }
     iDestruct "Hdom" as ">%Hdom".
     destruct Hdom as [x Hx].
     destruct (Next_uninj x) as [β' Hb'].
     iAssert (▷ (σ !! l ≡ Some (Next (IT_of_V βv))))%I as "#Hlookup".
-    { iNext. iApply (istate_read with "Hgst Hbv"). }
+    { iNext. iApply (istate_read with "Hh Hbv"). }
     iAssert (▷ ▷ (β' ≡ IT_of_V βv))%I as "#Hbv'".
     { iNext. rewrite Hx. rewrite option_equivI.
       rewrite Hb'. by iNext. }
     iClear "Hlookup".
-    iModIntro.
-    iExists β',(subState_conv_state σr σ).
-    iSplit.
-    { rewrite reify_vis_eq; last first.
-      - rewrite subR_reify. simpl.
-        rewrite Hx /=. done.
-      - rewrite ofe_iso_21.
-        rewrite Hb'. rewrite Tick_eq. done. }
+    iModIntro. iSimpl.
+    iExists (Next β'),σ,β'.
+    repeat iSplit.
+    { iPureIntro. rewrite Hx/= Hb'. done. }
+    { rewrite ofe_iso_21//. }
     iNext. iNext.
     iMod ("Hcl" with "[Hbv]") as "_".
     { iNext. eauto with iFrame. }
@@ -344,8 +328,8 @@ Section wp.
     iIntros "Hst".
     iRewrite "Hbv'".
     iApply wp_val.
-    iModIntro. iExists σ.
-    by iFrame.
+    iModIntro. iFrame "HV".
+    iExists σ. by iFrame.
   Qed.
 
-End logrel.
+End wp.
