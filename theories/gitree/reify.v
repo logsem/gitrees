@@ -145,11 +145,6 @@ Section reifiers.
        sReifier_re := @gReifiers_re n rs;
     |}.
 
-  (* XXX : move *)
-  Global Instance optionO_map_proper (A B : ofe) :
-    Proper ((≡) ==> (≡)) (@optionO_map A B).
-  Proof. solve_proper. Qed.
-
   Lemma gReifiers_re_idx {n}  (i : fin n) (rs : gReifiers n)
     {X} `{!Cofe X} (op : opid (sReifier_ops (rs !!! i)))
     (x : Ins (sReifier_ops _ op) ♯ X)
@@ -234,7 +229,7 @@ Section reifiers.
     intros Hx. apply equiv_dist=>m.
     apply sR_re. by apply equiv_dist.
   Qed.
-  
+
   Lemma subReifier_reify {n} (r : sReifier)
     (rs : gReifiers n) `{!subReifier r rs} {X} `{!Cofe X}
     (op : opid (sReifier_ops r))

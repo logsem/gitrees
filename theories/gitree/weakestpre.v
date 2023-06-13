@@ -101,24 +101,6 @@ Section ucmra.
   Lemma of_state_valid (σ : gReifiers_state rs ♯ X) : ✓ (of_state σ).
   Proof. intro; done. Qed.
 
-  (** XXX: move *)
-  Lemma discrete_fun_local_update {A} {B : A → ucmra}
-    (f g f' g' : discrete_funUR B) :
-    (∀ i, (f i, g i) ~l~> (f' i, g' i)) →
-    (f, g) ~l~> (f', g').
-  Proof.
-    intros Hupd.
-    apply  local_update_unital=>m h Hf Hg.
-    split.
-    - intros i. specialize (Hupd i).
-      rewrite local_update_unital in Hupd.
-      eapply Hupd; eauto.
-      apply Hg.
-    - intros i. specialize (Hupd i).
-      rewrite local_update_unital in Hupd.
-      eapply Hupd; eauto.
-  Qed.
-
   Lemma of_state_recomp_lookup i (σ : sReifier_state (rs !!! i) ♯ X) rest :
     of_state (gState_recomp rest σ) i ≡ Excl' σ.
   Proof.

@@ -8,13 +8,31 @@ From iris.proofmode Require Import classes tactics modality_instances
                                    coq_tactics reduction.
 
 Lemma unit_local_update (x y : unitR) : (x, y) ~l~> ((), ()).
+Proof. destruct x as [], y as []; reflexivity. Qed.
+
+Lemma discrete_fun_local_update {A} {B : A → ucmra}
+  (f g f' g' : discrete_funUR B) :
+  (∀ i, (f i, g i) ~l~> (f' i, g' i)) →
+  (f, g) ~l~> (f', g').
 Proof.
-  apply local_update_unital=> n [] Hx Heq.
-  split; eauto.
+  intros Hupd.
+  apply  local_update_unital=>m h Hf Hg.
+  split.
+  - intros i. specialize (Hupd i).
+    rewrite local_update_unital in Hupd.
+    eapply Hupd; eauto.
+    apply Hg.
+  - intros i. specialize (Hupd i).
+    rewrite local_update_unital in Hupd.
+    eapply Hupd; eauto.
 Qed.
 
 (** OFEs stuff *)
 Notation "F ♯ E" := (oFunctor_apply F E) (at level 20, right associativity).
+
+#[export] Instance optionO_map_proper (A B : ofe) :
+  Proper ((≡) ==> (≡)) (@optionO_map A B).
+Proof. solve_proper. Qed.
 
 Program Definition flipO {A B C : ofe} : (A -n> B -n> C) -n> B -n> A -n> C
   := λne f x y, f y x.

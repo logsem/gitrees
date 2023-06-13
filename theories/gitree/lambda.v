@@ -211,8 +211,6 @@ Section lambda.
   Proof. apply ne_proper. apply _. Qed.
   Global Instance NATOP_Proper f : Proper ((≡) ==> (≡)) (NATOP f).
   Proof. apply ne_proper. apply _. Qed.
-  (* XXX!!! *)
-  (* Global Instance APP_Proper : Proper ((≡) ==> (≡) ==> (≡)) APP. *)
 
   Opaque APP APP' IF NATOP.
   Definition AppLSCtx (β α : IT) := APP' α β.
