@@ -119,6 +119,7 @@ Section wp.
   Context `{!invGS_gen hlc Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
 
+  (** * The ghost state theory for the heap *)
   (* a separate ghost state for keeping track of locations *)
   Definition istate := gmap_viewUR loc (laterO IT).
   Context `{!inG Σ (istate)}.
@@ -128,7 +129,6 @@ Section wp.
   Definition pointsto (l : loc) (α : IT) : iProp :=
     own γ $ gmap_view_frag l (DfracOwn 1) (Next α).
 
-  (** lemmas for the ghost state *)
   Lemma istate_alloc α l σ :
     σ !! l = None →
     own γ (●V σ) ==∗ own γ (●V (<[l:=(Next α)]>σ))
@@ -166,70 +166,90 @@ Section wp.
     done.
   Qed.
 
-
-  (* Lemma wp_read' E (l : loc) (α : IT) Φ : *)
-  (*   heap_ctx -∗ *)
-  (*   |={⊤,E}=> ▷ pointsto l α ∗ *)
-  (*    ▷ |={E,⊤}=> (heap_ctx -∗ pointsto l α -∗ WP@{rs} α {{ Φ }}) -∗ *)
-  (*   WP@{rs} (READ l) {{ Φ }}. *)
-  (* Proof. *)
-  (*   iIntros "Hh Hp Ha". *)
-  (*   iDestruct "Hh" as (σ) "[Hs Hh]". *)
-  (*   iPoseProof (istate_read with "Hh Hp") as "#Hl". *)
-  (*   unfold READ. simpl. *)
-  (*   iApply (wp_subreify' with "Hs"). *)
-  (*   iModIntro. iExists (Next α),σ,α. *)
-  (*   simpl. repeat iSplit. *)
-  (*   - iAssert ((option_bind _ _ (λ x, Some (x, σ)) (σ !! l)) ≡ *)
-  (*                (option_bind _ _ (λ x, Some (x, σ)) (Some (Next α))))%I as "H". *)
-  (*     + iApply (f_equivI with "Hl"). *)
-  (*       intros k x y Hxy. *)
-  (*       apply option_mbind_ne; solve_proper. *)
-  (*     + unfold mbind. iSimpl in "H". iRewrite "H". done. *)
-  (*   - iPureIntro. apply ofe_iso_21. *)
-  (*   - iNext. iNext. iModIntro. iIntros "Hs". *)
-  (*     iApply ("Ha" with "[Hh Hs] Hp"). *)
-  (*     iExists _. by iFrame. *)
-  (* Qed. *)
+  (** * The symbolic execution rules *)
   Lemma wp_read (l : loc) (α : IT) Φ :
     heap_ctx -∗
-    pointsto l α -∗
-    ▷ (heap_ctx -∗ pointsto l α -∗ WP@{rs} α {{ Φ }}) -∗
+    ▷ pointsto l α -∗
+    ▷▷ (heap_ctx -∗ pointsto l α -∗ WP@{rs} α {{ Φ }}) -∗
     WP@{rs} (READ l) {{ Φ }}.
   Proof.
     iIntros "Hh Hp Ha".
     iDestruct "Hh" as (σ) "[Hs Hh]".
-    iPoseProof (istate_read with "Hh Hp") as "#Hl".
     unfold READ. simpl.
     iApply (wp_subreify' with "Hs").
-    iModIntro. iExists (Next α),σ,α.
+    iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom".
+    { iNext. iApply (istate_loc_dom with "Hh Hp"). }
+    iDestruct "Hdom" as ">%Hdom".
+    destruct Hdom as [x Hx].
+    destruct (Next_uninj x) as [β' Hb'].
+    iAssert (▷ (σ !! l ≡ Some (Next α)))%I as "#Hlookup".
+    { iNext. iApply (istate_read with "Hh Hp"). }
+    iAssert (▷ ▷ (β' ≡ α))%I as "#Hba".
+    { iNext. rewrite Hx. rewrite option_equivI.
+      rewrite Hb'. by iNext. }
+    iClear "Hlookup".
+    iModIntro. iExists (Next β'),σ,β'.
     simpl. repeat iSplit.
     - iAssert ((option_bind _ _ (λ x, Some (x, σ)) (σ !! l)) ≡
-                 (option_bind _ _ (λ x, Some (x, σ)) (Some (Next α))))%I as "H".
-      + iApply (f_equivI with "Hl").
-        intros k x y Hxy.
-        apply option_mbind_ne; solve_proper.
+                 (option_bind _ _ (λ x, Some (x, σ)) (Some (Next β'))))%I as "H".
+      + iApply (f_equivI with "[]").
+        { intros k x1 y1 Hxy.
+          apply option_mbind_ne; solve_proper. }
+        iPureIntro. rewrite Hx Hb'//.
       + unfold mbind. iSimpl in "H". iRewrite "H". done.
     - iPureIntro. apply ofe_iso_21.
     - iNext. iNext. iModIntro. iIntros "Hs".
+      iRewrite "Hba".
       iApply ("Ha" with "[Hh Hs] Hp").
       iExists _. by iFrame.
   Qed.
-  (* Lemma wp_alloc (σ : stateO) σr (l : loc) (α : IT) Φ : *)
-  (*   σ !! l ≡ Some (Next α) → *)
-  (*   has_state (subState_conv_state σr σ) -∗ *)
-  (*   (has_state (subState_conv_state σr σ) -∗ ▷ WP@{rs} α {{ Φ }}) -∗ *)
-  (*   WP@{rs} (READ l) {{ Φ }}. *)
-  (* Proof. *)
-  (*   intros Hs. iIntros "Hs Ha". *)
-  (*   unfold READ. simpl. *)
-  (*   iApply (wp_subreify with "Hs Ha"). *)
-  (*   { simpl. trans (Some (Next α) ≫= (λ x : laterO IT, Some (x, σ))). *)
-  (*     - apply option_bind_proper; solve_proper. *)
-  (*     - simpl. reflexivity. } *)
-  (*   { apply ofe_iso_21. } *)
-  (* Qed. *)
+  Lemma wp_write (l : loc) (α β : IT) Φ :
+    heap_ctx -∗
+    ▷ pointsto l α -∗
+    ▷▷ (heap_ctx -∗ pointsto l β -∗ Φ (NatV 0)) -∗
+    WP@{rs} (WRITE l β) {{ Φ }}.
+  Proof.
+    iIntros "Hh Hp Ha".
+    iDestruct "Hh" as (σ) "[Hs Hh]".
+    iApply (wp_subreify' with "Hs").
+    iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom".
+    { iNext. iApply (istate_loc_dom with "Hh Hp"). }
+    iDestruct "Hdom" as ">%Hdom".
+    destruct Hdom as [x Hx].
+    destruct (Next_uninj x) as [α' Ha'].
+    iModIntro.
+    iExists (),(<[l:=Next β]>σ),(Nat 0).
+    iSimpl. repeat iSplit; [ done | done | ].
+    iNext. iNext.
+    iMod (istate_write _ _ β with "Hh Hp") as "[Hh Hp]".
+    iModIntro. iIntros "Hs".
+    iApply wp_val. iModIntro.
+    iApply ("Ha" with "[Hh Hs] Hp").
+    iExists _. iFrame "Hh Hs".
+  Qed.
+  Lemma wp_alloc (α : IT) (k : locO -n> IT) Φ `{!NonExpansive Φ} :
+    heap_ctx -∗
+    ▷▷ (∀ l, heap_ctx -∗ pointsto l α -∗ WP@{rs} k l {{ Φ }}) -∗
+    WP@{rs} (ALLOC α k) {{ Φ }}.
+  Proof.
+    iIntros "Hh H".
+    iDestruct "Hh" as (σ) "[Hs Hh]".
+    set (l:=Loc.fresh (dom σ)).
+    iApply (wp_subreify with "Hs").
+    { simpl. change (Loc.fresh (dom σ)) with l.
+      reflexivity. }
+    { simpl. rewrite ofe_iso_21. reflexivity. }
+    iNext. iNext. iIntros "Hs".
+    iApply fupd_wp.
+    iMod (istate_alloc α l with "Hh") as "[Hh Hl]".
+    { apply (not_elem_of_dom_1 (M:=gmap loc)).
+      rewrite -(Loc.add_0 l). apply Loc.fresh_fresh. lia. }
+    iModIntro.
+    iApply ("H" with "[Hh Hs] Hl").
+    iExists _. by iFrame.
+  Qed.
 
+  (** * The logical relation *)
   Definition N := nroot.@"heh".
   Definition logrel_expr V (α : IT) : iProp :=
     (heap_ctx -∗ WP@{rs} α {{ βv, V βv ∗ heap_ctx }})%I.
@@ -250,24 +270,17 @@ Section wp.
   Proof.
     iIntros "#HV H".
     iIntros "Hh".
-    iDestruct "Hh" as (σ) "[Hs Hh]".
-    set (l:=Loc.fresh (dom σ)).
-    iApply (wp_subreify with "Hs").
-    { simpl. change (Loc.fresh (dom σ)) with l.
-      reflexivity. }
-    { simpl. rewrite ofe_iso_21. reflexivity. }
-    iNext. iIntros "Hs".
-    iApply fupd_wp.
+    iApply (wp_alloc with "Hh").
     { solve_proper. }
-    iMod (istate_alloc (IT_of_V αv) l with "Hh") as "[Hh Hl]".
-    { apply (not_elem_of_dom_1 (M:=gmap loc)).
-      rewrite -(Loc.add_0 l). apply Loc.fresh_fresh. lia. }
+    iNext. iNext.
+    iIntros (l) "Hh Hl".
+    iApply fupd_wp. (* XXX the ElimModal instance is not picked up automaticlly *)
+    { solve_proper. }
     iMod (inv_alloc (N.@l) _ (∃ βv, pointsto l (IT_of_V βv) ∗ V βv)%I with "[Hl]")
       as "#Hinv".
     { eauto with iFrame. }
     iSpecialize ("H" with "Hinv").
-    iModIntro. iApply "H".
-    iExists _. by iFrame.
+    iModIntro. by iApply "H".
   Qed.
 
   Lemma logrel_write V αv l `{!forall v, Persistent (V v)} :

@@ -387,6 +387,19 @@ Section weakestpre.
       iMod ("H" with "Hs") as "[H1 H2]".
       iModIntro. by iFrame.
   Qed.
+  #[export] Instance elim_modal_bupd_wp p E α P Φ `{!NonExpansive Φ} :
+    ElimModal True p false (|==> P) P (WP α @ E {{ Φ }}) (WP α @ E {{ Φ }}).
+  Proof.
+    rewrite /ElimModal bi.intuitionistically_if_elim.
+    by rewrite (bupd_fupd E) fupd_frame_r bi.wand_elim_r fupd_wp.
+  Qed.
+
+  #[export] Instance elim_modal_fupd_wp p E α P Φ `{!NonExpansive Φ} :
+    ElimModal True p false (|={E}=> P) P (WP α @ E {{ Φ }}) (WP α @ E {{ Φ }}).
+  Proof.
+    rewrite /ElimModal bi.intuitionistically_if_elim.
+    by rewrite fupd_frame_r bi.wand_elim_r fupd_wp.
+  Qed.
 
   Lemma wp_wand α E1 Φ Ψ :
     (WP α @ E1 {{ Ψ }}) -∗ (∀ v, Ψ v ={E1}=∗ Φ v) -∗ WP α @ E1 {{ Φ }}.
@@ -607,7 +620,7 @@ Section weakestpre.
     let op : opid F := (existT i lop) in
     (∀ rest, reify (Vis op x k)  (gState_recomp rest σ) ≡ (gState_recomp rest σ', Tick β)) →
     has_state_idx i σ -∗
-    ▷ (has_state_idx i σ' -∗ WP β @ E1 {{ Φ }})
+    ▷▷ (has_state_idx i σ' -∗ WP β @ E1 {{ Φ }})
     -∗ WP (Vis op x k) @ E1 {{ Φ }}.
   Proof.
     intros op Hr.
@@ -645,7 +658,7 @@ Section weakestpre.
     sReifier_re sR op (x, σ) ≡ Some (y, σ') →
     k (subEff_conv_outs y)  ≡ Next β →
     has_substate σ -∗
-    ▷ (has_substate σ' -∗ WP β @ E1 {{ Φ }})
+    ▷▷ (has_substate σ' -∗ WP β @ E1 {{ Φ }})
     -∗ WP (Vis (subEff_opid op) (subEff_conv_ins x) k) @ E1 {{ Φ }}.
   Proof.
     intros HSR Hk.
