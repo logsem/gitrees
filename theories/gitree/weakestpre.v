@@ -50,7 +50,44 @@ Proof.
     iMod "Hupd".
     by iApply ("IH" with "Hn Hupd").
 Qed.
-
+Lemma mega_fupdN_soundness_lc_extra `{!invGpreS Σ} (P : iProp Σ) `{!Plain P} n :
+  (∀ `{Hinv: !invGS_gen hlc Σ}, ⊢ mega_fupdN n (|={⊤,∅}=> |={∅}▷=>^3 |={∅,⊤}=> P)) →
+  ⊢ P.
+Proof.
+  intros HP.
+  eapply (fupd_soundness_lc (2*n+3) ⊤ ⊤ P); [apply _..|].
+  iIntros (Hinv) "Hlc".
+  iPoseProof HP as "-#Hupd". clear HP.
+  iInduction n as [|n] "IH".
+  - simpl.
+    iMod "Hupd" as "Hupd".
+    iMod "Hupd" as "Hupd".
+    iDestruct "Hlc" as "[Hthree [Hone Htwo]]".
+    iMod (lc_fupd_elim_later with "Hone Hupd") as "Hupd".
+    iMod "Hupd" as "Hupd".
+    iMod "Hupd" as "Hupd".
+    iMod (lc_fupd_elim_later with "Htwo Hupd") as "Hupd".
+    iMod "Hupd" as "Hupd".
+    iMod "Hupd" as "Hupd".
+    iMod (lc_fupd_elim_later with "Hthree Hupd") as "Hupd".
+    iMod "Hupd" as "Hupd".
+    iMod "Hupd" as "Hupd".
+    done.
+  - rewrite Nat.mul_succ_r.
+    iDestruct "Hlc" as "[Hn [Htwo [Hone Hthree]]]".
+    iCombine "Hn Hthree" as "Hn".
+    iEval (simpl) in "Hupd".
+    iMod "Hupd".
+    iMod "Hupd".
+    iMod (lc_fupd_elim_later with "Hone Hupd") as "Hupd".
+    iMod "Hupd".
+    iMod "Hupd".
+    iMod (lc_fupd_elim_later with "Htwo Hupd") as "Hupd".
+    iMod "Hupd".
+    iMod "Hupd".
+    rewrite plus_n_Sm.
+    by iApply ("IH" with "Hn Hupd").
+Qed.
 
 (* camera stuff *)
 
@@ -239,7 +276,7 @@ Section weakestpre.
       ((∃ αv, IT_to_V α ≡ Some αv ∧ |={E}=> Φ αv)
      ∨ (IT_to_V α ≡ None ∧ ∀ σ, state_interp σ ={E,∅}=∗
            ▷ (∃ α' σ', istep α σ α' σ')  (* α is safe *)
-             ∧ (∀ σ' β, istep α σ β σ' ={∅}▷=∗^2 |={∅,E}=> state_interp σ' ∗ self E β)))%I.
+           ∧ (∀ σ' β, istep α σ β σ' ={∅}▷=∗^2 |={∅,E}=> state_interp σ' ∗ self E β)))%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros ? ? ? E1 E2 ->.
@@ -250,6 +287,8 @@ Section weakestpre.
   Proof.
     unfold wp_pre.
     intros m s1 s2 Hs E1 a. simpl.
+    (* repeat first [f_contractive | f_equiv; solve_proper *)
+    (*   | f_equiv ]. *)
     f_equiv. f_equiv. f_equiv.
     f_equiv. f_equiv. f_equiv.
     f_equiv. f_equiv. f_equiv.
@@ -709,7 +748,7 @@ Section weakestpre.
     state_interp σ ∗ WP α {{ Ψ }}
       ⊢ mega_fupdN k
         (⌜is_Some (IT_to_V β)⌝
-           ∨ |={⊤,∅}=> ▷ ∃ β2 σ2, istep β σ' β2 σ2).
+           ∨ |={⊤,∅}=> |={∅}▷=>^3 |={∅,⊤}=> (∃ β2 σ2, istep β σ' β2 σ2)).
   Proof.
     intros Hst. rewrite wp_ssteps//.
     apply mega_fupdN_mono.
@@ -718,7 +757,23 @@ Section weakestpre.
     - iLeft. iDestruct "H" as (av) "[H _]".
       destruct (IT_to_V β) as [βv|]; first by eauto.
       iExFalso. iApply (option_equivI with "H").
-    - iRight. iMod ("H" with "Hst") as "[$ _]".
+    - iRight.
+      (* unshelve iApply fupd_plain_mask. *)
+      (* { apply _. } *)
+      (* { Search BiFUpdPlainly. } *)
+      iMod ("H" with "Hst") as "[#Hst H]".
+      iFrame "Hst".
+      iModIntro. iModIntro. iNext.
+      iDestruct "Hst" as (? ?) "Hst".
+      iSpecialize ("H" with "Hst").
+      iMod "H" as "H".
+      iModIntro. iModIntro. iNext.
+      iMod "H" as "H".
+      iModIntro.
+      iMod "H" as "H".
+      iModIntro. iModIntro.
+      iMod "H" as "H". iModIntro.
+      iMod "H" as "H".
       done.
   Qed.
 
@@ -799,26 +854,38 @@ Proof.
   apply (istep_safe_sstep rs (Σ:=Σ)).
   { apply Hdisj. }
   eapply (uPred.later_soundness).
-  eapply (mega_fupdN_soundness_lc' _ (S k)).
+  eapply (mega_fupdN_soundness_lc_extra _ (S k)).
   intros lc Hinv.
   rewrite -mega_fupdN_S_fupd. simpl.
   iMod (new_state_interp rs σ) as (sg) "[Hs Hs2]".
   destruct (Hwp lc Σ Hinv sg) as (Φ & HΦ & Hprf').
   iPoseProof (Hprf' with "Hs2") as "Hic".
-  iPoseProof (wp_ssteps with "[$Hs $Hic]") as "Hphi".
+  iPoseProof (wp_ssteps_isafe with "[$Hs $Hic]") as "H".
   { eassumption. }
   iApply fupd_mask_intro; first solve_ndisj.
   iIntros "Hcl". iModIntro. iNext. iModIntro. iModIntro. iNext.
   iModIntro.
   iMod "Hcl" as "_". iModIntro.
-  iApply (mega_fupdN_mono with "Hphi").
-  iIntros "[Hs H]". rewrite wp_unfold.
-  iDestruct "H" as "[H|H]".
-  { iDestruct "H" as (?) "[H _]".
-    rewrite Hbv. iExFalso.
-    iApply (option_equivI with "H"). }
-  iDestruct "H" as "[_ H]".
-  iSpecialize ("H" with "Hs").
-  iMod "H" as "[H _]".
-  Abort.
-
+  iApply (mega_fupdN_mono with "H").
+  iDestruct (1) as "[H|H]".
+  { iDestruct "H" as (βv) "%Hbeta".
+    exfalso. rewrite Hbeta  in Hbv.
+    inversion Hbv. }
+  iModIntro.
+  iMod "H" as "H".
+  iModIntro.
+  iMod "H" as "H".
+  iModIntro. iNext.
+  iMod "H" as "H".
+  iModIntro.
+  iMod "H" as "H".
+  iModIntro. iNext.
+  iMod "H" as "H".
+  iModIntro.
+  iMod "H" as "H".
+  iModIntro. iNext.
+  iMod "H" as "H".
+  iModIntro.
+  iMod "H" as "H".
+  iModIntro. iNext. done.
+Qed.
