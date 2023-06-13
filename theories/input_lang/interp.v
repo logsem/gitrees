@@ -58,11 +58,10 @@ Section weakestpre.
   Proof.
     intros Hs. iIntros "Hs Ha".
     unfold INPUT. simpl.
-    iApply (wp_subreify' with "Hs").
-    { simpl. iModIntro.
-      iExists n, σ', (k n). rewrite Hs.
-      repeat iSplit; eauto.
-      by rewrite ofe_iso_21. }
+    iApply (wp_subreify with "Hs").
+    { simpl. by rewrite Hs. }
+    { simpl. by rewrite ofe_iso_21. }
+    iModIntro. done.
   Qed.
 
 End weakestpre.
@@ -75,11 +74,6 @@ Section interp.
   Notation IT := (IT F).
   Notation ITV := (ITV F).
 
-  (** reeeeeemove this *)
-  #[local] Instance sss' : subEff inputE F.
-  Proof using sz rs subR.
-    apply (subReifier_subEff (r:=reify_input)).
-  Defined.
 
   Definition do_natop (op : nat_op) (x y : nat) : nat :=
     match op with

@@ -52,6 +52,8 @@ Proof.
 Qed.
 
 
+(* camera stuff *)
+
 Definition gReifiers_ucmra {n} (rs : gReifiers n) (X : ofe) `{!Cofe X} : ucmra :=
   discrete_funUR (λ (i : fin n), optionUR (exclR (sReifier_state (rs !!! i) ♯ X))).
 
@@ -236,7 +238,7 @@ Section weakestpre.
     := λne E α,
       ((∃ αv, IT_to_V α ≡ Some αv ∧ |={E}=> Φ αv)
      ∨ (IT_to_V α ≡ None ∧ ∀ σ, state_interp σ ={E,∅}=∗
-           (∃ α' σ', istep α σ α' σ')  (* α is safe *)
+           ▷ (∃ α' σ', istep α σ α' σ')  (* α is safe *)
              ∧ (∀ σ' β, istep α σ β σ' ={∅}▷=∗^2 |={∅,E}=> state_interp σ' ∗ self E β)))%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
@@ -260,7 +262,7 @@ Section weakestpre.
     wp α E' Φ ≡
        ((∃ αv, IT_to_V α ≡ Some αv ∧ |={E'}=> Φ αv)
      ∨ (IT_to_V α ≡ None ∧ ∀ σ, state_interp σ ={E',∅}=∗
-                    (∃ α' σ', istep α σ α' σ')  (* α is safe *)
+                   ▷ (∃ α' σ', istep α σ α' σ')  (* α is safe *)
                   ∧ (∀ σ' β, istep α σ β σ' ={∅}▷=∗^2 |={∅,E'}=> state_interp σ' ∗ wp β E' Φ)))%I.
   Proof. apply (fixpoint_unfold (wp_pre Φ) _). Qed.
 
@@ -447,7 +449,7 @@ Section weakestpre.
         iMod ("H" with "Hs") as "[Hsafe H]". iModIntro.
         iSplit.
         { (* safety *)
-          iDestruct "Hsafe" as (α' σ') "Hsafe".
+          iNext. iDestruct "Hsafe" as (α' σ') "Hsafe".
           iExists (f α'), σ'. iApply (istep_hom with "Hsafe") . }
         iIntros (σ' β) "Hst".
         rewrite {1}istep_hom_inv. iDestruct "Hst" as "[%Ha | [_ Hst]]".
@@ -481,6 +483,7 @@ Section weakestpre.
       iModIntro. iRewrite "Hb". by iFrame.
   Qed.
 
+  (** XXX : move to reify.v *)
   (* this is the internal version that we need, xxx *)
   Lemma reify_vis_eqI op i k o σ σ' :
     (gReifiers_re rs op (i,σ) ≡ Some (o,σ') ⊢@{iProp} reify (Vis op i k) σ ≡ (σ', Tau $ k o))%I.
@@ -522,15 +525,15 @@ Section weakestpre.
   Lemma wp_reify_idx E1 E2 Φ i (lop : opid (sReifier_ops (rs !!! i))) :
     let op : opid F := (existT i lop) in
     forall (x : Ins (F op) ♯ IT)
-           (k : Outs (F op) ♯ IT  -n> laterO IT)  σ,
-    has_state_idx i σ -∗
-    (∀ rest, |={E1,E2}=> ∃ σ' β, reify (Vis op x k) (gState_recomp rest σ)
+           (k : Outs (F op) ♯ IT  -n> laterO IT),
+    (|={E1,E2}=> ∃ σ σ' β, ▷ has_state_idx i σ ∗
+                         ∀ rest, reify (Vis op x k) (gState_recomp rest σ)
                                ≡ (gState_recomp rest σ', Tick β) ∗
-         ▷ ▷ |={E2,E1}=> (has_state_idx i σ' -∗ WP β @ E1 {{ Φ }}))
+         ▷▷ (has_state_idx i σ' -∗ |={E2,E1}=>  WP β @ E1 {{ Φ }}))
     -∗ WP (Vis op x k) @ E1 {{ Φ }}.
   Proof.
-    intros op x k σ.
-    iIntros "Hlst H".
+    intros op x k.
+    iIntros "H".
     rewrite (wp_unfold _ (Vis _ _ _)).
     iRight. iSplit.
     { iPureIntro. apply IT_to_V_Vis. }
@@ -539,29 +542,32 @@ Section weakestpre.
     assert (fs ≡ gState_recomp rest σ0) as Hfs.
     { symmetry. apply gState_recomp_decomp.
       by rewrite Hdecomp. }
-    iAssert (σ0 ≡ σ)%I with "[Hlst Hgst]" as "#Hss".
+    iMod "H" as (σ σ' β) "[Hlst H]".
+    iAssert (▷ (σ0 ≡ σ))%I with "[Hlst Hgst]" as "#Hss".
     { iEval (rewrite Hfs) in "Hgst".
       iApply (state_interp_has_state_idx_agree with "Hgst Hlst"). }
-    iMod ("H" $! rest) as "H".
-    iDestruct "H" as (σ' β) "[Hreify H]".
-    iRewrite -"Hss" in "Hreify".
-    iEval (rewrite -Hfs) in "Hreify".
     iApply fupd_mask_intro; first solve_ndisj.
     iIntros "Hcl2".
+    iDestruct ("H" $! rest) as "[Hreify H]".
     iSplit.
     { (* it is safe *)
+      iNext.
+      iRewrite -"Hss" in "Hreify".
+      iEval (rewrite -Hfs) in "Hreify".
       iExists β,(gState_recomp rest σ'). iRight.
       iExists op,x,k; eauto. }
     iIntros (fs' α0) "Hst". rewrite istep_vis.
+    iModIntro. iNext. iModIntro.
+    iRewrite -"Hss" in "Hreify".
+    iEval (rewrite -Hfs) in "Hreify".
     iRewrite "Hreify" in "Hst".
     iEval (rewrite prod_equivI; simpl) in "Hst".
     iDestruct "Hst" as "[Hst Hb]".
     iEval (rewrite Hfs) in "Hgst".
     iMod (state_interp_has_state_idx_update i σ' with "Hgst Hlst") as "[Hgst Hlst]".
     iModIntro. iNext. iModIntro.
-    iModIntro. iNext. iModIntro.
     iMod "Hcl2" as "_".
-    iMod "H" as "H".
+    iMod ("H" with "Hlst") as "H".
     iModIntro. iRewrite -"Hst". iFrame "Hgst".
     iRewrite -"Hb". by iApply "H".
   Qed.
@@ -569,21 +575,20 @@ Section weakestpre.
   Lemma wp_reify_idx' E1 E2 Φ i (lop : opid (sReifier_ops (rs !!! i))) :
     let op : opid F := (existT i lop) in
     forall (x : Ins (F op) ♯ IT)
-           (k : Outs (F op) ♯ IT  -n> laterO IT)  σ,
-    has_state_idx i σ -∗
-    (|={E1,E2}=> ∃ y σ' β,
+           (k : Outs (F op) ♯ IT  -n> laterO IT),
+    (|={E1,E2}=>  ∃ σ y σ' β, ▷ has_state_idx i σ ∗
                   sReifier_re (rs !!! i) lop (x, σ) ≡ Some (y, σ') ∗
                   k y ≡ Next β ∗
-         ▷ ▷ |={E2,E1}=> (has_state_idx i σ' -∗ WP β @ E1 {{ Φ }}))
+         ▷ ▷ (has_state_idx i σ' ={E2,E1}=∗ WP β @ E1 {{ Φ }}))
     -∗ WP (Vis op x k) @ E1 {{ Φ }}.
   Proof.
-    intros op x k σ.
-    iIntros "Hlst H".
-    iApply (wp_reify_idx with "Hlst").
-    iIntros (rest).
-    iMod "H" as (y σ' β) "[Hreify [Hk H]]".
-    iModIntro. iExists σ', β.
-    iFrame "H".
+    intros op x k.
+    iIntros "H".
+    iApply wp_reify_idx.
+    iMod "H" as (σ y σ' β) "[Hlst [Hreify [Hk H]]]".
+    iModIntro. iExists σ, σ', β.
+    iFrame "Hlst".
+    iIntros (rest).    iFrame "H".
     iAssert (gReifiers_re rs op (x, gState_recomp rest σ) ≡ Some (y,gState_recomp rest σ'))%I
       with "[Hreify]"  as "Hgreify".
     { rewrite gReifiers_re_idx.
@@ -601,35 +606,36 @@ Section weakestpre.
     x k σ σ' β :
     let op : opid F := (existT i lop) in
     (∀ rest, reify (Vis op x k)  (gState_recomp rest σ) ≡ (gState_recomp rest σ', Tick β)) →
-    has_state_idx i σ -∗
+    ▷ has_state_idx i σ -∗
     ▷▷ (has_state_idx i σ' -∗ WP β @ E1 {{ Φ }})
     -∗ WP (Vis op x k) @ E1 {{ Φ }}.
   Proof.
     intros op Hr.
     iIntros "Hlst H".
-    iApply (wp_reify_idx with "Hlst").
-    iIntros (rest). iModIntro.
-    iExists σ',β. iSplitR.
+    iApply wp_reify_idx.
+    iModIntro. iExists σ, σ', β.
+    iFrame "Hlst". iIntros (rest).
+    iSplitR.
     { rewrite (Hr rest)//. }
-    iNext. iNext. iModIntro. done.
+    iNext. iNext. iIntros "Hs".
+    iModIntro. by iApply "H".
   Qed.
 
   Lemma wp_subreify' E1 E2 Φ sR `{!subReifier sR rs}
     (op : opid (sReifier_ops sR)) (x : Ins (sReifier_ops sR op) ♯ IT)
-    (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT)
-    (σ : sReifier_state sR ♯ IT) :
-    has_substate σ -∗
-    (|={E1,E2}=> ∃ y σ' β,
+    (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT) :
+    (|={E1,E2}=> ∃ σ y σ' β, ▷ has_substate σ ∗
                   sReifier_re sR op (x, σ) ≡ Some (y, σ') ∗
                   k (subEff_conv_outs y)  ≡ Next β ∗
-         ▷ ▷ |={E2,E1}=> (has_substate σ' -∗ WP β @ E1 {{ Φ }}))
+         ▷ ▷ (has_substate σ' ={E2,E1}=∗ WP β @ E1 {{ Φ }}))
     -∗ WP (Vis (subEff_opid op) (subEff_conv_ins x) k) @ E1 {{ Φ }}.
   Proof.
-    iIntros "Hlst H".
-    iApply (wp_reify_idx' with "Hlst").
-    iMod "H" as (y σ' β) "[Hreify [Hk H]]".
-    iModIntro. iExists (subEff_conv_outs y), (subR_conv_state σ'), β.
-    iFrame "H Hk".
+    iIntros "H".
+    iApply wp_reify_idx'.
+    iMod "H" as (σ y σ' β) "[Hlst [Hreify [Hk H]]]".
+    iModIntro.
+    iExists (subR_conv_state σ),(subEff_conv_outs y), (subR_conv_state σ'), β.
+    iFrame "Hlst H Hk".
     by iApply subReifier_reify_idxI.
   Qed.
   Lemma wp_subreify E1 Φ sR `{!subReifier sR rs}
@@ -639,7 +645,7 @@ Section weakestpre.
     (σ σ' : sReifier_state sR ♯ IT) β :
     sReifier_re sR op (x, σ) ≡ Some (y, σ') →
     k (subEff_conv_outs y)  ≡ Next β →
-    has_substate σ -∗
+    ▷ has_substate σ -∗
     ▷▷ (has_substate σ' -∗ WP β @ E1 {{ Φ }})
     -∗ WP (Vis (subEff_opid op) (subEff_conv_ins x) k) @ E1 {{ Φ }}.
   Proof.
@@ -703,7 +709,7 @@ Section weakestpre.
     state_interp σ ∗ WP α {{ Ψ }}
       ⊢ mega_fupdN k
         (⌜is_Some (IT_to_V β)⌝
-           ∨ |={⊤,∅}=> ∃ β2 σ2, istep β σ' β2 σ2).
+           ∨ |={⊤,∅}=> ▷ ∃ β2 σ2, istep β σ' β2 σ2).
   Proof.
     intros Hst. rewrite wp_ssteps//.
     apply mega_fupdN_mono.
@@ -777,3 +783,42 @@ Proof.
   rewrite bi.sep_elim_r. rewrite -HΦψ.
   rewrite wp_val_inv; eauto.
 Qed.
+
+Lemma wp_safety n (rs : gReifiers n) k
+  (α β : IT (gReifiers_ops rs)) (σ σ' : gReifiers_state rs ♯ IT (gReifiers_ops rs)) :
+  (∀ Σ P Q, @disjunction_property Σ P Q) →
+  ssteps rs α σ β σ' k →
+  IT_to_V β ≡ None →
+  (∀ `{H1 : !invGS_gen hlc Σ} `{H2: !stateG rs Σ},
+      ∃ Φ, NonExpansive Φ ∧ (has_full_state σ ⊢ WP@{rs} α {{ Φ }})%I)  →
+  (∃ β1 σ1, sstep rs β σ' β1 σ1).
+Proof.
+  Opaque istep.
+  intros Hdisj Hstep Hbv Hwp.
+  pose (Σ :=  #[invΣ; stateΣ rs]).
+  apply (istep_safe_sstep rs (Σ:=Σ)).
+  { apply Hdisj. }
+  eapply (uPred.later_soundness).
+  eapply (mega_fupdN_soundness_lc' _ (S k)).
+  intros lc Hinv.
+  rewrite -mega_fupdN_S_fupd. simpl.
+  iMod (new_state_interp rs σ) as (sg) "[Hs Hs2]".
+  destruct (Hwp lc Σ Hinv sg) as (Φ & HΦ & Hprf').
+  iPoseProof (Hprf' with "Hs2") as "Hic".
+  iPoseProof (wp_ssteps with "[$Hs $Hic]") as "Hphi".
+  { eassumption. }
+  iApply fupd_mask_intro; first solve_ndisj.
+  iIntros "Hcl". iModIntro. iNext. iModIntro. iModIntro. iNext.
+  iModIntro.
+  iMod "Hcl" as "_". iModIntro.
+  iApply (mega_fupdN_mono with "Hphi").
+  iIntros "[Hs H]". rewrite wp_unfold.
+  iDestruct "H" as "[H|H]".
+  { iDestruct "H" as (?) "[H _]".
+    rewrite Hbv. iExFalso.
+    iApply (option_equivI with "H"). }
+  iDestruct "H" as "[_ H]".
+  iSpecialize ("H" with "Hs").
+  iMod "H" as "[H _]".
+  Abort.
+

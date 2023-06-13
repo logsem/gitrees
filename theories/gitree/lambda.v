@@ -41,6 +41,12 @@ Section lambda.
                    get_nat2 (λ n1 n2, Nat (f n1 n2)) v1 v2) t1) t2.
   Solve All Obligations with solve_proper_please.
 
+  (** Sequencing *)
+  Program Definition SEQ : IT -n> IT -n> IT := λne α β,
+      get_val (constO β) α.
+  Solve Obligations with solve_proper_please.
+
+
   Lemma APP_Nat x y : APP (Nat x) y ≡ Err RuntimeErr.
   Proof. simpl. by rewrite get_fun_nat. Qed.
   Lemma APP_Err e x : APP (Err e) x ≡ Err e.
@@ -203,6 +209,11 @@ Section lambda.
     intro y. simpl. rewrite get_val_ITV//.
   Qed.
 
+  Lemma SEQ_Val α β `{!AsVal α} : SEQ α β ≡ β.
+  Proof.
+    unfold SEQ. simpl. rewrite get_val_ITV//.
+  Qed.
+
   Global Instance IF_Proper : Proper ((≡) ==> (≡)) IF.
   Proof. apply ne_proper. apply _. Qed.
   Global Instance APP_Proper : Proper ((≡) ==> (≡)) APP.
@@ -218,6 +229,7 @@ Section lambda.
   Definition NatOpLSCtx f (β α : IT) := NATOP f α β.
   Definition NatOpRSCtx f (β α : IT) := NATOP f β α.
   Definition IFSCtx (β1 β2 α : IT) := IF α β1 β2.
+  Definition SEQCtx (β2 α : IT) := SEQ α β2.
 
   #[export] Instance AppLSCtx_hom (β : IT) : AsVal β → IT_hom (AppLSCtx β) | 0.
   Proof.
@@ -235,9 +247,9 @@ Section lambda.
   Proof.
     unfold AppRSCtx.
     simple refine (IT_HOM _ _ _ _ _); simpl.
-    - solve_proper.
     - intros a. by rewrite APP'_Tick_r.
     - intros op i k. rewrite APP'_Vis_r. repeat f_equiv.
+      by intro.
     - intros e. by rewrite APP'_Err_r.
   Qed.
   #[local] Instance NatOpLSCtx_ne op (β : IT) : NonExpansive (NatOpLSCtx op β).
@@ -280,10 +292,17 @@ Section lambda.
       repeat f_equiv. intro α. reflexivity.
     - intros e. simpl. rewrite IF_Err//.
   Qed.
+  Instance SEQCtx_ne β2 : NonExpansive (SEQCtx β2).
+  Proof. solve_proper. Qed.
+  #[export] Instance SEQ_hom (β2 : IT) : IT_hom (SEQCtx β2).
+  Proof.
+    unfold SEQCtx. unfold SEQ.
+    simpl. apply _.
+  Qed.
 
 End lambda.
 
-#[global] Opaque APP APP' IF NATOP.
+#[global] Opaque APP APP' IF NATOP SEQ.
 
 Notation "'λit' x .. y , P" := (Fun (Next (λne x, .. (Fun (Next (λne y, P))) .. )))
   (at level 200, x binder, y binder, right associativity,

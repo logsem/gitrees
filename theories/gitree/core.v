@@ -1354,6 +1354,29 @@ Section it_hom.
       rewrite IT_to_V_Vis. intros []. exfalso. naive_solver.
   Qed.
 
+  #[export] Instance get_val_hom (f : IT -n> IT) : IT_hom (get_val f).
+  Proof.
+    simple refine (IT_HOM _ _ _ _ _).
+    - intro a. apply get_val_tick.
+    - intros op' i k. apply get_val_vis.
+    - intros e. apply get_val_err.
+  Qed.
+  #[export] Instance get_nat_hom (f : nat → IT) : IT_hom (get_nat f).
+  Proof.
+    simple refine (IT_HOM _ _ _ _ _).
+    - intro a. apply get_nat_tick.
+    - intros op' i k. apply get_nat_vis.
+    - intros e. apply get_nat_err.
+  Qed.
+  #[export] Instance get_fun_hom f : IT_hom (get_fun f).
+  Proof.
+    simple refine (IT_HOM _ _ _ _ _).
+    - intro a. apply get_fun_tick.
+    - intros op' i k. apply get_fun_vis.
+    - intros e. apply get_fun_err.
+  Qed.
+
+
 End it_hom.
 
 #[global] Opaque Nat Fun Tau Err Vis Tick.
