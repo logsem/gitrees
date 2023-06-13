@@ -9,7 +9,7 @@ Section logrel.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
-  Context `{!invGS_gen hlc Σ, !stateG rs Σ}.
+  Context `{!invGS Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
   Notation restO := (gState_rest sR_idx rs ♯ IT).
 
@@ -298,7 +298,7 @@ Section logrel.
     iIntros (σ) "Hs".
     destruct (update_input σ) as [n σ'] eqn:Hinp.
     iApply (wp_input with "Hs []"); first eauto.
-    iNext. iIntros "Hs".
+    iNext. iIntros "Hlc Hs".
     iApply wp_val.
     iExists (1,1),(Lit n),σ'.
     iFrame "Hs". iModIntro. iSplit.
@@ -376,7 +376,7 @@ Definition κ {S} {E} : ITV E → val S :=  λ x,
 Definition rs : gReifiers 1 := gReifiers_cons reify_input gReifiers_nil.
 
 Lemma logrel_nat_adequacy {S} (α : IT (gReifiers_ops rs)) (e : expr S) n σ σ' k :
-  (∀ {Σ:gFunctors}`{H1 : !invGS_gen hlc Σ} `{H2: !stateG rs Σ},
+  (∀ {Σ:gFunctors}`{H1 : !invGS Σ} `{H2: !stateG rs Σ},
       (True ⊢ logrel rs Tnat α e)%I) →
   ssteps rs α (σ,()) (Nat n) σ' k → ∃ m σ', prim_steps e σ (Val $ Lit n) σ' m.
 Proof.
@@ -388,7 +388,7 @@ Proof.
     eexists; eauto. }
   eapply (wp_adequacy).
   { simpl; eassumption. }
-  intros hlc Σ Hinv1 Hst1.
+  intros Σ Hinv1 Hst1.
   pose (Φ := (λ (βv : ITV (gReifiers_ops rs)), ∃ n, logrel_val rs Tnat (Σ:=Σ) (S:=S) βv (Lit n)
           ∗ ⌜∃ m σ', prim_steps e σ (Val $ Lit n) σ' m⌝)%I).
   assert (NonExpansive Φ).
@@ -411,7 +411,18 @@ Proof.
   iIntros "Hs".
   iPoseProof (Hlog with "[//]") as "Hlog".
   iAssert (has_substate σ) with "[Hs]" as "Hs".
-  { admit. }
+  { unfold has_substate, has_full_state.
+    assert (of_state rs (IT (gReifiers_ops rs)) (σ, ()) ≡
+            of_idx rs (IT (gReifiers_ops rs)) sR_idx (subR_conv_state σ)) as ->; last done.
+    intro j. unfold sR_idx. simpl.
+    unfold of_state, of_idx.
+    destruct decide as [Heq|]; last first.
+    { inv_fin j; first done.
+      intros i. inversion i. }
+    inv_fin j; last done.
+    intros Heq.
+    rewrite (eq_pi _ _ Heq eq_refl)//.
+  }
   iSpecialize ("Hlog" $! σ with "Hs").
   iApply (wp_wand with"Hlog").
   iIntros ( βv). iIntros "H".
@@ -419,24 +430,25 @@ Proof.
   unfold Φ. iDestruct "Hi" as (l) "[Hβ %]". simplify_eq/=.
   iExists l. iModIntro. iSplit; eauto.
   iExists l. iSplit; eauto.
-Admitted.
+Qed.
 
 
-(* Theorem adequacy (e : expr []) (k : nat) σ σ' n : *)
-(*   typed empC e Tnat → *)
-(*   ssteps rs (interp_expr e ()) (σ,()) (Nat k) σ' n → *)
-(*   ∃ σ' mm, prim_steps e σ (Val $ Lit k) σ' mm. *)
-(* Proof. *)
-(*   pose (Σ := #[stateΣ rs; invΣ; wsatΣ]). *)
-(*   intros Hty Hst. Abort. *)
-(*   assert (invGS Σ). *)
-(*   { apply InvG; try apply _. Search invGS_gen. *)
-(*   apply (fundamental (Σ:=Σ)) in Hty. *)
-(*   eapply logrel_adequate; eauto. *)
-(*   iPoseProof (Hty $! emp_subs2 σ) as "H". *)
-(*   simp its_of_subs2. *)
-(*   assert (subst_expr e (subs_of_subs2 emp_subs2) = e) as ->. *)
-(*   { rewrite subs_of_emp_subs2. apply subst_expr_idsub. } *)
-(*   iApply "H". *)
-(*   unfold subs2_valid. simp list_of_tyctx list_of_subs2. simpl. done. *)
-(* Qed. *)
+Theorem adequacy (e : expr []) (k : nat) σ σ' n :
+  typed empC e Tnat →
+  ssteps rs (interp_expr rs e ()) (σ,()) (Nat k) σ' n →
+  ∃ mm σ', prim_steps e σ (Val $ Lit k) σ' mm.
+Proof.
+  intros Hty Hst.
+  eapply (logrel_nat_adequacy (interp_expr rs e ())); last eassumption.
+  intros Σ ? ?.
+  iPoseProof (fundamental rs) as "H".
+  { apply Hty. }
+  unfold logrel_valid.
+  iIntros "_".
+  iSpecialize ("H" $! (emp_subs2 rs)).
+  simp its_of_subs2.
+  rewrite subs_of_emp_subs2.
+  rewrite subst_expr_idsub.
+  iApply "H".
+  unfold subs2_valid. done.
+Qed.

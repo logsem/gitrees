@@ -116,7 +116,7 @@ Section wp.
   Notation stateO := (stateF ♯ IT).
 
   Context `{!subReifier reify_store rs}.
-  Context `{!invGS_gen hlc Σ, !stateG rs Σ}.
+  Context `{!invGS_gen HasLc Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
 
   (** * The ghost state theory for the heap *)
@@ -128,7 +128,8 @@ Section wp.
     }.
   Context `{!heapG Σ}.
 
-  Definition heap_ctx := inv (nroot.@"storeE") (∃ σ, has_substate σ ∗ own heapG_name (●V σ))%I.
+  Definition heap_ctx := inv (nroot.@"storeE")
+                        (∃ σ, £ 1 ∗ has_substate σ ∗ own heapG_name (●V σ))%I.
   Definition pointsto (l : loc) (α : IT) : iProp :=
     own heapG_name $ gmap_view_frag l (DfracOwn 1) (Next α).
 
@@ -179,19 +180,20 @@ Section wp.
     iIntros "#Hcxt Hp Ha".
     unfold READ. simpl.
     iApply wp_subreify'.
-    iInv (nroot.@"storeE") as (σ) "[Hs Hh]" "Hcl".
-    iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom".
-    { iNext. iApply (istate_loc_dom with "Hh Hp"). }
-    iDestruct "Hdom" as ">%Hdom".
+    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
+    iApply (lc_fupd_elim_later with "Hlc").
+    iNext.
+    iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom".
+    { iApply (istate_loc_dom with "Hh Hp"). }
     destruct Hdom as [x Hx].
     destruct (Next_uninj x) as [β' Hb'].
-    iAssert (▷ (σ !! l ≡ Some (Next α)))%I as "#Hlookup".
-    { iNext. iApply (istate_read with "Hh Hp"). }
-    iAssert (▷ ▷ (β' ≡ α))%I as "#Hba".
-    { iNext. rewrite Hx. rewrite option_equivI.
+    iAssert ((σ !! l ≡ Some (Next α)))%I as "#Hlookup".
+    { iApply (istate_read with "Hh Hp"). }
+    iAssert (▷ (β' ≡ α))%I as "#Hba".
+    { rewrite Hx. rewrite option_equivI.
       rewrite Hb'. by iNext. }
     iClear "Hlookup".
-    iModIntro. iExists σ,(Next β'),σ,β'.
+    iExists σ,(Next β'),σ,β'.
     iFrame "Hs".
     repeat iSplit.
     - iAssert ((option_bind _ _ (λ x, Some (x, σ)) (σ !! l)) ≡
@@ -202,8 +204,8 @@ Section wp.
         iPureIntro. rewrite Hx Hb'//.
       + unfold mbind. iSimpl in "H". iRewrite "H". done.
     - iPureIntro. apply ofe_iso_21.
-    - iNext. iNext. iIntros "Hs".
-      iMod ("Hcl" with "[Hh Hs]") as "_".
+    - iNext. iIntros "Hlc Hs".
+      iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
       { iExists _. by iFrame. }
       iRewrite "Hba".
       by iApply ("Ha" with "Hp").
@@ -216,20 +218,21 @@ Section wp.
   Proof.
     iIntros "#Hctx Hp Ha".
     iApply wp_subreify'.
-    iInv (nroot.@"storeE") as (σ) "[Hs Hh]" "Hcl".
+    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom".
     { iNext. iApply (istate_loc_dom with "Hh Hp"). }
     iDestruct "Hdom" as ">%Hdom".
     destruct Hdom as [x Hx].
     destruct (Next_uninj x) as [α' Ha'].
-    iModIntro.
+    iApply (lc_fupd_elim_later with "Hlc").
+    iNext.
     iExists σ,(),(<[l:=Next β]>σ),(Nat 0).
     iFrame "Hs".
     iSimpl. repeat iSplit; [ done | done | ].
-    iNext. iNext.
+    iNext. iIntros "Hlc".
     iMod (istate_write _ _ β with "Hh Hp") as "[Hh Hp]".
     iIntros "Hs".
-    iMod ("Hcl" with "[Hh Hs]") as "_".
+    iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
     { iExists _. by iFrame. }
     iApply wp_val. iModIntro.
     iApply ("Ha" with "Hp").
@@ -241,7 +244,8 @@ Section wp.
   Proof.
     iIntros "Hh H".
     iApply wp_subreify'.
-    iInv (nroot.@"storeE") as (σ) "[Hs Hh]" "Hcl".
+    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
+    iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
     set (l:=Loc.fresh (dom σ)).
     iExists σ,l,_,(k l).
@@ -250,11 +254,11 @@ Section wp.
     iSplit; first done.
     iSplit.
     { rewrite ofe_iso_21. done. }
-    iNext. iNext. iIntros "Hs".
+    iNext. iIntros "Hlc Hs".
     iMod (istate_alloc α l with "Hh") as "[Hh Hl]".
     { apply (not_elem_of_dom_1 (M:=gmap loc)).
       rewrite -(Loc.add_0 l). apply Loc.fresh_fresh. lia. }
-    iMod ("Hcl" with "[Hh Hs]") as "_".
+    iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
     { iExists _. by iFrame. }
     iApply ("H" with "Hl").
   Qed.
@@ -297,20 +301,21 @@ Section wp.
   Proof.
     iIntros "#Hl #Hav #Hctx".
     iApply wp_subreify'.
-    iInv (nroot.@"storeE") as (σ) "[Hs Hh]" "Hcl1".
+    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl1".
     iInv (N.@l) as "HH" "Hcl2".
     iDestruct "HH" as (βv) "[Hbv #HV]".
-    iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom".
-    { iNext. iApply (istate_loc_dom with "Hh Hbv"). }
-    iModIntro.
+    iApply (lc_fupd_elim_later with "Hlc").
+    iNext.
+    iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom".
+    { iApply (istate_loc_dom with "Hh Hbv"). }
     iExists σ, (),(<[l:=Next (IT_of_V αv)]>σ),(Nat 0).
     iFrame "Hs".
     iSimpl. repeat iSplit; [ done | done | ].
-    iNext. iNext. iIntros "Hs".
+    iNext. iIntros "Hlc Hs".
     iMod (istate_write _ _ (IT_of_V αv) with "Hh Hbv") as "[Hh Hlav]".
     iMod ("Hcl2" with "[Hlav]") as "_".
     { iNext. iExists _; by iFrame. }
-    iMod ("Hcl1" with "[Hh Hs]") as "_".
+    iMod ("Hcl1" with "[Hlc Hh Hs]") as "_".
     { iNext. iExists _; by iFrame. }
     iModIntro.
     iApply wp_val. iModIntro.
@@ -323,29 +328,30 @@ Section wp.
   Proof.
     iIntros "#Hr #Hctx".
     iApply wp_subreify'.
-    iInv (nroot.@"storeE") as (σ) "[Hs Hh]" "Hcl1".
+    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl1".
     iInv (N.@l) as "HH" "Hcl2".
     iDestruct "HH" as (βv) "[Hbv #HV]".
+    iAssert (▷ (σ !! l ≡ Some (Next (IT_of_V βv))))%I as "#Hlookup".
+    { iNext. iApply (istate_read with "Hh Hbv"). }
     iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom".
     { iNext. iApply (istate_loc_dom with "Hh Hbv"). }
     iDestruct "Hdom" as ">%Hdom".
     destruct Hdom as [x Hx].
     destruct (Next_uninj x) as [β' Hb'].
-    iAssert (▷ (σ !! l ≡ Some (Next (IT_of_V βv))))%I as "#Hlookup".
-    { iNext. iApply (istate_read with "Hh Hbv"). }
     iAssert (▷ ▷ (β' ≡ IT_of_V βv))%I as "#Hbv'".
     { iNext. rewrite Hx. rewrite option_equivI.
       rewrite Hb'. by iNext. }
     iClear "Hlookup".
-    iModIntro. iSimpl.
+    iApply (lc_fupd_elim_later with "Hlc").
+    iNext. iSimpl.
     iExists σ,(Next β'),σ,β'. iFrame "Hs".
     repeat iSplit.
     { iPureIntro. rewrite Hx/= Hb'. done. }
     { rewrite ofe_iso_21//. }
-    iNext. iNext. iIntros "Hs".
+    iNext. iIntros "Hlc Hs".
     iMod ("Hcl2" with "[Hbv]") as "_".
     { iNext. eauto with iFrame. }
-    iMod ("Hcl1" with "[Hh Hs]") as "_".
+    iMod ("Hcl1" with "[Hlc Hh Hs]") as "_".
     { iNext. eauto with iFrame. }
     iModIntro.
     iRewrite "Hbv'".

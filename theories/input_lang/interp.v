@@ -47,13 +47,13 @@ Section weakestpre.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
-  Context `{!invGS_gen hlc Σ, !stateG rs Σ}.
+  Context `{!invGS Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
 
   Lemma wp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ :
     update_input σ = (n, σ') →
     has_substate σ -∗
-    ▷ (has_substate σ' -∗ WP@{rs} (k n) {{ Φ }}) -∗
+    ▷ (£ 1 -∗ has_substate σ' -∗ WP@{rs} (k n) {{ Φ }}) -∗
     WP@{rs} (INPUT k) {{ Φ }}.
   Proof.
     intros Hs. iIntros "Hs Ha".
