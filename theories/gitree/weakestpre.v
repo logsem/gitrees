@@ -2,107 +2,25 @@ From iris.algebra.lib Require Import excl_auth.
 From iris.proofmode Require Import base tactics classes modality_instances.
 From iris.base_logic.lib Require Export own fancy_updates invariants.
 From gitrees Require Import prelude.
-From gitrees.gitree Require Import core reify reductions.
+From gitrees.gitree Require Import core reify greifiers reductions.
 
-
-Definition mega_fupdN k `{!invGS_gen hlc Σ}: iProp Σ → iProp Σ :=
-  Nat.iter k (λ P, |={⊤,∅}=> |={∅}▷=>^2 |={∅,⊤}=> P)%I.
-#[global] Instance mega_fupdN_ne k `{!invGS_gen hlc Σ} : NonExpansive (mega_fupdN k).
-Proof. induction k; solve_proper. Qed.
-#[global] Instance mega_fupdN_proper k `{!invGS_gen hlc Σ} :
-  Proper ((≡) ==> (≡)) (mega_fupdN k).
-Proof. induction k; solve_proper. Qed.
-Lemma mega_fupdN_mono k `{!invGS_gen hlc Σ} P Q :
-  (P ⊢ Q) →
-  mega_fupdN k P ⊢ mega_fupdN k Q.
-Proof.
-  induction k; first by eauto.
-  intros HPQ. simpl.
-  do 8 f_equiv. by apply IHk.
-Qed.
-Lemma mega_fupdN_S_fupd n `{!invGS_gen hlc Σ} P :
-  mega_fupdN (S n) (|={⊤}=> P) ⊢ mega_fupdN (S n) P.
-Proof.
-  unfold mega_fupdN.
-  rewrite !Nat.iter_succ_r.
-  apply mega_fupdN_mono.
-  rewrite -(fupd_trans _ _ ⊤ P) //.
-Qed.
-Lemma mega_fupdN_soundness_lc' `{!invGpreS Σ} (P : iProp Σ) `{!Plain P} n :
-  (∀ `{Hinv: !invGS_gen HasLc Σ}, ⊢ mega_fupdN n P) →
-  ⊢ P.
-Proof.
-  intros HP.
-  eapply (fupd_soundness_lc (2*n) ⊤ ⊤ P); [apply _..|].
-  iIntros (Hinv) "Hlc".
-  iPoseProof HP as "-#Hupd". clear HP.
-  iInduction n as [|n] "IH".
-  - by iModIntro.
-  - rewrite Nat.mul_succ_r.
-    iDestruct "Hlc" as "[Hn [Hone Htwo]]".
-    iEval (simpl) in "Hupd".
-    iMod "Hupd".
-    iMod "Hupd".
-    iMod (lc_fupd_elim_later with "Hone Hupd") as "Hupd".
-    iMod "Hupd".
-    iMod "Hupd".
-    iMod (lc_fupd_elim_later with "Htwo Hupd") as "> Hupd".
-    iMod "Hupd".
-    by iApply ("IH" with "Hn Hupd").
-Qed.
-Lemma mega_fupdN_soundness_lc_extra `{!invGpreS Σ} (P : iProp Σ) `{!Plain P} n :
-  (∀ `{Hinv: !invGS_gen HasLc Σ}, ⊢ mega_fupdN n (|={⊤,∅}=> |={∅}▷=>^3 |={∅,⊤}=> P)) →
-  ⊢ P.
-Proof.
-  intros HP.
-  eapply (fupd_soundness_lc (2*n+3) ⊤ ⊤ P); [apply _..|].
-  iIntros (Hinv) "Hlc".
-  iPoseProof HP as "-#Hupd". clear HP.
-  iInduction n as [|n] "IH".
-  - simpl.
-    iMod "Hupd" as "Hupd".
-    iMod "Hupd" as "Hupd".
-    iDestruct "Hlc" as "[Hthree [Hone Htwo]]".
-    iMod (lc_fupd_elim_later with "Hone Hupd") as "Hupd".
-    iMod "Hupd" as "Hupd".
-    iMod "Hupd" as "Hupd".
-    iMod (lc_fupd_elim_later with "Htwo Hupd") as "Hupd".
-    iMod "Hupd" as "Hupd".
-    iMod "Hupd" as "Hupd".
-    iMod (lc_fupd_elim_later with "Hthree Hupd") as "Hupd".
-    iMod "Hupd" as "Hupd".
-    iMod "Hupd" as "Hupd".
-    done.
-  - rewrite Nat.mul_succ_r.
-    iDestruct "Hlc" as "[Hn [Htwo [Hone Hthree]]]".
-    iCombine "Hn Hthree" as "Hn".
-    iEval (simpl) in "Hupd".
-    iMod "Hupd".
-    iMod "Hupd".
-    iMod (lc_fupd_elim_later with "Hone Hupd") as "Hupd".
-    iMod "Hupd".
-    iMod "Hupd".
-    iMod (lc_fupd_elim_later with "Htwo Hupd") as "Hupd".
-    iMod "Hupd".
-    iMod "Hupd".
-    rewrite plus_n_Sm.
-    by iApply ("IH" with "Hn Hupd").
-Qed.
-
-(* camera stuff *)
+(** * Ghost state from gReifiers *)
 
 Definition gReifiers_ucmra {n} (rs : gReifiers n) (X : ofe) `{!Cofe X} : ucmra :=
   discrete_funUR (λ (i : fin n), optionUR (exclR (sReifier_state (rs !!! i) ♯ X))).
 
+(** The resource corresponding to the whole global state *)
 Definition of_state {n} (rs : gReifiers n) (X : ofe) `{!Cofe X} (st : gReifiers_state rs ♯ X) : gReifiers_ucmra rs X :=
   λ i, Excl' (fstO (gState_decomp i st)).
 
+(** The resource corresponding to a speicific projection out of the global state *)
 Definition of_idx {n} (rs : gReifiers n) (X : ofe) `{!Cofe X} (i : fin n)
   (st : sReifier_state (rs !!! i) ♯ X) : gReifiers_ucmra rs X.
 Proof.
   simple refine (λ j, if (decide (j = i)) then _ else None).
   simpl. induction e. exact (Excl' st).
 Defined.
+
 Lemma of_state_recomp_lookup_ne {n} (rs : gReifiers n) (X : ofe) `{!Cofe X}
   i j (σ1 σ2 : sReifier_state (rs !!! i) ♯ X) rest :
   i ≠ j →
@@ -126,12 +44,12 @@ Qed.
 
 
 Section ucmra.
-  (** The camera for the global ghost state *)
   Context {n : nat} (rs : gReifiers n).
   Context (X : ofe) `{!Cofe X}.
   Notation gReifiers_ucmra := (gReifiers_ucmra rs X).
   Notation of_state := (of_state rs X).
   Notation of_idx := (of_idx rs X).
+
   #[export] Instance of_state_ne : NonExpansive of_state.
   Proof. solve_proper. Qed.
   #[export] Instance of_state_proper : Proper ((≡) ==> (≡)) of_state.
@@ -146,8 +64,7 @@ Section ucmra.
     unfold of_state.
     rewrite gState_decomp_recomp. done.
   Qed.
-  Lemma of_state_decomp_local_update i (σ σ1 σ2 : sReifier_state (rs !!! i) ♯ X)
-    rest :
+  Lemma of_state_decomp_local_update i (σ σ1 σ2 : sReifier_state (rs !!! i) ♯ X) rest :
     (of_state (gState_recomp rest σ1), of_idx i σ2)
       ~l~> (of_state (gState_recomp rest σ), of_idx i σ).
   Proof.
@@ -184,7 +101,8 @@ End ucmra.
 
 Section weakestpre.
   Context {n : nat} (rs : gReifiers n).
-  Notation F := (gReifiers_ops rs).
+  Notation rG := (gReifiers_sReifier rs).
+  Notation F := (sReifier_ops rG).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
   Notation stateF := (gReifiers_state rs).
@@ -192,11 +110,11 @@ Section weakestpre.
   Notation stateR := (gReifiers_ucmra rs IT).
   Let of_state := (of_state rs IT).
   Let of_idx := (of_idx rs IT).
-  Notation reify := (reify rs).
-  Notation istep := (istep rs).
-  Notation isteps := (isteps rs).
-  Notation sstep := (sstep rs).
-  Notation ssteps := (ssteps rs).
+  Notation reify := (reify rG).
+  Notation istep := (istep rG).
+  Notation isteps := (isteps rG).
+  Notation sstep := (sstep rG).
+  Notation ssteps := (ssteps rG).
 
   Implicit Type op : opid F.
   Implicit Type α β : IT.
@@ -490,7 +408,8 @@ Section weakestpre.
           iExists (f α'), σ'. iApply (istep_hom with "Hsafe") . }
         iIntros (σ' β) "Hst".
         rewrite {1}istep_hom_inv. iDestruct "Hst" as "[%Ha | [_ Hst]]".
-        { destruct Ha as [αv ->]. iExFalso.
+        { destruct Ha as [αv Ha]. rewrite Ha.
+          iExFalso.
           iApply (option_equivI with "Hav"). }
         iDestruct "Hst" as (α') "[Hst Hb]".
         iIntros "Hlc".
@@ -518,44 +437,6 @@ Section weakestpre.
       iModIntro. iRewrite "Hb". by iFrame.
   Qed.
 
-  (** XXX : move to reify.v *)
-  (* this is the internal version that we need, xxx *)
-  Lemma reify_vis_eqI op i k o σ σ' :
-    (gReifiers_re rs op (i,σ) ≡ Some (o,σ') ⊢@{iProp} reify (Vis op i k) σ ≡ (σ', Tau $ k o))%I.
-  Proof.
-    apply uPred.internal_eq_entails=>m.
-    apply reify_vis_dist.
-  Qed.
-  Lemma subReifier_reify_idxI (r : sReifier)
-    `{!subReifier r rs} {X} `{!Cofe X} (op : opid (sReifier_ops r))
-    (x : Ins (sReifier_ops _ op) ♯ X)
-    (y : Outs (sReifier_ops _ op) ♯ X)
-    (s1 s2 : sReifier_state r ♯ X) :
-        sReifier_re r op (x, s1) ≡ Some (y, s2) ⊢@{iProp}
-        sReifier_re (rs !!! sR_idx) (subEff_opid op)
-          (subEff_conv_ins x, ofe_iso_1 sR_state s1) ≡
-          Some (subEff_conv_outs y, ofe_iso_1 sR_state s2).
-  Proof.
-    apply uPred.internal_eq_entails=>m.
-    apply sR_re.
-  Qed.
-
-  Lemma subReifier_reifyI (r : sReifier)
-    `{!subReifier r rs} {X} `{!Cofe X}
-    (op : opid (sReifier_ops r))
-    (x : Ins (sReifier_ops _ op) ♯ X) (y : Outs (sReifier_ops _ op) ♯ X)
-    (σ σ' : sReifier_state r ♯ X) (rest : gState_rest sR_idx rs ♯ X) :
-    sReifier_re r op (x,σ) ≡ Some (y, σ') ⊢@{iProp}
-    gReifiers_re rs (subEff_opid op)
-      (subEff_conv_ins x, gState_recomp rest (subR_conv_state σ))
-      ≡ Some (subEff_conv_outs y, gState_recomp rest (subR_conv_state σ')).
-  Proof.
-    apply uPred.internal_eq_entails=>m.
-    intros He.
-    eapply sR_re in He.
-    rewrite gReifiers_re_idx//.
-    rewrite He. simpl. reflexivity.
-  Qed.
 
   Opaque gState_recomp.
 
@@ -593,9 +474,10 @@ Section weakestpre.
       iExists β,(gState_recomp rest σ'). iRight.
       iExists op,x,k; eauto. }
     iIntros (fs' α0) "Hst Hlc". rewrite istep_vis.
-    iRewrite "Hreify" in "Hst".
-    iEval (rewrite prod_equivI; simpl) in "Hst".
-    iDestruct "Hst" as "[Hst Hb]".
+    iAssert (gState_recomp rest σ' ≡ fs' ∧ Tick β ≡ Tick α0)%I
+      with "[Hreify Hst]" as "[Hst Hb]".
+    { iRewrite "Hreify" in "Hst".
+      by rewrite prod_equivI. }
     iEval (rewrite Hfs) in "Hgst".
     iMod (state_interp_has_state_idx_update i σ' with "Hgst Hlst") as "[Hgst Hlst]".
     iModIntro. iNext. iModIntro.
@@ -629,10 +511,9 @@ Section weakestpre.
       - iApply (f_equivI with "Hreify").
       - simpl. iExact "H".
     }
-    iPoseProof (@reify_vis_eqI _ _ k with "Hgreify") as "Hreify".
+    iPoseProof (reify_vis_eqI _ _ _ k with "Hgreify") as "Hreify".
     iRewrite "Hk" in "Hreify".
-    rewrite -Tick_eq.
-    done.
+    by rewrite -Tick_eq.
   Qed.
 
   Lemma wp_reify  E1 Φ i (lop : opid (sReifier_ops (rs !!! i)))
@@ -804,7 +685,7 @@ Notation "'WP@{' re } α {{ Φ } }" := (wp re α ⊤ Φ)
 
 Lemma wp_adequacy n (rs : gReifiers n)
   α σ βv σ' k (ψ : (ITV (gReifiers_ops rs)) → Prop) :
-  ssteps rs α σ (IT_of_V βv) σ' k →
+  ssteps (gReifiers_sReifier rs) α σ (IT_of_V βv) σ' k →
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ},
       ∃ Φ, NonExpansive Φ ∧ (∀ βv, Φ βv ⊢ ⌜ψ βv⌝)
       ∧ (has_full_state σ ⊢ WP@{rs} α {{ Φ }})%I)  →
@@ -831,16 +712,16 @@ Qed.
 Lemma wp_safety n (rs : gReifiers n) k
   (α β : IT (gReifiers_ops rs)) (σ σ' : gReifiers_state rs ♯ IT (gReifiers_ops rs)) :
   (∀ Σ P Q, @disjunction_property Σ P Q) →
-  ssteps rs α σ β σ' k →
+  ssteps (gReifiers_sReifier rs) α σ β σ' k →
   IT_to_V β ≡ None →
   (∀ `{H1 : !invGS_gen HasLc Σ} `{H2: !stateG rs Σ},
       ∃ Φ, NonExpansive Φ ∧ (has_full_state σ ⊢ WP@{rs} α {{ Φ }})%I)  →
-  (∃ β1 σ1, sstep rs β σ' β1 σ1).
+  (∃ β1 σ1, sstep (gReifiers_sReifier rs) β σ' β1 σ1).
 Proof.
   Opaque istep.
   intros Hdisj Hstep Hbv Hwp.
   pose (Σ :=  #[invΣ; stateΣ rs]).
-  apply (istep_safe_sstep rs (Σ:=Σ)).
+  apply (istep_safe_sstep _ (Σ:=Σ)).
   { apply Hdisj. }
   eapply (step_fupdN_soundness_lc _ 0 (3*k+2)).
   intros Hinv. iIntros "Hlc".

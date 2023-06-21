@@ -542,15 +542,16 @@ Section interp.
   Lemma interp_expr_fill_yes_reify {S} K env (e e' : expr S)
     (σ σ' : stateO) (σr : gState_rest sR_idx rs ♯ IT) n :
     head_step e σ e' σ' (n,1) →
-    reify rs (interp_expr (fill K e) env)  (gState_recomp σr (subR_conv_state σ))
+    reify (gReifiers_sReifier rs)
+      (interp_expr (fill K e) env)  (gState_recomp σr (subR_conv_state σ))
       ≡ (gState_recomp σr (subR_conv_state σ'), Tick_n n $ interp_expr (fill K e') env).
   Proof.
     inversion 1; simplify_eq.
-    trans (reify rs (interp_ectx K env (interp_expr Input env))
+    trans (reify (gReifiers_sReifier rs) (interp_ectx K env (interp_expr Input env))
              (gState_recomp σr (subR_conv_state σ))).
     { f_equiv. by rewrite interp_ectx_fill. }
     simpl.
-    trans (reify rs (INPUT (interp_ectx K env ◎ Nat)) (gState_recomp σr (subR_conv_state σ))).
+    trans (reify (gReifiers_sReifier rs) (INPUT (interp_ectx K env ◎ Nat)) (gState_recomp σr (subR_conv_state σ))).
     { f_equiv; eauto.
       by rewrite interp_ectx_INPUT. }
     rewrite reify_vis_eq //; last first.
@@ -564,7 +565,8 @@ Section interp.
 
   Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m env :
     prim_step e1 σ1 e2 σ2 (n,m) →
-    ssteps rs (interp_expr e1 env) (gState_recomp σr (subR_conv_state σ1))
+    ssteps (gReifiers_sReifier rs)
+              (interp_expr e1 env) (gState_recomp σr (subR_conv_state σ1))
               (interp_expr e2 env) (gState_recomp σr (subR_conv_state σ2)) n.
   Proof.
     Opaque gState_decomp gState_recomp.

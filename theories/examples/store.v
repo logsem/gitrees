@@ -174,7 +174,7 @@ Section wp.
   Lemma wp_read (l : loc) (α : IT) Φ :
     heap_ctx -∗
     ▷ pointsto l α -∗
-    ▷▷ (pointsto l α -∗ WP@{rs} α {{ Φ }}) -∗
+    ▷ ▷ (pointsto l α -∗ WP@{rs} α {{ Φ }}) -∗
     WP@{rs} (READ l) {{ Φ }}.
   Proof.
     iIntros "#Hcxt Hp Ha".

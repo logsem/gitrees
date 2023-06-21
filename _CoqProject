@@ -12,6 +12,7 @@ theories/pcf/untyped/logrel.v
 theories/gitree/core.v
 theories/gitree/lambda.v
 theories/gitree/reify.v
+theories/gitree/greifiers.v
 theories/gitree/reductions.v
 theories/gitree/weakestpre.v
 theories/gitree.v
