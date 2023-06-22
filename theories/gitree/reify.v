@@ -67,9 +67,9 @@ Section reifiers.
   Solve All Obligations with solve_proper.
 
   Program Definition unr : stateM -n>
-    sumO (sumO (sumO (sumO natO errorO) (laterO (stateM -n> stateM))) (laterO stateM))
+    sumO (sumO (sumO (sumO natO (laterO (stateM -n> stateM))) errorO) (laterO stateM))
       (sigTO (λ op : opid F, prodO (oFunctor_apply (Ins (F op)) stateM) (oFunctor_apply (Outs (F op)) stateM -n> laterO stateM))).
-  Proof. simple refine (λne d, inl (inl (inl (inr (RuntimeErr))))). Qed.
+  Proof. simple refine (λne d, inl (inl (inr (RuntimeErr)))). Qed.
 
   Definition reify : IT -n> stateM
     := IT_rec1 _

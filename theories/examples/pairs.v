@@ -1,6 +1,4 @@
 (** Encoding of pairs *)
-(* From Equations Require Import Equations. *)
-(* From iris.proofmode Require Import classes tactics. *)
 From gitrees Require Import prelude.
 From gitrees.gitree Require Import core lambda.
 

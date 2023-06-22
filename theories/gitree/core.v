@@ -88,8 +88,8 @@ Canonical Structure errorO := leibnizO error.
 Module IT_pre.
 Definition ITOF (Σ : opsInterp) : oFunctor :=
   ( natO   (* basic values *)
-  + errorO  (* explicit error state *)
   + ▶ (∙ -n> ∙) (* function space *)
+  + errorO  (* explicit error state *)
   + ▶ ∙  (* silent step *)
   + { op : opid Σ & (Ins (Σ op)) * ((Outs (Σ op)) -n> ▶ ∙ ) }
   ).
@@ -119,16 +119,16 @@ Module Export ITF_solution.
 
 
   Definition IT_unfold {Σ} :
-    IT Σ -n> sumO (sumO (sumO (sumO natO errorO)
-                                         (laterO (IT Σ -n> IT Σ)))
+    IT Σ -n> sumO (sumO (sumO (sumO natO (laterO (IT Σ -n> IT Σ)))
+                                         errorO)
                                           (laterO (IT Σ)))
                 (sigTO (λ op : opid Σ, prodO (Ins (Σ op) ♯ (IT Σ))
                                              ((Outs (Σ op) ♯ (IT Σ)) -n> laterO (IT Σ))))
     := ofe_iso_2 (IT_result Σ).
 
   Definition IT_fold {Σ} :
-    sumO (sumO (sumO (sumO natO errorO)
-                                         (laterO (IT Σ -n> IT Σ)))
+    sumO (sumO (sumO (sumO natO (laterO (IT Σ -n> IT Σ)))
+                                         errorO)
                                           (laterO (IT Σ)))
                 (sigTO (λ op : opid Σ, prodO (Ins (Σ op) ♯ (IT Σ))
                                              ((Outs (Σ op) ♯ (IT Σ)) -n> laterO (IT Σ))))
@@ -149,25 +149,22 @@ Section smart.
 
   Definition Nat : natO -n> IT.
   Proof.
-    refine (IT_fold ◎ _).
-    refine (inlO ◎ inlO ◎ inlO ◎ inlO).
+    refine (IT_fold ◎ inlO ◎ inlO ◎ inlO ◎ inlO).
   Defined.
 
   Definition Err : errorO -n> IT.
   Proof.
-    refine (IT_fold ◎ inlO ◎ inlO ◎ inlO ◎ inrO).
+    refine (IT_fold ◎ inlO ◎ inlO ◎ inrO).
   Defined.
 
   Definition Tau : laterO IT -n> IT.
   Proof.
-    refine (IT_fold ◎ _).
-    refine (inlO ◎ inrO).
+    refine (IT_fold ◎ inlO ◎ inrO).
   Defined.
 
   Definition Fun : laterO (IT -n> IT) -n> IT.
   Proof.
-    refine (IT_fold ◎ _).
-    refine (inlO ◎ inlO ◎ inrO).
+    refine (IT_fold ◎ inlO ◎ inlO ◎ inlO ◎ inrO).
   Defined.
 
   Definition Vis (op : opid E) (ins : oFunctor_apply (Ins (E op)) IT)
@@ -233,10 +230,7 @@ Section smart.
       iAssert (internal_eq (IT_unfold (Nat k)) (IT_unfold (Nat m))) with "[H]" as "H".
       { iRewrite "H". done. }
       rewrite !IT_unfold_fold. simpl.
-      iPoseProof (sum_equivI with "H") as "H".
-      iPoseProof (sum_equivI with "H") as "H".
-      iPoseProof (sum_equivI with "H") as "H".
-      iPoseProof (sum_equivI with "H") as "H".
+      repeat iPoseProof (sum_equivI with "H") as "H".
       done.
   Qed.
   Lemma Fun_inj' (f g : laterO (IT -n> IT)) {PROP : bi} `{!BiInternalEq PROP} :
@@ -248,9 +242,7 @@ Section smart.
       iAssert (internal_eq (IT_unfold (Fun f)) (IT_unfold (Fun g))) with "[H]" as "H".
       { iRewrite "H". done. }
       rewrite !IT_unfold_fold. simpl.
-      iPoseProof (sum_equivI with "H") as "H".
-      iPoseProof (sum_equivI with "H") as "H".
-      iPoseProof (sum_equivI with "H") as "H".
+      repeat iPoseProof (sum_equivI with "H") as "H".
       done.
   Qed.
 
@@ -341,9 +333,7 @@ Section smart.
     iAssert (IT_unfold (Nat k) ≡ IT_unfold (Fun f))%I with "[H1]" as "H2".
     { by iRewrite "H1". }
     rewrite !IT_unfold_fold. simpl.
-    iPoseProof (sum_equivI with "H2") as "H2".
-    iPoseProof (sum_equivI with "H2") as "H2".
-    by iPoseProof (sum_equivI with "H2") as "H2".
+    by repeat iPoseProof (sum_equivI with "H2") as "H2".
   Qed.
   Lemma IT_tau_err_ne α e {PROP : bi} `{!BiInternalEq PROP} :
     (Tau α ≡ Err e ⊢ False : PROP)%I.
@@ -352,9 +342,7 @@ Section smart.
     iAssert (IT_unfold (Tau α) ≡ IT_unfold (Err e))%I with "[H1]" as "H2".
     { by iRewrite "H1". }
     rewrite !IT_unfold_fold /=.
-    iPoseProof (sum_equivI with "H2") as "H2".
-    iPoseProof (sum_equivI with "H2") as "H2".
-    done.
+    by repeat iPoseProof (sum_equivI with "H2") as "H2".
   Qed.
   Lemma IT_vis_err_ne op i k e {PROP : bi} `{!BiInternalEq PROP} :
     (Vis op i k ≡ Err e ⊢ False : PROP)%I.
@@ -363,8 +351,7 @@ Section smart.
     iAssert (IT_unfold (Vis op i k) ≡ IT_unfold (Err e))%I with "[H1]" as "H2".
     { by iRewrite "H1". }
     rewrite !IT_unfold_fold /=.
-    iPoseProof (sum_equivI with "H2") as "H2".
-    done.
+    by iPoseProof (sum_equivI with "H2") as "H2".
   Qed.
 
 End smart.
@@ -387,8 +374,8 @@ Section IT_rec.
                                            P).
 
   Variable (Punfold :
-           P -n> sumO (sumO (sumO (sumO natO errorO)
-                          (laterO (P -n> P)))
+           P -n> sumO (sumO (sumO (sumO natO (laterO (P -n> P)))
+                          errorO)
                           (laterO P))
                     (sigTO (λ op : opid E, prodO (oFunctor_apply (Ins (E op)) P) ((oFunctor_apply (Outs (E op)) P) -n> laterO P))%type)).
 
@@ -451,10 +438,10 @@ Section IT_rec.
     { refine (_ ◎ IT_unfold).
       repeat refine (sumO_rec _ _).
       - simple refine (λne n, Pnat n).
-      - simple refine (λne e, Perr e).
       - simple refine (Parr ◎ laterO_map _).
         simple refine (λne f, sumO_rec (prod_in idfun self1 ◎ f) (prod_in idfun self1 ◎ f ◎ self2)).
         repeat intro. repeat f_equiv; eauto.
+      - simple refine (λne e, Perr e).
       - simple refine (Ptau ◎ laterO_map _).
         simple refine (λne x, (x, self1 x)).
         solve_proper.
@@ -462,10 +449,10 @@ Section IT_rec.
     { refine (_ ◎ Punfold).
       repeat refine (sumO_rec _ _).
       - refine (OfeMor Nat).
-      - refine (λne e, Err e).
       - simple refine (Fun ◎ laterO_map _).
         simple refine (λne f, self2 ◎ f ◎ self1).
         repeat intro. repeat f_equiv; eauto.
+      - refine (λne e, Err e).
       - refine (Tau ◎ laterO_map self2).
       - refine (ITvis_rec self).
     }
@@ -779,10 +766,10 @@ Section ticks.
     remember (IT_unfold α) as ua.
     assert (IT_fold ua ≡ α) as Hfold.
     { rewrite Hequa. apply IT_fold_unfold. }
-    destruct ua as [ [ [ [ n | e ] | f ] | la ] | [op [i k] ]].
+    destruct ua as [ [ [ [ n | f ] | e ] | la ] | [op [i k] ]].
     - right. left. exists n. done.
-    - left. exists e. done.
     - right. right. left. exists f. done.
+    - left. exists e. done.
     - right. right. right. left.
       destruct (Next_uninj la) as [β Hb].
       exists β. rewrite -Hfold Hb. done.
@@ -800,10 +787,10 @@ Section ticks.
     remember (IT_unfold α) as ua.
     assert (IT_fold ua ≡ α) as Hfold.
     { rewrite Hequa. apply IT_fold_unfold. }
-    destruct ua as [ [ [ [ n | e ] | f ] | la ] | [op [i k] ]].
+    destruct ua as [ [ [ [ n | f ] | e ] | la ] | [op [i k] ]].
     - iRight. iLeft. iExists n. done.
-    - iLeft. iExists e. done.
     - iRight. iRight. iLeft. iExists f. done.
+    - iLeft. iExists e. done.
     - iRight. iRight. iRight. iLeft.
       destruct (Next_uninj la) as [β Hb].
       iExists β. rewrite -Hfold Hb. done.
@@ -961,7 +948,7 @@ Section ITV.
                (λ _, None2)
                _.
   Next Obligation.
-    simple refine (inlO ◎ inlO ◎ inlO ◎ inrO ◎ _).
+    simple refine (inlO ◎ inlO ◎ inrO ◎ _).
     simple refine (λne _, RuntimeErr).
   Qed.
 
