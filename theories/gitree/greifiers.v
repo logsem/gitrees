@@ -84,7 +84,7 @@ Section greifiers.
     - simple refine (λne xr, let sr := ofe_iso_1 IHrs (xr.2) in
                              (sr.1,(xr.1,sr.2))).
       solve_proper.
-    - simple refine (λne sxr, let r' := ofe_iso_2 IHrs (sxr.1,sxr.2.2) in
+    - simple refine (λne sxr, let r' := IHrs^-1 (sxr.1,sxr.2.2) in
                               (sxr.2.1, r')).
       solve_proper.
     - intros (s & x & rest). simpl. repeat f_equiv; rewrite ofe_iso_12//.
@@ -93,10 +93,10 @@ Section greifiers.
   Defined.
   Definition gState_decomp {m} (i : fin m) {rs : gReifiers m} {X} `{!Cofe X} :
     (gReifiers_state rs ♯ X) -n> ((sReifier_state (rs !!! i) ♯ X) * (gState_rest i rs ♯ X))%type
-    := ofe_iso_1 (gState_decomp' i rs).
+    := gState_decomp' i rs.
   Program Definition gState_recomp {m} {i : fin m} {rs : gReifiers m} {X} `{!Cofe X} :
     (gState_rest i rs ♯ X) -n> (sReifier_state (rs !!! i) ♯ X) -n> (gReifiers_state rs ♯ X)
-    := λne rest st, ofe_iso_2 (gState_decomp' i rs) (st, rest).
+    := λne rest st, (gState_decomp' i rs)^-1 (st, rest).
   Solve All Obligations with solve_proper_please.
 
   Lemma gState_decomp_recomp {m} (i : fin m) {rs : gReifiers m} {X} `{!Cofe X}
@@ -158,19 +158,20 @@ Section greifiers.
       sR_ops :: subEff (sReifier_ops r) (sReifier_ops (rs !!! sR_idx));
       sR_state  {X} `{!Cofe X} :
         sReifier_state r ♯ X ≃ sReifier_state (rs !!! sR_idx) ♯ X;
-      sR_re m {X} `{!Cofe X} (op : opid (sReifier_ops r))
+      sR_re (m : nat) {X} `{!Cofe X} (op : opid (sReifier_ops r))
         (x : Ins (sReifier_ops _ op) ♯ X)
         (y : Outs (sReifier_ops _ op) ♯ X)
         (s1 s2 : sReifier_state r ♯ X) :
         sReifier_re r op (x, s1) ≡{m}≡ Some (y, s2) →
         sReifier_re (rs !!! sR_idx) (subEff_opid op)
-          (subEff_conv_ins x, ofe_iso_1 sR_state s1) ≡{m}≡
-          Some (subEff_conv_outs y, ofe_iso_1 sR_state s2) }.
+          (subEff_ins x, sR_state s1) ≡{m}≡
+          Some (subEff_outs y, sR_state s2) }.
 
   #[global] Instance subReifier_here {n} (r : sReifier) (rs : gReifiers n) :
     subReifier r (gReifiers_cons r rs).
   Proof.
     simple refine ({| sR_idx := 0%fin |}).
+    - simpl. apply subEff_id.
     - simpl. intros. apply iso_ofe_refl.
     - intros X ? op x y s1 s2.
       simpl. eauto.
@@ -193,10 +194,6 @@ Section greifiers.
     simpl.
     refine (existT sR_idx (subEff_opid op)).
   Defined.
-  Definition subR_conv_state {n} {r : sReifier} {rs : gReifiers n} `{!subReifier r rs}
-    {X} `{!Cofe X}:
-    (sReifier_state r ♯ X) -n> (sReifier_state (rs !!! sR_idx) ♯ X) :=
-    ofe_iso_1 sR_state.
   #[export] Instance subReifier_subEff {n} {r : sReifier} {rs : gReifiers n} `{!subReifier r rs} :
     subEff (sReifier_ops r) (gReifiers_ops rs).
   Proof.
@@ -214,8 +211,8 @@ Section greifiers.
     (s1 s2 : sReifier_state r ♯ X) :
         sReifier_re r op (x, s1) ≡ Some (y, s2) →
         sReifier_re (rs !!! sR_idx) (subEff_opid op)
-          (subEff_conv_ins x, ofe_iso_1 sR_state s1) ≡
-          Some (subEff_conv_outs y, ofe_iso_1 sR_state s2).
+          (subEff_ins x, sR_state s1) ≡
+          Some (subEff_outs y, sR_state s2).
   Proof.
     intros Hx. apply equiv_dist=>m.
     apply sR_re. by apply equiv_dist.
@@ -228,8 +225,8 @@ Section greifiers.
     (σ σ' : sReifier_state r ♯ X) (rest : gState_rest sR_idx rs ♯ X) :
     sReifier_re r op (x,σ) ≡ Some (y, σ') →
     gReifiers_re rs (subEff_opid op)
-      (subEff_conv_ins x, gState_recomp rest (subR_conv_state σ))
-      ≡ Some (subEff_conv_outs y, gState_recomp rest (subR_conv_state σ')).
+      (subEff_ins x, gState_recomp rest (sR_state σ))
+      ≡ Some (subEff_outs y, gState_recomp rest (sR_state σ')).
   Proof.
     intros Hre.
     eapply subReifier_reify_idx in Hre.
@@ -257,8 +254,8 @@ Section greifiers.
     (s1 s2 : sReifier_state r ♯ X) :
         sReifier_re r op (x, s1) ≡ Some (y, s2) ⊢@{iProp}
         sReifier_re (rs !!! sR_idx) (subEff_opid op)
-          (subEff_conv_ins x, ofe_iso_1 sR_state s1) ≡
-          Some (subEff_conv_outs y, ofe_iso_1 sR_state s2).
+          (subEff_ins x, sR_state s1) ≡
+          Some (subEff_outs y, sR_state s2).
   Proof.
     apply uPred.internal_eq_entails=>m.
     apply sR_re.
@@ -271,8 +268,8 @@ Section greifiers.
     (σ σ' : sReifier_state r ♯ X) (rest : gState_rest sR_idx rs ♯ X) :
     sReifier_re r op (x,σ) ≡ Some (y, σ') ⊢@{iProp}
     gReifiers_re rs (subEff_opid op)
-      (subEff_conv_ins x, gState_recomp rest (subR_conv_state σ))
-      ≡ Some (subEff_conv_outs y, gState_recomp rest (subR_conv_state σ')).
+      (subEff_ins x, gState_recomp rest (sR_state σ))
+      ≡ Some (subEff_outs y, gState_recomp rest (sR_state σ')).
   Proof.
     apply uPred.internal_eq_entails=>m.
     intros He.

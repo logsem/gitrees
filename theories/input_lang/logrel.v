@@ -413,7 +413,7 @@ Proof.
   iAssert (has_substate σ) with "[Hs]" as "Hs".
   { unfold has_substate, has_full_state.
     assert (of_state rs (IT (gReifiers_ops rs)) (σ, ()) ≡
-            of_idx rs (IT (gReifiers_ops rs)) sR_idx (subR_conv_state σ)) as ->; last done.
+            of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state σ)) as ->; last done.
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.

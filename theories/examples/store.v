@@ -88,19 +88,19 @@ Section constructors.
 
   Program Definition ALLOC : IT -n> (locO -n> IT) -n> IT :=
     (λne n k, Vis (E:=E) (subEff_opid $ inr (inr (inl ())))
-      (subEff_conv_ins (F:=storeE) (op:=inr (inr (inl ()))) (Next n))
-      (NextO ◎ k ◎ subEff_conv_outs2 (F:=storeE) (op:=inr (inr (inl ()))))).
+      (subEff_ins (F:=storeE) (op:=inr (inr (inl ()))) (Next n))
+      (NextO ◎ k ◎ (subEff_outs (F:=storeE) (op:=inr (inr (inl ()))))^-1)).
   Solve Obligations with solve_proper.
 
   Definition READ : locO -n> IT :=
     λne l, Vis (E:=E) (subEff_opid $ inl ())
-                (subEff_conv_ins (F:=storeE) (op:=(inl ())) l)
-                (subEff_conv_outs2 (F:=storeE) (op:=(inl ()))).
+                (subEff_ins (F:=storeE) (op:=(inl ())) l)
+                ((subEff_outs (F:=storeE) (op:=(inl ())))^-1).
 
 
   Program Definition WRITE : locO -n> IT -n> IT :=
     λne l a, Vis (E:=E) (subEff_opid $ inr (inl ()))
-                (subEff_conv_ins (F:=storeE) (op:=(inr $ inl ())) (l,(Next a)))
+                (subEff_ins (F:=storeE) (op:=(inr $ inl ())) (l,(Next a)))
                 (λne _, Next (Nat 0)).
   Solve Obligations with solve_proper.
 
@@ -253,7 +253,9 @@ Section wp.
     simpl. change (Loc.fresh (dom σ)) with l.
     iSplit; first done.
     iSplit.
-    { rewrite ofe_iso_21. done. }
+    { simpl.
+      Set Printing Implicit.
+      rewrite ofe_iso_21. done. }
     iNext. iIntros "Hlc Hs".
     iMod (istate_alloc α l with "Hh") as "[Hh Hl]".
     { apply (not_elem_of_dom_1 (M:=gmap loc)).

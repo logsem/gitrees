@@ -51,37 +51,31 @@ Notation "@[ Σ1 ; .. ; Σn ]" :=
 
 Class subEff (F E : opsInterp) := {
     subEff_opid : opid F → opid E;
-    subEff_ins (op: opid F) {X} `{Cofe X} :
+    subEff_ins {op: opid F} {X} `{Cofe X} :
       Ins (F op) ♯ X ≃ Ins (E (subEff_opid op)) ♯ X;
-    subEff_outs (op: opid F) {X} `{Cofe X} :
+    subEff_outs {op: opid F} {X} `{Cofe X} :
       Outs (F op) ♯ X ≃ Outs (E (subEff_opid op)) ♯ X;
   }.
-Definition subEff_conv_ins {F E : opsInterp} {op} `{!subEff F E} {X} `{!Cofe X} :
-  (Ins (F op) ♯ X) -n> (Ins (E (subEff_opid op)) ♯ X) := ofe_iso_1 (subEff_ins op).
-Definition subEff_conv_outs {F E : opsInterp} {op} `{!subEff F E} {X} `{!Cofe X} :
-  (Outs (F op) ♯ X) -n> (Outs (E (subEff_opid op)) ♯ X) := ofe_iso_1 (subEff_outs op).
-Definition subEff_conv_outs2 {F E : opsInterp} {op} `{!subEff F E} {X} `{!Cofe X} :
-  (Outs (E (subEff_opid op)) ♯ X) -n> (Outs (F op) ♯ X) := ofe_iso_2 (subEff_outs op).
-#[export] Instance subEff_id F : subEff F F :=
+Definition subEff_id F : subEff F F :=
   {| subEff_opid := id;
     subEff_ins op X _ := iso_ofe_refl;
     subEff_outs op X _ := iso_ofe_refl;
   |}.
-#[export] Instance subEff_app_l F E1 E2 `{!subEff F E1} : subEff F (opsInterp.app E1 E2).
+Definition subEff_app_l F E1 E2 `{!subEff F E1} : subEff F (opsInterp.app E1 E2).
 Proof.
   simple refine
            {| subEff_opid (op : opid F) :=
                inl (subEff_opid op) : opid (opsInterp.app E1 E2) |}.
-  - simpl. apply subEff_ins.
-  - simpl. apply subEff_outs.
+  - simpl. intros. apply subEff_ins.
+  - simpl. intros. apply subEff_outs.
 Defined.
-#[export] Instance subEff_app_r F E1 E2 `{!subEff F E2} : subEff F (opsInterp.app E1 E2).
+Definition subEff_app_r F E1 E2 `{!subEff F E2} : subEff F (opsInterp.app E1 E2).
 Proof.
   simple refine
            {| subEff_opid (op : opid F) :=
                inr (subEff_opid op) : opid (opsInterp.app E1 E2) |}.
-  - simpl. apply subEff_ins.
-  - simpl. apply subEff_outs.
+  - simpl. intros. apply subEff_ins.
+  - simpl. intros. apply subEff_outs.
 Defined.
 
 Inductive error :=

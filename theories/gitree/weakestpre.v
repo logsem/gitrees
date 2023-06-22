@@ -139,7 +139,7 @@ Section weakestpre.
     (own stateG_name (◯ (of_idx i σ)))%I.
   Definition has_substate {sR : sReifier} `{!stateG Σ} `{!subReifier sR rs}
     (σ : sReifier_state sR ♯ IT) : iProp Σ :=
-    (own stateG_name (◯ (of_idx sR_idx (subR_conv_state σ))))%I.
+    (own stateG_name (◯ (of_idx sR_idx (sR_state σ))))%I.
 
   #[export] Instance state_interp_ne `{!stateG Σ} : NonExpansive state_interp.
   Proof. solve_proper. Qed.
@@ -540,15 +540,15 @@ Section weakestpre.
     (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT) :
     (|={E1,E2}=> ∃ σ y σ' β, has_substate σ ∗
                   sReifier_re sR op (x, σ) ≡ Some (y, σ') ∗
-                  k (subEff_conv_outs y)  ≡ Next β ∗
+                  k (subEff_outs y)  ≡ Next β ∗
          ▷ (£ 1 -∗ has_substate σ' ={E2,E1}=∗ WP β @ E1 {{ Φ }}))
-    -∗ WP (Vis (subEff_opid op) (subEff_conv_ins x) k) @ E1 {{ Φ }}.
+    -∗ WP (Vis (subEff_opid op) (subEff_ins x) k) @ E1 {{ Φ }}.
   Proof.
     iIntros "H".
     iApply wp_reify_idx'.
     iMod "H" as (σ y σ' β) "[Hlst [Hreify [Hk H]]]".
     iModIntro.
-    iExists (subR_conv_state σ),(subEff_conv_outs y), (subR_conv_state σ'), β.
+    iExists (sR_state σ),(subEff_outs y), (sR_state σ'), β.
     iFrame "Hlst H Hk".
     by iApply subReifier_reify_idxI.
   Qed.
@@ -558,10 +558,10 @@ Section weakestpre.
     (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT)
     (σ σ' : sReifier_state sR ♯ IT) β :
     sReifier_re sR op (x, σ) ≡ Some (y, σ') →
-    k (subEff_conv_outs y)  ≡ Next β →
+    k (subEff_outs y)  ≡ Next β →
     has_substate σ -∗
     ▷ (£ 1 -∗ has_substate σ' -∗ WP β @ E1 {{ Φ }})
-    -∗ WP (Vis (subEff_opid op) (subEff_conv_ins x) k) @ E1 {{ Φ }}.
+    -∗ WP (Vis (subEff_opid op) (subEff_ins x) k) @ E1 {{ Φ }}.
   Proof.
     intros HSR Hk.
     iIntros "Hlst H".

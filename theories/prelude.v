@@ -29,7 +29,12 @@ Qed.
 
 (** OFEs stuff *)
 Notation "F ♯ E" := (oFunctor_apply F E) (at level 20, right associativity).
+
 Infix "≃" := (ofe_iso) (at level 50).
+
+Definition ofe_iso_1' {A B : ofe} (p : A ≃ B) : A → B := ofe_iso_1 p.
+Coercion ofe_iso_1' : ofe_iso >-> Funclass.
+Notation "f ^-1" := (ofe_iso_2 f) (at level 20) : function_scope.
 
 #[export] Instance optionO_map_proper (A B : ofe) :
   Proper ((≡) ==> (≡)) (@optionO_map A B).
