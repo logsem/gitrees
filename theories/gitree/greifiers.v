@@ -71,8 +71,8 @@ Section greifiers.
     end.
 
   Lemma gState_decomp' {m} (i : fin m) (rs : gReifiers m) {X} `{!Cofe X} :
-    ofe_iso (gReifiers_state rs ♯ X)
-            ((sReifier_state (rs !!! i) ♯ X) * (gState_rest i rs ♯ X))%type.
+    gReifiers_state rs ♯ X ≃
+       ((sReifier_state (rs !!! i) ♯ X) * (gState_rest i rs ♯ X))%type.
   Proof.
     revert i. induction rs as [|n r rs]=>i.
     { inversion i. }
@@ -157,7 +157,7 @@ Section greifiers.
     { sR_idx : fin n;
       sR_ops :: subEff (sReifier_ops r) (sReifier_ops (rs !!! sR_idx));
       sR_state  {X} `{!Cofe X} :
-        ofe_iso (sReifier_state r ♯ X) (sReifier_state (rs !!! sR_idx) ♯ X);
+        sReifier_state r ♯ X ≃ sReifier_state (rs !!! sR_idx) ♯ X;
       sR_re m {X} `{!Cofe X} (op : opid (sReifier_ops r))
         (x : Ins (sReifier_ops _ op) ♯ X)
         (y : Outs (sReifier_ops _ op) ♯ X)

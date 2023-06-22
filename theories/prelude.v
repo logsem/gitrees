@@ -29,6 +29,7 @@ Qed.
 
 (** OFEs stuff *)
 Notation "F ♯ E" := (oFunctor_apply F E) (at level 20, right associativity).
+Infix "≃" := (ofe_iso) (at level 50).
 
 #[export] Instance optionO_map_proper (A B : ofe) :
   Proper ((≡) ==> (≡)) (@optionO_map A B).

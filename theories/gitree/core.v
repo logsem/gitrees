@@ -6,6 +6,8 @@ From gitrees Require Import prelude.
 
 (*XXX*) Opaque laterO_map.
 
+Local Open Scope type.
+
 
 (** * Parametrized interpretations for operations *)
 
@@ -15,8 +17,8 @@ Structure opInterp := OpInterp {
   Outs : oFunctor;
   opInterp_ins_contractive : oFunctorContractive Ins;
   opInterp_outs_contractive : oFunctorContractive Outs;
-  opInterp_ins_cofe T {H:Cofe T} : Cofe (oFunctor_apply Ins T);
-  opInterp_outs_cofe T {H:Cofe T} : Cofe (oFunctor_apply Outs T);
+  opInterp_ins_cofe T {H:Cofe T} : Cofe (Ins ♯ T);
+  opInterp_outs_cofe T {H:Cofe T} : Cofe (Outs ♯ T);
 }.
 
 Global Arguments OpInterp _ _ {_ _ _ _}.
@@ -50,9 +52,9 @@ Notation "@[ Σ1 ; .. ; Σn ]" :=
 Class subEff (F E : opsInterp) := {
     subEff_opid : opid F → opid E;
     subEff_ins (op: opid F) {X} `{Cofe X} :
-      ofe_iso (Ins (F op) ♯ X) (Ins (E (subEff_opid op)) ♯ X);
+      Ins (F op) ♯ X ≃ Ins (E (subEff_opid op)) ♯ X;
     subEff_outs (op: opid F) {X} `{Cofe X} :
-      ofe_iso (Outs (F op) ♯ X) (Outs (E (subEff_opid op)) ♯ X);
+      Outs (F op) ♯ X ≃ Outs (E (subEff_opid op)) ♯ X;
   }.
 Definition subEff_conv_ins {F E : opsInterp} {op} `{!subEff F E} {X} `{!Cofe X} :
   (Ins (F op) ♯ X) -n> (Ins (E (subEff_opid op)) ♯ X) := ofe_iso_1 (subEff_ins op).
@@ -104,7 +106,7 @@ Proof. apply _. Qed.
 #[export] Instance ITOF_inhabited Σ : Inhabited (oFunctor_apply (ITOF Σ) unitO).
 Proof.
   refine (populate _).
-  refine (inl (inr _)). refine (Next ()).
+  refine (inl (inr _)). refine (Next tt).
 Defined.
 
 #[export]  Instance ITOF_cofe Σ T `{!Cofe T}:
@@ -126,16 +128,16 @@ Module Export ITF_solution.
     IT Σ -n> sumO (sumO (sumO (sumO natO errorO)
                                          (laterO (IT Σ -n> IT Σ)))
                                           (laterO (IT Σ)))
-                (sigTO (λ op : opid Σ, prodO (oFunctor_apply (Ins (Σ op)) (IT Σ))
-                                             ((oFunctor_apply (Outs (Σ op)) (IT Σ)) -n> laterO (IT Σ))))
+                (sigTO (λ op : opid Σ, prodO (Ins (Σ op) ♯ (IT Σ))
+                                             ((Outs (Σ op) ♯ (IT Σ)) -n> laterO (IT Σ))))
     := ofe_iso_2 (IT_result Σ).
 
   Definition IT_fold {Σ} :
     sumO (sumO (sumO (sumO natO errorO)
                                          (laterO (IT Σ -n> IT Σ)))
                                           (laterO (IT Σ)))
-                (sigTO (λ op : opid Σ, prodO (oFunctor_apply (Ins (Σ op)) (IT Σ))
-                                             ((oFunctor_apply (Outs (Σ op)) (IT Σ)) -n> laterO (IT Σ))))
+                (sigTO (λ op : opid Σ, prodO (Ins (Σ op) ♯ (IT Σ))
+                                             ((Outs (Σ op) ♯ (IT Σ)) -n> laterO (IT Σ))))
          -n> IT Σ
     := ofe_iso_1 (IT_result Σ).
 
@@ -144,6 +146,7 @@ Module Export ITF_solution.
   Lemma IT_unfold_fold {Σ : opsInterp} T' : IT_unfold (Σ:=Σ) (IT_fold T') ≡ T'.
   Proof. apply ofe_iso_21. Qed.
 End ITF_solution.
+
 
 (** * Smart constructors *)
 Section smart.
