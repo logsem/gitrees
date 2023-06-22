@@ -362,3 +362,6 @@ Section wp.
   Qed.
 
 End wp.
+
+Arguments heap_ctx {_ _ _ _ _ _ _}.
+Arguments pointsto {_ _ _ _} _ _.

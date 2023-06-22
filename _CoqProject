@@ -23,3 +23,5 @@ theories/input_lang/logrel.v
 
 theories/examples/store.v
 theories/examples/pairs.v
+theories/examples/while.v
+theories/examples/factorial.v

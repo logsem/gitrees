@@ -46,6 +46,8 @@ Section lambda.
       get_val (constO β) α.
   Solve Obligations with solve_proper_please.
 
+  Program Definition LET : IT -n> (IT -n> IT) -n> IT := λne x f, get_val f x.
+  Solve Obligations with solve_proper.
 
   Lemma APP_Nat x y : APP (Nat x) y ≡ Err RuntimeErr.
   Proof. simpl. by rewrite get_fun_nat. Qed.
@@ -210,9 +212,9 @@ Section lambda.
   Qed.
 
   Lemma SEQ_Val α β `{!AsVal α} : SEQ α β ≡ β.
-  Proof.
-    unfold SEQ. simpl. rewrite get_val_ITV//.
-  Qed.
+  Proof. unfold SEQ. simpl. rewrite get_val_ITV//. Qed.
+  Lemma LET_Val α f `{!AsVal α} : LET α f ≡ f α.
+  Proof. unfold LET. simpl. rewrite get_val_ITV//. Qed.
 
   Global Instance IF_Proper : Proper ((≡) ==> (≡)) IF.
   Proof. apply ne_proper. apply _. Qed.
@@ -230,6 +232,7 @@ Section lambda.
   Definition NatOpRSCtx f (β α : IT) := NATOP f β α.
   Definition IFSCtx (β1 β2 α : IT) := IF α β1 β2.
   Definition SEQCtx (β2 α : IT) := SEQ α β2.
+  Definition LETCTX f : IT -n> IT := λne x, LET x f.
 
   #[export] Instance AppLSCtx_hom (β : IT) : AsVal β → IT_hom (AppLSCtx β) | 0.
   Proof.
@@ -299,10 +302,15 @@ Section lambda.
     unfold SEQCtx. unfold SEQ.
     simpl. apply _.
   Qed.
+  #[export] Instance LETCTX_Hom f : IT_hom (LETCTX f).
+  Proof.
+    unfold LETCTX, LET.
+    simpl. apply get_val_hom.
+  Qed.
 
 End lambda.
 
-#[global] Opaque APP APP' IF NATOP SEQ.
+#[global] Opaque APP APP' IF NATOP SEQ LET.
 
 Notation "'λit' x .. y , P" := (Fun (Next (λne x, .. (Fun (Next (λne y, P))) .. )))
   (at level 200, x binder, y binder, right associativity,
