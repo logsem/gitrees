@@ -365,3 +365,4 @@ End wp.
 
 Arguments heap_ctx {_ _ _ _ _ _ _}.
 Arguments pointsto {_ _ _ _} _ _.
+#[global]  Opaque ALLOC READ WRITE.

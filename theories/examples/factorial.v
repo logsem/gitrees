@@ -30,7 +30,6 @@ Section fact.
   Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ}.
   Notation iProp := (iProp Σ).
 
-  (* XXX : why do we need reifiers for this? *)
   Definition fact_fun : IT := interp_expr rs fact_expr ().
 
   Lemma wp_seq α β Φ `{!NonExpansive Φ} :
@@ -52,7 +51,6 @@ Section fact.
     by rewrite LET_Val.
   Qed.
 
-  Opaque ALLOC READ WRITE.
   Program Definition fact_imp_body (n : nat) (acc ℓ : loc) : IT :=
     WHILE (READ ℓ) $
          LET (READ ℓ) $ λne i,

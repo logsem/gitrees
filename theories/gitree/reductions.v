@@ -22,7 +22,7 @@ Section sstep.
     sstep α σ β σ'
   | sstep_reify α op i k β σ1 σ2 :
     α ≡ Vis op i k →
-    reify r (Vis op i k) σ1 ≡ (σ2, Tick β) →
+    reify r α σ1 ≡ (σ2, Tick β) →
     sstep α σ1 β σ2.
   #[export] Instance sstep_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (iff)) sstep.
   Proof.
@@ -35,6 +35,7 @@ Section sstep.
       + eapply sstep_reify.
         ++ rewrite -Ha//.
         ++ rewrite -Hb -Hs' -Hs//.
+           rewrite -H0. repeat f_equiv; eauto.
     - induction 1.
       + eapply sstep_tick.
         ++ rewrite Ha Hb//.
@@ -42,6 +43,7 @@ Section sstep.
       + eapply sstep_reify.
         ++ rewrite Ha//.
         ++ rewrite Hb Hs' Hs//.
+           rewrite -H0. repeat f_equiv; eauto.
   Qed.
 
   Inductive ssteps  : IT → stateO → IT → stateO → nat → Prop :=
@@ -158,8 +160,6 @@ Section istep.
     inversion 1; simplify_eq/=.
     - iLeft. eauto.
     - iRight. iExists _,_,_. iSplit; eauto.
-      iPureIntro.
-      trans (reify r (Vis op i k) σ); first solve_proper; eauto.
   Qed.
   Lemma ssteps_isteps α β σ σ' n :
     ssteps r α σ β σ' n → (⊢ isteps α σ β σ' n).
@@ -181,7 +181,8 @@ Section istep.
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ') "[Ha Hs]". rewrite Ha.
-      iApply (IT_tick_err_ne). by iApply internal_eq_sym.
+      iApply (IT_tick_err_ne). iApply internal_eq_sym.
+      by iApply "Ha".
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ') "[Ha Hs]". rewrite Ha.
@@ -194,7 +195,7 @@ Section istep.
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ') "[Ha Hs]". rewrite Ha.
-      iApply (IT_tick_vis_ne). by iApply internal_eq_sym.
+      iApply (IT_tick_vis_ne). by iApply (internal_eq_sym with "Ha").
   Qed.
 
   Local Lemma effect_safe_externalize α σ :
@@ -207,7 +208,8 @@ Section istep.
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ' op i k) "[Ha _]". rewrite Ha.
-      iApply (IT_vis_err_ne). by iApply internal_eq_sym.
+      iApply (IT_vis_err_ne). iApply internal_eq_sym.
+      by iApply "Ha".
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ' op i k) "[Ha _]". rewrite Ha.
@@ -225,7 +227,7 @@ Section istep.
       { eapply (reify_is_always_a_tick r op i k σ).
         by rewrite Hr. }
       * exists α',σ1. eapply sstep_reify; eauto.
-        rewrite Hr -Ha'//.
+        rewrite -Ha' -Hr; repeat f_equiv; eauto.
       * exfalso. eapply uPred.pure_soundness.
         iPoseProof (Hprf) as "H".
         iDestruct "H" as (β σ' op' i' k') "[_ Hb]".
@@ -321,9 +323,9 @@ Section istep.
     iDestruct 1 as "[[Hk [Ht Hs]] | H]".
     - iExFalso. destruct βv; iSimpl in "Ht".
       ++ iApply (IT_nat_tick_ne).
-         by iApply (internal_eq_sym).
+         iApply (internal_eq_sym with "Ht").
       ++ iApply (IT_fun_tick_ne).
-         by iApply (internal_eq_sym).
+         by iApply (internal_eq_sym with "Ht").
     - iDestruct "H" as (k' α1 σ1) "[% [Hs Hss]]".
       iExists k'. iSplit; first by eauto.
       rewrite istep_tick.
