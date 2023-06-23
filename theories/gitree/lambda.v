@@ -10,15 +10,11 @@ Section lambda.
   Notation IT := (IT Σ).
 
   Program Definition IF : IT -n> IT -n> IT -n> IT := λne t t1 t2,
-      get_nat (λne n, if Nat.ltb 0 n then t1 else t2) t.
-  Next Obligation.
-    intros _ t1 t2 n x y ->. done.
-  Qed.
+      get_nat (λ n, if Nat.ltb 0 n then t1 else t2) t.
   Solve All Obligations with solve_proper.
 
   Program Definition IF_last : IT -n> IT -n> IT -n> IT := λne t1 t2 t, IF t t1 t2.
   Solve All Obligations with solve_proper.
-
 
   (** A non-strict application, does not recurse under the effects of the argument *)
   Program Definition APP : IT -n> laterO IT -n> IT := λne f x,

@@ -113,14 +113,10 @@ Section interp.
 
   Program Definition interp_natop {A} (op : nat_op) (t1 t2 : A -n> IT) : A -n> IT :=
     λne env, NATOP (do_natop op) (t1 env) (t2 env).
-  Next Obligation.
-    repeat intro. repeat f_equiv; eauto.
-  Qed.
+  Solve All Obligations with solve_proper_please.
+
   Global Instance interp_natop_ne A op : NonExpansive2 (@interp_natop A op).
-  Proof.
-    unfold interp_natop. repeat intro. simpl.
-    repeat f_equiv; eauto.
-  Qed.
+  Proof. solve_proper. Qed.
   Typeclasses Opaque interp_natop.
 
   Opaque laterO_map.
@@ -128,20 +124,12 @@ Section interp.
     : laterO (A -n> IT) -n> A -n> IT :=
     λne self env, Fun $ laterO_map (λne (self : A -n> IT) (a : IT),
                                      body (self env,(a,env))) self.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation.
-    repeat intro. repeat f_equiv. solve_proper.
-  Qed.
-  Next Obligation.
-    repeat intro. cbn-[laterO_map].
-    by repeat f_equiv.
-  Qed.
+  Solve All Obligations with first [ solve_proper | solve_proper_please ].
 
   Definition interp_rec {A} body : A -n> IT := mmuu (interp_rec_pre body).
   Program Definition ir_unf {A} (body : prodO IT (prodO IT A) -n> IT) env : IT -n> IT :=
     λne a, body (interp_rec body env, (a,env)).
-  Next Obligation. solve_proper. Qed.
+  Solve All Obligations with first [ solve_proper | solve_proper_please ].
 
   Lemma interp_rec_unfold {A} (body : prodO IT (prodO IT A) -n> IT) env :
     interp_rec body env ≡ Fun $ Next $ ir_unf body env.
@@ -154,16 +142,14 @@ Section interp.
 
   Program Definition interp_app {A} (t1 t2 : A -n> IT) : A -n> IT :=
     λne env, APP' (t1 env) (t2 env).
-  Next Obligation.
-    repeat intro. repeat f_equiv; eauto.
-  Qed.
+  Solve All Obligations with first [ solve_proper | solve_proper_please ].
   Global Instance interp_app_ne A : NonExpansive2 (@interp_app A).
   Proof. solve_proper. Qed.
   Typeclasses Opaque interp_app.
 
   Program Definition interp_if {A} (t0 t1 t2 : A -n> IT) : A -n> IT :=
     λne env, IF (t0 env) (t1 env) (t2 env).
-  Next Obligation. solve_proper. Qed.
+  Solve All Obligations with first [ solve_proper | solve_proper_please ].
   Global Instance interp_if_ne A n :
     Proper ((dist n) ==> (dist n) ==> (dist n) ==> (dist n)) (@interp_if A).
   Proof. solve_proper. Qed.
@@ -196,21 +182,7 @@ Section interp.
     | NatOpRCtx op e1 => λne env t, interp_natop op (interp_expr e1) (constO t) env
     | IfCtx e1 e2 => λne env t, interp_if (constO t) (interp_expr e1) (interp_expr e2) env
     end.
-  Opaque interp_app.
-  Next Obligation. repeat intro; repeat f_equiv; eauto. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. repeat intro; repeat f_equiv; eauto. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. repeat intro; repeat f_equiv; eauto. Qed.
-  Next Obligation.
-    repeat intro; repeat f_equiv; eauto.
-    intro. simpl. f_equiv; eauto; solve_proper.
-  Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Transparent interp_app.
+  Solve All Obligations with first [ solve_proper | solve_proper_please ].
 
   #[global] Instance interp_val_asval {S} (v : val S) D : AsVal (interp_val v D).
   Proof.

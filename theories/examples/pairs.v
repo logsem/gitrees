@@ -9,13 +9,13 @@ Section pairs.
 
   Program Definition pairTV : IT -n> IT -n> IT := λne a b,
       λit f, f ⊙ a ⊙ b.
-  Solve Obligations with repeat (repeat intro; simpl; repeat f_equiv); solve_proper.
+  Solve All Obligations with first [ solve_proper | solve_proper_please ].
   Program Definition pairT : IT -n> IT -n> IT := λne a b,
       get_val (λne v2, get_val (λne v1, pairTV v1 v2) a) b.
-  Solve Obligations with repeat (repeat intro; simpl; repeat f_equiv); solve_proper.
+  Solve All Obligations with first [ solve_proper | solve_proper_please ].
 
   Program Definition proj1Tf : IT := λit a b, a.
-  Solve Obligations with repeat (repeat intro; simpl; repeat f_equiv); solve_proper.
+  Solve All Obligations with first [ solve_proper | solve_proper_please ].
   Program Definition proj1T : IT -n> IT := λne t, t ⊙ proj1Tf.
 
   Program Definition projT2f : IT := λit a b, b.
@@ -113,7 +113,7 @@ Section pairs.
 
   Definition PairRSCtx α : IT -n> IT := pairT α.
   Program Definition PairLSCtx β `{!AsVal β} : IT -n> IT := λne α, pairT α β.
-  Next Obligation. repeat (repeat intro; simpl; repeat f_equiv); solve_proper. Qed.
+  Solve All Obligations with first [ solve_proper | solve_proper_please ].
 
   #[global] Instance PairRSCtx_hom α : IT_hom (PairRSCtx α).
   Proof.

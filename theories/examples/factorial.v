@@ -58,8 +58,7 @@ Section fact.
          LET (NATOP Nat.sub i (Nat 1)) $ λne i,
          SEQ (WRITE acc r)
              (WRITE ℓ i).
-  Solve All Obligations with first [ solve_proper | solve_proper_please ].
-  (* XXX: this can be faster *)
+  Solve All Obligations with solve_proper_please.
 
   Program Definition fact_imp : IT := λit n,
     flip get_nat n $ λ n,
