@@ -5,7 +5,7 @@ From gitrees.input_lang Require Import lang interp.
 Section logrel.
   Context {sz : nat}.
   Variable (rs : gReifiers sz).
-  Context {subR : subReifier reify_input rs}.
+  Context {subR : subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
@@ -309,6 +309,32 @@ Section logrel.
       by constructor. }
     iExists n. eauto.
   Qed.
+  Lemma compat_output {S} Γ (e: expr S) α :
+    ⊢ logrel_valid Γ e α Tnat -∗
+      logrel_valid Γ (Output e) (interp_output rs α) Tnat.
+  Proof.
+    iIntros "H1".
+    iIntros (ss) "Hss".
+    iSpecialize ("H1" with "Hss").
+    pose (s := (subs_of_subs2 ss)). fold s.
+    pose (env := its_of_subs2 ss). fold env.
+    simp subst_expr. simpl.
+    iApply (logrel_bind (get_nat _) [OutputCtx] with "H1").
+    iIntros (v βv).
+    iDestruct 1 as (m) "[Hb ->]".
+    iRewrite "Hb". simpl.
+    iIntros (σ) "Hs".
+    rewrite get_nat_nat.
+    iApply (wp_output with "Hs []"); first done.
+    iNext. iIntros "Hlc Hs".
+    iExists (1,1),(Lit 0),_.
+    iFrame "Hs". iSplit.
+    { iPureIntro.
+      apply prim_step_steps.
+      apply (Ectx_step' []).
+      by constructor. }
+    iExists 0. eauto.
+  Qed.
 
   Lemma compat_natop {S} (Γ : tyctx S) e1 e2 α1 α2 op :
     ⊢ logrel_valid Γ e1 α1 Tnat -∗
@@ -360,6 +386,8 @@ Section logrel.
         ++ iApply IHtyped2.
         ++ iApply IHtyped3.
       + iApply compat_input.
+      + iApply compat_output.
+        iApply IHtyped.
     - induction 1; simpl.
       + iIntros (ss) "Hss". simp subst_expr. simpl.
         iApply (logrel_of_val (NatV n)). iExists n. eauto.
@@ -373,7 +401,7 @@ Definition κ {S} {E} : ITV E → val S :=  λ x,
     | NatV n => Lit n
     | _ => Lit 0
     end.
-Definition rs : gReifiers 1 := gReifiers_cons reify_input gReifiers_nil.
+Definition rs : gReifiers 1 := gReifiers_cons reify_io gReifiers_nil.
 
 Lemma logrel_nat_adequacy {S} (α : IT (gReifiers_ops rs)) (e : expr S) n σ σ' k :
   (∀ {Σ:gFunctors}`{H1 : !invGS Σ} `{H2: !stateG rs Σ},

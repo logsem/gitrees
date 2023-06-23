@@ -22,7 +22,7 @@ Derive Signature NoConfusion for var.
 
 Delimit Scope expr_scope with E.
 
-Inductive nat_op := Add | Sub.
+Inductive nat_op := Add | Sub | Mult.
 
 Inductive expr : scope → Type :=
   (* Values *)
@@ -36,8 +36,9 @@ Inductive expr : scope → Type :=
       nat_op → expr S → expr S         → expr S
   | If : forall {S},
     expr S → expr S → expr S           → expr S
-  (* The input effect *)
+  (* The effects *)
   | Input : forall {S},                  expr S
+  | Output : forall  {S}, expr S       → expr S
 with val : scope → Type :=
   | Lit : forall {S}, nat               → val S
   | RecV : forall {S}, expr (()::()::S) → val S.
@@ -51,13 +52,16 @@ Definition to_val {S} (e : expr S) : option (val S) :=
   | _ => None
   end.
 
+Definition do_natop (op : nat_op) (x y : nat) : nat :=
+  match op with
+  | Add => x+y
+  | Sub => x-y
+  | Mult => x+y
+  end.
+
 Definition nat_op_interp {S} (n : nat_op) (x y : val S) : option (val S) :=
   match x, y with
-  | Lit x, Lit y =>
-      match n with
-      | Add => Some $ Lit $ x+y
-      | Sub => Some $ Lit $ x-y
-      end
+  | Lit x, Lit y => Some $ Lit $ do_natop n x y
   | _,_ => None
   end.
 
@@ -92,6 +96,7 @@ ren_expr (App M N) r := App (ren_expr M r) (ren_expr N r);
 ren_expr (NatOp op e1 e2) r := NatOp op (ren_expr e1 r) (ren_expr e2 r);
 ren_expr (If e0 e1 e2) r := If (ren_expr e0 r) (ren_expr e1 r) (ren_expr e2 r);
 ren_expr Input r := Input;
+ren_expr (Output e) r := Output (ren_expr e r);
 with ren_val {S S'} (M : val S) (r : rens S S') : val S' :=
 ren_val (Lit n) _ := Lit n;
 ren_val (RecV e) r := RecV (ren_expr e (rens_lift (rens_lift r))).
@@ -112,6 +117,7 @@ subst_expr (App M N) r := App (subst_expr M r) (subst_expr N r);
 subst_expr (NatOp op e1 e2) r := NatOp op (subst_expr e1 r) (subst_expr e2 r);
 subst_expr (If e0 e1 e2) r := If (subst_expr e0 r) (subst_expr e1 r) (subst_expr e2 r);
 subst_expr (Input) r := Input;
+subst_expr (Output e) r := Output (subst_expr e r);
 with subst_val {S S'} (M : val S) (r : subs S S') : val S' :=
 subst_val (Lit n) _ := Lit n;
 subst_val (RecV e) r := RecV (subst_expr e (subs_lift (subs_lift r))).
@@ -292,16 +298,19 @@ Qed.
 
 Record state := State {
                    inputs : list nat;
+                   outputs : list nat;
                  }.
-#[export] Instance state_inhabited : Inhabited state := populate (State []).
+#[export] Instance state_inhabited : Inhabited state := populate (State [] []).
 
 
 Definition update_input (s : state) : nat * state :=
   match s.(inputs) with
   | [] => (0, s)
   | n::ns =>
-      (n, {| inputs := ns |})
+      (n, {| inputs := ns; outputs := s.(outputs) |})
   end.
+Definition update_output (n:nat) (s : state) : state :=
+  {| inputs := s.(inputs); outputs := n::s.(outputs) |}.
 
 
 Inductive head_step {S} : expr S → state → expr S → state → nat*nat → Prop :=
@@ -313,6 +322,9 @@ Inductive head_step {S} : expr S → state → expr S → state → nat*nat → 
 | InputS σ n σ' :
   update_input σ = (n,σ') →
   head_step Input σ (Val (Lit n)) σ' (1,1)
+| OutputS σ n σ' :
+  update_output n σ = σ' →
+  head_step (Output (Val (Lit n))) σ (Val (Lit 0)) σ' (1,1)
 | NatOpS op v1 v2 v3 σ :
   nat_op_interp op v1 v2 = Some v3 →
   head_step (NatOp op (Val v1) (Val v2)) σ
@@ -343,6 +355,7 @@ Inductive ectx_item {S} :=
   | NatOpLCtx (op : nat_op) (v2 : val S)
   | NatOpRCtx (op : nat_op) (e1 : expr S)
   | IfCtx (e1 e2 : expr S)
+  | OutputCtx
 .
 Arguments ectx_item S : clear implicits.
 
@@ -353,6 +366,7 @@ Definition fill_item {S} (Ki : ectx_item S) (e : expr S) : expr S :=
   | NatOpLCtx op v2 => NatOp op e (Val v2)
   | NatOpRCtx op e1 => NatOp op e1 e
   | IfCtx e1 e2 => If e e1 e2
+  | OutputCtx => Output e
   end.
 
 (** Carbonara from heap lang *)
@@ -509,6 +523,9 @@ Inductive typed : forall {S}, tyctx S → expr S → ty → Prop :=
   typed Γ (If e0 e1 e2) τ
 | typed_Input {S} (Γ : tyctx S) :
   typed Γ Input Tnat
+| typed_Output {S} (Γ : tyctx S) e :
+  typed Γ e Tnat →
+  typed Γ (Output e) Tnat
 with typed_val : forall {S}, tyctx S → val S → ty → Prop :=
 | typed_Lit {S} (Γ : tyctx S) n :
   typed_val Γ (Lit n) Tnat

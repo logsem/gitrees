@@ -22,7 +22,7 @@ Defined.
 
 Section fact.
   Definition rs : gReifiers 2 :=
-    gReifiers_cons reify_input (gReifiers_cons reify_store gReifiers_nil).
+    gReifiers_cons reify_io (gReifiers_cons reify_store gReifiers_nil).
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
@@ -149,15 +149,22 @@ Section fact.
   Program Definition fact_combined : IT :=
     INPUT $ λne n, fact_imp ⊙ (Nat n).
   Lemma wp_fact_combined (n : nat) :
-    heap_ctx ∗ has_substate (State [n])
-    ⊢ WP@{rs} fact_combined {{  βv, βv ≡ NatV (fact n)  }}.
+    heap_ctx ∗ has_substate (State [n] [])
+    ⊢ WP@{rs} get_nat OUTPUT fact_combined  {{ _, has_substate (State [] [fact n]) }}.
   Proof.
     iIntros "[#Hctx Htape]".
     unfold fact_combined.
+    iApply (wp_bind _ (get_nat _)).
     iApply (wp_input with "Htape").
     { reflexivity. }
-    iNext. iIntros "_ Htape".
-    simpl. iApply (wp_fact_imp with "Hctx").
+    iNext. iIntros "_ Htape". simpl.
+    iApply (wp_wand).
+    { iApply (wp_fact_imp with "Hctx"). }
+    simpl. iIntros (v) "Hv". iModIntro.
+    iRewrite "Hv". simpl. rewrite get_nat_nat.
+    iApply (wp_output with "Htape").
+    { compute-[fact]. done. }
+    iNext. iIntros "_ $".
   Qed.
 
 End fact.

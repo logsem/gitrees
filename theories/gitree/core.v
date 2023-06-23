@@ -1324,6 +1324,12 @@ Section it_hom.
     by rewrite laterO_map_id.
   Qed.
 
+  Lemma hom_tick_n n f (α : IT) `{!IT_hom f} : f (Tick_n n α) ≡ Tick_n n (f α).
+  Proof.
+    revert α. induction n=>α; cbn-[Tick]; eauto.
+    rewrite hom_tick. f_equiv. by apply IHn.
+  Qed.
+
   Lemma IT_hom_val_inv α f `{!IT_hom f} :
     is_Some (IT_to_V (f α)) → is_Some (IT_to_V α).
   Proof.
