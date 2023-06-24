@@ -3,7 +3,7 @@ From gitrees Require Import prelude.
 From gitrees.gitree Require Import core lambda.
 
 Section pairs.
-  Variable (E : opsInterp).
+  Context {E : opsInterp}.
   Notation IT := (IT E).
   Notation ITV := (ITV E).
 
