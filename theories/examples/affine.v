@@ -44,7 +44,7 @@ Section affine.
   Definition interp_litunit {A} : A -n> IT := λne _, Nat 0.
   Program Definition interp_pair {A1 A2} (t1 : A1 -n> IT) (t2 : A2 -n> IT)
     : A1*A2 -n> IT := λne env,
-    pairT (t1 env.1) (t2 env.2).
+    pairT (t1 env.1) (t2 env.2).  (* we don't need to evaluate the pair here, i.e. lazy pairs? *)
   Next Obligation. solve_proper_please. Qed.
   Program Definition interp_lam {A : ofe} (b : (IT * A) -n> IT) : A -n> IT := λne env,
     λit x, b (x,env).
@@ -56,11 +56,16 @@ Section affine.
   Program Definition interp_destruct {A1 A2 : ofe}
        (ps : A1 -n> IT) (t : IT*IT*A2 -n> IT)
     : A1*A2 -n> IT := λne env,
-    let ps := ps env.1 in
-    t (proj1T ps, proj2T ps,env.2).
+    LET (ps env.1) $ λne ps,
+    LET (Thunk (proj1T ps)) $ λne x,
+    LET (Thunk (proj2T ps)) $ λne y,
+    t (x, y, env.2).
   Solve All Obligations with solve_proper_please.
 
   (* interpreting tys *)
+  Program Definition protected (Φ : ITV -n> iProp) : ITV -n> iProp := λne αv,
+    (WP@{rs} Force (IT_of_V αv) {{ Φ }})%I.
+  Solve All Obligations with solve_proper_please.
   Program Definition interp_tbool : ITV -n> iProp := λne αv,
     (αv ≡ NatV 0 ∨ αv ≡ NatV 1)%I.
   Solve All Obligations with solve_proper_please.
@@ -78,9 +83,6 @@ Section affine.
     (∃ f, IT_of_V αv ≡ Fun f ∧
         ∀ βv l, Φ1 βv -∗ pointsto l (Nat 0) -∗
              WP@{rs} ((IT_of_V αv) ⊙ (thunked (IT_of_V βv) l)) {{ Φ2 }})%I.
-  Solve All Obligations with solve_proper_please.
-  Program Definition protected (Φ : ITV -n> iProp) : ITV -n> iProp := λne αv,
-    (WP@{rs} Force (IT_of_V αv) {{ Φ }})%I.
   Solve All Obligations with solve_proper_please.
 
   Fixpoint interp_ty (τ : ty) : ITV -n> iProp :=
@@ -107,6 +109,89 @@ Section affine.
     ⊢ WP@{rs} (interp_litunit e) {{ interp_tunit }}.
   Proof.
     simpl. iApply wp_val. iModIntro. eauto.
+  Qed.
+  Lemma compat_pair {A1 A2 : ofe} (e1 : A1) (e2 : A2) (Φ1 Φ2 : ITV -n> iProp)
+    (α : A1 -n> IT) (β : A2 -n> IT) :
+    heap_ctx ⊢ WP@{rs} α e1 {{ Φ1 }} -∗
+               WP@{rs} β e2 {{ Φ2 }} -∗
+               WP@{rs} interp_pair α β (e1,e2) {{ interp_tpair Φ1 Φ2 }}.
+  Proof.
+    iIntros "#Hctx H1 H2".
+    Opaque pairTV. iSimpl.
+    iApply (wp_bind _ (get_val _)).
+    { solve_proper. }
+    iApply (wp_wand with "H2").
+    iIntros (βv) "H2". iModIntro.
+    rewrite get_val_ITV. simpl.
+    iApply (wp_bind _ (get_val _)).
+    { solve_proper. }
+    iApply (wp_wand with "H1").
+    iIntros (αv) "H1". iModIntro.
+    rewrite get_val_ITV. simpl.
+    iApply wp_val.
+    iModIntro.
+    iExists αv,βv. iSplit; eauto with iFrame.
+  Qed.
+  Lemma compat_destruct {A1 A2 : ofe} (e1 : A1) (e2 : A2)
+    (Φ1 Φ2 Φ : ITV -n> iProp) (α : IT*IT*A2 -n> IT) (β : A1 -n> IT) :
+    heap_ctx ⊢ WP@{rs} β e1 {{ interp_tpair Φ1 Φ2 }} -∗
+               (∀ β1v β2v, protected Φ1 β1v -∗ protected Φ2 β2v -∗
+                      WP@{rs} α (IT_of_V β1v,IT_of_V β2v,e2) {{ Φ }}) -∗
+               WP@{rs} (interp_destruct β α (e1,e2)) {{ Φ }}.
+  Proof.
+    Local Opaque thunked thunkedV proj1T proj2T pairTV.
+    iIntros "#Hctx H1 H2".
+    iSimpl.
+    iApply wp_let.
+    iApply (wp_wand with "H1").
+    iIntros (βv) "H1". iModIntro.
+    iApply wp_let.
+    iApply (wp_alloc with "Hctx").
+    { solve_proper_please. }
+    iNext. iNext. iIntros (l1) "Hl1".
+    iApply (wp_val _ _ (thunkedV _ _)).
+    iModIntro. iSimpl.
+    iApply wp_let.
+    iApply (wp_alloc with "Hctx").
+    { solve_proper_please. }
+    iNext. iNext. iIntros (l2) "Hl2".
+    iApply (wp_val _ _ (thunkedV _ _)).
+    iModIntro. iSimpl.
+    iSimpl in "H1".
+    iDestruct "H1" as (βv1 βv2) "(#Hb & Hb1 & Hb2)".
+    iRewrite "Hb". iClear "Hb".
+    Local Transparent thunkedV thunked.
+    iApply ("H2" with "[Hb1 Hl1] [Hb2 Hl2]").
+    - simpl. iApply wp_lam. iNext.
+      simpl.
+      iApply (wp_bind _ (IFSCtx _ _)).
+      iApply (wp_read with "Hctx Hl1").
+      iNext. iNext. iIntros "Hl1".
+      iApply wp_val. iModIntro.
+      unfold IFSCtx. simpl.
+      rewrite IF_False; last lia.
+      iApply wp_seq.
+      { solve_proper. }
+      iApply (wp_write with "Hctx Hl1").
+      iNext. iNext. iIntros "Hl1".
+      rewrite proj1T_pairV. simpl.
+      repeat (iApply wp_tick; iNext).
+      by iApply wp_val.
+    - simpl. iApply wp_lam. iNext.
+      simpl.
+      iApply (wp_bind _ (IFSCtx _ _)).
+      iApply (wp_read with "Hctx Hl2").
+      iNext. iNext. iIntros "Hl2".
+      iApply wp_val. iModIntro.
+      unfold IFSCtx. simpl.
+      rewrite IF_False; last lia.
+      iApply wp_seq.
+      { solve_proper. }
+      iApply (wp_write with "Hctx Hl2").
+      iNext. iNext. iIntros "Hl2".
+      rewrite proj2T_pairV. simpl.
+      repeat (iApply wp_tick; iNext).
+      by iApply wp_val.
   Qed.
   Lemma compat_app {A1 A2 :ofe} (e1 : A1) (e2 : A2) Φ1 Φ2
     (α : A1 -n> IT) (β : A2 -n> IT) :

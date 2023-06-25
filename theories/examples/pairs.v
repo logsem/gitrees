@@ -55,15 +55,11 @@ Section pairs.
     repeat f_equiv. intro x. simpl. reflexivity.
   Qed.
 
-  Lemma proj1T_pair α β `{!AsVal α, !AsVal β} : proj1T (pairT α β) ≡ Tick_n 3 α.
+  Lemma proj1T_pairV α β `{!AsVal α, !AsVal β} : proj1T (pairTV α β) ≡ Tick_n 3 α.
   Proof.
-    cbn-[pairTV].
     simpl.
-    trans (APP' (pairTV α β) proj1Tf).
-    { do 2 f_equiv. rewrite get_val_ITV/=.
-      rewrite get_val_ITV/=. done. }
-    rewrite APP'_Fun_l.
-    simpl. rewrite -Tick_eq. f_equiv.
+    rewrite APP'_Fun_l /=.
+    rewrite -Tick_eq. f_equiv.
     set (f :=  λit _, α).
     trans (APP' (Tick f) β).
     { f_equiv. f_equiv.
@@ -75,6 +71,28 @@ Section pairs.
     f_equiv. rewrite APP'_Fun_l/=.
     rewrite -Tick_eq/=//.
   Qed.
+  Lemma proj1T_pair α β `{!AsVal α, !AsVal β} : proj1T (pairT α β) ≡ Tick_n 3 α.
+  Proof.
+    cbn-[pairTV].
+    simpl.
+    trans (APP' (pairTV α β) proj1Tf).
+    { do 2 f_equiv. rewrite get_val_ITV/=.
+      rewrite get_val_ITV/=. done. }
+    by apply proj1T_pairV.
+  Qed.
+
+  Lemma proj2T_pairV α β `{!AsVal α, !AsVal β} : proj2T (pairTV α β) ≡ Tick_n 3 β.
+  Proof.
+    cbn-[pairTV].
+    simpl.
+    rewrite APP'_Fun_l/= -Tick_eq.
+    f_equiv.
+    etrans.
+    { apply APP'_Proper. rewrite APP'_Fun_l/=.
+      rewrite -Tick_eq. reflexivity. }
+    rewrite APP'_Tick_l. f_equiv.
+    rewrite APP'_Fun_l/=. by rewrite Tick_eq.
+  Qed.
 
   Lemma proj2T_pair α β `{!AsVal α, !AsVal β} : proj2T (pairT α β) ≡ Tick_n 3 β.
   Proof.
@@ -83,13 +101,7 @@ Section pairs.
     trans (APP' (pairTV α β) projT2f).
     { do 2 f_equiv. rewrite get_val_ITV/=.
       rewrite get_val_ITV/=. done. }
-    rewrite APP'_Fun_l/= -Tick_eq.
-    f_equiv.
-    etrans.
-    { apply APP'_Proper. rewrite APP'_Fun_l/=.
-      rewrite -Tick_eq. reflexivity. }
-    rewrite APP'_Tick_l. f_equiv.
-    rewrite APP'_Fun_l/=. by rewrite Tick_eq.
+    by apply proj2T_pairV.
   Qed.
 
   #[global] Instance proj1T_hom : IT_hom proj1T.
