@@ -1,6 +1,6 @@
 (** Affine functions *)
 From Equations Require Import Equations.
-From gitrees Require Import gitree.
+From gitrees Require Import gitree program_logic.
 From gitrees.examples Require Import store pairs.
 
 Section affine.
@@ -10,29 +10,8 @@ Section affine.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
-
   Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ}.
   Notation iProp := (iProp Σ).
-
-  Lemma wp_seq α β Φ `{!NonExpansive Φ} :
-    WP@{rs} α {{ _, WP@{rs} β {{ Φ }} }} ⊢ WP@{rs} (SEQ α β) {{ Φ }}.
-  Proof.
-    iIntros "H".
-    iApply (wp_bind _ (SEQCtx β)).
-    iApply (wp_wand with "H").
-    iIntros (?) "Hb". unfold SEQCtx.
-    by rewrite SEQ_Val.
-  Qed.
-
-  Lemma wp_let α (f : IT -n> IT) Φ `{!NonExpansive Φ} :
-    WP@{rs} α {{ αv, WP@{rs} f (IT_of_V αv) {{ Φ }} }} ⊢ WP@{rs} (LET α f) {{ Φ }}.
-  Proof.
-    iIntros "H".
-    iApply (wp_bind _ (LETCTX f)).
-    iApply (wp_wand with "H").
-    iIntros (?) "Hb". simpl.
-    by rewrite LET_Val.
-  Qed.
 
   Program Definition thunked : IT -n> locO -n> IT := λne e ℓ,
       λit _, IF (READ ℓ) (Err OtherError)
@@ -104,6 +83,15 @@ Section affine.
     (WP@{rs} (IT_of_V αv ⊙ (Nat 0)) {{ Φ }})%I.
   Solve All Obligations with solve_proper_please.
 
+  Fixpoint interp_type (τ : type) : ITV -n> iProp :=
+    match τ with
+    | tBool => interp_tbool
+    | tUnit => interp_tunit
+    | tInt  => interp_tnat
+    | tPair τ1 τ2 => interp_tpair (interp_type τ1) (interp_type τ2)
+    | tArr τ1 τ2  => interp_tarr  (interp_type τ1) (interp_type τ2)
+    end.
+
   Lemma compat_bool b {A :ofe} (e : A) :
     ⊢ WP@{rs} (interp_litbool b e) {{ interp_tbool }}.
   Proof.
@@ -157,14 +145,13 @@ Section affine.
     iApply wp_val.
     iModIntro. iExists _; iSplit; eauto.
     iIntros (βv l) "Hb Hl".
-    rewrite APP'_Fun_l. iEval(cbn-[thunked]).
-    rewrite -Tick_eq. iApply wp_tick. iNext.
+    iApply wp_lam. iNext.
+    iEval(cbn-[thunked]).
     iAssert (thunked (IT_of_V βv) l ≡ IT_of_V (thunkedV (IT_of_V βv) l))%I as "Hth".
     { rewrite tv_into_val. done. }
     iRewrite "Hth". iClear "Hth".
     iApply ("H" with "[-]").
-    simpl. rewrite APP'_Fun_l/=.
-    rewrite -Tick_eq. iApply wp_tick. iNext.
+    simpl. iApply wp_lam. iNext.
     iApply (wp_bind _ (IFSCtx _ _)).
     iApply (wp_read with "Hctx Hl").
     iNext. iNext. iIntros "Hl".
@@ -173,7 +160,7 @@ Section affine.
     rewrite IF_False; last lia.
     iApply wp_seq.
     { solve_proper. }
-    iApply (wp_write with "Hctx Hl"). 
+    iApply (wp_write with "Hctx Hl").
     iNext. iNext. iIntros "Hl".
     iApply wp_val. iModIntro.
     iApply "Hb".

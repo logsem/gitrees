@@ -6,7 +6,7 @@
 
  *)
 From Equations Require Import Equations.
-From gitrees Require Import gitree.
+From gitrees Require Import gitree program_logic.
 From gitrees.input_lang Require Import lang interp.
 From gitrees.examples Require Import store while.
 
@@ -31,25 +31,6 @@ Section fact.
   Notation iProp := (iProp Σ).
 
   Definition fact_fun : IT := interp_expr rs fact_expr ().
-
-  Lemma wp_seq α β Φ `{!NonExpansive Φ} :
-    WP@{rs} α {{ _, WP@{rs} β {{ Φ }} }} ⊢ WP@{rs} (SEQ α β) {{ Φ }}.
-  Proof.
-    iIntros "H".
-    iApply (wp_bind _ (SEQCtx β)).
-    iApply (wp_wand with "H").
-    iIntros (?) "Hb". unfold SEQCtx.
-    by rewrite SEQ_Val.
-  Qed.
-  Lemma wp_let α (f : IT -n> IT) Φ `{!NonExpansive Φ} :
-    WP@{rs} α {{ αv, WP@{rs} f (IT_of_V αv) {{ Φ }} }} ⊢ WP@{rs} (LET α f) {{ Φ }}.
-  Proof.
-    iIntros "H".
-    iApply (wp_bind _ (LETCTX f)).
-    iApply (wp_wand with "H").
-    iIntros (?) "Hb". simpl.
-    by rewrite LET_Val.
-  Qed.
 
   Program Definition fact_imp_body (n : nat) (acc ℓ : loc) : IT :=
     WHILE (READ ℓ) $
@@ -124,9 +105,8 @@ Section fact.
     heap_ctx ⊢ WP@{rs} fact_imp ⊙ (Nat n) {{  βv, βv ≡ NatV (fact n)  }}.
   Proof.
     iIntros "#Hctx".
-    rewrite APP'_Fun_l/=. rewrite -Tick_eq.
-    iApply wp_tick.
-    iNext. rewrite get_nat_nat.
+    iApply wp_lam. iNext.
+    simpl. rewrite get_nat_nat.
     iApply (wp_alloc with "Hctx").
     { solve_proper. }
     fold rs. iNext. iNext.

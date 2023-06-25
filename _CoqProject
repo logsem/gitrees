@@ -17,6 +17,8 @@ theories/gitree/reductions.v
 theories/gitree/weakestpre.v
 theories/gitree.v
 
+theories/program_logic.v
+
 theories/input_lang/lang.v
 theories/input_lang/interp.v
 theories/input_lang/logrel.v
