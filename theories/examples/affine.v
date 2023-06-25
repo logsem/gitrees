@@ -1,12 +1,14 @@
 (** Affine functions *)
 From Equations Require Import Equations.
 From gitrees Require Import gitree program_logic.
+From gitrees.input_lang Require Import lang interp logrel.
 From gitrees.examples Require Import store pairs.
 
 Section affine.
   Context {sz : nat}.
   Variable rs : gReifiers sz.
   Context `{!subReifier reify_store rs}.
+  Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
@@ -28,13 +30,11 @@ Section affine.
   Program Definition Thunk : IT -n> IT := λne e,
       ALLOC (Nat 0) (thunked e).
   Solve All Obligations with first [solve_proper|solve_proper_please].
+  Program Definition Force : IT -n> IT := λne e, e ⊙ (Nat 0).
 
-
-  Definition scope := (list unit).
-
-  Inductive type :=
+  Inductive ty :=
      tBool | tInt | tUnit
-   | tArr (τ1 τ2 : type) | tPair (τ1 τ2 : type).
+   | tArr (τ1 τ2 : ty) | tPair (τ1 τ2 : ty).
 
   Local Open Scope type.
   Definition interp_litbool (b : bool) {A} : A -n> IT := λne _,
@@ -60,7 +60,7 @@ Section affine.
     t (proj1T ps, proj2T ps,env.2).
   Solve All Obligations with solve_proper_please.
 
-  (* interpreting types *)
+  (* interpreting tys *)
   Program Definition interp_tbool : ITV -n> iProp := λne αv,
     (αv ≡ NatV 0 ∨ αv ≡ NatV 1)%I.
   Solve All Obligations with solve_proper_please.
@@ -80,16 +80,16 @@ Section affine.
              WP@{rs} ((IT_of_V αv) ⊙ (thunked (IT_of_V βv) l)) {{ Φ2 }})%I.
   Solve All Obligations with solve_proper_please.
   Program Definition protected (Φ : ITV -n> iProp) : ITV -n> iProp := λne αv,
-    (WP@{rs} (IT_of_V αv ⊙ (Nat 0)) {{ Φ }})%I.
+    (WP@{rs} Force (IT_of_V αv) {{ Φ }})%I.
   Solve All Obligations with solve_proper_please.
 
-  Fixpoint interp_type (τ : type) : ITV -n> iProp :=
+  Fixpoint interp_ty (τ : ty) : ITV -n> iProp :=
     match τ with
     | tBool => interp_tbool
     | tUnit => interp_tunit
     | tInt  => interp_tnat
-    | tPair τ1 τ2 => interp_tpair (interp_type τ1) (interp_type τ2)
-    | tArr τ1 τ2  => interp_tarr  (interp_type τ1) (interp_type τ2)
+    | tPair τ1 τ2 => interp_tpair (interp_ty τ1) (interp_ty τ2)
+    | tArr τ1 τ2  => interp_tarr  (interp_ty τ1) (interp_ty τ2)
     end.
 
   Lemma compat_bool b {A :ofe} (e : A) :
@@ -166,21 +166,80 @@ Section affine.
     iApply "Hb".
   Qed.
 
-  Inductive var : scope → Type :=
-  | Vz : forall {S : scope} {s}, var (s::S)
-  | Vs : forall {S : scope} {s}, var S -> var (s::S)
+  Inductive expr : scope → Type :=
+  | Val {S} : val S → expr S
+  | AffApp {S1 S2} : expr S1 → expr S2 → expr (S1++S2)
+  (* | EPair {S} : expr S → expr S → expr S *)
+  (* | EDestruct {S} : expr S → expr (()::()::S) → expr S *)
+  | EEmbed {S} : input_lang.lang.expr S → expr S
+  with val : scope → Type :=
+  | LitBool (b : bool) {S} : val S
+  | LitNat (n : nat) {S} : val S
+  | LitUnit {S} : val S
+  (* | VPair {S} : val S → val S → val S *)
+  | VLam {S} : expr (tt::S) → val S
+  | Var {S} : var S → val S.
+
+  Definition split_scope {S1 S2} : interp_scope rs (S1++S2) -n> prodO (interp_scope rs S1) (interp_scope rs S2).
+  Proof.
+    induction S1 as [|? S1]; simpl.
+    - simple refine (λne x, (tt, x)).
+      solve_proper.
+    - simple refine (λne xy, let ss := IHS1 xy.2 in ((xy.1, ss.1), ss.2)).
+      solve_proper.
+  Qed.
+
+  Program Definition interp_var {S} (v : var S) : interp_scope rs S -n> IT :=
+    λne env, interp_var rs v env ⊙ (Nat 0).
+  Solve All Obligations with solve_proper.
+
+  Fixpoint interp_expr {S} (e : expr S) : interp_scope rs S -n> IT :=
+    match e with
+    | Val v => interp_val v
+    | AffApp e1 e2 => interp_app (interp_expr e1) (interp_expr e2) ◎ split_scope
+    | EEmbed ei => input_lang.interp.interp_expr rs ei
+    end
+  with interp_val {S} (v : val S) : interp_scope rs S -n> IT :=
+    match v with
+    | LitBool b => interp_litbool b
+    | LitNat n  => interp_litnat n
+    | LitUnit   => interp_litunit
+    | Var v     => interp_var v
+    | VLam e    => interp_lam (interp_expr e)
+    end.
+
+  Inductive ty_conv : ty → input_lang.lang.ty → Type :=
+  | ty_conv_bool : ty_conv tBool Tnat
+  | ty_conv_int  : ty_conv tInt  Tnat
+  | ty_conv_unit : ty_conv tUnit Tnat
+  | ty_conv_fun {τ1 τ2 t1 t2} :
+    ty_conv τ1 t1 → ty_conv τ2 t2 →
+    ty_conv (tArr τ1 τ2) (Tarr (Tarr Tnat t1) t2)
   .
 
-  Inductive expr (lang : Type) : scope → Type :=
-  | Val {S} : val lang S → expr lang S
-  | AffApp {S} : expr lang S → expr lang S → expr lang S
-  | EPair {S} : expr lang S → expr lang S → expr lang S
-  | EDestruct {S} : expr lang S → expr lang (()::()::S) → expr lang S
-  | EEmbed {S} : lang → expr lang S
-  with val (lang : Type) : scope → Type :=
-  | LitBool (b : bool) {S} : val lang S
-  | LitNat (n : nat) {S} : val lang S
-  | LitUnit {S} : val lang S
-  | VPair {S} : val lang S → val lang S → val lang S
-  | VLam {S} : expr lang (()::S) → val lang S
-  | Var {S} : var S → val lang S.
+  Program Definition glue1_fun (glue1 glue2 : IT -n> IT) : IT -n> IT := λne α,
+    λit x, LET (glue2 (Force x)) $ λne x,
+      LET (α ⊙ (Thunk x)) glue1.
+  Solve All Obligations with solve_proper_please.
+  Program Definition glue2_fun (glue1 glue2 : IT -n> IT) : IT -n> IT := λne α,
+    λit x, LET (glue1 (Force x)) $ λne x,
+      LET (α ⊙ (Thunk x)) glue2.
+  Solve All Obligations with solve_proper_please.
+
+  Program Definition glue2_bool : IT -n> IT := λne α,
+      IF α (Nat 1) (Nat 0).
+
+  Fixpoint glue1 {τ t} (conv : ty_conv τ t) : IT -n> IT :=
+    match conv with
+    | ty_conv_bool => idfun
+    | ty_conv_int  => idfun
+    | ty_conv_unit => idfun
+    | ty_conv_fun conv1 conv2 => glue1_fun (glue1 conv2) (glue2 conv1)
+    end
+  with glue2  {τ t} (conv : ty_conv τ t) : IT -n> IT :=
+    match conv with
+    | ty_conv_bool => glue2_bool
+    | ty_conv_int  => idfun
+    | ty_conv_unit => constO (Nat 0)
+    | ty_conv_fun conv1 conv2 => glue2_fun (glue1 conv1) (glue2 conv2)
+    end.
