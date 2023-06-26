@@ -2,6 +2,7 @@
 -arg -w -arg -ssr-search-moved
 
 theories/prelude.v
+theories/lang_generic.v
 
 theories/pcf/lang.v
 theories/pcf/typed/model.v

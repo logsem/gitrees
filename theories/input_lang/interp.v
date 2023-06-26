@@ -122,32 +122,6 @@ Section interp.
   Notation ITV := (ITV F).
 
   (** Interpreting individual operators *)
-  Fixpoint interp_scope (S : scope) : ofe :=
-    match S with
-    | [] => unitO
-    | τ::Sc => prodO IT (interp_scope Sc)
-    end.
-
-  Instance interp_scope_cofe S : Cofe (interp_scope S).
-  Proof. induction S; simpl; apply _. Qed.
-
-  Instance interp_scope_inhab S : Inhabited (interp_scope S).
-  Proof. induction S; simpl; apply _. Defined.
-
-  Equations interp_var {S : scope} (v : var S) : interp_scope S -n> IT :=
-    interp_var (S:=(_::_))     Vz := fstO;
-    interp_var (S:=(_::Sc)) (Vs v) := interp_var v ◎ sndO.
-
-  Instance interp_var_ne S (v : var S) : NonExpansive (@interp_var S v).
-  Proof.
-    intros n D1 D2 HD12. induction v; simp interp_var.
-    - by f_equiv.
-    - eapply IHv. by f_equiv.
-  Qed.
-
-  Global Instance interp_var_proper S (v : var S) : Proper ((≡) ==> (≡)) (interp_var v).
-  Proof. apply ne_proper. apply _. Qed.
-
   Program Definition interp_input {A} : A -n> IT :=
     λne env, INPUT Nat.
   Program Definition interp_output {A} (t : A -n> IT) : A -n> IT :=
@@ -256,13 +230,13 @@ Section interp.
 
   (** Applying renamings and subsitutions to the interpretation of scopes *)
   Equations interp_rens_scope {S S' : scope}
-            (E : interp_scope S') (s : rens S S') : interp_scope S :=
+            (E : interp_scope (E:=F) S') (s : rens S S') : interp_scope (E:=F) S :=
     interp_rens_scope (S:=[]) E s := tt : interp_scope [];
     interp_rens_scope (S:=_::_) E s :=
       (interp_var (hd_ren s) E, interp_rens_scope E (tl_ren s)).
 
   Equations interp_subs_scope {S S' : scope}
-            (E : interp_scope S') (s : subs S S') : interp_scope S :=
+            (E : interp_scope (E:=F) S') (s : subs S S') : interp_scope (E:=F) S :=
     interp_subs_scope (S:=[]) E s := tt : interp_scope [];
     interp_subs_scope (S:=_::_) E s :=
       (interp_expr (hd_sub s) E, interp_subs_scope E (tl_sub s)).

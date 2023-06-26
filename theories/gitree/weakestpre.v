@@ -309,7 +309,7 @@ Section weakestpre.
     rewrite -IT_to_of_V into_val//.
   Qed.
 
-  Lemma fupd_wp E1 α s Φ `{NonExpansive Φ} :
+  Lemma fupd_wp E1 α s Φ `{!NonExpansive Φ} :
     (|={E1}=> WP α @ s ; E1 {{ Φ }}) ⊢ WP α @ s ; E1 {{ Φ }}.
   Proof.
     rewrite wp_unfold. iIntros "H".

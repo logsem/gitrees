@@ -15,6 +15,7 @@ Section logrel.
 
   Canonical Structure exprO S := leibnizO (expr S).
   Canonical Structure valO S := leibnizO (val S).
+  Local Notation tyctx := (tyctx ty).
 
   Notation "'WP' α {{ β , Φ } }" := (wp rs α notStuck ⊤ (λ β, Φ))
     (at level 20, α, Φ at level 200,
@@ -124,7 +125,7 @@ Section logrel.
     subs_of_subs2 (cons_subs2 t α ss) Vz := Val t;
     subs_of_subs2 (cons_subs2 t α ss) (Vs v) := subs_of_subs2 ss v.
 
-  Equations its_of_subs2 {S} (ss : subs2 S) : interp_scope (sz:=sz) rs S :=
+  Equations its_of_subs2 {S} (ss : subs2 S) : interp_scope (E:=F) S :=
     its_of_subs2 emp_subs2 := ();
     its_of_subs2 (cons_subs2 t α ss) := (IT_of_V α, its_of_subs2 ss).
 
@@ -139,13 +140,13 @@ Section logrel.
     ([∗ list] τx ∈ zip (list_of_tyctx Γ) (list_of_subs2 ss),
       logrel_val (τx.1) (τx.2.2) (τx.2.1))%I.
 
-  Definition logrel_valid {S} (Γ : tyctx S) (e : expr S) (α : interp_scope rs S -n> IT) (τ : ty) : iProp :=
+  Definition logrel_valid {S} (Γ : tyctx S) (e : expr S) (α : interp_scope S -n> IT) (τ : ty) : iProp :=
     (∀ ss, subs2_valid Γ ss → logrel τ
                                   (α (its_of_subs2 ss))
                                   (subst_expr e (subs_of_subs2 ss)))%I.
 
   Lemma compat_var {S} (Γ : tyctx S) (x : var S) τ :
-    typed_var Γ x τ → ⊢ logrel_valid Γ (Var x) (interp_var rs x) τ.
+    typed_var Γ x τ → ⊢ logrel_valid Γ (Var x) (interp_var x) τ.
   Proof.
     intros Hx. iIntros (ss) "Hss".
     simp subst_expr.

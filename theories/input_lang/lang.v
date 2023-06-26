@@ -1,24 +1,9 @@
 (** A simple language with recursion and a single INPUT effect *)
 From stdpp Require Export strings.
-From gitrees Require Import prelude.
+From gitrees Require Export prelude lang_generic.
 From Equations Require Import Equations.
 Require Import List.
 Import ListNotations.
-
-(** XXX: We /NEED/ this line for [Equations Derive] to work,
- this flag is globally unset by std++, but Equations need obligations to be transparent. *)
-Set Transparent Obligations.
-
-Derive NoConfusion NoConfusionHom for list.
-
-Definition scope := (list unit).
-
-(** Variables in a context *)
-Inductive var : scope → Type :=
-| Vz : forall {S : scope} {s}, var (s::S)
-| Vs : forall {S : scope} {s}, var S -> var (s::S)
-.
-Derive Signature NoConfusion for var.
 
 Delimit Scope expr_scope with E.
 
@@ -485,18 +470,7 @@ Qed.
 Inductive ty :=
   | Tnat : ty | Tarr : ty → ty → ty.
 
-Inductive tyctx : scope → Type :=
-| empC : tyctx []
-| consC : forall{Γ}, ty → tyctx Γ → tyctx (()::Γ)
-.
-
-Inductive typed_var : forall {S}, tyctx S → var S → ty → Prop :=
-| typed_var_Z S (τ : ty) (Γ : tyctx S) :
-  typed_var (consC τ Γ) Vz τ
-| typed_var_S S (τ τ' : ty) (Γ : tyctx S) v :
-  typed_var Γ v τ →
-  typed_var (consC τ' Γ) (Vs v) τ
-.
+Local Notation tyctx := (tyctx ty).
 
 Inductive typed : forall {S}, tyctx S → expr S → ty → Prop :=
 | typed_Val {S} (Γ : tyctx S) (τ : ty) (v : val S)  :
@@ -534,6 +508,3 @@ with typed_val : forall {S}, tyctx S → val S → ty → Prop :=
   typed_val Γ (RecV e) (Tarr τ1 τ2)
 .
 
-Equations list_of_tyctx {S} (Γ : tyctx S) : list ty :=
-  list_of_tyctx empC := [];
-  list_of_tyctx (consC τ Γ') := τ::list_of_tyctx Γ'.

@@ -171,16 +171,21 @@ Section wp.
   Qed.
 
   (** * The symbolic execution rules *)
-  Lemma wp_read (l : loc) (α : IT) s Φ :
+  Lemma wp_read_atomic (l : loc)  E1 E2 s Φ :
+    nclose (nroot.@"storeE") ## E1 →
     heap_ctx -∗
-    ▷ pointsto l α -∗
-    ▷ ▷ (pointsto l α -∗ WP@{rs} α @ s {{ Φ }}) -∗
+    (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
+        ▷ ▷ (pointsto l α ={E2,E1}=∗ WP@{rs} α @ s {{ Φ }})) -∗
     WP@{rs} READ l @ s {{ Φ }}.
   Proof.
-    iIntros "#Hcxt Hp Ha".
+    iIntros (Hee) "#Hcxt H".
     unfold READ. simpl.
     iApply wp_subreify'.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
+    iApply (fupd_mask_weaken E1).
+    { set_solver. }
+    iIntros "Hwk".
+    iMod "H" as (α) "[Hp Hback]".
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
     iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom".
@@ -205,20 +210,41 @@ Section wp.
       + unfold mbind. iSimpl in "H". iRewrite "H". done.
     - iPureIntro. apply ofe_iso_21.
     - iNext. iIntros "Hlc Hs".
+      iMod ("Hback" with "Hp") as "Hback".
+      iMod "Hwk" .
       iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
       { iExists _. by iFrame. }
-      iRewrite "Hba".
-      by iApply ("Ha" with "Hp").
+      iRewrite "Hba". done.
   Qed.
-  Lemma wp_write (l : loc) (α β : IT) s Φ :
+
+  Lemma wp_read (l : loc) (α : IT) s Φ :
     heap_ctx -∗
     ▷ pointsto l α -∗
-    ▷▷ (pointsto l β -∗ Φ (NatV 0)) -∗
+    ▷ ▷ (pointsto l α -∗ WP@{rs} α @ s {{ Φ }}) -∗
+    WP@{rs} READ l @ s {{ Φ }}.
+  Proof.
+    iIntros "#Hcxt Hp Ha".
+    iApply (wp_read_atomic _ (⊤∖ nclose (nroot.@"storeE")) with "[$]").
+    { set_solver. }
+    iModIntro. iExists _; iFrame.
+    iNext. iNext. iIntros "Hl".
+    iModIntro. by iApply "Ha".
+  Qed.
+  Lemma wp_write_atomic (l : loc)  E1 E2 β s Φ :
+    nclose (nroot.@"storeE") ## E1 →
+    heap_ctx -∗
+    (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
+        ▷ ▷ (pointsto l β ={E2,E1}=∗ Φ (NatV 0))) -∗
     WP@{rs} WRITE l β @ s {{ Φ }}.
   Proof.
-    iIntros "#Hctx Hp Ha".
+    iIntros (Hee) "#Hcxt H".
+    unfold READ. simpl.
     iApply wp_subreify'.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
+    iApply (fupd_mask_weaken E1).
+    { set_solver. }
+    iIntros "Hwk".
+    iMod "H" as (α) "[Hp Hback]".
     iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom".
     { iNext. iApply (istate_loc_dom with "Hh Hp"). }
     iDestruct "Hdom" as ">%Hdom".
@@ -232,11 +258,26 @@ Section wp.
     iNext. iIntros "Hlc".
     iMod (istate_write _ _ β with "Hh Hp") as "[Hh Hp]".
     iIntros "Hs".
+    iMod ("Hback" with "Hp") as "Hback".
+    iMod "Hwk" .
     iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
     { iExists _. by iFrame. }
-    iApply wp_val. iModIntro.
-    iApply ("Ha" with "Hp").
+    iApply wp_val. iModIntro. done.
   Qed.
+  Lemma wp_write (l : loc) (α β : IT) s Φ :
+    heap_ctx -∗
+    ▷ pointsto l α -∗
+    ▷▷ (pointsto l β -∗ Φ (NatV 0)) -∗
+    WP@{rs} WRITE l β @ s {{ Φ }}.
+  Proof.
+    iIntros "#Hctx Hp Ha".
+    iApply (wp_write_atomic _ (⊤∖ nclose (nroot.@"storeE")) with "[$]").
+    { set_solver. }
+    iModIntro. iExists _; iFrame.
+    iNext. iNext. iIntros "Hl".
+    iModIntro. by iApply "Ha".
+  Qed.
+
   Lemma wp_alloc (α : IT) (k : locO -n> IT) s Φ `{!NonExpansive Φ} :
     heap_ctx -∗
     ▷▷ (∀ l, pointsto l α -∗ WP@{rs} k l @ s {{ Φ }}) -∗
