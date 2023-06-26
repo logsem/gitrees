@@ -171,11 +171,11 @@ Section wp.
   Qed.
 
   (** * The symbolic execution rules *)
-  Lemma wp_read (l : loc) (α : IT) Φ :
+  Lemma wp_read (l : loc) (α : IT) s Φ :
     heap_ctx -∗
     ▷ pointsto l α -∗
-    ▷ ▷ (pointsto l α -∗ WP@{rs} α {{ Φ }}) -∗
-    WP@{rs} (READ l) {{ Φ }}.
+    ▷ ▷ (pointsto l α -∗ WP@{rs} α @ s {{ Φ }}) -∗
+    WP@{rs} READ l @ s {{ Φ }}.
   Proof.
     iIntros "#Hcxt Hp Ha".
     unfold READ. simpl.
@@ -210,11 +210,11 @@ Section wp.
       iRewrite "Hba".
       by iApply ("Ha" with "Hp").
   Qed.
-  Lemma wp_write (l : loc) (α β : IT) Φ :
+  Lemma wp_write (l : loc) (α β : IT) s Φ :
     heap_ctx -∗
     ▷ pointsto l α -∗
     ▷▷ (pointsto l β -∗ Φ (NatV 0)) -∗
-    WP@{rs} (WRITE l β) {{ Φ }}.
+    WP@{rs} WRITE l β @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Hp Ha".
     iApply wp_subreify'.
@@ -237,10 +237,10 @@ Section wp.
     iApply wp_val. iModIntro.
     iApply ("Ha" with "Hp").
   Qed.
-  Lemma wp_alloc (α : IT) (k : locO -n> IT) Φ `{!NonExpansive Φ} :
+  Lemma wp_alloc (α : IT) (k : locO -n> IT) s Φ `{!NonExpansive Φ} :
     heap_ctx -∗
-    ▷▷ (∀ l, pointsto l α -∗ WP@{rs} k l {{ Φ }}) -∗
-    WP@{rs} (ALLOC α k) {{ Φ }}.
+    ▷▷ (∀ l, pointsto l α -∗ WP@{rs} k l @ s {{ Φ }}) -∗
+    WP@{rs} ALLOC α k @ s {{ Φ }}.
   Proof.
     iIntros "Hh H".
     iApply wp_subreify'.

@@ -11,8 +11,8 @@ Section program_logic.
   Context `{!invGS Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
 
-  Lemma wp_seq α β Φ `{!NonExpansive Φ} :
-    WP@{rs} α {{ _, WP@{rs} β {{ Φ }} }} ⊢ WP@{rs} (SEQ α β) {{ Φ }}.
+  Lemma wp_seq α β s Φ `{!NonExpansive Φ} :
+    WP@{rs} α @ s {{ _, WP@{rs} β @ s {{ Φ }} }} ⊢ WP@{rs} SEQ α β @ s {{ Φ }}.
   Proof.
     iIntros "H".
     iApply (wp_bind _ (SEQCtx β)).
@@ -21,8 +21,8 @@ Section program_logic.
     by rewrite SEQ_Val.
   Qed.
 
-  Lemma wp_let α (f : IT -n> IT) Φ `{!NonExpansive Φ} :
-    WP@{rs} α {{ αv, WP@{rs} f (IT_of_V αv) {{ Φ }} }} ⊢ WP@{rs} (LET α f) {{ Φ }}.
+  Lemma wp_let α (f : IT -n> IT) s Φ `{!NonExpansive Φ} :
+    WP@{rs} α @ s {{ αv, WP@{rs} f (IT_of_V αv) @ s {{ Φ }} }} ⊢ WP@{rs} (LET α f) @ s {{ Φ }}.
   Proof.
     iIntros "H".
     iApply (wp_bind _ (LETCTX f)).
@@ -31,8 +31,8 @@ Section program_logic.
     by rewrite LET_Val.
   Qed.
 
-  Lemma wp_lam (f : IT -n> IT) β Φ `{!AsVal β} :
-    ▷ WP@{rs} f β {{ Φ }} ⊢ WP@{rs} Fun (Next f) ⊙ β {{ Φ }}.
+  Lemma wp_lam (f : IT -n> IT) β s Φ `{!AsVal β} :
+    ▷ WP@{rs} f β @ s {{ Φ }} ⊢ WP@{rs} Fun (Next f) ⊙ β @ s{{ Φ }}.
   Proof.
     rewrite APP'_Fun_l.
     rewrite -Tick_eq/=. iApply wp_tick.

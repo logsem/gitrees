@@ -80,8 +80,7 @@ Section affine.
                        Φ1 β1v ∗ Φ2 β2v)%I.
   Solve All Obligations with solve_proper_please.
   Program Definition interp_tarr (Φ1 Φ2 : ITV -n> iProp) : ITV -n> iProp := λne αv,
-    (∃ f, IT_of_V αv ≡ Fun f ∧
-        ∀ βv l, Φ1 βv -∗ pointsto l (Nat 0) -∗
+    (∀ βv l, Φ1 βv -∗ pointsto l (Nat 0) -∗
              WP@{rs} ((IT_of_V αv) ⊙ (thunked (IT_of_V βv) l)) {{ Φ2 }})%I.
   Solve All Obligations with solve_proper_please.
 
@@ -218,7 +217,6 @@ Section affine.
     iIntros (αv) "H1".
     iModIntro. unfold AppLSCtx.
     rewrite tv_into_val.
-    iDestruct "H1" as (f) "[Hf H1]".
     iApply ("H1" with "H2 Hl").
   Qed.
 
@@ -228,7 +226,7 @@ Section affine.
   Proof.
     iIntros "#Hctx H".
     iApply wp_val.
-    iModIntro. iExists _; iSplit; eauto.
+    iModIntro.
     iIntros (βv l) "Hb Hl".
     iApply wp_lam. iNext.
     iEval(cbn-[thunked]).

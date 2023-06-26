@@ -10,16 +10,6 @@ From gitrees Require Import gitree program_logic.
 From gitrees.input_lang Require Import lang interp.
 From gitrees.examples Require Import store while.
 
-
-(* #[local] Definition V1 : var [();()] := Vs Vz. *)
-#[local] Notation V1 := (Vs Vz).
-Definition fact_expr : expr [].
-Proof.
-  refine (Rec (If (Var V1) (Val $ Lit 1)
-                 (NatOp lang.Add (Var V1)
-                    (App (Var Vz) (NatOp lang.Sub (Var V1) (Val $ Lit 1)))))).
-Defined.
-
 Section fact.
   Definition rs : gReifiers 2 :=
     gReifiers_cons reify_io (gReifiers_cons reify_store gReifiers_nil).
@@ -30,7 +20,6 @@ Section fact.
   Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ}.
   Notation iProp := (iProp Σ).
 
-  Definition fact_fun : IT := interp_expr rs fact_expr ().
 
   Program Definition fact_imp_body (n : nat) (acc ℓ : loc) : IT :=
     WHILE (READ ℓ) $
@@ -117,7 +106,7 @@ Section fact.
     iIntros (ℓ) "Hl". simpl.
     iApply wp_seq.
     { solve_proper. }
-    iApply (wp_wand _ _ _ _ (λ _, pointsto acc (Nat $ fact n)) with "[-]"); last first.
+    iApply (wp_wand _ (λ _, pointsto acc (Nat $ fact n)) with "[-]"); last first.
     { simpl. iIntros (_) "Hacc".
       iModIntro. iApply (wp_read with "Hctx Hacc").
       iNext. iNext. iIntros "Hacc".

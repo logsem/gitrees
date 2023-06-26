@@ -233,6 +233,18 @@ Section smart.
       repeat iPoseProof (sum_equivI with "H") as "H".
       done.
   Qed.
+  Lemma Err_inj' (e e' : error) {PROP : bi} `{!BiInternalEq PROP} :
+    (e ≡ e' ⊣⊢ (Err e ≡ Err e' : PROP))%I.
+  Proof.
+    iSplit.
+    - iIntros "H". iRewrite "H". done.
+    - iIntros "H".
+      iAssert (internal_eq (IT_unfold (Err e)) (IT_unfold (Err e'))) with "[H]" as "H".
+      { iRewrite "H". done. }
+      rewrite !IT_unfold_fold. simpl.
+      repeat iPoseProof (sum_equivI with "H") as "H".
+      done.
+  Qed.
   Lemma Fun_inj' (f g : laterO (IT -n> IT)) {PROP : bi} `{!BiInternalEq PROP} :
     (f ≡ g ⊣⊢ (Fun f ≡ Fun g : PROP))%I.
   Proof.
@@ -340,6 +352,24 @@ Section smart.
   Proof.
     iIntros "H1".
     iAssert (IT_unfold (Tau α) ≡ IT_unfold (Err e))%I with "[H1]" as "H2".
+    { by iRewrite "H1". }
+    rewrite !IT_unfold_fold /=.
+    by repeat iPoseProof (sum_equivI with "H2") as "H2".
+  Qed.
+  Lemma IT_nat_err_ne n e {PROP : bi} `{!BiInternalEq PROP} :
+    (Nat n ≡ Err e ⊢ False : PROP)%I.
+  Proof.
+    iIntros "H1".
+    iAssert (IT_unfold (Nat n) ≡ IT_unfold (Err e))%I with "[H1]" as "H2".
+    { by iRewrite "H1". }
+    rewrite !IT_unfold_fold /=.
+    by repeat iPoseProof (sum_equivI with "H2") as "H2".
+  Qed.
+  Lemma IT_fun_err_ne n e {PROP : bi} `{!BiInternalEq PROP} :
+    (Fun n ≡ Err e ⊢ False : PROP)%I.
+  Proof.
+    iIntros "H1".
+    iAssert (IT_unfold (Fun n) ≡ IT_unfold (Err e))%I with "[H1]" as "H2".
     { by iRewrite "H1". }
     rewrite !IT_unfold_fold /=.
     by repeat iPoseProof (sum_equivI with "H2") as "H2".

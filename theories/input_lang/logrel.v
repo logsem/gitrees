@@ -16,11 +16,11 @@ Section logrel.
   Canonical Structure exprO S := leibnizO (expr S).
   Canonical Structure valO S := leibnizO (val S).
 
-  Notation "'WP' α {{ β , Φ } }" := (wp rs α ⊤ (λ β, Φ))
+  Notation "'WP' α {{ β , Φ } }" := (wp rs α notStuck ⊤ (λ β, Φ))
     (at level 20, α, Φ at level 200,
      format "'WP'  α  {{  β ,  Φ  } }") : bi_scope.
 
-  Notation "'WP' α {{ Φ } }" := (wp rs α ⊤ Φ)
+  Notation "'WP' α {{ Φ } }" := (wp rs α notStuck ⊤ Φ)
     (at level 20, α, Φ at level 200,
      format "'WP'  α  {{  Φ  } }") : bi_scope.
 
