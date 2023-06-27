@@ -22,16 +22,19 @@ Section io_lang.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
-  Context `{!invGS Σ, !stateG rs Σ}.
+  Context `{!invGS Σ, !stateG rs Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
+
+  Variable p : na_inv_pool_name.
 
   Program Definition interp_tnat : ITV -n> iProp := λne αv,
     (∃ n, αv ≡ NatV n)%I.
   Solve All Obligations with solve_proper.
   Program Definition interp_tarr (Φ1 Φ2 : ITV -n> iProp) := λne αv,
     (□ ∀ σ βv, has_substate σ -∗
+               na_own p ⊤ -∗
                Φ1 βv -∗
-               WP@{rs} IT_of_V αv ⊙ (IT_of_V βv) @ s {{ v, ∃ σ', Φ2 v ∗ has_substate σ' }})%I.
+               WP@{rs} IT_of_V αv ⊙ (IT_of_V βv) @ s {{ v, ∃ σ', Φ2 v ∗ has_substate σ' ∗ na_own p ⊤ }})%I.
   Solve All Obligations with solve_proper.
 
   Fixpoint interp_ty (τ : ty) : ITV -n> iProp :=
@@ -40,13 +43,6 @@ Section io_lang.
     | Tarr τ1 τ2 => interp_tarr (interp_ty τ1) (interp_ty τ2)
     end.
 
-  (* Definition valid1 (α : IT) (τ : ty) : iProp := *)
-  (*   (∀ σ, has_substate σ -∗ *)
-  (*         WP@{rs} α @ s {{ v, ∃ σ', interp_ty τ v ∗ has_substate σ' }}). *)
-  (* Lemma fundmanetal_closed (e : expr []) (τ : ty) : *)
-  (*   typed empC e τ → *)
-  (*   ⊢ valid1 (interp_closed rs e) τ. *)
-  (* Proof. Admitted. *)
   Definition ssubst_valid {S} (Γ : tyctx S) (ss : ssubst S) : iProp :=
     ([∗ list] τx ∈ zip (list_of_tyctx Γ) (list_of_ssubst (E:=F) ss),
       interp_ty (τx.1) (τx.2))%I.
@@ -57,21 +53,21 @@ Section io_lang.
   Proof. apply _. Qed.
 
   Definition valid1 {S}  (Γ : tyctx S) (α : interp_scope S -n> IT) (τ : ty) : iProp :=
-    (∀ σ ss, has_substate σ -∗ ssubst_valid Γ ss -∗
-          WP@{rs} α (interp_ssubst ss) @ s {{ v, ∃ σ', interp_ty τ v ∗ has_substate σ' }}).
+    (∀ σ ss, has_substate σ -∗ na_own p ⊤ -∗ ssubst_valid Γ ss -∗
+          WP@{rs} α (interp_ssubst ss) @ s {{ v, ∃ σ', interp_ty τ v ∗ has_substate σ' ∗ na_own p ⊤ }}).
 
   Lemma compat_nat {S} n (Ω : tyctx S) :
     ⊢ valid1 Ω (interp_nat rs n) Tnat.
   Proof.
-    iIntros (σ αs) "Hs Has".
-    simpl. iApply wp_val. iModIntro. eauto.
+    iIntros (σ αs) "Hs Hp Has".
+    simpl. iApply wp_val. iModIntro. iFrame. eauto.
   Qed.
   Lemma compat_var {S} Ω τ (v : var S) :
     typed_var Ω v τ →
     ⊢ valid1 Ω (interp_var v) τ.
   Proof.
     intros Hv.
-    iIntros (σ ss) "Hs Has".
+    iIntros (σ ss) "Hs Hp Has".
     unfold ssubst_valid.
     iInduction Hv as [|? ? ? Ω v] "IH" forall (ss); simpl.
     - dependent elimination ss as [cons_ssubst αv ss].
@@ -83,7 +79,7 @@ Section io_lang.
       simp list_of_tyctx list_of_ssubst interp_ssubst.
       simp interp_var. simpl.
       iDestruct "Has" as "[_ H]".
-      by iApply ("IH" with "Hs H").
+      by iApply ("IH" with "Hs Hp H").
   Qed.
   Lemma compat_if {S} (Γ : tyctx S) τ α β1 β2 :
     ⊢ valid1 Γ α Tnat -∗
@@ -92,26 +88,26 @@ Section io_lang.
       valid1 Γ (interp_if rs α β1 β2) τ.
   Proof.
     iIntros "H0 H1 H2".
-    iIntros (σ ss) "Hs #Has".
-    iSpecialize ("H0" with "Hs Has").
+    iIntros (σ ss) "Hs Hp #Has".
+    iSpecialize ("H0" with "Hs Hp Has").
     simpl. iApply (wp_bind _ (IFSCtx _ _)).
     { solve_proper. }
     iApply (wp_wand with "H0").
     iIntros (αv) "Ha".
-    iDestruct "Ha" as (σ') "[Ha Hs]".
+    iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
     iDestruct "Ha" as (n) "Hn".
     iModIntro. unfold IFSCtx.
     iRewrite "Hn".
     destruct n as [|n].
     - rewrite IF_False; last lia.
-      iApply ("H2" with "Hs Has").
+      iApply ("H2" with "Hs Hp Has").
     - rewrite IF_True; last lia.
-      iApply ("H1" with "Hs Has").
+      iApply ("H1" with "Hs Hp Has").
   Qed.
   Lemma compat_input {S} (Γ : tyctx S) :
     ⊢ valid1 Γ (interp_input rs) Tnat.
   Proof.
-    iIntros (σ ss) "Hs #Has".
+    iIntros (σ ss) "Hs Hp #Has".
     simpl.
     destruct (update_input σ) as [n σ'] eqn:Hinp.
     iApply (wp_input with "Hs") .
@@ -122,14 +118,14 @@ Section io_lang.
   Lemma compat_output {S} (Γ : tyctx S) α :
     ⊢ valid1 Γ α Tnat → valid1 Γ (interp_output rs α) Tnat.
   Proof.
-    iIntros "H". iIntros (σ ss) "Hs #Has".
+    iIntros "H". iIntros (σ ss) "Hs Hp #Has".
     simpl.
     iApply (wp_bind _ (get_nat _)).
     { solve_proper. }
-    iSpecialize ("H" with "Hs Has").
+    iSpecialize ("H" with "Hs Hp Has").
     iApply (wp_wand with "H").
     iIntros (αv) "Ha".
-    iDestruct "Ha" as (σ') "[Ha Hs]".
+    iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
     iDestruct "Ha" as (n) "Hn".
     iModIntro. iRewrite "Hn".
     rewrite get_nat_nat.
@@ -144,29 +140,29 @@ Section io_lang.
       valid1 Γ (interp_app rs α β) τ2.
   Proof.
     iIntros "H1 H2".
-    iIntros (σ ss) "Hs #Has". simpl.
+    iIntros (σ ss) "Hs Hp #Has". simpl.
     iApply (wp_bind _  (AppRSCtx _)).
     { solve_proper. }
-    iSpecialize ("H2" with "Hs Has").
+    iSpecialize ("H2" with "Hs Hp Has").
     iApply (wp_wand with "H2").
     iIntros (βv) "Hb".
-    iDestruct "Hb" as (σ') "[Hb Hs]".
+    iDestruct "Hb" as (σ') "[Hb [Hs Hp]]".
     iModIntro. unfold AppRSCtx.
     iApply (wp_bind _ (AppLSCtx (IT_of_V βv))).
     { solve_proper. }
-    iSpecialize ("H1" with "Hs Has").
+    iSpecialize ("H1" with "Hs Hp Has").
     iApply (wp_wand with "H1").
     iIntros (αv) "Ha".
-    iDestruct "Ha" as (σ'') "[Ha  Hs]".
+    iDestruct "Ha" as (σ'') "[Ha [Hs Hp]]".
     iModIntro. unfold AppLSCtx.
-    iApply ("Ha" with "Hs Hb").
+    iApply ("Ha" with "Hs Hp Hb").
   Qed.
 
   Lemma compat_rec {S} (Γ : tyctx S) τ1 τ2 α :
     ⊢ □ valid1 (consC (Tarr τ1 τ2) (consC τ1 Γ)) α τ2 -∗
       valid1 Γ (interp_rec rs α) (Tarr τ1 τ2).
   Proof.
-    iIntros "#H". iIntros (σ ss) "Hs #Hss".
+    iIntros "#H". iIntros (σ ss) "Hs Hp #Hss".
     pose (env := (interp_ssubst ss)). fold env.
     simp subst_expr.
     pose (f := (ir_unf rs α env)).
@@ -176,11 +172,11 @@ Section io_lang.
     iApply wp_val. iModIntro. iExists _. iFrame.
     iLöb as "IH". iSimpl. iModIntro.
     clear σ.
-    iIntros (σ βv) "Hs #Hw".
+    iIntros (σ βv) "Hs Hp #Hw".
     iApply wp_lam.
     iNext.
     pose (ss' := cons_ssubst (FunV (Next f)) (cons_ssubst βv ss)).
-    iSpecialize ("H" $! _ ss' with "Hs []").
+    iSpecialize ("H" $! _ ss' with "Hs Hp []").
     { unfold ssubst_valid.
       unfold ss'.
       simp list_of_tyctx list_of_ssubst.
@@ -217,7 +213,9 @@ Section io_lang.
 End io_lang.
 End io_lang.
 
-#[global] Instance io_lang_interp_ty_pers {sz} (rs : gReifiers sz) `{!subReifier reify_io rs} `{!invGS Σ, !stateG rs Σ} τ βv : Persistent (io_lang.interp_ty rs τ βv).
+#[global] Instance io_lang_interp_ty_pers {sz} (rs : gReifiers sz)
+         `{!subReifier reify_io rs} `{!invGS Σ, !stateG rs Σ,!na_invG Σ} τ βv p
+  : Persistent (io_lang.interp_ty rs p τ βv).
 Proof. induction τ; apply _. Qed.
 
 
@@ -414,90 +412,6 @@ Section affine.
     simpl. iApply wp_val. iModIntro. eauto.
   Qed.
 
-  (* Lemma compat_pair {A1 A2 : ofe} (e1 : A1) (e2 : A2) (Φ1 Φ2 : ITV -n> iProp) *)
-  (*   (α : A1 -n> IT) (β : A2 -n> IT) s : *)
-  (*   heap_ctx ⊢ WP@{rs} α e1 @ s {{ Φ1 }} -∗ *)
-  (*              WP@{rs} β e2 @ s {{ Φ2 }} -∗ *)
-  (*              WP@{rs} interp_pair α β (e1,e2) @ s {{ interp_tpair Φ1 Φ2 }}. *)
-  (* Proof. *)
-  (*   iIntros "#Hctx H1 H2". *)
-  (*   Opaque pairTV. iSimpl. *)
-  (*   iApply (wp_bind _ (get_val _)). *)
-  (*   { solve_proper. } *)
-  (*   iApply (wp_wand with "H2"). *)
-  (*   iIntros (βv) "H2". iModIntro. *)
-  (*   rewrite get_val_ITV. simpl. *)
-  (*   iApply (wp_bind _ (get_val _)). *)
-  (*   { solve_proper. } *)
-  (*   iApply (wp_wand with "H1"). *)
-  (*   iIntros (αv) "H1". iModIntro. *)
-  (*   rewrite get_val_ITV. simpl. *)
-  (*   iApply wp_val. *)
-  (*   iModIntro. *)
-  (*   iExists αv,βv. iSplit; eauto with iFrame. *)
-  (* Qed. *)
-  (* Lemma compat_destruct {A1 A2 : ofe} (e1 : A1) (e2 : A2) *)
-  (*   (Φ1 Φ2 Φ : ITV -n> iProp) (α : IT*IT*A2 -n> IT) (β : A1 -n> IT) s : *)
-  (*   heap_ctx ⊢ WP@{rs} β e1 @ s {{ interp_tpair Φ1 Φ2 }} -∗ *)
-  (*              (∀ β1v β2v, protected Φ1 β1v -∗ protected Φ2 β2v -∗ *)
-  (*                     WP@{rs} α (IT_of_V β1v,IT_of_V β2v,e2) @ s {{ Φ }}) -∗ *)
-  (*              WP@{rs} (interp_destruct β α (e1,e2)) @ s {{ Φ }}. *)
-  (* Proof. *)
-  (*   Local Opaque thunked thunkedV proj1T proj2T pairTV. *)
-  (*   iIntros "#Hctx H1 H2". *)
-  (*   iSimpl. *)
-  (*   iApply wp_let. *)
-  (*   iApply (wp_wand with "H1"). *)
-  (*   iIntros (βv) "H1". iModIntro. *)
-  (*   iApply wp_let. *)
-  (*   iApply (wp_alloc with "Hctx"). *)
-  (*   { solve_proper_please. } *)
-  (*   iNext. iNext. iIntros (l1) "Hl1". *)
-  (*   iApply (wp_val _ _ (thunkedV _ _)). *)
-  (*   iModIntro. iSimpl. *)
-  (*   iApply wp_let. *)
-  (*   iApply (wp_alloc with "Hctx"). *)
-  (*   { solve_proper_please. } *)
-  (*   iNext. iNext. iIntros (l2) "Hl2". *)
-  (*   iApply (wp_val _ _ (thunkedV _ _)). *)
-  (*   iModIntro. iSimpl. *)
-  (*   iSimpl in "H1". *)
-  (*   iDestruct "H1" as (βv1 βv2) "(#Hb & Hb1 & Hb2)". *)
-  (*   iRewrite "Hb". iClear "Hb". *)
-  (*   Local Transparent thunkedV thunked. *)
-  (*   iApply ("H2" with "[Hb1 Hl1] [Hb2 Hl2]"). *)
-  (*   - simpl. iApply wp_lam. iNext. *)
-  (*     simpl. *)
-  (*     iApply (wp_bind _ (IFSCtx _ _)). *)
-  (*     iApply (wp_read with "Hctx Hl1"). *)
-  (*     iNext. iNext. iIntros "Hl1". *)
-  (*     iApply wp_val. iModIntro. *)
-  (*     unfold IFSCtx. simpl. *)
-  (*     rewrite IF_False; last lia. *)
-  (*     iApply wp_seq. *)
-  (*     { solve_proper. } *)
-  (*     iApply (wp_write with "Hctx Hl1"). *)
-  (*     iNext. iNext. iIntros "Hl1". *)
-  (*     rewrite proj1T_pairV. simpl. *)
-  (*     repeat (iApply wp_tick; iNext). *)
-  (*     by iApply wp_val. *)
-  (*   - simpl. iApply wp_lam. iNext. *)
-  (*     simpl. *)
-  (*     iApply (wp_bind _ (IFSCtx _ _)). *)
-  (*     iApply (wp_read with "Hctx Hl2"). *)
-  (*     iNext. iNext. iIntros "Hl2". *)
-  (*     iApply wp_val. iModIntro. *)
-  (*     unfold IFSCtx. simpl. *)
-  (*     rewrite IF_False; last lia. *)
-  (*     iApply wp_seq. *)
-  (*     { solve_proper. } *)
-  (*     iApply (wp_write with "Hctx Hl2"). *)
-  (*     iNext. iNext. iIntros "Hl2". *)
-  (*     rewrite proj2T_pairV. simpl. *)
-  (*     repeat (iApply wp_tick; iNext). *)
-  (*     by iApply wp_val. *)
-  (* Qed. *)
-
   Lemma compat_var {S} Ω τ (v : var S) :
     typed_var Ω v τ →
     ⊢ valid1 Ω (Force ◎ interp_var v) τ.
@@ -646,6 +560,48 @@ Section affine.
     - by iApply compat_unit.
   Qed.
 
+  Lemma wp_app_thunk α β `{!AsVal β} Φ `{!NonExpansive Φ}:
+    ⊢ heap_ctx -∗
+      ▷ (∀ l, pointsto l (Nat 0) -∗ WP@{rs} α ⊙ (thunked β l) @ s {{ Φ }}) -∗
+      WP@{rs} α ⊙ (Thunk β) @ s {{ Φ }}.
+  Proof.
+    iIntros "#Hctx H".
+    iApply (wp_bind _ (AppRSCtx _)).
+    iSimpl. iApply (wp_alloc with "Hctx").
+    { solve_proper. }
+    iNext. iNext. iIntros (l) "Hl".
+    iApply wp_val. iModIntro.
+    unfold AppRSCtx.
+    rewrite tv_into_val.
+    iApply ("H" with "Hl").
+  Qed.
+
+  Program Definition unsafe_fun : IT :=
+    ALLOC (Nat 42) $ λne l,
+      λit _, SEQ (DEALLOC l) (Nat 24).
+  Lemma unsafe_fun_valid :
+    ⊢ valid1 empC (constO unsafe_fun) (tArr tUnit tInt).
+  Proof.
+    iIntros (ss) "Hss #Hctx".
+    iIntros (x) "Hx".
+    unfold unsafe_fun. cbn-[interp_ty].
+    iApply (wp_alloc with "Hctx").
+    { solve_proper. }
+    iNext. iNext. iIntros (l) "H42".
+    iApply wp_val. iModIntro.
+    iExists x; iFrame. clear x.
+    iIntros (β) "Hb".
+    iIntros (x) "Hx".
+    iApply (wp_app_thunk with "Hctx").
+    { solve_proper. }
+    iNext. iIntros (t) "Ht".
+    iApply wp_lam. iNext. simpl.
+    iApply wp_seq.
+    { solve_proper. }
+    iApply (wp_dealloc with "Hctx H42").
+    iNext. iNext.
+    iApply wp_val. eauto with iFrame.
+  Qed.
 End affine.
 
 Section glue.
@@ -656,7 +612,7 @@ Section glue.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
-  Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ}.
+  Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
 
   Arguments Force {_ _}.
@@ -664,7 +620,9 @@ Section glue.
   Arguments thunked {_ _ _}.
   Arguments thunkedV {_ _ _}.
 
-  Definition valid2 {S} (Ω : tyctx S) (α : interp_scope (E:=F) S -n> IT) (τ : ty) : iProp := valid1 rs has_substate Ω α τ.
+  Variable p : na_inv_pool_name.
+  Definition valid2 {S} (Ω : tyctx S) (α : interp_scope (E:=F) S -n> IT) (τ : ty) : iProp :=
+     valid1 rs (λ σ, has_substate σ ∗ na_own p ⊤)%I Ω α τ.
 
   Program Definition glue_to_affine_fun (glue_from_affine glue_to_affine : IT -n> IT) : IT -n> IT := λne α,
     LET α $ λne α,
@@ -705,21 +663,21 @@ Section glue.
 (* Typeclasses Opaque thunkedV. *)
 Local Opaque thunked thunkedV Thunk.
 Lemma compat_glue_to_affine_bool {S} (Ω : tyctx S) α :
-  io_lang.valid1 rs empC α Tnat ⊢
+  io_lang.valid1 rs p empC α Tnat ⊢
   valid2 Ω (constO (glue2_bool (α ()))) tBool.
 Proof.
   simpl.
   iIntros "H". unfold io_lang.valid1.
   iIntros (ss) "Has #Hctx". simpl.
-  iIntros (σ) "Hs".
-  iSpecialize ("H" $! _ emp_ssubst with "Hs []").
+  iIntros (σ) "[Hs Hp]".
+  iSpecialize ("H" $! _ emp_ssubst with "Hs Hp []").
   { unfold io_lang.ssubst_valid.
     simp list_of_tyctx list_of_ssubst.
     done. }
   iApply (wp_bind _ (IFSCtx _ _)).
   { solve_proper. }
   iApply (wp_wand with "H").
-  iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha Hs]".
+  iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
   iDestruct "Ha" as (n) "Ha".
   iRewrite "Ha".
   unfold IFSCtx.
@@ -731,14 +689,14 @@ Proof.
     iApply wp_val; eauto with iFrame.
 Qed.
 Lemma compat_glue_to_affine_nat {S} (Ω : tyctx S) α :
-  io_lang.valid1 rs empC α Tnat ⊢
+  io_lang.valid1 rs p empC α Tnat ⊢
   valid2 Ω (constO (α ())) tInt.
 Proof.
   simpl.
   iIntros "H". unfold io_lang.valid1.
   iIntros (ss) "Has #Hctx". simpl.
-  iIntros (σ) "Hs".
-  iSpecialize ("H" $! _ emp_ssubst with "Hs []").
+  iIntros (σ) "[Hs Hp]".
+  iSpecialize ("H" $! _ emp_ssubst with "Hs Hp []").
   { unfold io_lang.ssubst_valid.
     simp list_of_tyctx list_of_ssubst.
     done. }
@@ -748,29 +706,29 @@ Proof.
 Qed.
 Lemma compat_glue_from_affine_bool α :
   valid2 empC α tBool ⊢
-  heap_ctx -∗ io_lang.valid1 rs empC α Tnat.
+  heap_ctx -∗ io_lang.valid1 rs p empC α Tnat.
 Proof.
   simpl.
   iIntros "H #Hctx". unfold io_lang.valid1.
-  iIntros (σ ss) "Hs Hss".
-  iSpecialize ("H" $! emp_ssubst with "[] Hctx Hs").
+  iIntros (σ ss) "Hs Hp Hss".
+  iSpecialize ("H" $! emp_ssubst with "[] Hctx [$Hs $Hp]").
   { unfold ssubst_valid.
     simp list_of_tyctx list_of_ssubst.
     done. }
   dependent elimination ss as [emp_ssubst].
   iApply (wp_wand with "H").
-  iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha Hs]".
+  iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
   iModIntro. iExists _; iFrame.
   iDestruct "Ha" as "[Ha|Ha]"; iExists _; eauto.
 Qed.
 Lemma compat_glue_from_affine_nat α :
   valid2 empC α tInt ⊢
-  heap_ctx -∗ io_lang.valid1 rs empC α Tnat.
+  heap_ctx -∗ io_lang.valid1 rs p empC α Tnat.
 Proof.
   simpl.
   iIntros "H #Hctx". unfold io_lang.valid1.
-  iIntros (σ ss) "Hs Hss".
-  iSpecialize ("H" $! emp_ssubst with "[] Hctx Hs").
+  iIntros (σ ss) "Hs Hp Hss".
+  iSpecialize ("H" $! emp_ssubst with "[] Hctx [$Hs $Hp]").
   { unfold ssubst_valid.
     simp list_of_tyctx list_of_ssubst.
     done. }
@@ -781,30 +739,30 @@ Proof.
 Qed.
 Lemma compat_glue_from_affine_unit α :
   valid2 empC α tUnit ⊢
-  heap_ctx -∗ io_lang.valid1 rs empC α Tnat.
+  heap_ctx -∗ io_lang.valid1 rs p empC α Tnat.
 Proof.
   simpl.
   iIntros "H #Hctx". unfold io_lang.valid1.
-  iIntros (σ ss) "Hs Hss".
-  iSpecialize ("H" $! emp_ssubst with "[] Hctx Hs").
+  iIntros (σ ss) "Hs Hp Hss".
+  iSpecialize ("H" $! emp_ssubst with "[] Hctx [$Hs $Hp]").
   { unfold ssubst_valid.
     simp list_of_tyctx list_of_ssubst.
     done. }
   dependent elimination ss as [emp_ssubst].
   iApply (wp_wand with "H").
-  iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha Hs]".
+  iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
   iModIntro. iExists _; iFrame.
   iExists 0. iApply "Ha".
 Qed.
 
 Lemma compat_glue_to_affine_fun {S} (Ω : tyctx S) (τ1 τ2 : ty)
   (τ1' τ2' : io_lang.ty) α (glue_to_affine glue_from_affine : IT -n> IT) :
-  (∀ α, io_lang.valid1 rs empC α τ2'
+  (∀ α, io_lang.valid1 rs p empC α τ2'
         ⊢ valid2 Ω (constO (glue_to_affine (α ()))) τ2) →
   (∀ α,  valid2 empC (constO α) τ1
-        ⊢ heap_ctx -∗  io_lang.valid1 rs empC
+        ⊢ heap_ctx -∗  io_lang.valid1 rs p empC
                                (constO (glue_from_affine α)) τ1') →
-  io_lang.valid1 rs empC α (Tarr (Tarr Tnat τ1') τ2')
+  io_lang.valid1 rs p empC α (Tarr (Tarr Tnat τ1') τ2')
   ⊢ valid2 Ω
       (constO (glue_to_affine_fun glue_from_affine glue_to_affine (α ())))
       (tArr τ1 τ2).
@@ -812,15 +770,15 @@ Proof.
   intros G1 G2.
   iIntros "H".
   iIntros (αs) "Has #Hctx".
-  iIntros (σ) "Hs".
+  iIntros (σ) "[Hs Hp]".
   simpl. iApply wp_let.
   { solve_proper. }
-  iSpecialize ("H" $! _ emp_ssubst with "Hs []").
+  iSpecialize ("H" $! _ emp_ssubst with "Hs Hp []").
   { unfold io_lang.ssubst_valid.
     simp list_of_tyctx list_of_ssubst.
     done. }
   iApply (wp_wand with "H").
-  iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha Hs]".
+  iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
   iSimpl in "Ha". iDestruct "Ha" as "#Ha".
   iSimpl. iModIntro.
   iApply wp_val. iModIntro.
@@ -828,7 +786,7 @@ Proof.
   iIntros (βv) "Hb".
   (* preparing a thunk *)
   iSimpl. clear σ.
-  iIntros (σ) "Hs".
+  iIntros (σ) "[Hs Hp]".
   iApply (wp_bind _ (AppRSCtx _)).
   { solve_proper. }
   iApply (wp_alloc with "Hctx").
@@ -864,13 +822,13 @@ Proof.
     iIntros (σ0) "Hs". simpl.
     iApply wp_val. eauto with iFrame. }
   iSpecialize ("G2" with "Hctx").
-  iSpecialize ("G2" $! _ emp_ssubst with "Hs []").
+  iSpecialize ("G2" $! _ emp_ssubst with "Hs Hp []").
   { unfold io_lang.ssubst_valid.
     simp list_of_tyctx list_of_ssubst.
     done. }
   iApply (wp_wand with "G2").
   iIntros (β'v) "Hb". iModIntro.
-  simpl. clear σ σ'. iDestruct "Hb" as (σ) "[#Hb Hs]".
+  simpl. clear σ σ'. iDestruct "Hb" as (σ) "[#Hb [Hs Hp]]".
   (* calling the original function *)
   iApply wp_let.
   { solve_proper. }
@@ -887,8 +845,8 @@ Proof.
   { solve_proper. }
   iMod (inv_alloc (nroot.@"yolo") _ (∃ n, pointsto l' (Nat n)) with "[Hl']") as "#Hinv".
   { iNext. iExists _; done. }
-  iPoseProof ("Ha" $! _ (thunkedV (IT_of_V β'v) l') with "Hs [-Has]") as "H1".
-  { iModIntro. iIntros (σ' βn) "Hs".
+  iPoseProof ("Ha" $! _ (thunkedV (IT_of_V β'v) l') with "Hs Hp [-Has]") as "H1".
+  { iModIntro. iIntros (σ' βn) "Hs Hp".
     iDestruct 1 as (m) "Hbm".
     iApply wp_lam. iNext. iSimpl.
     iApply (wp_bind _ (IFSCtx _ _)).
@@ -924,18 +882,21 @@ Proof.
   iModIntro. iDestruct "H2" as (σ') "[#H2 Hs]".
   iPoseProof (G1 (constO (IT_of_V γv))) as "G1".
   iSpecialize ("G1" with "[H2]").
-  { iIntros (σ0 ss0) "Hs Has". simpl.
+  { iIntros (σ0 ss0) "Hs Hp Has". simpl.
     iApply wp_val. iModIntro. eauto with iFrame. }
   iSpecialize ("G1" with "Has Hctx Hs").
   simpl. done.
 Qed.
 
+Arguments interp_tarr {_ _ _ _ _ _ _ _}.
+Arguments interp_ty {_ _ _ _ _ _ _ _} _.
+
   Lemma glue_to_affine_compatibility {S} (Ω : tyctx S) (τ1 : ty) (τ1' : io_lang.ty)
     (Hconv : ty_conv τ1 τ1') α :
-    io_lang.valid1 rs empC α τ1' ⊢ valid2 Ω (constO (glue_to_affine Hconv (α ()))) τ1
+    io_lang.valid1 rs p empC α τ1' ⊢ valid2 Ω (constO (glue_to_affine Hconv (α ()))) τ1
   with glue_from_affine_compatibility (τ1 : ty) (τ1' : io_lang.ty)
     (Hconv : ty_conv τ1 τ1') (α : IT) :
-    valid2 empC (constO α) τ1 ⊢ heap_ctx -∗ io_lang.valid1 rs empC (constO (glue_from_affine Hconv α)) τ1'.
+    valid2 empC (constO α) τ1 ⊢ heap_ctx -∗ io_lang.valid1 rs p empC (constO (glue_from_affine Hconv α)) τ1'.
   Proof.
     - destruct Hconv.
       + by iApply compat_glue_to_affine_bool.
@@ -950,16 +911,16 @@ Qed.
       + iApply compat_glue_from_affine_nat.
       + iApply compat_glue_from_affine_unit.
       + Opaque io_lang.interp_tarr interp_tarr.
-        iIntros "H #Hctx". iIntros (σ ss) "Hs _".
+        iIntros "H #Hctx". iIntros (σ ss) "Hs Hp _".
         simpl. clear ss.
-        iSpecialize ("H" $! emp_ssubst with "[] Hctx Hs").
+        iSpecialize ("H" $! emp_ssubst with "[] Hctx [$Hs $Hp]").
         { unfold ssubst_valid. simp list_of_tyctx list_of_ssubst.
           done. }
         simpl.
           simpl. iApply wp_let.
         { solve_proper. }
         iApply (wp_wand with "H").
-        iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha Hs]".
+        iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
         iSimpl in "Ha".
         iSimpl. iModIntro.
         iApply wp_let.
@@ -968,279 +929,84 @@ Qed.
         { solve_proper_please. }
         iNext. iNext. iIntros (l) "Hl".
         iApply (wp_val _ _ (thunkedV _ _)). iSimpl.
-        iMod (inv_alloc (nroot.@"yolo") _
-            (pointsto l (Nat 1) ∨ (pointsto l (Nat 0) ∗ (interp_tarr rs has_substate (interp_ty rs has_substate τ1) (interp_ty rs has_substate τ2) αv))) with "[Hl Ha]") as "#Hinv".
+        iMod (na_inv_alloc p _ (nroot.@"yolo")
+             (pointsto l (Nat 1) ∨
+             (pointsto l (Nat 0) ∗ interp_tarr (interp_ty τ1) (interp_ty τ2) αv)) with "[Hl Ha]") as "#Hinv".
         { iNext. iRight. iFrame. }
         iModIntro. iApply wp_val.
         iModIntro. iExists _. iFrame.
         Transparent io_lang.interp_tarr. simpl.
-        iModIntro. clear σ σ'. iIntros (σ βv) "Hs #Hb".
+        iModIntro. clear σ σ'. iIntros (σ βv) "Hs Hp #Hb".
         iApply wp_lam. iNext.
         simpl.
         iApply wp_let.
         { solve_proper. }
-        iSpecialize ("Hb" $! _ (NatV 0) with "Hs []").
-        { eauto with iFrame. }
         iApply wp_lam.
         iNext. simpl.
-       iApply (wp_bind _ (IFSCtx _ _)).
-       { solve_proper_please. }
-       iApply (wp_read_atomic _ _ (⊤∖ nclose (nroot.@"storeE")) with "Hctx").
-       { set_solver. }
-       (** need thread local invariants *)
-       iInv (nroot.@"yolo") as "[Hl | [Hl Ha]]" "Hcl".
-       { iModIntro. iExists (Nat 1). iFrame.
-         iNext. iNext. iIntros "Hl".
-         iMod ("Hcl" with "[Hl]") as "_".
-         { iNext. eauto with iFrame. }
-         iModIntro. iApply wp_val.
-         iModIntro.
-         unfold IFSCtx. simpl.
-         rewrite IF_True; last lia.
-         iApply wp_err. done. }
-       iModIntro. iExists (Nat 0). iFrame.
-       iNext. iNext. iIntros "Hl".
-       iMod ("Hcl" with "[Hl]") as "_".
-       { iNext. eauto with iFrame. }
-       iModIntro. iApply wp_val.
-       iModIntro.
-       unfold IFSCtx. simpl.
-       rewrite IF_True; last lia.
-         iApp;aly wp_err. done.
-       destruct n as [|n].
-       - rewrite IF_False; last lia.
-         iApply wp_seq.
-         { solve_proper. }
-         iApply (wp_write_atomic _ _ (⊤∖ nclose (nroot.@"storeE")) with "Hctx").
-         { set_solver. }
-         iInv (nroot.@"yolo") as (n) "Hl'" "Hcl".
-         iModIntro. iExists (Nat n). iFrame.
-         iNext. iNext. iIntros "Hl'".
-         iMod ("Hcl" with "[Hl']") as "_".
-         { iNext. eauto with iFrame. }
-         iModIntro. iApply wp_val.
-         iModIntro. eauto with iFrame.
-       - rewrite IF_True; last lia.
-         iApply wp_err. done. }
-
-        iApply (wp_wand with "Hb"). clear βv.
-        iIntros (βv). iDestruct 1 as (σ') "[#Hb Hs]".
-        iModIntro. simpl.
-        iApply wp_let.
+        iApply (wp_bind _ (IFSCtx _ _)).
+        { solve_proper_please. }
+        iApply fupd_wp.
         { solve_proper. }
-        iPoseProof (glue_to_affine_compatibility _ empC _ _ Hconv1 (IT_of_V βv)) as "G1".
-        iSpecialize ("G1" with "[Hb]").
-        { iModIntro.
-          iIntros (σ0) "Hs". simpl.
-          iApply wp_val. iModIntro. eauto with iFrame. }
-        iSpecialize ("G1" $! emp_ssubst with "[] Hctx Hs").
-        { unfold ssubst_valid. simp list_of_tyctx list_of_ssubst.
-          done. }
-        simpl.
-        iApply (wp_wand with "G1"). clear σ σ'.
-        iIntros (γv). iDestruct 1 as (σ) "[Hg Hs]".
-        iModIntro. iApply wp_let.
-        { solve_proper. }
-        iApply (wp_bind _ (AppRSCtx _)).
-        { solve_proper. }
-        iApply (wp_alloc with "Hctx").
-        { solve_proper. }
-        iNext. iNext. iIntros (l1) "Hl1".
-        iApply wp_val. unfold AppRSCtx. iModIntro.
-        iApply (wp_bind _ (AppLSCtx _)).
-  Lemma compat_glue1_fun {S} (Ω : tyctx S) (τ1 τ2 : ty)
-    (τ1' τ2' : io_lang.ty)
-    (α : IT) (glue1 glue2 : IT -n> IT) (Φ1 Φ2 Φ1' Φ2' : ITV -n> iProp) :
-    (heap_ctx ⊢ ∀ βv, interp_ty τ1 βv -∗ WP@{rs} glue1 (IT_of_V βv) @ s {{ x, □ Φ1' x }}) →
-    (heap_ctx ⊢ ∀ βv, Φ2' βv -∗ WP@{rs} glue2 (IT_of_V βv) @ s {{ interp_ty τ2 }}) →
-    (* α : (unit → τ1') → τ2' *)
-    ⊢ io_lang.valid1 α (Tarr (Tarr Tnat τ1') τ2') →
-    ⊢ valid1 Ω (constO (glue1_fun glue2 glue1 (IT_of_V αv))) (tArr τ1 τ2).
-   Proof.
-     intros G1 G2 Halpha.
-     iIntros (αs) "Has #Hctx".
-     iApply wp_val. iModIntro.
-     Local Opaque thunked thunkedV.
-     simpl.
-     iIntros (βv) "Hb".
-     (* preparing a thunk *)
-     iSimpl. iApply (wp_bind _ (AppRSCtx _)).
-     iApply (wp_alloc with "Hctx").
-     { solve_proper. }
-     iNext. iNext. iIntros (l) "Hl".
-     iApply wp_val. iModIntro.
-     unfold AppRSCtx.
-     iApply wp_lam. iNext.
-     iEval(cbn-[thunked]).
-     iApply wp_let.
-     { solve_proper. }
-     iApply wp_lam.
-     (* forcing a thunk *)
-     iNext. iSimpl.
-     iApply (wp_bind _ (IFSCtx _ _)).
-     { solve_proper. }
-     iApply (wp_read with "Hctx Hl").
-     iNext. iNext. iIntros "Hl".
-     iApply wp_val. iModIntro.
-     unfold IFSCtx. simpl.
-     rewrite IF_False; last lia.
-     iApply wp_seq.
-     { solve_proper. }
-     iApply (wp_write with "Hctx Hl").
-     iNext. iNext. iIntros "Hl".
-     iApply wp_val. iModIntro.
-     (* doing the glue for the argument *)
-     iApply (wp_let).
-     { solve_proper. }
-     iPoseProof (G1 with "Hctx Hb") as "G1".
-     iApply (wp_wand with "G1").
-     iIntros (β'v) "#Hb". iModIntro.
-     iSimpl.
-     (* calling the original function *)
-     iApply wp_let.
-     { solve_proper. }
-     iApply (wp_bind _ (AppRSCtx _)).
-     { solve_proper. }
-     iApply (wp_alloc with "Hctx").
-     { solve_proper. }
-     iNext. iNext. iIntros (l') "Hl'".
-     iApply wp_val. iModIntro.
-     unfold AppRSCtx.
-     iClear "Hl". clear l.
-     iApply fupd_wp.
-     { solve_proper. }
-     iMod (inv_alloc (nroot.@"yolo") _ (∃ n, pointsto l' (Nat n)) with "[Hl']") as "#Hinv".
-     { iNext. iExists _; done. }
-     iPoseProof (Halpha $! (thunkedV (IT_of_V β'v) l') with "[-]") as "H1".
-     { iModIntro.
-       iApply wp_lam. iNext. iSimpl.
-       iApply (wp_bind _ (IFSCtx _ _)).
-       iApply (wp_read_atomic _ _ (⊤∖ nclose (nroot.@"storeE")) with "Hctx").
-       { set_solver. }
-       iInv (nroot.@"yolo") as (n) "Hl'" "Hcl".
-       iModIntro. iExists (Nat n). iFrame.
-       iNext. iNext. iIntros "Hl'".
-       iMod ("Hcl" with "[Hl']") as "_".
-       { iNext. eauto with iFrame. }
-       iModIntro. iApply wp_val.
-       iModIntro.
-       unfold IFSCtx. simpl.
-       destruct n as [|n].
-       - rewrite IF_False; last lia.
-         iApply wp_seq.
-         { solve_proper. }
-         iApply (wp_write_atomic _ _ (⊤∖ nclose (nroot.@"storeE")) with "Hctx").
-         { set_solver. }
-         iInv (nroot.@"yolo") as (n) "Hl'" "Hcl".
-         iModIntro. iExists (Nat n). iFrame.
-         iNext. iNext. iIntros "Hl'".
-         iMod ("Hcl" with "[Hl']") as "_".
-         { iNext. eauto with iFrame. }
-         iModIntro. iApply wp_val.
-         iModIntro. done.
-       - rewrite IF_True; last lia.
-         iApply wp_err. done. }
-     iModIntro.
-     iApply (wp_wand with "H1").
-     iIntros (γv) "H2".
-     iModIntro.
-     by iApply G2.
+        iMod  (na_inv_acc with "Hinv Hp")
+          as "[Hl [Hp Hcl]]"; [ set_solver | set_solver | ].
+        iModIntro.
+        iDestruct "Hl" as "[Hl | [Hl Ha]]".
+        * iApply (wp_read with "Hctx Hl").
+          iNext. iNext. iIntros "Hl".
+          iApply wp_val.
+          iModIntro.
+          unfold IFSCtx. simpl.
+          rewrite IF_True; last lia.
+          iApply wp_err. done.
+        * iApply (wp_read with "Hctx Hl").
+          iNext. iNext. iIntros "Hl".
+          iApply wp_val.
+          iModIntro.
+          unfold IFSCtx. simpl.
+          rewrite IF_False; last lia.
+          iApply wp_seq.
+          { solve_proper_please. }
+          iApply (wp_write with "Hctx Hl").
+          iNext. iNext. iIntros "Hl".
+          iApply wp_val.
+          iMod ("Hcl" with "[Hl $Hp]") as "Hp".
+          { iNext. iLeft; eauto. }
+          iModIntro.
+          iApply wp_let.
+          { solve_proper. }
+          iSpecialize ("Hb" $! _ (NatV 0) with "Hs Hp []").
+          { eauto with iFrame. }
+          iApply (wp_wand with "Hb").
+          iIntros (γv).
+          iDestruct 1 as (σ') "[Hg [Hst Hp]]".
+          iModIntro. simpl.
+          iApply wp_let.
+          { solve_proper. }
+          iPoseProof (glue_to_affine_compatibility _ empC _ _ Hconv1 (constO (IT_of_V γv))) as "G1".
+          iSpecialize ("G1" with "[Hg]").
+          { iIntros (σ0 ss0) "Hs Hp Has". simpl.
+            iApply wp_val. iModIntro. eauto with iFrame. }
+          iSpecialize ("G1" $! emp_ssubst with "[] Hctx [$Hst $Hp]").
+          { unfold ssubst_valid; simpl. done. }
+          iApply (wp_wand with "G1").
+          clear βv σ'.
+          iIntros (βv). iDestruct 1 as (σ') "[Hb [Hst Hp]]".
+          iModIntro. simpl.
+          iApply wp_let.
+          { solve_proper. }
+          iSpecialize ("Ha" with "Hb [$Hst $Hp]").
+          iApply (wp_wand with "Ha").
+          clear γv σ'.
+          iIntros (γv). iDestruct 1 as (σ') "[Hg [Hst Hp]]".
+          iModIntro.
+          iPoseProof (glue_from_affine_compatibility _ _ Hconv2 (IT_of_V γv)) as "G1".
+          iSpecialize ("G1" with "[Hg] Hctx").
+          { iIntros (ss0) "_ _".
+            iIntros (σ0) "[Hs Hp]". simpl.
+            iApply wp_val. iModIntro. eauto with iFrame. }
+          iSpecialize ("G1" $! _ emp_ssubst with  "Hst Hp []").
+          { unfold io_lang.ssubst_valid; simpl. done. }
+          iApply "G1".
   Qed.
 
-  Lemma compat_glue2_fun (αv : ITV) (glue1 glue2 : IT -n> IT) (Φ1 Φ2 Φ1' Φ2' : ITV -n> iProp) A :
-    heap_ctx ⊢
-      □ (∀ βv, Φ1' βv -∗ WP@{rs} glue1 (IT_of_V βv) @ s {{ Φ1 }}) -∗
-      □ (∀ βv, Φ2 βv -∗ WP@{rs} glue2 (IT_of_V βv) @ s {{ x, □ Φ2' x }}) -∗
-      □ (A -∗ interp_tarr Φ1 Φ2 αv) -∗
-      (WP@{rs} glue1_fun glue2 glue1 (IT_of_V αv) @ s {{ αv,
-            (* av : (unit →  τ1') → τ2' *)
-            □ (∀ βv, □ (WP@{rs} IT_of_V βv ⊙ (Nat 0) @ s {{ Φ1' }}) -∗
-                     WP@{rs} IT_of_V αv ⊙ (IT_of_V βv) @ s {{ Φ2' }}) }}).
-   Proof.
-     iIntros "#Hctx #G1 #G2 #H1 HA".
-     iApply wp_val. iModIntro.
-     iSpecialize ("H1" with "HA").
-     iIntros (βv) "Hb".
-     Local Opaque thunked thunkedV.
-     iSimpl. iApply (wp_bind _ (AppRSCtx _)).
-     iApply (wp_alloc with "Hctx").
-     { solve_proper. }
-     iNext. iNext. iIntros (l) "Hl".
-     iApply wp_val. iModIntro.
-     unfold AppRSCtx.
-     iApply wp_lam. iNext.
-     iEval(cbn-[thunked]).
-     iApply wp_let.
-     { solve_proper. }
-     iApply wp_lam.
-     (* forcing a thunk *)
-     iNext. iSimpl.
-     iApply (wp_bind _ (IFSCtx _ _)).
-     { solve_proper. }
-     iApply (wp_read with "Hctx Hl").
-     iNext. iNext. iIntros "Hl".
-     iApply wp_val. iModIntro.
-     unfold IFSCtx. simpl.
-     rewrite IF_False; last lia.
-     iApply wp_seq.
-     { solve_proper. }
-     iApply (wp_write with "Hctx Hl").
-     iNext. iNext. iIntros "Hl".
-     iApply wp_val. iModIntro.
-     (* doing the glue for the argument *)
-     iApply (wp_let).
-     { solve_proper. }
-     iSpecialize ("G1" with "Hb").
-     iApply (wp_wand with "G1").
-     iIntros (β'v) "#Hb". iModIntro.
-     iSimpl.
-     (* calling the original function *)
-     iApply wp_let.
-     { solve_proper. }
-     iApply (wp_bind _ (AppRSCtx _)).
-     { solve_proper. }
-     iApply (wp_alloc with "Hctx").
-     { solve_proper. }
-     iNext. iNext. iIntros (l') "Hl'".
-     iApply wp_val. iModIntro.
-     unfold AppRSCtx.
-     iClear "Hl". clear l.
-     iApply fupd_wp.
-     { solve_proper. }
-     iMod (inv_alloc (nroot.@"yolo") _ (∃ n, pointsto l' (Nat n)) with "[Hl']") as "#Hinv".
-     { iNext. iExists _; done. }
-     iSpecialize ("H1" $! (thunkedV (IT_of_V β'v) l') with "[-G2]").
-     { iModIntro.
-       iApply wp_lam. iNext. iSimpl.
-       iApply (wp_bind _ (IFSCtx _ _)).
-       iApply (wp_read_atomic _ _ (⊤∖ nclose (nroot.@"storeE")) with "Hctx").
-       { set_solver. }
-       iInv (nroot.@"yolo") as (n) "Hl'" "Hcl".
-       iModIntro. iExists (Nat n). iFrame.
-       iNext. iNext. iIntros "Hl'".
-       iMod ("Hcl" with "[Hl']") as "_".
-       { iNext. eauto with iFrame. }
-       iModIntro. iApply wp_val.
-       iModIntro.
-       unfold IFSCtx. simpl.
-       destruct n as [|n].
-       - rewrite IF_False; last lia.
-         iApply wp_seq.
-         { solve_proper. }
-         iApply (wp_write_atomic _ _ (⊤∖ nclose (nroot.@"storeE")) with "Hctx").
-         { set_solver. }
-         iInv (nroot.@"yolo") as (n) "Hl'" "Hcl".
-         iModIntro. iExists (Nat n). iFrame.
-         iNext. iNext. iIntros "Hl'".
-         iMod ("Hcl" with "[Hl']") as "_".
-         { iNext. eauto with iFrame. }
-         iModIntro. iApply wp_val.
-         iModIntro. done.
-       - rewrite IF_True; last lia.
-         iApply wp_err. done. }
-     iModIntro.
-     iApply (wp_wand with "H1").
-     iIntros (γv) "H2".
-     iModIntro.
-     by iApply "G2".
-   Qed.
+End glue.

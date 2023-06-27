@@ -28,6 +28,15 @@ Proof.
     solve_proper.
 Qed.
 
+Definition state_dealloc X `{!Cofe X} : loc * (stateF ♯ X) → option (unitO * (stateF ♯ X))
+  := λ '(l,σ), Some ((), delete l σ).
+#[export] Instance state_dealloc_ne X `{!Cofe X} :
+  NonExpansive (state_dealloc X : prodO locO (stateF ♯ X) → optionO (prodO unitO (stateF ♯ X))).
+Proof.
+  intros n [l1 s1] [l2 s2]. simpl. intros [-> Hs].
+  solve_proper.
+Qed.
+
 Definition state_write X `{!Cofe X} :
   (loc * (laterO X)) * (stateF ♯ X) → option (unit * (stateF ♯ X))
   := λ '((l,n),s), let s' := <[l:=n]>s
@@ -68,16 +77,21 @@ Program Definition AllocE : opInterp :=  {|
   Ins := (▶ ∙);
   Outs := locO;
 |}.
+Program Definition DeallocE : opInterp :=  {|
+  Ins := locO;
+  Outs := unitO;
+|}.
 
-Definition storeE : opsInterp := @[ReadE;WriteE;AllocE].
+Definition storeE : opsInterp := @[ReadE;WriteE;AllocE;DeallocE].
 Canonical Structure reify_store : sReifier.
 Proof.
   simple refine {| sReifier_ops := storeE |}.
   intros X HX op.
-  destruct op as [[]|[[]|[[]|[]]]]; simpl.
+  destruct op as [[]|[[]|[[]|[|[]]]]]; simpl.
   - simple refine (OfeMor (state_read X)).
   - simple refine (OfeMor (state_write X)).
   - simple refine (OfeMor (state_alloc X)).
+  - simple refine (OfeMor (state_dealloc X)).
 Defined.
 
 Section constructors.
@@ -104,7 +118,10 @@ Section constructors.
                 (λne _, Next (Nat 0)).
   Solve Obligations with solve_proper.
 
-
+  Program Definition DEALLOC : locO -n> IT :=
+    λne l, Vis (E:=E) (subEff_opid $ inr $ inr $ inr $ inl ())
+                (subEff_ins (F:=storeE) (op:=(inr $ inr $ inr $ inl ())) l)
+                (λne _, Next (Nat 0)).
 End constructors.
 
 Section wp.
@@ -169,6 +186,14 @@ Section wp.
     { apply (gmap_view_update). }
     done.
   Qed.
+  Lemma istate_delete l α σ :
+    own heapG_name (●V σ) -∗ pointsto l α ==∗ own heapG_name (●V delete l σ).
+  Proof.
+    iIntros "H Hl".
+    iMod (own_update_2 with "H Hl") as "$".
+    { apply (gmap_view_delete). }
+    done.
+  Qed.
 
   (** * The symbolic execution rules *)
   Lemma wp_read_atomic (l : loc)  E1 E2 s Φ :
@@ -230,6 +255,7 @@ Section wp.
     iNext. iNext. iIntros "Hl".
     iModIntro. by iApply "Ha".
   Qed.
+
   Lemma wp_write_atomic (l : loc)  E1 E2 β s Φ :
     nclose (nroot.@"storeE") ## E1 →
     heap_ctx -∗
@@ -264,6 +290,7 @@ Section wp.
     { iExists _. by iFrame. }
     iApply wp_val. iModIntro. done.
   Qed.
+
   Lemma wp_write (l : loc) (α β : IT) s Φ :
     heap_ctx -∗
     ▷ pointsto l α -∗
@@ -304,6 +331,53 @@ Section wp.
     iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
     { iExists _. by iFrame. }
     iApply ("H" with "Hl").
+  Qed.
+
+  Lemma wp_dealloc_atomic (l : loc)  E1 E2 s Φ :
+    nclose (nroot.@"storeE") ## E1 →
+    heap_ctx -∗
+    (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
+        ▷ ▷ (|={E2,E1}=> Φ (NatV 0))) -∗
+    WP@{rs} DEALLOC l @ s {{ Φ }}.
+  Proof.
+    iIntros (Hee) "#Hcxt H".
+    unfold DEALLOC. simpl.
+    iApply wp_subreify'.
+    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
+    iApply (fupd_mask_weaken E1).
+    { set_solver. }
+    iIntros "Hwk".
+    iMod "H" as (α) "[Hp Hback]".
+    iApply (lc_fupd_elim_later with "Hlc").
+    iNext.
+    iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom".
+    { iApply (istate_loc_dom with "Hh Hp"). }
+    destruct Hdom as [x Hx].
+    destruct (Next_uninj x) as [β' Hb'].
+    iExists σ,(),(delete l σ),(Nat 0).
+    iFrame "Hs".
+    repeat iSplit; simpl; eauto.
+    iNext. iIntros "Hlc Hs".
+    iMod (istate_delete with "Hh Hp") as "Hh".
+    iMod ("Hback") as "Hback".
+    iMod "Hwk" .
+    iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
+    { iExists _. by iFrame. }
+    iModIntro. by iApply wp_val.
+  Qed.
+
+  Lemma wp_dealloc (l : loc) α s Φ :
+    heap_ctx -∗
+    ▷ pointsto l α -∗
+    ▷ ▷ Φ (NatV 0) -∗
+    WP@{rs} DEALLOC l @ s {{ Φ }}.
+  Proof.
+    iIntros "#Hctx Hl H".
+    iApply (wp_dealloc_atomic _ (⊤∖ nclose (nroot.@"storeE")) with "[$]").
+    { set_solver. }
+    iModIntro. iExists _; iFrame.
+    iNext. iNext.
+    iModIntro. done.
   Qed.
 
   (** * The logical relation *)
@@ -406,4 +480,4 @@ End wp.
 
 Arguments heap_ctx {_ _ _ _ _ _ _}.
 Arguments pointsto {_ _ _ _} _ _.
-#[global]  Opaque ALLOC READ WRITE.
+#[global]  Opaque ALLOC READ WRITE DEALLOC.
