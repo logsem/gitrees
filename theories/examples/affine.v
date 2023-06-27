@@ -222,7 +222,8 @@ Proof. induction τ; apply _. Qed.
 
 Inductive ty :=
   tBool | tInt | tUnit
-| tArr (τ1 τ2 : ty) | tPair (τ1 τ2 : ty).
+| tArr (τ1 τ2 : ty) | tPair (τ1 τ2 : ty)
+| tRef (τ : ty).
 
 Inductive expr : scope → Type :=
 | LitBool (b : bool) {S} : expr S
@@ -295,6 +296,28 @@ Section affine.
   Program Definition Force : IT -n> IT := λne e, e ⊙ (Nat 0).
 
   Local Open Scope type.
+
+  Definition nat_of_loc (l : loc) := Pos.to_nat $ encode (loc_car l).
+  Definition loc_of_nat (n : nat) :=
+    match decode (Pos.of_nat n) with
+    | Some l => Loc l
+    | None   => Loc 0%Z
+    end.
+  Program Definition interp_alloc {A} (α : A -n> IT) : A -n> IT := λne env,
+    LET (α env) $ λne α,
+    ALLOC α $ λne l, Nat (nat_of_loc l).
+  Solve All Obligations with solve_proper_please.
+  Program Definition interp_replace {A1 A2} (α : A1 -n> IT) (β : A2 -n> IT) : A1*A2 -n> IT := λne env,
+    LET (β env.2) $ λne β,
+    flip get_nat (α env.1) $ λ n,
+    LET (READ (loc_of_nat n)) $ λne γ,
+    SEQ (WRITE (loc_of_nat n) β) (pairT γ (Nat n)).
+  Solve All Obligations with solve_proper_please.
+  Program Definition interp_dealloc {A} (α : A -n> IT) : A -n> IT := λne env,
+    flip get_nat (α env) $ λ n,
+    DEALLOC (loc_of_nat n).
+  Solve All Obligations with solve_proper_please.
+
   Definition interp_litbool (b : bool) {A} : A -n> IT := λne _,
     Nat (if b then 1 else 0).
   Definition interp_litnat (n : nat) {A} : A -n> IT := λne _,
@@ -313,14 +336,14 @@ Section affine.
     LET (t1 env.1) $ λne f,
     APP' f (Thunk x).
   Solve All Obligations with solve_proper_please.
-  (* Program Definition interp_destruct {A1 A2 : ofe} *)
-  (*      (ps : A1 -n> IT) (t : IT*IT*A2 -n> IT) *)
-  (*   : A1*A2 -n> IT := λne env, *)
-  (*   LET (ps env.1) $ λne ps, *)
-  (*   LET (Thunk (proj1T ps)) $ λne x, *)
-  (*   LET (Thunk (proj2T ps)) $ λne y, *)
-  (*   t (x, y, env.2). *)
-  (* Solve All Obligations with solve_proper_please. *)
+  Program Definition interp_destruct {A1 A2 : ofe}
+       (ps : A1 -n> IT) (t : IT*IT*A2 -n> IT)
+    : A1*A2 -n> IT := λne env,
+    LET (ps env.1) $ λne ps,
+    LET (Thunk (proj1T ps)) $ λne x,
+    LET (Thunk (proj2T ps)) $ λne y,
+    t (x, y, env.2).
+  Solve All Obligations with solve_proper_please.
 
   Definition interp_scope_split {S1 S2} {E} :
     interp_scope (E:=E) (S1 ++ S2) -n> interp_scope (E:=E) S1 * interp_scope (E:=E) S2.
@@ -373,6 +396,10 @@ Section affine.
     (∀ βv, Φ1 βv -∗ expr_pred ((IT_of_V αv) ⊙ (Thunk (IT_of_V βv))) Φ2)%I.
   Solve All Obligations with solve_proper_please.
 
+  Program Definition interp_ref (Φ : ITV -n> iProp) : ITV -n> iProp := λne αv,
+    (∃ (l : loc) βv, αv ≡ NatV (nat_of_loc l) ∗ pointsto l (IT_of_V βv) ∗ Φ βv)%I.
+  Solve All Obligations with solve_proper_please.
+
   Fixpoint interp_ty (τ : ty) : ITV -n> iProp :=
     match τ with
     | tBool => interp_tbool
@@ -380,14 +407,146 @@ Section affine.
     | tInt  => interp_tnat
     | tPair τ1 τ2 => interp_tpair (interp_ty τ1) (interp_ty τ2)
     | tArr τ1 τ2  => interp_tarr  (interp_ty τ1) (interp_ty τ2)
+    | tRef τ   => interp_ref (interp_ty τ)
     end.
 
   Definition ssubst_valid {S} (Ω : tyctx S) (ss : ssubst S) : iProp :=
     ([∗ list] τx ∈ zip (list_of_tyctx Ω) (list_of_ssubst (E:=F) ss),
       protected (interp_ty (τx.1)) (τx.2))%I.
 
+
+  Equations ssubst_split {S1 S2} (αs : ssubst (E:=F) (S1++S2)) : ssubst (E:=F) S1 * ssubst (E:=F) S2 :=
+    ssubst_split (S1:=[]) αs := (emp_ssubst,αs);
+    ssubst_split (S1:=u::_) (cons_ssubst αv αs) := (cons_ssubst αv (ssubst_split αs).1, (ssubst_split αs).2).
+
+
+  Lemma ssubst_valid_app {S1 S2} (Ω1 : tyctx S1) (Ω2 : tyctx S2) αs :
+    ssubst_valid (tyctx_app Ω1 Ω2) αs ⊢ ssubst_valid Ω1 (ssubst_split αs).1
+                                      ∗ ssubst_valid Ω2 (ssubst_split αs).2.
+  Proof.
+    iInduction Ω1 as [|τ Ω1] "IH" forall (Ω2); simp tyctx_app ssubst_split.
+    - simpl. iIntros "$". unfold ssubst_valid.
+      simp list_of_ssubst list_of_tyctx. done.
+    - iIntros "H".
+      rewrite {4 5}/ssubst_valid.
+      simpl in αs.
+      dependent elimination αs as [cons_ssubst αv αs].
+      simp ssubst_split. simpl.
+      simp list_of_ssubst list_of_tyctx.
+      simpl. iDestruct "H" as "[$ H]".
+      by iApply "IH".
+  Qed.
+  Lemma interp_scope_ssubst_split {S1 S2} (αs : ssubst (S1++S2)) :
+    interp_scope_split (interp_ssubst αs) ≡
+      (interp_ssubst (ssubst_split αs).1, interp_ssubst (ssubst_split αs).2).
+  Proof.
+    induction S1 as [|u S1]; simpl.
+    - simp ssubst_split. simpl.
+      simp interp_ssubst. done.
+    - dependent elimination αs as [cons_ssubst αv αs].
+      simp ssubst_split. simpl.
+      simp interp_ssubst. repeat f_equiv; eauto; simpl.
+       + rewrite IHS1//.
+       + rewrite IHS1//.
+  Qed.
+
   Definition valid1 {S} (Ω : tyctx S) (α : interp_scope S -n> IT) (τ : ty) : iProp :=
     ∀ ss,  ssubst_valid Ω ss -∗ heap_ctx -∗ expr_pred (α (interp_ssubst ss)) (interp_ty τ).
+
+  Lemma compat_alloc {S} (Ω : tyctx S) α τ:
+    ⊢ valid1 Ω α τ -∗
+      valid1 Ω (interp_alloc α) (tRef τ).
+  Proof.
+    iIntros "H".
+    iIntros (αs) "Has #Hctx".
+    iIntros (x) "Hx".
+    simpl.
+    iApply wp_let.
+    { solve_proper. }
+    iSpecialize ("H" with "Has Hctx Hx").
+    iApply (wp_wand with "H").
+    iIntros (αv). iDestruct 1 as (y) "[Ha Hx]".
+    iModIntro. simpl.
+    iApply (wp_alloc with "Hctx").
+    { solve_proper. }
+    iNext. iNext. iIntros (l) "Hl".
+    iApply wp_val.
+    iExists y. iFrame.
+    eauto with iFrame.
+  Qed.
+
+  Lemma loc_of_nat_of_loc l : loc_of_nat (nat_of_loc l) = l.
+  Proof. Admitted.
+
+  Lemma compat_replace {S1 S2} (Ω1 : tyctx S1) (Ω2 : tyctx S2) α β τ τ' :
+    ⊢ valid1 Ω1 α (tRef τ) -∗
+      valid1 Ω2 β τ' -∗
+      valid1 (tyctx_app Ω1 Ω2) (interp_replace α β ◎ interp_scope_split) (tPair τ (tRef τ')).
+  Proof.
+    Opaque pairTV.
+    iIntros "H1 H2".
+    iIntros (αs) "Has #Hctx".
+    iIntros (x) "Hx". cbn-[interp_replace].
+    rewrite ssubst_valid_app.
+    rewrite interp_scope_ssubst_split.
+    iDestruct "Has" as "[Ha1 Ha2]". cbn-[interp_app].
+    iSpecialize ("H1"  with "Ha1 Hctx").
+    iSpecialize ("H2"  with "Ha2 Hctx").
+    iApply wp_let.
+    { solve_proper. }
+    iSpecialize ("H2" with "Hx").
+    iApply (wp_wand with "H2").
+    iIntros (βv). iDestruct 1 as (y) "[Hb Hy]". iModIntro.
+    simpl.
+    iApply (wp_bind _ (get_nat _)).
+    { solve_proper. }
+    iSpecialize ("H1" with "Hy").
+    iApply (wp_wand with "H1").
+    iIntros (αv). iDestruct 1 as (z) "[Ha Hz]".
+    simpl.
+    iDestruct "Ha" as (l γ) "[Ha [Hl Hg]]".
+    iModIntro. iRewrite "Ha".
+    rewrite get_nat_nat.
+    iApply wp_let.
+    { solve_proper. }
+    rewrite {1}loc_of_nat_of_loc.
+    iApply (wp_read with "Hctx Hl").
+    iNext. iNext. iIntros "Hl".
+    iApply wp_val. iModIntro.
+    simpl. iApply wp_seq.
+    { solve_proper. }
+    rewrite {1}loc_of_nat_of_loc.
+    iApply (wp_write with "Hctx Hl").
+    iNext. iNext. iIntros "Hl".
+    rewrite get_val_ITV. simpl.
+    rewrite get_val_ITV. simpl.
+    iApply wp_val. iModIntro.
+    iExists z; iFrame "Hz".
+    iExists γ,(NatV (nat_of_loc l)).
+    iSplit; first done.
+    iFrame. eauto with iFrame.
+  Qed.
+
+  Lemma compat_dealloc {S} (Ω : tyctx S) α τ:
+    ⊢ valid1 Ω α (tRef τ) -∗
+      valid1 Ω (interp_dealloc α) tUnit.
+  Proof.
+    iIntros "H".
+    iIntros (αs) "Has #Hctx".
+    iIntros (x) "Hx".
+    simpl.
+    iApply (wp_bind _ (get_nat _)).
+    { solve_proper. }
+    iSpecialize ("H" with "Has Hctx Hx").
+    iApply (wp_wand with "H").
+    iIntros (αv). iDestruct 1 as (y) "[Ha Hx]".
+    iModIntro. simpl.
+    iDestruct "Ha" as (l βv) "[Ha [Hl Hb]]".
+    iRewrite "Ha". rewrite get_nat_nat.
+    rewrite loc_of_nat_of_loc.
+    iApply (wp_dealloc with "Hctx Hl").
+    iNext. iNext. eauto with iFrame.
+  Qed.
 
   Lemma compat_bool {S} b (Ω : tyctx S) :
     ⊢ valid1 Ω (interp_litbool b) tBool.
@@ -432,40 +591,6 @@ Section affine.
       by iApply ("IH" with "H").
   Qed.
 
-  Equations ssubst_split {S1 S2} (αs : ssubst (E:=F) (S1++S2)) : ssubst (E:=F) S1 * ssubst (E:=F) S2 :=
-    ssubst_split (S1:=[]) αs := (emp_ssubst,αs);
-    ssubst_split (S1:=u::_) (cons_ssubst αv αs) := (cons_ssubst αv (ssubst_split αs).1, (ssubst_split αs).2).
-
-
-  Lemma ssubst_valid_app {S1 S2} (Ω1 : tyctx S1) (Ω2 : tyctx S2) αs :
-    ssubst_valid (tyctx_app Ω1 Ω2) αs ⊢ ssubst_valid Ω1 (ssubst_split αs).1
-                                      ∗ ssubst_valid Ω2 (ssubst_split αs).2.
-  Proof.
-    iInduction Ω1 as [|τ Ω1] "IH" forall (Ω2); simp tyctx_app ssubst_split.
-    - simpl. iIntros "$". unfold ssubst_valid.
-      simp list_of_ssubst list_of_tyctx. done.
-    - iIntros "H".
-      rewrite {4 5}/ssubst_valid.
-      simpl in αs.
-      dependent elimination αs as [cons_ssubst αv αs].
-      simp ssubst_split. simpl.
-      simp list_of_ssubst list_of_tyctx.
-      simpl. iDestruct "H" as "[$ H]".
-      by iApply "IH".
-  Qed.
-  Lemma interp_scope_ssubst_split {S1 S2} (αs : ssubst (S1++S2)) :
-    interp_scope_split (interp_ssubst αs) ≡
-      (interp_ssubst (ssubst_split αs).1, interp_ssubst (ssubst_split αs).2).
-  Proof.
-    induction S1 as [|u S1]; simpl.
-    - simp ssubst_split. simpl.
-      simp interp_ssubst. done.
-    - dependent elimination αs as [cons_ssubst αv αs].
-      simp ssubst_split. simpl.
-      simp interp_ssubst. repeat f_equiv; eauto; simpl.
-       + rewrite IHS1//.
-       + rewrite IHS1//.
-  Qed.
   Lemma compat_app {S1 S2} (Ω1 : tyctx S1) (Ω2 : tyctx S2)
     α β τ1 τ2 :
     ⊢ valid1 Ω1 α (tArr τ1 τ2) -∗
