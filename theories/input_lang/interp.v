@@ -83,11 +83,11 @@ Section weakestpre.
   Context `{!invGS Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
 
-  Lemma wp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ :
+  Lemma wp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ s :
     update_input σ = (n, σ') →
     has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ' -∗ WP@{rs} (k n) {{ Φ }}) -∗
-    WP@{rs} (INPUT k) {{ Φ }}.
+    ▷ (£ 1 -∗ has_substate σ' -∗ WP@{rs} (k n) @ s {{ Φ }}) -∗
+    WP@{rs} (INPUT k) @ s {{ Φ }}.
   Proof.
     intros Hs. iIntros "Hs Ha".
     unfold INPUT. simpl.
@@ -96,11 +96,11 @@ Section weakestpre.
     { simpl. by rewrite ofe_iso_21. }
     iModIntro. done.
   Qed.
-  Lemma wp_output (σ σ' : stateO) (n : nat) Φ :
+  Lemma wp_output (σ σ' : stateO) (n : nat) Φ s :
     update_output n σ = σ' →
     has_substate σ -∗
     ▷ (£ 1 -∗ has_substate σ' -∗ Φ (NatV 0)) -∗
-    WP@{rs} (OUTPUT n) {{ Φ }}.
+    WP@{rs} (OUTPUT n) @ s {{ Φ }}.
   Proof.
     intros Hs. iIntros "Hs Ha".
     unfold OUTPUT. simpl.
