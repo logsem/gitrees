@@ -21,7 +21,7 @@ Section fact.
   Notation iProp := (iProp Σ).
 
 
-  Program Definition fact_imp_body (n : nat) (acc ℓ : loc) : IT :=
+  Program Definition fact_imp_body (acc ℓ : loc) : IT :=
     WHILE (READ ℓ) $
          LET (READ ℓ) $ λne i,
          LET (NATOP Nat.mul i (READ acc)) $ λne r,
@@ -35,13 +35,13 @@ Section fact.
     ALLOC (Nat 1) $ λne acc,
     ALLOC (Nat n) $ λne ℓ,
       SEQ
-        (fact_imp_body n acc ℓ)
+        (fact_imp_body acc ℓ)
         (READ acc).
 
   Lemma wp_fact_imp_bod n m acc ℓ :
     heap_ctx -∗
     pointsto acc (Nat m) -∗ pointsto ℓ (Nat n) -∗
-    WP@{rs} fact_imp_body n acc ℓ {{ _, pointsto acc (Nat (m * fact n)) }}.
+    WP@{rs} fact_imp_body acc ℓ {{ _, pointsto acc (Nat (m * fact n)) }}.
   Proof.
     iIntros "#Hctx Hacc Hl".
     iLöb as "IH" forall (n m).

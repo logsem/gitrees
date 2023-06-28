@@ -404,8 +404,8 @@ Definition κ {S} {E} : ITV E → val S :=  λ x,
     end.
 Definition rs : gReifiers 1 := gReifiers_cons reify_io gReifiers_nil.
 
-Lemma logrel_nat_adequacy {S} (α : IT (gReifiers_ops rs)) (e : expr S) n σ σ' k :
-  (∀ {Σ:gFunctors}`{H1 : !invGS Σ} `{H2: !stateG rs Σ},
+Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs Σ} {S} (α : IT (gReifiers_ops rs)) (e : expr S) n σ σ' k :
+  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ},
       (True ⊢ logrel rs Tnat α e)%I) →
   ssteps (gReifiers_sReifier rs) α (σ,()) (Nat n) σ' k → ∃ m σ', prim_steps e σ (Val $ Lit n) σ' m.
 Proof.
@@ -415,9 +415,8 @@ Proof.
   cut (ϕ (NatV n)).
   { destruct 1 as ( m' & σ2 & Hm). simpl in Hm.
     eexists; eauto. }
-  eapply (wp_adequacy).
-  { simpl; eassumption. }
-  intros Σ Hinv1 Hst1.
+  eapply (wp_adequacy); eauto.
+  intros Hinv1 Hst1.
   pose (Φ := (λ (βv : ITV (gReifiers_ops rs)), ∃ n, logrel_val rs Tnat (Σ:=Σ) (S:=S) βv (Lit n)
           ∗ ⌜∃ m σ', prim_steps e σ (Val $ Lit n) σ' m⌝)%I).
   assert (NonExpansive Φ).
@@ -468,8 +467,9 @@ Theorem adequacy (e : expr []) (k : nat) σ σ' n :
   ∃ mm σ', prim_steps e σ (Val $ Lit k) σ' mm.
 Proof.
   intros Hty Hst.
-  eapply (logrel_nat_adequacy (interp_expr rs e ())); last eassumption.
-  intros Σ ? ?.
+  pose (Σ:=#[invΣ;stateΣ rs]).
+  eapply (logrel_nat_adequacy Σ (interp_expr rs e ())); last eassumption.
+  intros ? ?.
   iPoseProof (fundamental rs) as "H".
   { apply Hty. }
   unfold logrel_valid.

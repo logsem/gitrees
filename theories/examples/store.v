@@ -124,6 +124,7 @@ Section constructors.
                 (λne _, Next (Nat 0)).
 End constructors.
 
+
 Section wp.
   Context {n : nat}.
   Variable (rs : gReifiers n).
@@ -132,17 +133,32 @@ Section wp.
   Notation ITV := (ITV F).
   Notation stateO := (stateF ♯ IT).
 
+  (* a separate ghost state for keeping track of locations *)
+  Definition istate := gmap_viewUR loc (laterO IT).
+  Class heapPreG Σ := HeapPreG { heapPreG_inG :: inG Σ istate }.
+  Class heapG Σ := HeapG {
+      heapG_inG :: inG Σ istate;
+      heapG_name : gname;
+    }.
+  Definition heapΣ : gFunctors := GFunctor istate.
+  #[export] Instance subG_heapΣ {Σ} : subG heapΣ Σ → heapPreG Σ.
+  Proof. solve_inG. Qed.
+
+  Lemma new_heapG σ `{!heapPreG Σ} :
+    (⊢ |==> ∃ `{!heapG Σ}, own heapG_name (●V σ): iProp Σ)%I.
+  Proof.
+    iMod (own_alloc (●V σ)) as (γ) "H".
+    { apply gmap_view_auth_valid. }
+    pose (sg := {| heapG_inG := _; heapG_name := γ |}).
+    iModIntro. iExists sg. by iFrame.
+  Qed.
+
   Context `{!subReifier reify_store rs}.
   Context `{!invGS_gen HasLc Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
 
   (** * The ghost state theory for the heap *)
-  (* a separate ghost state for keeping track of locations *)
-  Definition istate := gmap_viewUR loc (laterO IT).
-  Class heapG Σ := HeapG {
-      heapG_inG :: inG Σ istate;
-      heapG_name : gname;
-    }.
+
   Context `{!heapG Σ}.
 
   Definition heap_ctx := inv (nroot.@"storeE")

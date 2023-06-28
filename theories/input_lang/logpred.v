@@ -230,9 +230,9 @@ Local Definition rs : gReifiers _ := gReifiers_cons reify_io gReifiers_nil.
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Lemma logpred_adequacy τ (α : unitO -n> IT (gReifiers_ops rs)) (β : IT (gReifiers_ops rs)) st st' k :
-  (∀ {Σ:gFunctors}`{H1 : !invGS Σ} `{H2: !stateG rs Σ},
-      (True ⊢ valid1 rs notStuck (λ _:unitO, True)%I empC α τ)%I) →
+Lemma logpred_adequacy cr Σ `{!invGpreS Σ}`{!statePreG rs Σ} τ (α : unitO -n> IT (gReifiers_ops rs)) (β : IT (gReifiers_ops rs)) st st' k :
+  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ},
+      (£ cr ⊢ valid1 rs notStuck (λ _:unitO, True)%I empC α τ)%I) →
   ssteps (gReifiers_sReifier rs) (α ()) st β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β).
@@ -245,14 +245,14 @@ Proof.
       ∨ (∃ e, β ≡ Err e ∧ notStuck e)).
   { intros [?|He]; first done.
     destruct He as [? [? []]]. }
-  eapply wp_safety; eauto.
+  eapply (wp_safety cr); eauto.
   { apply Hdisj. }
   { by rewrite Hb. }
-  intros Σ H1 H2.
+  intros H1 H2.
   exists (interp_ty _ notStuck (λ _:unitO, True) τ)%I. split.
   { apply _. }
-  iIntros "Hst".
-  iPoseProof (Hlog with "[//]") as "Hlog".
+  iIntros "[Hcr  Hst]".
+  iPoseProof (Hlog with "Hcr") as "Hlog".
   destruct st as [σ []].
   iAssert (has_substate σ) with "[Hst]" as "Hs".
   { unfold has_substate, has_full_state.
@@ -283,7 +283,8 @@ Lemma io_lang_safety e τ σ st' β k :
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
   intros Htyped Hsteps.
-  eapply logpred_adequacy; eauto.
-  intros Σ ? ?. iIntros "_".
+  pose (Σ:=#[invΣ;stateΣ rs]).
+  eapply (logpred_adequacy 0 Σ); eauto.
+  intros ? ?. iIntros "_".
   by iApply fundamental.
 Qed.
