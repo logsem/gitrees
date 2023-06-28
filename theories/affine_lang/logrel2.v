@@ -7,21 +7,12 @@ From gitrees.examples Require Import store pairs.
 
 Local Notation tyctx := (tyctx ty).
 
-Inductive ty_conv : ty → io_lang.ty → Type :=
-| ty_conv_bool : ty_conv tBool Tnat
-| ty_conv_int  : ty_conv tInt  Tnat
-| ty_conv_unit : ty_conv tUnit Tnat
-| ty_conv_fun {τ1 τ2 t1 t2} :
-  ty_conv τ1 t1 → ty_conv τ2 t2 →
-  ty_conv (tArr τ1 τ2) (Tarr (Tarr Tnat t1) t2)
-.
-
 Inductive typed_glued : forall {S}, tyctx S → expr S → ty → Type :=
 (** FFI *)
-| typed_Glue {S} (Ω : tyctx S) τ' τ e :
-  ty_conv τ τ' →
+| typed_Glue {S} (Ω : tyctx S) τ' τ e
+  (tconv : ty_conv τ τ') :
   io_lang.typed empC e τ' →
-  typed_glued Ω (EEmbed e) τ
+  typed_glued Ω (EEmbed e tconv) τ
 (** functions *)
 | typed_VarG {S} (Ω : tyctx S) (τ : ty) (v : var S)  :
   typed_var Ω v τ →
@@ -85,47 +76,10 @@ Section glue.
   Definition io_valid {S} (Γ : io_lang.tyctx S) α (τ' : io_lang.ty) : iProp :=
     input_lang.logpred.valid1 rs s (λ _ : unitO, na_own p ⊤) Γ α τ'.
 
-  Program Definition glue_to_affine_fun (glue_from_affine glue_to_affine : IT -n> IT) : IT -n> IT := λne α,
-    LET α $ λne α,
-    λit xthnk,
-      LET (Force xthnk) $ λne x,
-      LET (glue_from_affine x) $ λne x,
-      LET (α ⊙ (Thunk x)) glue_to_affine.
-  Solve All Obligations with solve_proper_please.
-
-  Program Definition glue_from_affine_fun (glue_from_affine glue_to_affine : IT -n> IT) : IT -n> IT := λne α,
-    LET α $ λne α,
-    LET (Thunk α) $ λne α,
-    λit xthnk,
-      LET (Force α) $ λne α,
-      LET (Force xthnk) $ λne x,
-      LET (glue_to_affine x) $ λne x,
-      LET (α ⊙ (Thunk x)) glue_from_affine.
-  Solve All Obligations with solve_proper_please.
-
-  Program Definition glue2_bool : IT -n> IT := λne α,
-      IF α (Nat 1) (Nat 0).
-
-  Fixpoint glue_to_affine {τ t} (conv : ty_conv τ t) : IT -n> IT :=
-    match conv with
-    | ty_conv_bool => glue2_bool
-    | ty_conv_int  => idfun
-    | ty_conv_unit => constO (Nat 0)
-    | ty_conv_fun conv1 conv2 => glue_to_affine_fun (glue_from_affine conv1) (glue_to_affine conv2)
-    end
-  with glue_from_affine  {τ t} (conv : ty_conv τ t) : IT -n> IT :=
-    match conv with
-    | ty_conv_bool => idfun
-    | ty_conv_int  => idfun
-    | ty_conv_unit => idfun
-    | ty_conv_fun conv1 conv2 => glue_from_affine_fun (glue_from_affine conv2) (glue_to_affine conv1)
-    end.
-
-
   Local Opaque thunked thunkedV Thunk.
   Lemma compat_glue_to_affine_bool {S} (Ω : tyctx S) α :
     io_valid empC α Tnat ⊢
-     valid2 Ω (constO (glue2_bool (α ()))) tBool.
+     valid2 Ω (constO (glue2_bool _ (α ()))) tBool.
   Proof.
     iIntros "H".
     iIntros (ss) "#Hctx Has". simpl.
@@ -223,7 +177,7 @@ Section glue.
     valid2 empC (constO α) (tArr τ1 τ2)
     ⊢ heap_ctx -∗
       io_valid empC
-         (constO (glue_from_affine_fun glue_from_affine glue_to_affine α))
+         (constO (glue_from_affine_fun _ glue_from_affine glue_to_affine α))
          (Tarr (Tarr Tnat τ1') τ2').
   Proof.
     intros G1 G2.
@@ -330,7 +284,7 @@ Section glue.
              ⊢ heap_ctx -∗ io_valid empC (constO (glue_from_affine α)) τ1') →
     io_valid empC α (Tarr (Tarr Tnat τ1') τ2')
       ⊢ valid2 Ω
-      (constO (glue_to_affine_fun glue_from_affine glue_to_affine (α ())))
+      (constO (glue_to_affine_fun _ glue_from_affine glue_to_affine (α ())))
       (tArr τ1 τ2).
   Proof.
     intros G1 G2.
@@ -457,10 +411,10 @@ Section glue.
 
   Lemma glue_to_affine_compatibility {S} (Ω : tyctx S) (τ1 : ty) (τ1' : io_lang.ty)
     (Hconv : ty_conv τ1 τ1') α :
-    io_valid empC α τ1' ⊢ valid2 Ω (constO (glue_to_affine Hconv (α ()))) τ1
+    io_valid empC α τ1' ⊢ valid2 Ω (constO (glue_to_affine _ Hconv (α ()))) τ1
   with glue_from_affine_compatibility (τ1 : ty) (τ1' : io_lang.ty)
     (Hconv : ty_conv τ1 τ1') (α : IT) :
-    valid2 empC (constO α) τ1 ⊢ heap_ctx -∗ io_valid empC (constO (glue_from_affine Hconv α)) τ1'.
+    valid2 empC (constO α) τ1 ⊢ heap_ctx -∗ io_valid empC (constO (glue_from_affine _ Hconv α)) τ1'.
   Proof.
     - destruct Hconv.
       + by iApply compat_glue_to_affine_bool.
@@ -479,32 +433,9 @@ Section glue.
         * apply glue_from_affine_compatibility.
   Qed.
 
-  Definition interp_typed_expr {S} {Ω : tyctx S} (e : expr S) {τ}
-     (typed : typed_glued Ω e τ) : interp_scope (E:=F) S -n> IT.
-  Proof using rs subReifier0 subReifier1 sz.
-    induction typed.
-    (** glue *)
-    - refine (constO $ glue_to_affine t (io_lang.interp_closed _ e)).
-    (** functions *)
-    - refine (Force ◎ interp_var v).
-    - refine (interp_lam IHtyped).
-    - refine (interp_app IHtyped1 IHtyped2 ◎ interp_scope_split).
-    (** pairs *)
-    - refine (interp_pair IHtyped1 IHtyped2 ◎ interp_scope_split).
-    - refine (interp_destruct IHtyped1 IHtyped2 ◎ interp_scope_split).
-    (** references *)
-    - refine (interp_alloc IHtyped).
-    - refine (interp_replace IHtyped1 IHtyped2 ◎ interp_scope_split).
-    - refine (interp_dealloc IHtyped).
-    (** literals *)
-    - refine (interp_litnat n).
-    - refine (interp_litbool b).
-    - refine (interp_litunit).
-  Defined.
-
   Lemma fundamental_affine_glued {S} (Ω : tyctx S) (e : expr S) τ :
-    ∀ (typed : typed_glued Ω e τ),
-    ⊢ valid2 Ω (interp_typed_expr e typed) τ.
+    typed_glued Ω e τ →
+    ⊢ valid2 Ω (interp_expr _ e) τ.
   Proof.
     intros typed. induction typed; simpl.
     - iApply glue_to_affine_compatibility.

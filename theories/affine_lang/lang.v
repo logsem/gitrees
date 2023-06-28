@@ -13,6 +13,22 @@ Module io_lang.
 End io_lang.
 
 
+Inductive ty :=
+  tBool | tInt | tUnit
+| tArr (τ1 τ2 : ty) | tPair (τ1 τ2 : ty)
+| tRef (τ : ty).
+
+Local Notation tyctx := (tyctx ty).
+
+Inductive ty_conv : ty → io_lang.ty → Type :=
+| ty_conv_bool : ty_conv tBool Tnat
+| ty_conv_int  : ty_conv tInt  Tnat
+| ty_conv_unit : ty_conv tUnit Tnat
+| ty_conv_fun {τ1 τ2 t1 t2} :
+  ty_conv τ1 t1 → ty_conv τ2 t2 →
+  ty_conv (tArr τ1 τ2) (Tarr (Tarr Tnat t1) t2)
+.
+
 Inductive expr : scope → Type :=
 | LitBool (b : bool) {S} : expr S
 | LitNat (n : nat) {S} : expr S
@@ -25,14 +41,14 @@ Inductive expr : scope → Type :=
 | Alloc {S} : expr S → expr S
 | Replace {S1 S2} : expr S1 → expr S2 → expr (S1++S2)
 | Dealloc {S} : expr S → expr S
-| EEmbed {S} : io_lang.expr [] → expr S
+| EEmbed {τ1 τ1' S} : io_lang.expr [] → ty_conv τ1 τ1' → expr S
 .
-
 
 Section affine.
   Context {sz : nat}.
   Variable rs : gReifiers sz.
   Context `{!subReifier reify_store rs}.
+  Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
@@ -64,9 +80,13 @@ Section affine.
     | Some l => Loc l
     | None   => Loc 0%Z
     end.
-
   Lemma loc_of_nat_of_loc l : loc_of_nat (nat_of_loc l) = l.
-  Proof. Admitted.
+  Proof.
+    unfold loc_of_nat, nat_of_loc.
+    rewrite Pos2Nat.id.
+    rewrite decode_encode.
+    by destruct l.
+  Qed.
 
   Definition interp_litbool {A} (b : bool)  : A -n> IT := λne _,
     Nat (if b then 1 else 0).
@@ -109,6 +129,42 @@ Section affine.
     DEALLOC (loc_of_nat n).
   Solve All Obligations with solve_proper_please.
 
+  Program Definition glue_to_affine_fun (glue_from_affine glue_to_affine : IT -n> IT) : IT -n> IT := λne α,
+    LET α $ λne α,
+    λit xthnk,
+      LET (Force xthnk) $ λne x,
+      LET (glue_from_affine x) $ λne x,
+      LET (α ⊙ (Thunk x)) glue_to_affine.
+  Solve All Obligations with solve_proper_please.
+
+  Program Definition glue_from_affine_fun (glue_from_affine glue_to_affine : IT -n> IT) : IT -n> IT := λne α,
+    LET α $ λne α,
+    LET (Thunk α) $ λne α,
+    λit xthnk,
+      LET (Force α) $ λne α,
+      LET (Force xthnk) $ λne x,
+      LET (glue_to_affine x) $ λne x,
+      LET (α ⊙ (Thunk x)) glue_from_affine.
+  Solve All Obligations with solve_proper_please.
+
+  Program Definition glue2_bool : IT -n> IT := λne α,
+      IF α (Nat 1) (Nat 0).
+
+  Fixpoint glue_to_affine {τ t} (conv : ty_conv τ t) : IT -n> IT :=
+    match conv with
+    | ty_conv_bool => glue2_bool
+    | ty_conv_int  => idfun
+    | ty_conv_unit => constO (Nat 0)
+    | ty_conv_fun conv1 conv2 => glue_to_affine_fun (glue_from_affine conv1) (glue_to_affine conv2)
+    end
+  with glue_from_affine  {τ t} (conv : ty_conv τ t) : IT -n> IT :=
+    match conv with
+    | ty_conv_bool => idfun
+    | ty_conv_int  => idfun
+    | ty_conv_unit => idfun
+    | ty_conv_fun conv1 conv2 => glue_from_affine_fun (glue_from_affine conv2) (glue_to_affine conv1)
+    end.
+
 
   Fixpoint interp_expr {S} (e : expr S) : interp_scope S -n> IT :=
     match e with
@@ -123,7 +179,8 @@ Section affine.
     | Alloc e => interp_alloc (interp_expr e)
     | Dealloc e => interp_dealloc (interp_expr e)
     | Replace e1 e2 => interp_replace (interp_expr e1) (interp_expr e2) ◎ interp_scope_split
-    | EEmbed io_expr => constO (Err RuntimeErr)  (* we do not wish to interpret embeddings in this case*)
+    | EEmbed e tconv =>
+        constO $ glue_to_affine tconv (io_lang.interp_closed _ e)
     end.
 
   Lemma wp_Thunk β s Φ `{!NonExpansive Φ}:

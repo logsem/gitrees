@@ -3,13 +3,7 @@ From gitrees Require Export lang_generic gitree program_logic.
 From gitrees.affine_lang Require Import lang.
 From gitrees.examples Require Import store pairs.
 
-Inductive ty :=
-  tBool | tInt | tUnit
-| tArr (τ1 τ2 : ty) | tPair (τ1 τ2 : ty)
-| tRef (τ : ty).
-
 Local Notation tyctx := (tyctx ty).
-
 
 Inductive typed : forall {S}, tyctx  S → expr S → ty → Prop :=
 (** functions *)
@@ -57,6 +51,7 @@ Section logrel.
   Context {sz : nat}.
   Variable rs : gReifiers sz.
   Context `{!subReifier reify_store rs}.
+  Context `{!subReifier input_lang.interp.reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F).
   Notation ITV := (ITV F).
@@ -417,3 +412,4 @@ Arguments interp_tbool {_ _ _}.
 Arguments interp_tnat {_ _ _}.
 Arguments interp_tunit {_ _ _}.
 Arguments interp_ty {_ _ _ _ _ _ _ _ _ _} _.
+
