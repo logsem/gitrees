@@ -1243,8 +1243,8 @@ Section IT_destructors.
     - rewrite get_val_nat//.
     - rewrite get_val_fun//.
   Qed.
-  Lemma get_val_ITV f β : AsVal β → get_val f β ≡ f β.
-  Proof. intros [bv <-]. apply get_val_ITV'. Qed.
+  Lemma get_val_ITV `{!AsVal β} f : get_val f β ≡ f β.
+  Proof. destruct (_ : AsVal β) as [bv <-]. apply get_val_ITV'. Qed.
   Lemma get_val_tick f t : get_val f (Tick t) ≡ Tick $ get_val f t.
   Proof.
     rewrite IT_rec1_tau.

@@ -7,55 +7,55 @@ Section pairs.
   Notation IT := (IT E).
   Notation ITV := (ITV E).
 
-  Program Definition pairTV : IT -n> IT -n> IT := λne a b,
+  Program Definition pairITV : IT -n> IT -n> IT := λne a b,
       λit f, f ⊙ a ⊙ b.
   Solve All Obligations with first [ solve_proper | solve_proper_please ].
-  Program Definition pairT : IT -n> IT -n> IT := λne a b,
-      get_val (λne v2, get_val (λne v1, pairTV v1 v2) a) b.
+  Program Definition pairIT : IT -n> IT -n> IT := λne a b,
+      get_val (λne v2, get_val (λne v1, pairITV v1 v2) a) b.
   Solve All Obligations with first [ solve_proper | solve_proper_please ].
 
-  Program Definition proj1Tf : IT := λit a b, a.
+  Program Definition projIT1f : IT := λit a b, a.
   Solve All Obligations with first [ solve_proper | solve_proper_please ].
-  Program Definition proj1T : IT -n> IT := λne t, t ⊙ proj1Tf.
+  Program Definition projIT1 : IT -n> IT := λne t, t ⊙ projIT1f.
 
   Program Definition projT2f : IT := λit a b, b.
-  Program Definition proj2T : IT -n> IT := λne t, t ⊙ projT2f.
+  Program Definition projIT2 : IT -n> IT := λne t, t ⊙ projT2f.
 
-  Lemma pairT_tick_r α β : pairT α (Tick β) ≡ Tick $ pairT α β.
-  Proof. unfold pairT. rewrite get_val_tick//. Qed.
+  Lemma pairT_tick_r α β : pairIT α (Tick β) ≡ Tick $ pairIT α β.
+  Proof. unfold pairIT. rewrite get_val_tick//. Qed.
   Lemma pairT_tick_l α β `{!AsVal β} :
-    pairT (Tick α) β ≡ Tick $ pairT α β.
-  Proof. unfold pairT. rewrite !get_val_ITV /= get_val_tick//. Qed.
+    pairIT (Tick α) β ≡ Tick $ pairIT α β.
+  Proof. unfold pairIT. rewrite !get_val_ITV /= get_val_tick//. Qed.
   Lemma pairT_vis_r α op i k :
-    pairT α (Vis op i k) ≡ Vis op i (laterO_map (pairT α) ◎ k).
+    pairIT α (Vis op i k) ≡ Vis op i (laterO_map (pairIT α) ◎ k).
   Proof.
-    unfold pairT. rewrite get_val_vis. f_equiv.
+    unfold pairIT. rewrite get_val_vis. f_equiv.
     intro x. simpl. done.
   Qed.
   Lemma pairT_vis_l β op i k `{!AsVal β} :
-    pairT (Vis op i k) β ≡ Vis op i (laterO_map (flipO pairT β) ◎ k).
+    pairIT (Vis op i k) β ≡ Vis op i (laterO_map (flipO pairIT β) ◎ k).
   Proof.
-    unfold pairT. simpl. rewrite get_val_ITV/=.
+    unfold pairIT. simpl. rewrite get_val_ITV/=.
     rewrite get_val_vis. f_equiv. f_equiv. f_equiv.
     intro x. simpl. rewrite get_val_ITV/=. done.
   Qed.
 
-  Lemma proj1T_tick α : proj1T (Tick α) ≡ Tick $ proj1T α.
+  Lemma projIT1_tick α : projIT1 (Tick α) ≡ Tick $ projIT1 α.
   Proof. simpl. by rewrite APP'_Tick_l. Qed.
-  Lemma proj1T_vis op i k : proj1T (Vis op i k) ≡ Vis op i (laterO_map proj1T ◎ k).
+  Lemma projIT1_vis op i k : projIT1 (Vis op i k) ≡ Vis op i (laterO_map projIT1 ◎ k).
   Proof.
     simpl. rewrite APP'_Vis_l.
     repeat f_equiv. intro x. simpl. reflexivity.
   Qed.
-  Lemma proj2T_tick α : proj2T (Tick α) ≡ Tick $ proj2T α.
+  Lemma projIT2_tick α : projIT2 (Tick α) ≡ Tick $ projIT2 α.
   Proof. simpl. by rewrite APP'_Tick_l. Qed.
-  Lemma proj2T_vis op i k : proj2T (Vis op i k) ≡ Vis op i (laterO_map proj2T ◎ k).
+  Lemma projIT2_vis op i k : projIT2 (Vis op i k) ≡ Vis op i (laterO_map projIT2 ◎ k).
   Proof.
     simpl. rewrite APP'_Vis_l.
     repeat f_equiv. intro x. simpl. reflexivity.
   Qed.
 
-  Lemma proj1T_pairV α β `{!AsVal α, !AsVal β} : proj1T (pairTV α β) ≡ Tick_n 3 α.
+  Lemma projIT1_pairV α β `{!AsVal α, !AsVal β} : projIT1 (pairITV α β) ≡ Tick_n 3 α.
   Proof.
     simpl.
     rewrite APP'_Fun_l /=.
@@ -71,19 +71,19 @@ Section pairs.
     f_equiv. rewrite APP'_Fun_l/=.
     rewrite -Tick_eq/=//.
   Qed.
-  Lemma proj1T_pair α β `{!AsVal α, !AsVal β} : proj1T (pairT α β) ≡ Tick_n 3 α.
+  Lemma projIT1_pair α β `{!AsVal α, !AsVal β} : projIT1 (pairIT α β) ≡ Tick_n 3 α.
   Proof.
-    cbn-[pairTV].
+    cbn-[pairITV].
     simpl.
-    trans (APP' (pairTV α β) proj1Tf).
+    trans (APP' (pairITV α β) projIT1f).
     { do 2 f_equiv. rewrite get_val_ITV/=.
       rewrite get_val_ITV/=. done. }
-    by apply proj1T_pairV.
+    by apply projIT1_pairV.
   Qed.
 
-  Lemma proj2T_pairV α β `{!AsVal α, !AsVal β} : proj2T (pairTV α β) ≡ Tick_n 3 β.
+  Lemma projIT2_pairV α β `{!AsVal α, !AsVal β} : projIT2 (pairITV α β) ≡ Tick_n 3 β.
   Proof.
-    cbn-[pairTV].
+    cbn-[pairITV].
     simpl.
     rewrite APP'_Fun_l/= -Tick_eq.
     f_equiv.
@@ -94,37 +94,37 @@ Section pairs.
     rewrite APP'_Fun_l/=. by rewrite Tick_eq.
   Qed.
 
-  Lemma proj2T_pair α β `{!AsVal α, !AsVal β} : proj2T (pairT α β) ≡ Tick_n 3 β.
+  Lemma projIT2_pair α β `{!AsVal α, !AsVal β} : projIT2 (pairIT α β) ≡ Tick_n 3 β.
   Proof.
-    cbn-[pairTV].
+    cbn-[pairITV].
     simpl.
-    trans (APP' (pairTV α β) projT2f).
+    trans (APP' (pairITV α β) projT2f).
     { do 2 f_equiv. rewrite get_val_ITV/=.
       rewrite get_val_ITV/=. done. }
-    by apply proj2T_pairV.
+    by apply projIT2_pairV.
   Qed.
 
-  #[global] Instance proj1T_hom : IT_hom proj1T.
+  #[global] Instance projIT1_hom : IT_hom projIT1.
   Proof.
     simple refine (IT_HOM _ _ _ _ _).
-    - intros a. apply proj1T_tick.
-    - intros op i k. rewrite proj1T_vis.
+    - intros a. apply projIT1_tick.
+    - intros op i k. rewrite projIT1_vis.
       reflexivity.
     - intros e. simpl.
       by rewrite APP'_Err_l.
   Qed.
-  #[global] Instance proj2T_hom : IT_hom proj2T.
+  #[global] Instance projIT2_hom : IT_hom projIT2.
   Proof.
     simple refine (IT_HOM _ _ _ _ _).
-    - intros a. apply proj2T_tick.
-    - intros op i k. rewrite proj2T_vis.
+    - intros a. apply projIT2_tick.
+    - intros op i k. rewrite projIT2_vis.
       reflexivity.
     - intros e. simpl.
       by rewrite APP'_Err_l.
   Qed.
 
-  Definition PairRSCtx α : IT -n> IT := pairT α.
-  Program Definition PairLSCtx β `{!AsVal β} : IT -n> IT := λne α, pairT α β.
+  Definition PairRSCtx α : IT -n> IT := pairIT α.
+  Program Definition PairLSCtx β `{!AsVal β} : IT -n> IT := λne α, pairIT α β.
   Solve All Obligations with first [ solve_proper | solve_proper_please ].
 
   #[global] Instance PairRSCtx_hom α : IT_hom (PairRSCtx α).
@@ -142,7 +142,7 @@ Section pairs.
     unfold PairLSCtx.
     simple refine (IT_HOM _ _ _ _ _).
     - intros a. by apply pairT_tick_l.
-    - intros op i k. cbn-[pairT]. rewrite pairT_vis_l.
+    - intros op i k. cbn-[pairIT]. rewrite pairT_vis_l.
       repeat f_equiv. intro. reflexivity.
     - intros e. simpl.
       rewrite get_val_ITV/=.
