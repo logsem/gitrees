@@ -25,8 +25,12 @@ theories/input_lang/interp.v
 theories/input_lang/logpred.v
 theories/input_lang/logrel.v
 
+theories/affine_lang/lang.v
+theories/affine_lang/logrel1.v
+theories/affine_lang/logrel2.v
+
 theories/examples/store.v
 theories/examples/pairs.v
 theories/examples/while.v
 theories/examples/factorial.v
-theories/examples/affine.v
+
