@@ -415,7 +415,7 @@ Proof.
   cut (ϕ (NatV n)).
   { destruct 1 as ( m' & σ2 & Hm). simpl in Hm.
     eexists; eauto. }
-  eapply (wp_adequacy); eauto.
+  eapply (wp_adequacy 0); eauto.
   intros Hinv1 Hst1.
   pose (Φ := (λ (βv : ITV (gReifiers_ops rs)), ∃ n, logrel_val rs Tnat (Σ:=Σ) (S:=S) βv (Lit n)
           ∗ ⌜∃ m σ', prim_steps e σ (Val $ Lit n) σ' m⌝)%I).
@@ -436,12 +436,12 @@ Proof.
         iApply internal_eq_sym. iExact "Hb". }
     iPureIntro. rewrite Hfoo. unfold ϕ.
     eauto. }
-  iIntros "Hs".
+  iIntros "[_ Hs]".
   iPoseProof (Hlog with "[//]") as "Hlog".
   iAssert (has_substate σ) with "[Hs]" as "Hs".
   { unfold has_substate, has_full_state.
     assert (of_state rs (IT (gReifiers_ops rs)) (σ, ()) ≡
-            of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state σ)) as ->; last done.
+            of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state σ)) as -> ; last done. 
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.

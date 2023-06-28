@@ -454,3 +454,81 @@ Section glue.
   Qed.
 
 End glue.
+
+Local Definition rs : gReifiers 2 := gReifiers_cons reify_store (gReifiers_cons input_lang.interp.reify_io gReifiers_nil).
+
+Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
+
+Lemma logrel2_adequacy cr Σ `{!invGpreS Σ}`{!statePreG rs Σ} `{!heapPreG rs Σ} `{!na_invG Σ}
+  τ (α : unitO -n>  IT (gReifiers_ops rs)) (β : IT (gReifiers_ops rs)) st st' k :
+  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ} `{H3: !heapG rs Σ} p,
+      (£ cr ⊢ valid2 rs p empC α τ)%I) →
+  ssteps (gReifiers_sReifier rs) (α ()) st β st' k →
+  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
+   ∨ (β ≡ Err OtherError)
+   ∨ (∃ βv, IT_of_V βv ≡ β).
+Proof.
+  intros Hlog Hst.
+  destruct (IT_to_V β) as [βv|] eqn:Hb.
+  { right. right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. }
+  cut ((∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
+      ∨ (∃ e, β ≡ Err e ∧ s e)).
+  { intros [?|He]; first eauto. right. left.
+    destruct He as [? [? ->]]. done. }
+  eapply (wp_safety (S cr) _ _ rs s); eauto.
+  { apply Hdisj. }
+  { by rewrite Hb. }
+  intros H1 H2.
+  exists (λ _, True)%I. split.
+  { apply _. }
+  iIntros "[[Hone Hcr] Hst]".
+  pose (σ := st.1).
+  pose (ios := st.2.1).
+  iMod (new_heapG rs σ) as (H3) "H".
+  iAssert (has_substate σ ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
+  { unfold has_substate, has_full_state.
+    assert (of_state rs (IT (gReifiers_ops rs)) st ≡
+            of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state σ)
+            ⋅ of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state ios)) as ->; last first.
+    { rewrite -own_op. done. }
+    unfold sR_idx. simpl.
+    intro j.
+    rewrite discrete_fun_lookup_op.
+    inv_fin j.
+    { unfold of_state, of_idx. simpl.
+      erewrite (eq_pi _ _ _ (@eq_refl _ 0%fin)). done. }
+    intros j. inv_fin j.
+    { unfold of_state, of_idx. simpl.
+      erewrite (eq_pi _ _ _ (@eq_refl _ 1%fin)). done. }
+    intros i. inversion i. }
+  iApply fupd_wp.
+  iMod (inv_alloc (nroot.@"storeE") _ (∃ σ, £ 1 ∗ has_substate σ ∗ own (heapG_name rs) (●V σ))%I with "[-Hcr Hio]") as "#Hinv".
+  { iNext. iExists _. iFrame. }
+  simpl.
+  iMod na_alloc as (p) "Hp".
+  iPoseProof (@Hlog _ _ _ p with "Hcr") as "Hlog".
+  iSpecialize ("Hlog" $! emp_ssubst with "Hinv []").
+  { iApply ssubst_valid_nil. }
+  unfold expr_pred. simpl.
+  iSpecialize ("Hlog" $! ios with "[$Hio $Hp]").
+  iModIntro. simp interp_ssubst.
+  iApply (wp_wand with "Hlog").
+  eauto with iFrame.
+Qed.
+
+
+Lemma logrel2_safety e τ (β : IT (gReifiers_ops rs)) st st' k :
+  typed_glued empC e τ →
+  ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) st β st' k →
+  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
+   ∨ (β ≡ Err OtherError)
+   ∨ (∃ βv, IT_of_V βv ≡ β).
+Proof.
+  intros Hty Hst.
+  pose (Σ:=#[invΣ;stateΣ rs;heapΣ rs;na_invΣ]).
+  eapply (logrel2_adequacy 0 Σ); eauto.
+  iIntros (? ? ? ?) "_".
+  by iApply fundamental_affine_glued.
+Qed.
+
+
