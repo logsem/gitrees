@@ -9,7 +9,7 @@ build: [make "-j%{jobs}%"]
 install: [make "install"]
 remove: ["rm" "-rf" "%{lib}%/coq/user-contrib/gitrees"]
 depends: [
-  "coq-iris" { (= "4.0.0") | (= "dev") }
-  "coq-stdpp" { (>= "1.8.0") | (= "dev") }
+  "coq-iris" { (= "dev.2023-06-30.0.7e865892") | (= "dev") }
+  "coq-stdpp" { (= "dev.2023-06-01.0.d1254759") | (= "dev") }
   "coq" { (>= "8.17") | (= "dev") }
 ]

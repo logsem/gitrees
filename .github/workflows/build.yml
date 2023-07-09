@@ -17,5 +17,9 @@ jobs:
       - uses: actions/checkout@v2
       - uses: coq-community/docker-coq-action@v1
         with:
+          before_install:
+            startGroup "Add custom OPAM repository"
+              opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
+            endGroup
           opam_file: 'coq-gitrees.opam'
           custom_image: ${{ matrix.image }}
