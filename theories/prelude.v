@@ -7,6 +7,8 @@ From iris.si_logic Require Import bi siprop.
 From iris.proofmode Require Import classes tactics modality_instances
                                    coq_tactics reduction.
 
+Program Definition idfun {A : ofe} : A -n> A := λne x, x.
+
 Lemma unit_local_update (x y : unitR) : (x, y) ~l~> ((), ()).
 Proof. destruct x as [], y as []; reflexivity. Qed.
 
@@ -54,7 +56,6 @@ Proof.
   eapply Next_contractive. destruct n; eauto using dist_later_0, dist_later_S.
   apply dist_later_S. f_equiv. eapply later_car_anti_contractive; eauto.
 Qed.
-
 Definition laterO_ap {A B} := OfeMor (@later_ap A B).
 
 Program Definition sumO_rec {A B C : ofe} (f : A -n> C) (g : B -n> C) : sumO A B -n> C :=
@@ -84,15 +85,6 @@ Next Obligation. solve_proper. Qed.
 Next Obligation. solve_proper. Qed.
 
 
-Definition ap {X Y : Type} (f : X → Y) {x y : X} (p : x = y) : f x = f y.
-Proof. induction p. reflexivity. Defined.
-Definition sym {X : Type} {x y : X} (p : x = y) : y = x.
-Proof. induction p. reflexivity. Defined.
-Program Definition idfun {A : ofe} : A -n> A := λne x, x.
-
-Lemma ccompose_assoc {A B C D : ofe} (f : A -n> B) g (h : C -n> D) :
-  h ◎ g ◎ f ≡ h ◎ (g ◎ f).
-Proof. by intro x. Qed.
 Lemma laterO_map_compose {A B C} (f : A -n> B) (g : B -n> C) x :
   laterO_map (g ◎ f) x ≡ laterO_map g (laterO_map f x).
 Proof. by destruct x. Qed.
@@ -108,9 +100,6 @@ Program Definition sndO {A B : ofe} : prodO A B -n> B := λne x, snd x.
 Program Definition prod_in {A B C : ofe} : (C -n> A) -n> (C -n> B) -n> C -n> prodO A B
     := λne f g x, (f x, g x).
 Solve Obligations with solve_proper.
-
-Definition oFunctor_transp {F G : oFunctor} (p : F = G) X `{Cofe X} : oFunctor_apply F X -n> oFunctor_apply G X :=
-  eq_rect _ (λ G, oFunctor_apply F X -n> oFunctor_apply G X) idfun G p.
 
 
 Program Definition NextO {A} : A -n> laterO A := λne x, Next x.
@@ -141,7 +130,6 @@ Qed.
 Section siProp.
 Import siprop.
 Import siProp_primitive.
-
 Ltac unseal := (* Coq unfold is used to circumvent bug #5699 in rewrite /foo *)
   unfold bi_pure, bi_entails, bi_later,
     bi_and, bi_or, bi_impl, bi_forall, bi_exist,
@@ -149,30 +137,11 @@ Ltac unseal := (* Coq unfold is used to circumvent bug #5699 in rewrite /foo *)
   unfold internal_eq, bi_internal_eq_internal_eq,
     plainly, bi_plainly_plainly; simpl;
   siProp_primitive.unseal.
-
-
-Lemma inj_later_eq {A B : ofe} (F : A -n> B) x y :
- (∀ k, Inj (dist k) (dist (S k)) F) →
- (F x ≡ F y ⊢ ▷ (x ≡ y) : siProp).
-Proof.
-  intros HF. unseal. constructor=>n.
-  destruct n ; compute; auto.
-  intros H1. by apply HF.
-Qed.
-
 Lemma internal_eq_pointwise {A B : ofe} (f g : A -n> B) :
   ⊢@{bi.siPropI} (∀ x, f x ≡ g x) → f ≡ g.
 Proof.
   unseal. split. intros n _ m Hnm H x. apply H.
 Qed.
-
-
-Lemma laterN_soundness (P : siProp) (n : nat) : (⊢ ▷^n P) → ⊢ P.
-Proof.
-  induction n; simpl; eauto.
-  intros H%siProp.later_soundness. by eapply IHn.
-Qed.
-
 End siProp.
 
 (** "Beefed up" version of iRewrite.
