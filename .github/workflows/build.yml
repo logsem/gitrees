@@ -19,8 +19,8 @@ jobs:
         with:
           before_install:
             startGroup "Add custom OPAM repository"
-              opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git; opam update -y;
-              opam config list; opam repo list; opam list
+              opam config list; opam repo list; opam list;
+              opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git; opam update -y
             endGroup
           opam_file: 'coq-gitrees.opam'
           custom_image: ${{ matrix.image }}
