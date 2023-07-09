@@ -18,7 +18,7 @@ jobs:
       - uses: coq-community/docker-coq-action@v1
         with:
           opam_file: 'coq-gitrees.opam'
-          install:
+          install: |
             startGroup "Install dependencies"
               sudo apt-get update -y -q
               opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
