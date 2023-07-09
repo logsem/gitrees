@@ -1,0 +1,15 @@
+opam-version: "2.0"
+name: "coq-gitrees"
+synopsis: "Guarded Interaction Trees"
+version: "dev"
+maintainer: "..."
+authors: "..."
+license: "BSD"
+build: [make "-j%{jobs}%"]
+install: [make "install"]
+remove: ["rm" "-rf" "%{lib}%/coq/user-contrib/gitrees"]
+depends: [
+  "coq-iris" { (= "4.0.0") | (= "dev") }
+  "coq-stdpp" { (>= "1.8.0") | (= "dev") }
+  "coq" { (>= "8.17") | (= "dev") }
+]

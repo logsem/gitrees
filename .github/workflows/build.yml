@@ -1,0 +1,21 @@
+# See https://github.com/coq-community/docker-coq-action#readme
+name: Docker CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - 'coqorg/coq:8.17'
+      max-parallel: 4
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: coq-community/docker-coq-action@v1
+        with:
+          opam_file: 'coq-gitrees.opam'
+          custom_image: ${{ matrix.image }}
