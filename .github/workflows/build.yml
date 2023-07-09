@@ -17,10 +17,13 @@ jobs:
       - uses: actions/checkout@v2
       - uses: coq-community/docker-coq-action@v1
         with:
-          before_install:
-            startGroup "Add custom OPAM repository"
-              opam config list; opam repo list; opam list;
-              opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git; opam update -y
-            endGroup
           opam_file: 'coq-gitrees.opam'
+          install:
+            startGroup "Install dependencies"
+              sudo apt-get update -y -q
+              opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
+              opam pin add -n -y -k path $PACKAGE $WORKDIR
+              opam update -y
+              opam install --confirm-level=unsafe-yes -j 2 $PACKAGE --deps-only
+            endGroup
           custom_image: ${{ matrix.image }}
