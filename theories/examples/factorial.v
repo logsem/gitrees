@@ -1,10 +1,3 @@
-(* Show how an imperative factorial refines a functional one
-- Read a number from a tape
-- Compute factorial
-- ????
-- REFINEMENT!!!111
-
- *)
 From Equations Require Import Equations.
 From gitrees Require Import gitree program_logic.
 From gitrees.input_lang Require Import lang interp.

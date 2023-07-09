@@ -1,64 +1,59 @@
-# denotational semantics with guarded interaction trees
+# Guarded Interaction Trees
 
-- `gitree/core.v` -- the main definitions for Guarded Interaction Trees, and the recursion principle
-- `gitree/reify.v`, `gitree/reductions.v` -- reification of effects and reductions of gITrees
-- `gitree/lambda.v` -- programmming language combinators on the gITrees
-- `gitree/weakestpre.v` -- program logic on gITrees
-- `input_lang/` -- a language with recursion and an INPUT effect; model and adequacy
+This is the Coq formalization of guarded interaction trees, associated examples and case studies.
 
-## other stuff
+## Installation instructions
 
-There are two formalized models of PCF in the repository, in the `pcf`
-directory. The `lang.v` file contains the formalization of PCF and its
-operational semantics, in the style of (Benton, Hur, Kennedy, McBride,
-2012). The `typed/` directory contains the formalization of the
-"typed" model, as adapted from a similar model in guarded type theory
-given in (Paviotti, Mogelberg, Birkedal, 2015). The `untyped/`
-directory contains the formaliztion of the "untyped" model in the
-style of Scott model for untyped lambda calculus. For both models we
-show adequacy using a logical relation in the logic of step-indexed
-propositions.
+To install the formalization you will need the Iris, std++, and Equations packages.
+The dependencies can be easily installed with the following commands:
 
-## Reading / bibliography
+```
+opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
+opam update
+opam install . --deps-only
+```
 
-Typed representation of PCF terms in Coq:
+Then the formalization can be compiled with `make` and installed with
+`make install`. You can pass the additional parameters to compile the
+formalization using multiple cores, e.g. `make -j 3` for compiling
+using 3 threads.
 
-- [1]: "Strongly Typed Term Representations in Coq", N. Benton, C.-K. Hur, A. Kennedy, C. McBride, 2012
-- [2]: "Some Domain Theory and Denotational Semantics in Coq", N. Benton, A. Kennedy, C. Varming, 2009
-- [3]: "Ultrametric Domain Theory and Semantics in Coq", C. Varming, L. Birkedal, 2010
+## Code Overview
 
-Domain theory in guarded recursion:
+All the code lives in the `theories` folder. Below is the quick guide
+to the code structure.
 
-- [4]: "The Category-Theoretic Solution of Recursive Metric-Space Equations", L. Birkedal, K. Stovring, J. Thamsborg, 2010
-  (induction principle for recursive domain equations)
-- [5]: "A Model of PCF in Guarded Type Theory", M. Paviotti, R. Møgelberg, L. Birkedal, 2015
-- [6]: "Denotational semantics of recursive types in synthetic guarded domain theory", M. Paviotti, R. Møgelberg, 2016
-- [7]: "Two Guarded Recursive Powerdomains for Applicative Simulation", R. Møgelberg, A. Vezzosi, 2021
+- `gitree/` -- contains the core definitions related to guarded interaction trees
+- `input_lang/` -- formalization of the language with io, the soundness and adequacy
+- `affine_lang/` -- formalization of the affine language, type safety of the language interoperability
+- `examples/` -- some other smaller examples 
+- `lang_generic.v` -- generic facts about languages with binders and their interpretations, shared by `input_lang` and `affine_lang`
+- `prelude.v` -- some stuff that is missing from Iris
 
-Interaction trees are related stuff:
+### References from the paper to the code
 
-- [8]: "Interaction Trees: Representing Recursive and Impure Programs in Coq", 
-  Li-yao Xia, Yannick Zakowski, Paul He, Chung-Kil Hur, Gregory Malecha, Benjamin C. Pierce, Steve Zdancewic.
-  <https://arxiv.org/abs/1906.00046>.
-  DF: the most comprehensive reference. describes itrees, ktrees, weak bisimulation...
-- [9]: "Formal reasoning about layered monadic interpreters",
-  Irene Yoon, Yannick Zakowski,Steve Zdancewic.
-  <https://www.cis.upenn.edu/~euisuny/paper/fralmi.pdf>
-  DF: reifying and playing with effects. shows how to build 'interpreters' in layers, and also reason about equivalence
-- [10]: "Choice Trees: Representing Nondeterministic, Recursive, and Impure Programs in Coq",
-  Nicolas Chappe, Paul He, Ludovic Henrio, Yannick Zakowski, Steve Zdancewic.
-  <https://arxiv.org/abs/2211.06863>
-- [11]: "Formally Verified Animation for RoboChart Using Interaction Trees",
-  Kangfeng Ye, Simon Foster & Jim Woodcock ,
-  https://link.springer.com/chapter/10.1007/978-3-031-17244-1_24
-- [12]:  "Formally Verified Simulations of State-Rich Processes Using Interaction Trees in Isabelle/HOL",
-  Foster, Simon ; Hur, Chung-Kil ; Woodcock, Jim.
-  <https://drops.dagstuhl.de/opus/volltexte/2021/14397/>
-- [13]: "Semantics for Noninterference with Interaction Trees",
-  L. Silver, P. He, E. Cecchetti, A. K. Hirsch, and S. Zdancewic
-  <https://ethan.umiacs.io/papers/secure-itrees.pdf>
+- *Section 3* contains material from `gitree/core.v`,
+  `gitree/lambda.v`, `examples/store.v`, `examples/factorial.v`, and
+  `examples/pairs.v`
+- *Section 4* contains material from `gitree/reify.v`,
+  `gitree/reductions.v`, and it covers additional parts of
+  `examples/store.v` and `input_lang/interp.v`
+- *Section 5* contains material from `input_lang/lang.v` and
+  `input_lang/interp.v`
+- *Section 6* contains material from `gitree/weakestpre.v` and
+  `program_logic.v`, as well as additional parts of `examples/store.v`
+- *Section 7* contains material from `input_lang/logrel.v`
+- *Section 8* contains material from `gitree/greifiers.v`
+- *Section 9* contains material from the `affine_lang/` directory, as
+  well as `input_lang/logpred.v`; the type safety for `affine_lang`
+  standalone is in `logrel1.v`, and the type safety for the combined
+  language is in `logrel2.v`
 
-Other stuff: 
-- <https://github.com/DeepSpec/InteractionTrees>
-  Coq formalisation of itrees
 
+## Notes
+
+For the representation of languages with binders, we follow the
+approach of (Benton, Hur, Kennedy, McBride, 2012) with well-scoped
+terms and substitutions/renamings. 
+
+[1]: "Strongly Typed Term Representations in Coq", N. Benton, C.-K. Hur, A. Kennedy, C. McBride, 2012
