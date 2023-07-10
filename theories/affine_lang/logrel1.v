@@ -1,3 +1,4 @@
+(** Unary (Kripke) logical relation for the affine lang *)
 From Equations Require Import Equations.
 From gitrees Require Export lang_generic gitree program_logic.
 From gitrees.affine_lang Require Import lang.

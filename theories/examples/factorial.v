@@ -108,14 +108,14 @@ Section fact.
     by rewrite Nat.mul_1_l.
   Qed.
 
-  Program Definition fact_combined : IT :=
+  Program Definition fact_io : IT :=
     INPUT $ λne n, fact_imp ⊙ (Nat n).
-  Lemma wp_fact_combined (n : nat) :
+  Lemma wp_fact_io (n : nat) :
     heap_ctx ∗ has_substate (State [n] [])
-    ⊢ WP@{rs} get_nat OUTPUT fact_combined  {{ _, has_substate (State [] [fact n]) }}.
+    ⊢ WP@{rs} get_nat OUTPUT fact_io  {{ _, has_substate (State [] [fact n]) }}.
   Proof.
     iIntros "[#Hctx Htape]".
-    unfold fact_combined.
+    unfold fact_io.
     iApply (wp_bind _ (get_nat _)).
     iApply (wp_input with "Htape").
     { reflexivity. }

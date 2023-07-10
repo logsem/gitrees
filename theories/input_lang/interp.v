@@ -1,15 +1,14 @@
-(** Interpretation and adequacy for the input_lang *)
 From Equations Require Import Equations.
 From gitrees Require Import gitree.
 From gitrees.input_lang Require Import lang.
 
 Notation stateO := (leibnizO state).
 
-Program Definition inputE : opInterp :=  {|
+Program Definition inputE : opInterp := {|
   Ins := unitO;
   Outs := natO;
 |}.
-Program Definition outputE : opInterp :=  {|
+Program Definition outputE : opInterp := {|
   Ins := natO;
   Outs := unitO;
 |}.

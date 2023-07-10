@@ -1,4 +1,3 @@
-(** A simple language with recursion and a single INPUT effect *)
 From stdpp Require Export strings.
 From gitrees Require Export prelude lang_generic.
 From Equations Require Import Equations.

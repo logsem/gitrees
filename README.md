@@ -59,6 +59,7 @@ to the code structure.
   + The notion of a subeffect is in `gitree/core.v`
   + The notion of a subreifier and the associated definitions are in
     `gitree/greifiers.v`
+  + The `fact_io` example is in `examples/factorial.v`
 - **Section 9**
   + The syntax for λ⊸,ref is in `affine_lang/lang.v`
   + The logical relations for the type safety of λ⊸,ref and λrec,io

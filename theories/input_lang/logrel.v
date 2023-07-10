@@ -1,3 +1,4 @@
+(** Logical relation for adequacy for the IO lang *)
 From Equations Require Import Equations.
 From gitrees Require Import gitree.
 From gitrees.input_lang Require Import lang interp.

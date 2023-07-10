@@ -1,4 +1,4 @@
-(** Unary (kripke) logical relation for the IO lang *)
+(** Unary (Kripke) logical relation for the IO lang *)
 From Equations Require Import Equations.
 From gitrees Require Import gitree program_logic.
 From gitrees.input_lang Require Import lang interp.

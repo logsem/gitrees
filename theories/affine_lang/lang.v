@@ -2,14 +2,15 @@ From gitrees Require Export lang_generic gitree program_logic.
 From gitrees.input_lang Require Import lang interp.
 From gitrees.examples Require Import store pairs.
 
-(* for embedding purposes *)
+(* for namespace sake *)
 Module io_lang.
   Definition state := input_lang.lang.state.
   Definition ty := input_lang.lang.ty.
   Definition expr := input_lang.lang.expr.
   Definition tyctx := tyctx ty.
   Definition typed {S} := input_lang.lang.typed (S:=S).
-  Definition interp_closed {sz} (rs : gReifiers sz) `{!subReifier reify_io rs} (e : expr []) := input_lang.interp.interp_expr rs e ().
+  Definition interp_closed {sz} (rs : gReifiers sz) `{!subReifier reify_io rs} (e : expr []) :=
+    input_lang.interp.interp_expr rs e ().
 End io_lang.
 
 
