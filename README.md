@@ -32,28 +32,42 @@ to the code structure.
 
 ### References from the paper to the code
 
-- *Section 3* contains material from `gitree/core.v`,
-  `gitree/lambda.v`, `examples/store.v`, `examples/factorial.v`, and
-  `examples/pairs.v`
-- *Section 4* contains material from `gitree/reify.v`,
-  `gitree/reductions.v`, and it covers additional parts of
-  `examples/store.v` and `input_lang/interp.v`
-- *Section 5* contains material from `input_lang/lang.v` and
-  `input_lang/interp.v`
-- *Section 6* contains material from `gitree/weakestpre.v` and
-  `program_logic.v`, as well as additional parts of `examples/store.v`
-- *Section 7* contains material from `input_lang/logrel.v`
-- *Section 8* contains material from `gitree/greifiers.v`
-- *Section 9* contains material from the `affine_lang/` directory, as
-  well as `input_lang/logpred.v`; the type safety for `affine_lang`
-  standalone is in `logrel1.v`, and the type safety for the combined
-  language is in `logrel2.v`
-
+- **Section 3**
+  + Definition of guarded interaction trees, constructors, the
+    recursion principle, and the destructors are in `gitree/core.v`
+  + Signtures for IO and higher-order store are in `examples/store.v`
+    and `input_lang/interp.v`
+  + The programming operations are in `gitree/lambda.v`
+  + The factorial example is in `examples/factorial.v`, and
+    the pairs example is in `examples/pairs.v`
+- **Section 4**
+  + The definition of reifiers and the reify function are in `gitree/reify.v`
+  + The reduction relation is in `gitree/reductions.v`
+  + The specific reifiers for IO and state are in `examples/store.v`
+    and `input_lang/interp.v`
+- **Section 5**
+  + The syntax for λrec,io is in `input_lang/lang.v`
+  + The interpretation and the soundness proof are in `input_lang/interp.v`
+- **Section 6**
+  + The definition of the weakest precondition and the basic rules are
+    in `gitree/weakestpre.v`
+  + The additional weakest precondition rules are in `program_logic.v`
+    and `examples/store.v`
+- **Section 7**
+  + The logical relation and the adequacy proof are in `input_lang/logrel.v`
+- **Section 8**
+  + The notion of a subeffect is in `gitree/core.v`
+  + The notion of a subreifier and the associated definitions are in
+    `gitree/greifiers.v`
+- **Section 9**
+  + The syntax for λ⊸,ref is in `affine_lang/lang.v`
+  + The logical relations for the type safety of λ⊸,ref and λrec,io
+    are in `affine_lang/logrel1.v` and `input_lang/logpred.v`
+  + The logical relation for the combined language is in `affine_lang/logrel2.v`
 
 ## Notes
 
 For the representation of languages with binders, we follow the
-approach of (Benton, Hur, Kennedy, McBride, 2012) with well-scoped
+approach of (Benton, Hur, Kennedy, McBride, JAR 2012) with well-scoped
 terms and substitutions/renamings. 
 
-[1]: "Strongly Typed Term Representations in Coq", N. Benton, C.-K. Hur, A. Kennedy, C. McBride, 2012
