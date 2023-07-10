@@ -37,7 +37,7 @@ to the code structure.
     recursion principle, and the destructors are in `gitree/core.v`
   + Signtures for IO and higher-order store are in `examples/store.v`
     and `input_lang/interp.v`
-  + The programming operations are in `gitree/lambda.v`
+  + The programming operations are in `gitree/lambda.v` and `examples/while.v`
   + The factorial example is in `examples/factorial.v`, and
     the pairs example is in `examples/pairs.v`
 - **Section 4**
