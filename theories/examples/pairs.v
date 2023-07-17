@@ -151,3 +151,21 @@ Section pairs.
 
 End pairs.
 
+
+Definition pairIT2 := (@pairIT @[]).
+Require Coq.extraction.Extraction.
+Extraction Language OCaml.
+Require Import ExtrOcamlBasic.
+Require Import ExtrOcamlString.
+Require Import ExtrOcamlIntConv.
+
+Extract Constant ITF_solution.IT_result => "IT".
+Extract Constant IT => "IT".
+Extract Constant Nat => "Nat".
+Extract Constant Tick => "Tau".
+Extract Constant Tau => "Tau".
+Extract Constant Fun => "Fun".
+Extract Constant IT_rec1 => "IT_rec1".
+Extract Constant IT_rec => "IT_rec".
+Extraction "test.ml" pairIT2.
+g
