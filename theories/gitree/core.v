@@ -86,68 +86,68 @@ Canonical Structure errorO := leibnizO error.
 
 (** * Recursive domain equation *)
 Module IT_pre.
-Definition ITOF (Σ : opsInterp) : oFunctor :=
-  ( natO   (* basic values *)
+Definition ITOF (Σ : opsInterp) (A : ofe) : oFunctor :=
+  ( A           (* basic values *)
   + ▶ (∙ -n> ∙) (* function space *)
   + errorO  (* explicit error state *)
   + ▶ ∙  (* silent step *)
   + { op : opid Σ & (Ins (Σ op)) * ((Outs (Σ op)) -n> ▶ ∙ ) }
   ).
 
-#[export] Instance ITOF_contractive Σ : oFunctorContractive (ITOF Σ).
+#[export] Instance ITOF_contractive Σ A : oFunctorContractive (ITOF Σ A).
 Proof. apply _. Qed.
 
-#[export] Instance ITOF_inhabited Σ : Inhabited (oFunctor_apply (ITOF Σ) unitO).
+#[export] Instance ITOF_inhabited Σ A : Inhabited (oFunctor_apply (ITOF Σ A) unitO).
 Proof.
   refine (populate _).
   refine (inl (inr _)). refine (Next tt).
 Defined.
 
-#[export]  Instance ITOF_cofe Σ T `{!Cofe T}:
-  Cofe (oFunctor_apply (ITOF Σ) T).
+#[export]  Instance ITOF_cofe Σ A `{!Cofe A} T `{!Cofe T}:
+  Cofe (oFunctor_apply (ITOF Σ A) T).
 Proof. apply _. Defined.
 End IT_pre.
 
 Module Export ITF_solution.
   Import IT_pre.
   Import cofe_solver.
-  Definition IT_result Σ :
-    solution (ITOF Σ) := solver.result (ITOF Σ).
+  Definition IT_result Σ A `{!Cofe A}:
+    solution (ITOF Σ A) := solver.result (ITOF Σ A).
 
-  Definition IT Σ : ofe := (IT_result Σ).
-  Global Instance IT_cofe Σ : Cofe (IT Σ) := _.
+  Definition IT Σ A `{!Cofe A} : ofe := (IT_result Σ A).
+  Global Instance IT_cofe Σ A `{!Cofe A} : Cofe (IT Σ A) := _.
 
 
-  Definition IT_unfold {Σ} :
-    IT Σ -n> sumO (sumO (sumO (sumO natO (laterO (IT Σ -n> IT Σ)))
+  Definition IT_unfold {Σ A} `{!Cofe A} :
+    IT Σ A -n> sumO (sumO (sumO (sumO A (laterO (IT Σ A -n> IT Σ A)))
                                          errorO)
-                                          (laterO (IT Σ)))
-                (sigTO (λ op : opid Σ, prodO (Ins (Σ op) ♯ (IT Σ))
-                                             ((Outs (Σ op) ♯ (IT Σ)) -n> laterO (IT Σ))))
-    := ofe_iso_2 (IT_result Σ).
+                                          (laterO (IT Σ A)))
+                (sigTO (λ op : opid Σ, prodO (Ins (Σ op) ♯ (IT Σ A))
+                                             ((Outs (Σ op) ♯ (IT Σ A)) -n> laterO (IT Σ A))))
+    := ofe_iso_2 (IT_result Σ A).
 
-  Definition IT_fold {Σ} :
-    sumO (sumO (sumO (sumO natO (laterO (IT Σ -n> IT Σ)))
+  Definition IT_fold {Σ A} `{!Cofe A} :
+    sumO (sumO (sumO (sumO A (laterO (IT Σ A -n> IT Σ A)))
                                          errorO)
-                                          (laterO (IT Σ)))
-                (sigTO (λ op : opid Σ, prodO (Ins (Σ op) ♯ (IT Σ))
-                                             ((Outs (Σ op) ♯ (IT Σ)) -n> laterO (IT Σ))))
-         -n> IT Σ
-    := ofe_iso_1 (IT_result Σ).
+                                          (laterO (IT Σ A)))
+                (sigTO (λ op : opid Σ, prodO (Ins (Σ op) ♯ (IT Σ A))
+                                             ((Outs (Σ op) ♯ (IT Σ A)) -n> laterO (IT Σ A))))
+         -n> IT Σ A
+    := ofe_iso_1 (IT_result Σ A).
 
-  Lemma IT_fold_unfold {Σ} (T : IT Σ) : IT_fold (IT_unfold T) ≡ T.
+  Lemma IT_fold_unfold {Σ A} `{!Cofe A} (T : IT Σ A) : IT_fold (IT_unfold T) ≡ T.
   Proof. apply ofe_iso_12. Qed.
-  Lemma IT_unfold_fold {Σ : opsInterp} T' : IT_unfold (Σ:=Σ) (IT_fold T') ≡ T'.
+  Lemma IT_unfold_fold {Σ : opsInterp} {A} `{!Cofe A} T' : IT_unfold (Σ:=Σ) (A:=A) (IT_fold T') ≡ T'.
   Proof. apply ofe_iso_21. Qed.
 End ITF_solution.
 
 
 (** * Smart constructors *)
 Section smart.
-  Context {E : opsInterp}.
-  Notation IT := (IT E).
+  Context {E : opsInterp} {A : ofe} `{!Cofe A}.
+  Local Notation IT := (IT E A).
 
-  Definition Nat : natO -n> IT.
+  Definition Ret : A -n> IT.
   Proof.
     refine (IT_fold ◎ inlO ◎ inlO ◎ inlO ◎ inlO).
   Defined.
@@ -216,18 +216,19 @@ Section smart.
     - iIntros "H".
       iAssert (internal_eq (IT_unfold (Tau α)) (IT_unfold (Tau β))) with "[H]" as "H".
       { iRewrite "H". done. }
-      rewrite !IT_unfold_fold. simpl.
+      unfold Tau. simpl.
+      rewrite !IT_unfold_fold.
       iPoseProof (sum_equivI with "H") as "H".
       iPoseProof (sum_equivI with "H") as "H".
       done.
   Qed.
-  Lemma Nat_inj' (k m : nat) {PROP : bi} `{!BiInternalEq PROP} :
-    (k ≡ m ⊣⊢ (Nat k ≡ Nat m : PROP))%I.
+  Lemma Ret_inj' (k m : A) {PROP : bi} `{!BiInternalEq PROP} :
+    (k ≡ m ⊣⊢ (Ret k ≡ Ret m : PROP))%I.
   Proof.
     iSplit.
     - iIntros "H". iRewrite "H". done.
     - iIntros "H".
-      iAssert (internal_eq (IT_unfold (Nat k)) (IT_unfold (Nat m))) with "[H]" as "H".
+      iAssert (internal_eq (IT_unfold (Ret k)) (IT_unfold (Ret m))) with "[H]" as "H".
       { iRewrite "H". done. }
       rewrite !IT_unfold_fold. simpl.
       repeat iPoseProof (sum_equivI with "H") as "H".
@@ -286,17 +287,16 @@ Section smart.
     simpl. iPoseProof (prod_equivI with "H") as "[$ $]".
   Qed.
 
-  Lemma IT_nat_tau_ne k α {PROP : bi} `{!BiInternalEq PROP} :
-    (Nat k ≡ Tau α ⊢ False : PROP)%I.
+  Lemma IT_ret_tau_ne k α {PROP : bi} `{!BiInternalEq PROP} :
+    (Ret k ≡ Tau α ⊢ False : PROP)%I.
   Proof.
     iIntros "H1".
-    iAssert (IT_unfold (Nat k) ≡ IT_unfold (Tau α))%I with "[H1]" as "H2".
+    iAssert (IT_unfold (Ret k) ≡ IT_unfold (Tau α))%I with "[H1]" as "H2".
     { by iRewrite "H1". }
     rewrite !IT_unfold_fold.
-    iDestruct "H2" as "%Hfoo".
-    exfalso.
-    inversion Hfoo; simplify_eq/=.
-    by inversion H1.
+    iPoseProof (sum_equivI with "H2") as "H".
+    iPoseProof (sum_equivI with "H") as "H".
+    done.
   Qed.
   Lemma IT_fun_tau_ne f α {PROP : bi} `{!BiInternalEq PROP} :
     (Fun f ≡ Tau α ⊢ False : PROP)%I.
@@ -308,16 +308,15 @@ Section smart.
     iPoseProof (sum_equivI with "H2") as "H2".
     by iPoseProof (sum_equivI with "H2") as "H2".
   Qed.
-  Lemma IT_nat_vis_ne n op i k {PROP : bi} `{!BiInternalEq PROP} :
-    (Nat n ≡ Vis op i k ⊢ False : PROP)%I.
+  Lemma IT_ret_vis_ne n op i k {PROP : bi} `{!BiInternalEq PROP} :
+    (Ret n ≡ Vis op i k ⊢ False : PROP)%I.
   Proof.
     iIntros "H1".
-    iAssert (IT_unfold (Nat n) ≡ IT_unfold (Vis op i k))%I with "[H1]" as "H2".
+    iAssert (IT_unfold (Ret n) ≡ IT_unfold (Vis op i k))%I with "[H1]" as "H2".
     { by iRewrite "H1". }
     rewrite !IT_unfold_fold.
-    iDestruct "H2" as "%Hfoo".
-    exfalso.
-    inversion Hfoo; simplify_eq/=.
+    iPoseProof (sum_equivI with "H2") as "H".
+    done.
   Qed.
   Lemma IT_fun_vis_ne f op i ko {PROP : bi} `{!BiInternalEq PROP} :
     (Fun f ≡ Vis op i ko ⊢ False : PROP)%I.
@@ -338,11 +337,11 @@ Section smart.
     iPoseProof (sum_equivI with "H2") as "H2".
     done.
   Qed.
-  Lemma IT_nat_fun_ne k f {PROP : bi} `{!BiInternalEq PROP} :
-    (Nat k ≡ Fun f ⊢ False : PROP)%I.
+  Lemma IT_ret_fun_ne k f {PROP : bi} `{!BiInternalEq PROP} :
+    (Ret k ≡ Fun f ⊢ False : PROP)%I.
   Proof.
     iIntros "H1".
-    iAssert (IT_unfold (Nat k) ≡ IT_unfold (Fun f))%I with "[H1]" as "H2".
+    iAssert (IT_unfold (Ret k) ≡ IT_unfold (Fun f))%I with "[H1]" as "H2".
     { by iRewrite "H1". }
     rewrite !IT_unfold_fold. simpl.
     by repeat iPoseProof (sum_equivI with "H2") as "H2".
@@ -356,11 +355,11 @@ Section smart.
     rewrite !IT_unfold_fold /=.
     by repeat iPoseProof (sum_equivI with "H2") as "H2".
   Qed.
-  Lemma IT_nat_err_ne n e {PROP : bi} `{!BiInternalEq PROP} :
-    (Nat n ≡ Err e ⊢ False : PROP)%I.
+  Lemma IT_ret_err_ne n e {PROP : bi} `{!BiInternalEq PROP} :
+    (Ret n ≡ Err e ⊢ False : PROP)%I.
   Proof.
     iIntros "H1".
-    iAssert (IT_unfold (Nat n) ≡ IT_unfold (Err e))%I with "[H1]" as "H2".
+    iAssert (IT_unfold (Ret n) ≡ IT_unfold (Err e))%I with "[H1]" as "H2".
     { by iRewrite "H1". }
     rewrite !IT_unfold_fold /=.
     by repeat iPoseProof (sum_equivI with "H2") as "H2".
@@ -390,21 +389,22 @@ End smart.
 Section IT_rec.
   (* We are eliminating [IT E] into [P] *)
   Context {E : opsInterp}.
+  Context {A : ofe} `{!Cofe A}.
   Variable (P : ofe).
   Context `{!Cofe P, !Inhabited P}.
 
   Variable
     (Perr : error → P)
-    (Pnat : nat → P)
-    (Parr : laterO (sumO (IT E) P -n> prodO (IT E) P) -n> P)
-    (Ptau : laterO (prodO (IT E) P) -n> P)
+    (Pret : A -n> P)
+    (Parr : laterO (sumO (IT E A) P -n> prodO (IT E A) P) -n> P)
+    (Ptau : laterO (prodO (IT E A) P) -n> P)
     (Pvis : forall (op : opid E),
-        (oFunctor_car (Ins (E op)) (sumO (IT E) P) (prodO (IT E) P)) -n>
-        ((oFunctor_car (Outs (E op)) (prodO (IT E) P) (sumO (IT E) P)) -n> laterO (prodO (IT E) P)) -n>
+        (oFunctor_car (Ins (E op)) (sumO (IT E A) P) (prodO (IT E A) P)) -n>
+        ((oFunctor_car (Outs (E op)) (prodO (IT E A) P) (sumO (IT E A) P)) -n> laterO (prodO (IT E A) P)) -n>
                                            P).
 
   Variable (Punfold :
-           P -n> sumO (sumO (sumO (sumO natO (laterO (P -n> P)))
+           P -n> sumO (sumO (sumO (sumO A (laterO (P -n> P)))
                           errorO)
                           (laterO P))
                     (sigTO (λ op : opid E, prodO (oFunctor_apply (Ins (E op)) P) ((oFunctor_apply (Outs (E op)) P) -n> laterO P))%type)).
@@ -412,13 +412,13 @@ Section IT_rec.
   (** XXX **) Opaque prod_in.
   (** otherwise it gets unfolded in the proofs of contractiveness *)
 
-  Program Definition Pvis_rec (self : prodO (IT E -n> P) (P -n> IT E)) :
-    sigTO (λ op : opid E, prodO (oFunctor_apply (Ins (E op)) (IT E)) (oFunctor_apply (Outs (E op)) (IT E) -n> laterO (IT E))) -n> P
+  Program Definition Pvis_rec (self : prodO (IT E A -n> P) (P -n> IT E A)) :
+    sigTO (λ op : opid E, prodO (oFunctor_apply (Ins (E op)) (IT E A)) (oFunctor_apply (Outs (E op)) (IT E A) -n> laterO (IT E A))) -n> P
       := λne x, let op := projT1 x in
               let inp := fst (projT2 x) in
               let outp := snd (projT2 x) in
-              let self1 : IT E -n> P := fst self in
-              let self2 : P -n> IT E := snd self in
+              let self1 : IT E A -n> P := fst self in
+              let self2 : P -n> IT E A := snd self in
               let s_in := oFunctor_map (Ins (E op)) (sumO_rec idfun self2,prod_in idfun self1) in
               let s_out := oFunctor_map (Outs (E op)) (prod_in idfun self1, sumO_rec idfun self2) in
       Pvis op (s_in inp) (laterO_map (prod_in idfun self1) ◎ outp ◎ s_out).
@@ -435,13 +435,13 @@ Section IT_rec.
   Instance Pvis_rec_contractive : Contractive Pvis_rec.
   Proof. solve_contractive. Qed.
 
-  Program Definition ITvis_rec (self : prodO (IT E -n> P) (P -n> IT E)) :
-    sigTO (λ op : opid E, prodO (oFunctor_apply (Ins (E op)) P) (oFunctor_apply (Outs (E op)) P -n> laterO P)) -n> IT E
+  Program Definition ITvis_rec (self : prodO (IT E A -n> P) (P -n> IT E A)) :
+    sigTO (λ op : opid E, prodO (oFunctor_apply (Ins (E op)) P) (oFunctor_apply (Outs (E op)) P -n> laterO P)) -n> IT E A
       := λne x, let op := projT1 x in
                 let inp := fst (projT2 x) in
                 let outp := snd (projT2 x) in
-                let self1 : IT E -n> P := fst self in
-                let self2 : P -n> IT E := snd self in
+                let self1 : IT E A -n> P := fst self in
+                let self2 : P -n> IT E A := snd self in
                 let s_in := oFunctor_map (Ins (E op)) (self1,self2) in
                 let s_out := oFunctor_map (Outs (E op)) (self2,self1) in
       Vis op (s_in inp) (laterO_map self2 ◎ outp ◎ s_out).
@@ -459,15 +459,15 @@ Section IT_rec.
   Proof. solve_contractive. Qed.
 
   Program Definition IT_rec_pre
-          (self : prodO (IT E -n> P) (P -n> IT E))
-     : prodO (IT E -n> P) (P -n> IT E).
-  Proof using E P Parr Perr Pnat Ptau Punfold Pvis.
+          (self : prodO (IT E A -n> P) (P -n> IT E A))
+     : prodO (IT E A -n> P) (P -n> IT E A).
+  Proof using E P Parr Perr Pret Ptau Punfold Pvis.
     set (self1 := fst self).
     set (self2 := snd self).
     simple refine (_,_).
     { refine (_ ◎ IT_unfold).
       repeat refine (sumO_rec _ _).
-      - simple refine (λne n, Pnat n).
+      - exact Pret.
       - simple refine (Parr ◎ laterO_map _).
         simple refine (λne f, sumO_rec (prod_in idfun self1 ◎ f) (prod_in idfun self1 ◎ f ◎ self2)).
         repeat intro. repeat f_equiv; eauto.
@@ -478,7 +478,7 @@ Section IT_rec.
      - apply (Pvis_rec self). }
     { refine (_ ◎ Punfold).
       repeat refine (sumO_rec _ _).
-      - refine (OfeMor Nat).
+      - refine (OfeMor Ret).
       - simple refine (Fun ◎ laterO_map _).
         simple refine (λne f, self2 ◎ f ◎ self1).
         repeat intro. repeat f_equiv; eauto.
@@ -499,7 +499,7 @@ Section IT_rec.
     { repeat intro. simpl. repeat f_equiv; eauto. }
   Qed.
 
-  Definition IT_rec : prodO (IT E -n> P) (P -n> IT E) :=
+  Definition IT_rec : prodO (IT E A -n> P) (P -n> IT E A) :=
     let _ := _ : Inhabited P in
     fixpoint IT_rec_pre.
   Transparent prod_in.
@@ -518,8 +518,8 @@ Section IT_rec.
   Proof. apply (fixpoint_unfold IT_rec_pre). Qed.
 
   (** ** Some computational rules *)
-  Lemma IT_rec1_nat (n : nat) :
-    IT_rec1 (Nat n) ≡ Pnat n.
+  Lemma IT_rec1_ret (n : A) :
+    IT_rec1 (Ret n) ≡ Pret n.
   Proof.
     rewrite IT_rec1_unfold /IT_rec_pre.
     cbn-[sumO_rec].
@@ -547,10 +547,10 @@ Section IT_rec.
     rewrite IT_unfold_fold; reflexivity.
   Qed.
 
-  Program Definition sandwich : (IT E -n> IT E) -n> sumO (IT E) P -n> prodO (IT E) P :=
+  Program Definition sandwich : (IT E A -n> IT E A) -n> sumO (IT E A) P -n> prodO (IT E A) P :=
     λne f, prod_in idfun IT_rec1 ◎ f ◎ sumO_rec idfun IT_rec2.
   Next Obligation. solve_proper. Defined.
-  Program Definition unsandwich : (sumO (IT E) P -n> prodO (IT E) P) -n> IT E -n> IT E :=
+  Program Definition unsandwich : (sumO (IT E A) P -n> prodO (IT E A) P) -n> IT E A -n> IT E A :=
     λne f, fstO ◎ f ◎ inlO.
   Next Obligation. solve_proper. Defined.
 
@@ -585,14 +585,14 @@ Section IT_rec.
   Qed.
 
 End IT_rec.
-Arguments IT_rec {_} P {_ _} _ _ _ _ _ _.
-Arguments sandwich {_} _ {_ _ _ _ _ _ _ _}.
+Arguments IT_rec {_ _ _} P {_ _} _ _ _ _ _ _.
+Arguments sandwich {_ _ _} _ {_ _ _ _ _ _ _ _}.
 
  (* exercise: show that every P with the properties above must have a bottom element and that it_rec maps bottom to bottom  *)
 (** XXX ***) Opaque prod_in.
 (* needed for the followin proof *)
-Global Instance Pvis_rec_ne {E} {P: ofe} `{!Cofe P, !Inhabited P} n :
-  Proper ((forall_relation (λ _, (dist n))) ==> (dist_later n) ==> (dist n)) (Pvis_rec (E:=E) P).
+Global Instance Pvis_rec_ne {E A} `{!Cofe A} {P: ofe} `{!Cofe P, !Inhabited P} n :
+  Proper ((forall_relation (λ _, (dist n))) ==> (dist_later n) ==> (dist n)) (Pvis_rec (E:=E) (A:=A) P).
 Proof.
   intros v1 v2 Hv [h1 h2] [g1 g2] Hhg.
   intros [op [i k]].
@@ -606,8 +606,8 @@ Proof.
   - intro a. simpl. repeat (f_contractive || f_equiv); simpl in *; destruct Hhg; eauto.
 Qed.
 
-#[export]  Instance Pvis_rec_proper {E} {P: ofe} `{!Cofe P, !Inhabited P} :
-  Proper ((forall_relation (λ _, (equiv))) ==> (equiv) ==> (equiv)) (Pvis_rec (E:=E) P).
+#[export]  Instance Pvis_rec_proper {E A} `{!Cofe A} {P: ofe} `{!Cofe P, !Inhabited P} :
+  Proper ((forall_relation (λ _, (equiv))) ==> (equiv) ==> (equiv)) (Pvis_rec (E:=E) (A:=A) P).
 Proof.
   intros v1 v2 Hv [h1 h2] [g1 g2] [Hhg1 Hhg2].
   intros [op [i k]].
@@ -616,10 +616,10 @@ Proof.
 Qed.
 (** XXX ***) Transparent prod_in.
 
-Global Instance IT_rec_ne {E} {P: ofe}  `{!Cofe P, !Inhabited P} n :
-  Proper ((pointwise_relation _ (dist n)) ==> (pointwise_relation _ (dist n)) ==> (dist n) ==> (dist n) ==>
+Global Instance IT_rec_ne {E} {A} `{!Cofe A} {P: ofe}  `{!Cofe P, !Inhabited P} n :
+  Proper ((pointwise_relation _ (dist n)) ==> (dist n) ==> (dist n) ==> (dist n) ==>
    (forall_relation (λ _, dist n)) ==>
-   (dist n) ==> (dist n)) (IT_rec P (E:=E)).
+   (dist n) ==> (dist n)) (IT_rec P (E:=E) (A:=A)).
 Proof.
   intros nt1 nt2 Hnt e1 e2 He th1 th2 Hth a1 a2 Ha v1 v2 Hv unf1 unf2 Hunf.
   unfold IT_rec.
@@ -628,10 +628,10 @@ Proof.
   repeat f_equiv; intro; eauto.
 Qed.
 
-Global Instance IT_rec_proper {E} {P: ofe}  `{!Cofe P, !Inhabited P} :
-  Proper ((pointwise_relation _ equiv) ==> (pointwise_relation _ (equiv)) ==> (equiv) ==> (equiv) ==>
+Global Instance IT_rec_proper {E} {A} `{!Cofe A} {P: ofe}  `{!Cofe P, !Inhabited P} :
+  Proper ((pointwise_relation _ equiv) ==> (equiv) ==> (equiv) ==> (equiv) ==>
    (forall_relation (λ _, equiv)) ==>
-   (equiv) ==> (equiv)) (IT_rec P (E:=E)).
+   (equiv) ==> (equiv)) (IT_rec P (E:=E) (A:=A)).
 Proof.
   intros nt1 nt2 Hnt e1 e2 He th1 th2 Hth a1 a2 Ha v1 v2 Hv unf1 unf2 Hunf.
   unfold IT_rec.
@@ -641,20 +641,20 @@ Proof.
 Qed.
 
 
-Global Instance IT_rec1_ne {E} {P : ofe} `{!Cofe P, !Inhabited P} n :
-  Proper ((pointwise_relation _ (dist n)) ==> (pointwise_relation _ (dist n)) ==> (dist n) ==> (dist n) ==>
+Global Instance IT_rec1_ne {E A} `{!Cofe A} {P : ofe} `{!Cofe P, !Inhabited P} n :
+  Proper ((pointwise_relation _ (dist n)) ==> (dist n) ==> (dist n) ==> (dist n) ==>
    (forall_relation (λ _, dist n)) ==>
-   (dist n) ==> (dist n)) (IT_rec1 P (E:=E)).
+   (dist n) ==> (dist n)) (IT_rec1 P (E:=E) (A:=A)).
 Proof.
   unfold IT_rec1.
   intros nt1 nt2 Hnt e1 e2 He th1 th2 Hth a1 a2 Ha v1 v2 Hv unf1 unf2 Hunf.
   f_equiv.
   apply IT_rec_ne; eauto.
 Qed.
-Global Instance IT_rec1_proper {E} {P: ofe}  `{!Cofe P, !Inhabited P} :
-  Proper ((pointwise_relation _ (equiv)) ==> (pointwise_relation _ (equiv)) ==> (equiv) ==> (equiv) ==>
+Global Instance IT_rec1_proper {E A} `{!Cofe A} {P: ofe}  `{!Cofe P, !Inhabited P} :
+  Proper ((pointwise_relation _ (equiv)) ==> (equiv) ==> (equiv) ==> (equiv) ==>
    (forall_relation (λ _, equiv)) ==>
-   (equiv) ==> (equiv)) (IT_rec1 P (E:=E)).
+   (equiv) ==> (equiv)) (IT_rec1 P (E:=E) (A:=A)).
 Proof.
   unfold IT_rec1.
   intros nt1 nt2 Hnt e1 e2 He th1 th2 Hth a1 a2 Ha v1 v2 Hv unf1 unf2 Hunf.
@@ -662,10 +662,10 @@ Proof.
   apply IT_rec_proper; eauto.
 Qed.
 
-Global Instance IT_rec2_ne {E} {P : ofe} `{!Cofe P, !Inhabited P} n :
-  Proper ((pointwise_relation _ (dist n)) ==> (pointwise_relation _ (dist n)) ==> (dist n) ==> (dist n) ==>
+Global Instance IT_rec2_ne {E A} `{!Cofe A} {P : ofe} `{!Cofe P, !Inhabited P} n :
+  Proper ((pointwise_relation _ (dist n)) ==> (dist n) ==> (dist n) ==> (dist n) ==>
    (forall_relation (λ _, dist n)) ==>
-   (dist n) ==> (dist n)) (IT_rec2 P (E:=E)).
+   (dist n) ==> (dist n)) (IT_rec2 P (E:=E) (A:=A)).
 Proof.
   unfold IT_rec2.
   intros nt1 nt2 Hnt e1 e2 He th1 th2 Hth a1 a2 Ha v1 v2 Hv unf1 unf2 Hunf.
@@ -676,33 +676,35 @@ Qed.
 (** iteration 'helpers', turn recursors into iterators *)
 Section iter.
   Context {E : opsInterp}.
+  Context {A} `{!Cofe A}.
+  Local Notation IT := (IT E A).
   Variable (P : ofe).
   Context `{!Cofe P}.
 
   Program Definition Iter_Arr :
-    laterO (sumO (IT E) P -n> prodO (IT E) P) -n> laterO (P -n> P)
+    laterO (sumO IT P -n> prodO IT P) -n> laterO (P -n> P)
     := laterO_map (λne f, sndO ◎ f ◎ inrO).
   Next Obligation. solve_proper. Qed.
 
   Definition Iter_Tau :
-    laterO (prodO (IT E) P) -n> laterO P := laterO_map sndO.
+    laterO (prodO IT P) -n> laterO P := laterO_map sndO.
 
   Program Definition Orig_Arr :
-    laterO (sumO (IT E) P -n> prodO (IT E) P) -n> laterO (IT E -n> IT E)
+    laterO (sumO IT P -n> prodO IT P) -n> laterO (IT -n> IT)
     := laterO_map (λne f, fstO ◎ f ◎ inlO).
   Next Obligation. solve_proper. Qed.
 
   Definition Orig_Tau :
-    laterO (prodO (IT E) P) -n> laterO (IT E) := laterO_map fstO.
+    laterO (prodO IT P) -n> laterO IT := laterO_map fstO.
 
   Definition Orig_Vis_Inp op :
-    (oFunctor_car (Ins (E op)) (sumO (IT E) P) (prodO (IT E) P)) -n>
-    (oFunctor_apply (Ins (E op)) (IT E))
+    (oFunctor_car (Ins (E op)) (sumO IT P) (prodO IT P)) -n>
+    (oFunctor_apply (Ins (E op)) IT)
     := oFunctor_map _ (inlO,fstO).
 
   Program Definition Orig_Vis_Cont op :
-    (oFunctor_car (Outs (E op)) (prodO (IT E) P) (sumO (IT E) P) -n> laterO (prodO (IT E) P)) -n>
-    (oFunctor_apply (Outs (E op)) (IT E) -n> laterO (IT E))
+    (oFunctor_car (Outs (E op)) (prodO IT P) (sumO IT P) -n> laterO (prodO IT P)) -n>
+    (oFunctor_apply (Outs (E op)) IT -n> laterO IT)
     := λne k, laterO_map fstO ◎ k ◎ oFunctor_map _ (fstO,inlO).
   Next Obligation. solve_proper. Qed.
 End iter.
@@ -710,7 +712,8 @@ End iter.
 (** * Ticks/later-algebra structure *)
 Section ticks.
   Context {E : opsInterp}.
-  Local Notation IT := (IT E).
+  Context {A} `{!Cofe A}.
+  Local Notation IT := (IT E A).
   Definition Tick : IT -n> IT := Tau ◎ NextO.
   Program Definition Tick_n n : IT -n> IT :=
     λne t, Nat.iter n Tick t.
@@ -753,9 +756,9 @@ Section ticks.
     cbn[plus]. by rewrite !Tick_n_S IHk.
   Qed.
 
-  Lemma IT_nat_tick_ne k α {PROP : bi} `{!BiInternalEq PROP} :
-    (Nat k ≡ Tick α ⊢ False : PROP)%I.
-  Proof. apply IT_nat_tau_ne. Qed.
+  Lemma IT_ret_tick_ne k α {PROP : bi} `{!BiInternalEq PROP} :
+    (Ret k ≡ Tick α ⊢ False : PROP)%I.
+  Proof. apply IT_ret_tau_ne. Qed.
   Lemma IT_fun_tick_ne f α {PROP : bi} `{!BiInternalEq PROP} :
     (Fun f ≡ Tick α ⊢ False : PROP)%I.
   Proof. apply IT_fun_tau_ne. Qed.
@@ -788,7 +791,7 @@ Section ticks.
   (** ** No cofusion principle *)
   Lemma IT_dont_confuse (α : IT):
        (∃ e,      α ≡ Err e)
-     ∨ (∃ n,      α ≡ Nat n)
+     ∨ (∃ n,      α ≡ Ret n)
      ∨ (∃ f,      α ≡ Fun f)
      ∨ (∃ β,      α ≡ Tick β)
      ∨ (∃ op i k, α ≡ Vis op i k).
@@ -808,7 +811,7 @@ Section ticks.
 
   Lemma IT_dont_confuse' (α : IT) {PROP : bi} `{!BiInternalEq PROP} :
     (⊢ (∃ e,      α ≡ Err e)
-     ∨ (∃ n,      α ≡ Nat n)
+     ∨ (∃ n,      α ≡ Ret n)
      ∨ (∃ f,      α ≡ Fun f)
      ∨ (∃ β,      α ≡ Tick β)
      ∨ (∃ op i k, α ≡ Vis op i k)
@@ -832,26 +835,27 @@ End ticks.
 (** semantic "values" *)
 Section ITV.
   Context {E : opsInterp}.
-  Notation IT := (IT E).
-  Local Opaque Nat Fun.
+  Context {A} `{!Cofe A}.
+  Local Notation IT := (IT E A).
+  Local Opaque Ret Fun.
 
   (** We describe "semantic values" separately, so that we can reason about the easier *)
   Inductive ITV :=
-  | NatV : nat → ITV
+  | RetV : A → ITV
   | FunV : laterO (IT -n> IT) → ITV
   .
 
   Definition IT_of_V : ITV → IT := λ v,
       match v with
-      | NatV n => Nat n
+      | RetV n => Ret n
       | FunV f => Fun f
       end.
 
-  #[export] Instance ITV_inhabited : Inhabited ITV := populate (NatV 0).
+  #[export] Instance ITV_inhabited `{!Inhabited A} : Inhabited ITV := populate (RetV inhabitant).
 
   #[export] Instance ITV_dist : Dist (ITV)
     := λ n αv βv, match αv, βv with
-                  | NatV n, NatV m => n = m
+                  | RetV x, RetV y => dist n x y
                   | FunV f, FunV g => dist n f g
                   | _, _ => False
                   end.
@@ -862,11 +866,12 @@ Section ITV.
     - intros [|f]; simpl; eauto.
     - intros [n1|f1] [n2|f2]; simpl; eauto.
     - intros [n1|f1] [n2|f2] [n3|f3]; simpl; try naive_solver.
-      apply transitivity.
+      + apply transitivity.
+      + apply transitivity.
   Qed.
   #[export] Instance ITV_equiv : Equiv ITV :=
     λ αv βv, match αv, βv with
-             | NatV n, NatV m => n = m
+             | RetV n, RetV m => n ≡ m
              | FunV f, FunV g => f ≡ g
              | _, _ => False
              end.
@@ -876,7 +881,7 @@ Section ITV.
     split.
     - intros [|f]; simpl; eauto.
     - intros [n1|f1] [n2|f2]; simpl; eauto.
-    - intros [n1|f1] [n2|f2] [n3|f3]; simpl; try naive_solver.
+    - intros [n1|f1] [n2|f2] [n3|f3]; simpl; try naive_solver;
       apply transitivity.
   Qed.
   Lemma ITV_equiv_dist (x y : ITV) :
@@ -884,7 +889,11 @@ Section ITV.
   Proof.
     unfold equiv, dist.
     destruct x as [n1|f1], y as [n2|f2]; simpl; eauto using equiv_dist;
-      naive_solver.
+      try naive_solver.
+    + split; first tauto.
+      intros H. apply (H 0).
+    + split; first tauto.
+      intros H. apply (H 0).
   Qed.
   Lemma ITV_dist_lt n m (x y : ITV) :
     x ≡{n}≡ y → m < n → x ≡{m}≡ y.
@@ -898,22 +907,23 @@ Section ITV.
                                 mixin_dist_equivalence := ITV_dist_equiv
                                        |}).
 
-  #[local] Definition sum_to_ITV : sum nat (later (IT -n> IT)) → ITV :=
+  #[local] Definition sum_to_ITV : sum A (later (IT -n> IT)) → ITV :=
     λ x, match x with
-         | inl n => NatV n
+         | inl n => RetV n
          | inr f => FunV f
          end.
-  #[local] Definition ITV_to_sum : ITV → sum nat (later (IT -n> IT)) :=
+  #[local] Definition ITV_to_sum : ITV → sum A (later (IT -n> IT)) :=
     λ x, match x with
-         | NatV n => inl n
+         | RetV n => inl n
          | FunV f => inr f
          end.
   #[export] Instance ITV_cofe : Cofe ITV.
   Proof.
-    simple refine (iso_cofe (A:=sumO natO (laterO (IT -n> IT))) sum_to_ITV ITV_to_sum _ _).
+    simple refine (iso_cofe (A:=sumO A (laterO (IT -n> IT))) sum_to_ITV ITV_to_sum _ _).
     - intros n [n1|f1] [n2|f2]; simpl.
       all: split; try by (inversion 1; naive_solver).
-      intros Hf. f_equiv. done.
+      + intros Hf. f_equiv. done.
+      + intros Hf. f_equiv. done.
     - intros [n|f]; simpl; done.
   Qed.
 
@@ -921,7 +931,9 @@ Section ITV.
   Proof.
     intro n. rewrite {1}/dist.
     intros [n1|f1] [n2|f2]; simpl.
-    all: try naive_solver. apply Fun.
+    all: try naive_solver.
+    + apply Ret.
+    + apply Fun.
   Qed.
   #[export] Instance IT_of_V_proper : Proper ((≡) ==> (≡)) IT_of_V.
   Proof.
@@ -933,12 +945,16 @@ Section ITV.
   Proof. solve_proper. Qed.
   #[export] Instance FunV_proper : Proper ((≡) ==> (≡)) FunV.
   Proof. solve_proper. Qed.
+  #[export] Instance RetV_ne : NonExpansive RetV.
+  Proof. solve_proper. Qed.
+  #[export] Instance RetV_proper : Proper ((≡) ==> (≡)) RetV.
+  Proof. solve_proper. Qed.
 
   Class AsVal (α : IT) := as_val : ∃ v, IT_of_V v ≡ α.
   Class IntoVal (α : IT) (αv : ITV) := into_val : IT_of_V αv ≡ α.
 
-  #[export] Instance asval_nat n : AsVal (Nat n).
-  Proof. exists (NatV n). reflexivity. Qed.
+  #[export] Instance asval_ret n : AsVal (Ret n).
+  Proof. exists (RetV n). reflexivity. Qed.
   #[export] Instance asval_fun n : AsVal (Fun n).
   Proof. exists (FunV n). reflexivity. Qed.
   #[export] Instance asval_of_V v : AsVal (IT_of_V v).
@@ -951,7 +967,7 @@ Section ITV.
     intros x y Hxy [v Hx]. exists v. by rewrite Hx.
   Qed.
 
-  #[export] Instance intoval_nat n : IntoVal (Nat n) (NatV n).
+  #[export] Instance intoval_ret n : IntoVal (Ret n) (RetV n).
   Proof. unfold IntoVal. simpl. reflexivity. Qed.
   #[export] Instance intoval_fun f : IntoVal (Fun f) (FunV f).
   Proof. unfold IntoVal. simpl. reflexivity. Qed.
@@ -972,7 +988,7 @@ Section ITV.
   Program Definition IT_to_V : IT -n> optionO ITV
     := IT_rec1 (optionO ITV)
                (λ e, None)
-               (λ n, Some (NatV n))
+               (SomeO ◎ OfeMor RetV)
                (SomeO ◎ OfeMor FunV ◎ Orig_Arr _)
                None1
                (λ _, None2)
@@ -982,8 +998,8 @@ Section ITV.
     simple refine (λne _, RuntimeErr).
   Qed.
 
-  Lemma IT_to_V_Nat n : IT_to_V (Nat n) ≡ Some $ NatV n.
-  Proof. apply IT_rec1_nat. Qed.
+  Lemma IT_to_V_Ret n : IT_to_V (Ret n) ≡ Some $ RetV n.
+  Proof. apply IT_rec1_ret. Qed.
   Lemma IT_to_V_Fun f : IT_to_V (Fun f) ≡ Some $ FunV f.
   Proof.
     rewrite IT_rec1_fun /=. f_equiv. f_equiv.
@@ -1003,7 +1019,7 @@ Section ITV.
   Lemma IT_to_of_V v : IT_to_V (IT_of_V v) ≡ Some v.
   Proof.
     destruct v; simpl.
-    - apply IT_to_V_Nat.
+    - apply IT_to_V_Ret.
     - apply IT_to_V_Fun.
   Qed.
 
@@ -1017,7 +1033,7 @@ Section ITV.
       iRewrite "Ha" in "H". rewrite IT_to_V_Err.
       iPoseProof (option_equivI with "H") as "H". done.
     - iDestruct "Ha" as (n) "Ha".
-      iRewrite "Ha" in "H". rewrite IT_to_V_Nat.
+      iRewrite "Ha" in "H". rewrite IT_to_V_Ret.
       iPoseProof (option_equivI with "H") as "H".
       iRewrite -"H". by iApply internal_eq_sym.
     - iDestruct "Ha" as (f) "Ha".
@@ -1039,7 +1055,7 @@ Section ITV.
     all: rewrite Ha2.
     - rewrite IT_to_V_Err.
       rewrite option_equiv_Forall2. inversion 1.
-    - rewrite IT_to_V_Nat.
+    - rewrite IT_to_V_Ret.
       rewrite option_equiv_Forall2. inversion 1 as [x y Hxy|].
       simplify_eq/=. rewrite -Hxy.
       done.
@@ -1063,7 +1079,7 @@ Section ITV.
     iPoseProof (IT_dont_confuse' α) as "Ha".
     iDestruct "Ha" as "[Ha | [Ha | [ Ha | [ Ha | Ha ]]]]"; eauto with iFrame.
     - iDestruct "Ha" as (n) "Ha".
-      iRewrite "Ha" in "H". rewrite IT_to_V_Nat.
+      iRewrite "Ha" in "H". rewrite IT_to_V_Ret.
       iPoseProof (option_equivI with "H") as "H".
       done.
     - iDestruct "Ha" as (f) "Ha".
@@ -1077,10 +1093,10 @@ Section ITV.
   Proof.
     iIntros "H".
     destruct αv as [n1|f1], βv as [n2|f2]; simpl.
-    - iPoseProof (Nat_inj' with"H") as"H".
+    - iPoseProof (Ret_inj' with"H") as"H".
       by iRewrite "H". (*XXX: easier proof?*)
-    - iExFalso. iApply (IT_nat_fun_ne with "H").
-    - iExFalso. iApply (IT_nat_fun_ne). iApply internal_eq_sym.
+    - iExFalso. iApply (IT_ret_fun_ne with "H").
+    - iExFalso. iApply (IT_ret_fun_ne). iApply internal_eq_sym.
       iExact "H".
     - iPoseProof (Fun_inj' with "H") as "H".
       by iRewrite "H".
@@ -1092,23 +1108,27 @@ Arguments ITV E : clear implicits.
 (** * Destructors / matching *)
 Section IT_destructors.
   Context {E : opsInterp}.
-  Definition Err1 {A : ofe} : A -n> IT E :=
+  Context {A} `{!Cofe A}.
+  Local Notation IT := (IT E A).
+
+  Definition Err1 {B : ofe} : B -n> IT :=
     λne _, Err RuntimeErr.
-  Definition Err2 {A B : ofe} : A -n> B -n> IT E :=
+  Definition Err2 {B C : ofe} : B -n> C -n> IT :=
     λne _ _, Err RuntimeErr.
+
   (** Don't touch the input, but recuse on the result of the continuation, this should be called Vis_iter or something *)
   Program Definition Vis_ (op : opid E)  :
-    (oFunctor_car (Ins (E op)) (sumO (IT E) (IT E)) (prodO (IT E) (IT E))) -n>
-    ((oFunctor_car (Outs (E op)) (prodO (IT E) (IT E)) (sumO (IT E) (IT E))) -n> laterO (prodO (IT E) (IT E))) -n> IT E
+    (oFunctor_car (Ins (E op)) (sumO IT IT) (prodO IT IT)) -n>
+    ((oFunctor_car (Outs (E op)) (prodO IT IT) (sumO IT IT)) -n> laterO (prodO IT IT)) -n> IT
     := λne i k, Vis op
                     (oFunctor_map _ (inlO,fstO) i)
                     (laterO_map sndO ◎ k ◎ oFunctor_map _ (fstO,inlO)).
   Next Obligation. solve_proper. Qed.
   Next Obligation. solve_proper. Qed.
 
-  Definition get_nat (f : nat -> IT E)
-    : IT E -n> IT E
-    := IT_rec1 (IT E)
+  Definition get_ret (f : A -n> IT)
+    : IT -n> IT
+    := IT_rec1 IT
                Err (* error *)
                f (* nat *)
                Err1 (* function *)
@@ -1116,9 +1136,9 @@ Section IT_destructors.
                Vis_
                IT_unfold.
 
-  Definition get_fun (f : laterO (IT E -n> IT E) -n> IT E)
-    : IT E -n> IT E
-    := IT_rec1 (IT E)
+  Definition get_fun (f : laterO (IT -n> IT) -n> IT)
+    : IT -n> IT
+    := IT_rec1 IT
                Err (* error *)
                Err1 (* nat *)
                (f ◎ laterO_map (unsandwich _)) (* function *)
@@ -1126,11 +1146,11 @@ Section IT_destructors.
                Vis_
                IT_unfold.
 
-  Definition get_val (f : IT E -n> IT E)
-    : IT E -n> IT E
-    := IT_rec1 (IT E)
+  Definition get_val (f : IT -n> IT)
+    : IT -n> IT
+    := IT_rec1 IT
                Err (* error *)
-               (f ◎ Nat) (* nat *)
+               (f ◎ Ret) (* nat *)
                (f ◎ Fun ◎ laterO_map (unsandwich _)) (* function *)
                (Tau ◎ Iter_Tau _) (* recurse on step *)
                Vis_
@@ -1142,9 +1162,9 @@ Section IT_destructors.
     (*why doesnt f_equiv work here?*)
     apply IT_rec1_ne; solve_proper.
   Qed.
-  Global Instance get_nat_ne n : Proper ((pointwise_relation _ (dist n)) ==> (dist n)) get_nat.
+  Global Instance get_ret_ne : NonExpansive get_ret.
   Proof.
-    repeat intro. unfold get_nat.
+    repeat intro. unfold get_ret.
     (*why doesnt f_equiv work here?*)
     apply IT_rec1_ne; solve_proper.
   Qed.
@@ -1166,32 +1186,32 @@ Section IT_destructors.
     (*why doesnt f_equiv work here?*)
     apply IT_rec1_proper; solve_proper.
   Qed.
-  Global Instance get_nat_proper : Proper ((pointwise_relation _ (≡)) ==> (≡)) get_nat.
+  Global Instance get_ret_proper : Proper ((≡) ==> (≡)) get_ret.
   Proof.
-    repeat intro. unfold get_nat.
+    repeat intro. unfold get_ret.
     (*why doesnt f_equiv work here?*)
     apply IT_rec1_proper; solve_proper.
   Qed.
 
 
-  Program Definition get_nat2 (f : nat → nat → IT E) : IT E -n> IT E -n> IT E := λne x y,
-      get_nat (λne x, get_nat (λne y, f x y) y) x.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
-  Global Instance get_nat2_ne n :
-    Proper ((pointwise_relation _ (pointwise_relation _ (dist n))) ==> (dist n)) get_nat2.
-  Proof. solve_proper. Qed.
-  Global Instance get_nat2_proper :
-    Proper ((pointwise_relation _ (pointwise_relation _ (≡))) ==> (≡)) get_nat2.
-  Proof. solve_proper. Qed.
+  Program Definition get_ret2 (f : A -n> A -n> IT) : IT -n> IT -n> IT := λne x y,
+      get_ret (λne x, get_ret (λne y, f x y) y) x.
+  Solve All Obligations with solve_proper_please.
+  Global Instance get_ret2_ne : NonExpansive get_ret2.
+  Proof.
+    intros n f1 f2 Hf. unfold get_ret2.
+    intros x y. simpl. apply get_ret_ne.
+    clear x. intros x. simpl. apply get_ret_ne.
+    clear y. intros y. simpl. apply Hf.
+  Qed.
+  Global Instance get_ret2_proper : Proper ((≡) ==> (≡)) get_ret2.
+  Proof. apply ne_proper. apply _. Qed.
 
   Lemma get_nat_err f e : get_nat f (Err e) ≡ Err e.
   Proof. by rewrite IT_rec1_err. Qed.
   Lemma get_nat_fun f g : get_nat f (Fun g) ≡ Err RuntimeErr.
   Proof. by rewrite IT_rec1_fun. Qed.
-  Lemma get_nat_nat f n : get_nat f (Nat n) ≡ f n.
+  Lemma get_nat_nat f n : get_nat f (Ret n) ≡ f n.
   Proof. by rewrite IT_rec1_nat. Qed.
   Lemma get_nat_tick f t : get_nat f (Tick t) ≡ Tick (get_nat f t).
   Proof.
@@ -1227,7 +1247,7 @@ Section IT_destructors.
 
   Lemma get_val_err f e : get_val f (Err e) ≡ Err e.
   Proof. by rewrite IT_rec1_err. Qed.
-  Lemma get_val_nat f n : get_val f (Nat n) ≡ f (Nat n).
+  Lemma get_val_nat f n : get_val f (Ret n) ≡ f (Ret n).
   Proof. by rewrite IT_rec1_nat. Qed.
   Lemma get_val_fun f g : get_val f (Fun g) ≡ f (Fun g).
   Proof.
@@ -1286,7 +1306,7 @@ Section IT_destructors.
     { repeat f_equiv. apply sandwich_unsandwich. }
     by rewrite laterO_map_id.
   Qed.
-  Lemma get_fun_nat f n : get_fun f (Nat n) ≡ Err RuntimeErr.
+  Lemma get_fun_nat f n : get_fun f (Ret n) ≡ Err RuntimeErr.
   Proof. by rewrite IT_rec1_nat. Qed.
 
   Lemma get_fun_vis f op i k : get_fun f (Vis op i k) ≡ Vis op i (laterO_map (get_fun f) ◎ k).
@@ -1366,7 +1386,7 @@ Section it_hom.
     destruct (IT_dont_confuse α)
       as [[e Ha] | [[n Ha] | [ [g Ha] | [[la Ha]|[op [i [k Ha]]]] ]]].
     - rewrite Ha hom_err. rewrite IT_to_V_Err. done.
-    - rewrite Ha IT_to_V_Nat. done.
+    - rewrite Ha IT_to_V_Ret. done.
     - rewrite Ha IT_to_V_Fun. done.
     - rewrite Ha hom_tick. rewrite IT_to_V_Tau.
       intros []. exfalso. naive_solver.
@@ -1399,5 +1419,5 @@ Section it_hom.
 
 End it_hom.
 
-#[global] Opaque Nat Fun Tau Err Vis Tick.
+#[global] Opaque Ret Fun Tau Err Vis Tick.
 #[global] Opaque get_nat get_val get_fun.
