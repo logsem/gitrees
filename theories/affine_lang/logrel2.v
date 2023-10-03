@@ -63,8 +63,8 @@ Section glue.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F natO).
+  Notation ITV := (ITV F natO).
   Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
 
@@ -241,7 +241,7 @@ Section glue.
       iModIntro.
       iApply wp_let.
       { solve_proper. }
-      iSpecialize ("Hb" $! _ (NatV 0) with "Hs []").
+      iSpecialize ("Hb" $! _ (RetV 0) with "Hs []").
       { eauto with iFrame. }
       iSpecialize ("Hb" $! tt with "Hp").
       iApply (wp_wand with "Hb").
@@ -460,7 +460,7 @@ Local Definition rs : gReifiers 2 := gReifiers_cons reify_store (gReifiers_cons 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
 Lemma logrel2_adequacy cr Σ `{!invGpreS Σ}`{!statePreG rs Σ} `{!heapPreG rs Σ} `{!na_invG Σ}
-  τ (α : unitO -n>  IT (gReifiers_ops rs)) (β : IT (gReifiers_ops rs)) st st' k :
+  τ (α : unitO -n>  IT (gReifiers_ops rs) natO) (β : IT (gReifiers_ops rs) natO) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ} `{H3: !heapG rs Σ} p,
       (£ cr ⊢ valid2 rs p empC α τ)%I) →
   ssteps (gReifiers_sReifier rs) (α ()) st β st' k →
@@ -487,9 +487,9 @@ Proof.
   iMod (new_heapG rs σ) as (H3) "H".
   iAssert (has_substate σ ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
   { unfold has_substate, has_full_state.
-    assert (of_state rs (IT (gReifiers_ops rs)) st ≡
-            of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state σ)
-            ⋅ of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state ios)) as ->; last first.
+    assert (of_state rs (IT (gReifiers_ops rs) natO) st ≡
+            of_idx rs (IT (gReifiers_ops rs) natO) sR_idx (sR_state σ)
+            ⋅ of_idx rs (IT (gReifiers_ops rs) natO) sR_idx (sR_state ios)) as ->; last first.
     { rewrite -own_op. done. }
     unfold sR_idx. simpl.
     intro j.
@@ -517,7 +517,7 @@ Proof.
 Qed.
 
 
-Lemma logrel2_safety e τ (β : IT (gReifiers_ops rs)) st st' k :
+Lemma logrel2_safety e τ (β : IT (gReifiers_ops rs) natO) st st' k :
   typed_glued empC e τ →
   ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) st β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)

@@ -7,8 +7,8 @@ Section fact.
   Definition rs : gReifiers 2 :=
     gReifiers_cons reify_io (gReifiers_cons reify_store gReifiers_nil).
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F natO).
+  Notation ITV := (ITV F natO).
 
   Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ}.
   Notation iProp := (iProp Σ).
@@ -46,7 +46,7 @@ Section fact.
     iApply wp_val. iModIntro.
     unfold IFSCtx. simpl.
     destruct n as [|n].
-    - rewrite IF_False; last lia.
+    - rewrite IF_False ; last lia.
       iApply wp_val. simpl. rewrite Nat.mul_1_r//.
     - rewrite IF_True; last lia.
       iApply wp_seq.
@@ -62,10 +62,11 @@ Section fact.
       iNext. iNext. iIntros "Hacc".
       iApply wp_val. iModIntro.
       simpl. unfold NatOpRSCtx.
-      rewrite NATOP_Nat.
+      unfold Nat.
+      rewrite NATOP_Ret.
       iApply wp_val. iModIntro.
       iApply wp_let.
-      rewrite NATOP_Nat.
+      rewrite NATOP_Ret.
       iApply wp_val. iModIntro.
       simpl.
       iApply wp_seq.
@@ -84,11 +85,11 @@ Section fact.
   Qed.
 
   Lemma wp_fact_imp (n : nat) :
-    heap_ctx ⊢ WP@{rs} fact_imp ⊙ (Nat n) {{  βv, βv ≡ NatV (fact n)  }}.
+    heap_ctx ⊢ WP@{rs} fact_imp ⊙ (Nat n) {{  βv, βv ≡ RetV (fact n)  }}.
   Proof.
     iIntros "#Hctx".
     iApply wp_lam. iNext.
-    simpl. rewrite get_nat_nat.
+    simpl. rewrite get_ret_ret.
     iApply (wp_alloc with "Hctx").
     { solve_proper. }
     fold rs. iNext. iNext.
@@ -112,18 +113,18 @@ Section fact.
     INPUT $ λne n, fact_imp ⊙ (Nat n).
   Lemma wp_fact_io (n : nat) :
     heap_ctx ∗ has_substate (State [n] [])
-    ⊢ WP@{rs} get_nat OUTPUT fact_io  {{ _, has_substate (State [] [fact n]) }}.
+    ⊢ WP@{rs} get_ret OUTPUT fact_io  {{ _, has_substate (State [] [fact n]) }}.
   Proof.
     iIntros "[#Hctx Htape]".
     unfold fact_io.
-    iApply (wp_bind _ (get_nat _)).
+    iApply (wp_bind _ (get_ret _)).
     iApply (wp_input with "Htape").
     { reflexivity. }
     iNext. iIntros "_ Htape". simpl.
     iApply (wp_wand).
     { iApply (wp_fact_imp with "Hctx"). }
     simpl. iIntros (v) "Hv". iModIntro.
-    iRewrite "Hv". simpl. rewrite get_nat_nat.
+    iRewrite "Hv". simpl. rewrite get_ret_ret.
     iApply (wp_output with "Htape").
     { compute-[fact]. done. }
     iNext. iIntros "_ $".

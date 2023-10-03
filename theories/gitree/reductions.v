@@ -4,11 +4,12 @@ From gitrees Require Import prelude.
 From gitrees.gitree Require Import core reify.
 
 Section sstep.
+  Context {A} `{!Cofe A}.
   Context (r : sReifier).
   Notation F := (sReifier_ops r).
   Notation stateF := (sReifier_state r).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F A).
+  Notation ITV := (ITV F A).
   Notation stateO := (stateF ♯ IT).
   Implicit Type op : opid F.
   Implicit Type α β : IT.
@@ -86,11 +87,12 @@ Section sstep.
 End sstep.
 
 Section istep.
+  Context {A} `{!Cofe A}.
   Context (r : sReifier).
   Notation F := (sReifier_ops r).
   Notation stateF := (sReifier_state r).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F A).
+  Notation ITV := (ITV F A).
   Notation stateO := (stateF ♯ IT).
 
   Context `{!invGS_gen hlc Σ}.
@@ -172,7 +174,7 @@ Section istep.
       + iNext. iApply IHn; eauto.
   Qed.
 
-  Local Lemma tick_safe_externalize α σ :
+  Local Lemma tick_safe_externalize (α : IT) σ :
     (⊢ ∃ β σ', α ≡ Tick β ∧ σ ≡ σ' : iProp) → ∃ β σ', sstep r α σ β σ'.
   Proof.
     intros Hprf.
@@ -186,7 +188,7 @@ Section istep.
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ') "[Ha Hs]". rewrite Ha.
-      iApply (IT_nat_tick_ne with "Ha").
+      iApply (IT_ret_tick_ne with "Ha").
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ') "[Ha Hs]". rewrite Ha.
@@ -198,7 +200,7 @@ Section istep.
       iApply (IT_tick_vis_ne). by iApply (internal_eq_sym with "Ha").
   Qed.
 
-  Local Lemma effect_safe_externalize α σ :
+  Local Lemma effect_safe_externalize (α : IT) σ :
     (⊢ ∃ β σ', (∃ op i k, α ≡ Vis op i k ∧ reify r α σ ≡ (σ', Tick β)) : iProp) →
     ∃ β σ', sstep r α σ β σ'.
   Proof.
@@ -213,7 +215,7 @@ Section istep.
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ' op i k) "[Ha _]". rewrite Ha.
-      iApply (IT_nat_vis_ne with "Ha").
+      iApply (IT_ret_vis_ne with "Ha").
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ' op i k) "[Ha _]". rewrite Ha.
@@ -309,11 +311,11 @@ Section istep.
       iExFalso. iClear "Hss".
       unfold istep. simpl. iDestruct "Hs" as "[[Ht Hs]|Hs]".
       + destruct βv as[n|f]; iSimpl in "Ht".
-        ++  iApply (IT_nat_tick_ne with "Ht").
+        ++  iApply (IT_ret_tick_ne with "Ht").
         ++  iApply (IT_fun_tick_ne with "Ht").
       + iDestruct "Hs" as (op i ko) "[Ht Hs]".
         destruct βv as[n|f]; iSimpl in "Ht".
-        ++  iApply (IT_nat_vis_ne with "Ht").
+        ++  iApply (IT_ret_vis_ne with "Ht").
         ++  iApply (IT_fun_vis_ne with "Ht").
   Qed.
   Lemma isteps_tick α βv σ σ' k :
@@ -322,7 +324,7 @@ Section istep.
     rewrite isteps_unfold.
     iDestruct 1 as "[[Hk [Ht Hs]] | H]".
     - iExFalso. destruct βv; iSimpl in "Ht".
-      ++ iApply (IT_nat_tick_ne).
+      ++ iApply (IT_ret_tick_ne).
          iApply (internal_eq_sym with "Ht").
       ++ iApply (IT_fun_tick_ne).
          by iApply (internal_eq_sym with "Ht").
@@ -359,7 +361,7 @@ Section istep.
       iAssert (f α ≡ Err e)%I as "Hf".
       { iPureIntro. by rewrite Ha hom_err. }
       iRewrite "Hf" in "H". done.
-    - iLeft. iPureIntro. rewrite Ha IT_to_V_Nat. done.
+    - iLeft. iPureIntro. rewrite Ha IT_to_V_Ret. done.
     - iLeft. iPureIntro. rewrite Ha IT_to_V_Fun. done.
     - iAssert (α ≡ Tick la)%I as "Ha"; first by eauto.
       iAssert (f (Tick la) ≡ Tick (f la))%I as "Hf".

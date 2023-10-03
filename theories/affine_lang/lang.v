@@ -51,8 +51,8 @@ Section affine.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F natO).
+  Notation ITV := (ITV F natO).
   Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ}.
   Notation iProp := (iProp Σ).
 

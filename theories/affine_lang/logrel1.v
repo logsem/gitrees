@@ -54,8 +54,8 @@ Section logrel.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier input_lang.interp.reify_io rs}.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F natO).
+  Notation ITV := (ITV F natO).
   Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ}.
   Notation iProp := (iProp Σ).
 
@@ -71,13 +71,13 @@ Section logrel.
     (WP@{rs} Force (IT_of_V αv) @ s {{ Φ }})%I.
   Solve All Obligations with solve_proper_please.
   Program Definition interp_tbool : ITV -n> iProp := λne αv,
-    (αv ≡ NatV 0 ∨ αv ≡ NatV 1)%I.
+    (αv ≡ RetV 0 ∨ αv ≡ RetV 1)%I.
   Solve All Obligations with solve_proper_please.
   Program Definition interp_tnat : ITV -n> iProp := λne αv,
-    (∃ n, αv ≡ NatV n)%I.
+    (∃ n, αv ≡ RetV n)%I.
   Solve All Obligations with solve_proper_please.
   Program Definition interp_tunit : ITV -n> iProp := λne αv,
-    (αv ≡ NatV 0)%I.
+    (αv ≡ RetV 0)%I.
   Solve All Obligations with solve_proper_please.
   Program Definition interp_tpair (Φ1 Φ2 : ITV -n> iProp) : ITV -n> iProp := λne αv,
     (∃ β1v β2v, IT_of_V αv ≡ pairITV (IT_of_V β1v) (IT_of_V β2v) ∗
@@ -88,7 +88,7 @@ Section logrel.
   Solve All Obligations with solve_proper_please.
 
   Program Definition interp_ref (Φ : ITV -n> iProp) : ITV -n> iProp := λne αv,
-    (∃ (l : loc) βv, αv ≡ NatV (nat_of_loc l) ∗ pointsto l (IT_of_V βv) ∗ Φ βv)%I.
+    (∃ (l : loc) βv, αv ≡ RetV (nat_of_loc l) ∗ pointsto l (IT_of_V βv) ∗ Φ βv)%I.
   Solve All Obligations with solve_proper_please.
 
   Fixpoint interp_ty (τ : ty) : ITV -n> iProp :=
@@ -240,7 +240,8 @@ Section logrel.
     iDestruct "Ha" as (l γ) "[Ha [Hl Hg]]".
     iApply expr_pred_frame.
     iRewrite "Ha". simpl.
-    rewrite -> get_nat_nat.
+    unfold get_nat.
+    rewrite -> get_ret_ret; simpl.
     iApply wp_let.
     { solve_proper. }
     rewrite {1}loc_of_nat_of_loc.
@@ -255,7 +256,7 @@ Section logrel.
     rewrite get_val_ITV. simpl.
     rewrite get_val_ITV. simpl.
     iApply wp_val. iModIntro.
-    iExists γ,(NatV (nat_of_loc l)).
+    iExists γ,(RetV (nat_of_loc l)).
     iSplit; first done.
     iFrame. eauto with iFrame.
   Qed.
@@ -271,7 +272,7 @@ Section logrel.
     iIntros (αv) "Ha /=".
     iDestruct "Ha" as (l βv) "[Ha [Hl Hb]]".
     iRewrite "Ha". iApply expr_pred_frame. simpl.
-    rewrite -> get_nat_nat.
+    unfold get_nat. rewrite -> get_ret_ret. simpl.
     rewrite loc_of_nat_of_loc.
     iApply (wp_dealloc with "Hctx Hl").
     iNext. iNext. eauto with iFrame.
@@ -419,7 +420,7 @@ Local Definition rs : gReifiers 2 := gReifiers_cons reify_store (gReifiers_cons 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
 Lemma logrel1_adequacy cr Σ `{!invGpreS Σ}`{!statePreG rs Σ} `{!heapPreG rs Σ} τ
-  (α : unitO -n>  IT (gReifiers_ops rs)) (β : IT (gReifiers_ops rs)) st st' k :
+  (α : unitO -n>  IT (gReifiers_ops rs) natO) (β : IT (gReifiers_ops rs) natO) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ} `{H3: !heapG rs Σ},
       (£ cr ⊢ valid1 rs notStuck (λ _:unitO, True)%I empC α τ)%I) →
   ssteps (gReifiers_sReifier rs) (α ()) st β st' k →
@@ -446,9 +447,9 @@ Proof.
   iMod (new_heapG rs σ) as (H3) "H".
   iAssert (has_substate σ ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
   { unfold has_substate, has_full_state.
-    assert (of_state rs (IT (gReifiers_ops rs)) st ≡
-            of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state σ)
-            ⋅ of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state ios)) as ->; last first.
+    assert (of_state rs (IT (gReifiers_ops rs) natO) st ≡
+            of_idx rs (IT (gReifiers_ops rs) natO) sR_idx (sR_state σ)
+            ⋅ of_idx rs (IT (gReifiers_ops rs) natO) sR_idx (sR_state ios)) as ->; last first.
     { rewrite -own_op. done. }
     unfold sR_idx. simpl.
     intro j.
@@ -474,7 +475,7 @@ Proof.
 Qed.
 
 
-Lemma logrel1_safety e τ (β : IT (gReifiers_ops rs)) st st' k :
+Lemma logrel1_safety e τ (β : IT (gReifiers_ops rs) natO) st st' k :
   typed empC e τ →
   ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) st β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)

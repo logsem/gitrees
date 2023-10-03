@@ -5,8 +5,8 @@ Section program_logic.
   Context {sz : nat}.
   Variable rs : gReifiers sz.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F natO).
+  Notation ITV := (ITV F natO).
 
   Context `{!invGS Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).

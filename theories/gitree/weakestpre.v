@@ -103,8 +103,8 @@ Section weakestpre.
   Context {n : nat} (rs : gReifiers n).
   Notation rG := (gReifiers_sReifier rs).
   Notation F := (sReifier_ops rG).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F natO).
+  Notation ITV := (ITV F natO).
   Notation stateF := (gReifiers_state rs).
   Notation stateO := (stateF ♯ IT).
   Notation stateR := (gReifiers_ucmra rs IT).
@@ -680,7 +680,7 @@ Section weakestpre.
       + eauto.
       + iRight; setoid_rewrite Ha.
         iDestruct 1 as (e) "Ha".
-        iApply (IT_nat_err_ne with "Ha").
+        iApply (IT_ret_err_ne with "Ha").
       + iRight; setoid_rewrite Ha.
         iDestruct 1 as (e) "Ha".
         iApply (IT_fun_err_ne with "Ha").
@@ -792,7 +792,7 @@ Definition notStuck : stuckness := λ e, False.
 
 Lemma wp_adequacy cr Σ `{!invGpreS Σ} n (rs : gReifiers n)
   `{!statePreG rs Σ}
-  α σ βv σ' s k (ψ : (ITV (gReifiers_ops rs)) → Prop) :
+  α σ βv σ' s k (ψ : (ITV (gReifiers_ops rs) natO) → Prop) :
   ssteps (gReifiers_sReifier rs) α σ (IT_of_V βv) σ' k →
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ},
       ∃ Φ, NonExpansive Φ ∧ (∀ βv, Φ βv ⊢ ⌜ψ βv⌝)
@@ -818,7 +818,7 @@ Qed.
 
 Lemma wp_safety cr Σ `{!invGpreS Σ} n (rs : gReifiers n)
   `{!statePreG rs Σ} s k
-  (α β : IT (gReifiers_ops rs)) (σ σ' : gReifiers_state rs ♯ IT (gReifiers_ops rs)) :
+  (α β : IT (gReifiers_ops rs) natO) (σ σ' : gReifiers_state rs ♯ IT (gReifiers_ops rs) natO) :
   (∀ Σ P Q, @disjunction_property Σ P Q) →
   ssteps (gReifiers_sReifier rs) α σ β σ' k →
   IT_to_V β ≡ None →
@@ -848,7 +848,7 @@ Proof.
       + exfalso. eapply uPred.pure_soundness.
         iPoseProof (Hprf) as "H".
         iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.
-        iApply (IT_nat_err_ne with "Ha").
+        iApply (IT_ret_err_ne with "Ha").
       + exfalso. eapply uPred.pure_soundness.
         iPoseProof (Hprf) as "H".
         iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.

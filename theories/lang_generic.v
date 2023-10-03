@@ -45,8 +45,8 @@ Inductive typed_var {ty : Type}: forall {S}, tyctx ty S → var S → ty → Pro
 Section interp.
   Local Open Scope type.
   Context {E: opsInterp}.
-  Notation IT := (IT E).
-  Notation ITV := (ITV E).
+  Notation IT := (IT E natO).
+  Notation ITV := (ITV E natO).
 
   Fixpoint interp_scope (S : scope) : ofe :=
     match S with
@@ -126,8 +126,8 @@ Section kripke_logrel.
   Variable rs : gReifiers sz.
 
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F natO).
+  Notation ITV := (ITV F natO).
   Context `{!invGS Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
 

@@ -8,8 +8,8 @@ Section logrel.
   Variable (rs : gReifiers sz).
   Context {subR : subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F natO).
+  Notation ITV := (ITV F natO).
   Context `{!invGS Σ, !stateG rs Σ}.
   Notation iProp := (iProp Σ).
   Notation restO := (gState_rest sR_idx rs ♯ IT).
@@ -32,7 +32,7 @@ Section logrel.
         WP α {{ βv, ∃ m v σ', ⌜prim_steps e σ (Val v) σ' m⌝
                          ∗ V βv v ∗ has_substate σ' }})%I.
   Definition logrel_nat {S} (βv : ITV) (v : val S) : iProp :=
-    (∃ n, βv ≡ NatV n ∧ ⌜v = Lit n⌝)%I.
+    (∃ n, βv ≡ RetV n ∧ ⌜v = Lit n⌝)%I.
   Definition logrel_arr {S} V1 V2 (βv : ITV) (vf : val S) : iProp :=
     (∃ f, IT_of_V βv ≡ Fun f ∧ □ ∀ αv v, V1 αv v -∗ logrel_expr V2 (APP' (Fun f) (IT_of_V αv)) (App (Val vf) (Val v)))%I.
 
@@ -321,12 +321,12 @@ Section logrel.
     pose (s := (subs_of_subs2 ss)). fold s.
     pose (env := its_of_subs2 ss). fold env.
     simp subst_expr. simpl.
-    iApply (logrel_bind (get_nat _) [OutputCtx] with "H1").
+    iApply (logrel_bind (get_ret _) [OutputCtx] with "H1").
     iIntros (v βv).
     iDestruct 1 as (m) "[Hb ->]".
     iRewrite "Hb". simpl.
     iIntros (σ) "Hs".
-    rewrite get_nat_nat.
+    rewrite get_ret_ret.
     iApply (wp_output with "Hs []"); first done.
     iNext. iIntros "Hlc Hs".
     iExists (1,1),(Lit 0),_.
@@ -359,12 +359,12 @@ Section logrel.
     iAssert ((NATOP (do_natop op) (IT_of_V β1) (IT_of_V β2)) ≡ Nat (do_natop op n1 n2))%I with "[Hn1 Hn2]" as "Hr".
     { iRewrite "Hn1". simpl.
       iRewrite "Hn2". simpl.
-      iPureIntro. apply NATOP_Nat. }
+      iPureIntro. apply NATOP_Ret. }
     iApply (logrel_step_pure (Val (Lit (do_natop op n1 n2)))).
     { intro. apply (Ectx_step' []). constructor.
       destruct op; simpl; eauto. }
     iRewrite "Hr".
-    iApply (logrel_of_val (NatV $ do_natop op n1 n2)).
+    iApply (logrel_of_val (RetV $ do_natop op n1 n2)).
     iExists _. iSplit; eauto.
   Qed.
 
@@ -392,33 +392,33 @@ Section logrel.
         iApply IHtyped.
     - induction 1; simpl.
       + iIntros (ss) "Hss". simp subst_expr. simpl.
-        iApply (logrel_of_val (NatV n)). iExists n. eauto.
+        iApply (logrel_of_val (RetV n)). iExists n. eauto.
       + iApply compat_recV. by iApply fundamental.
   Qed.
 
 End logrel.
 
-Definition κ {S} {E} : ITV E → val S :=  λ x,
+Definition κ {S} {E} : ITV E natO → val S :=  λ x,
     match x with
-    | NatV n => Lit n
+    | RetV n => Lit n
     | _ => Lit 0
     end.
 Definition rs : gReifiers 1 := gReifiers_cons reify_io gReifiers_nil.
 
-Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs Σ} {S} (α : IT (gReifiers_ops rs)) (e : expr S) n σ σ' k :
+Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs Σ} {S} (α : IT (gReifiers_ops rs) natO) (e : expr S) n σ σ' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ},
       (True ⊢ logrel rs Tnat α e)%I) →
   ssteps (gReifiers_sReifier rs) α (σ,()) (Nat n) σ' k → ∃ m σ', prim_steps e σ (Val $ Lit n) σ' m.
 Proof.
   intros Hlog Hst.
-  pose (ϕ := λ (βv : ITV (gReifiers_ops rs)),
+  pose (ϕ := λ (βv : ITV (gReifiers_ops rs) natO),
           ∃ m σ', prim_steps e σ (Val $ κ βv) σ' m).
-  cut (ϕ (NatV n)).
+  cut (ϕ (RetV n)).
   { destruct 1 as ( m' & σ2 & Hm). simpl in Hm.
     eexists; eauto. }
   eapply (wp_adequacy 0); eauto.
   intros Hinv1 Hst1.
-  pose (Φ := (λ (βv : ITV (gReifiers_ops rs)), ∃ n, logrel_val rs Tnat (Σ:=Σ) (S:=S) βv (Lit n)
+  pose (Φ := (λ (βv : ITV (gReifiers_ops rs) natO), ∃ n, logrel_val rs Tnat (Σ:=Σ) (S:=S) βv (Lit n)
           ∗ ⌜∃ m σ', prim_steps e σ (Val $ Lit n) σ' m⌝)%I).
   assert (NonExpansive Φ).
   { unfold Φ.
@@ -427,13 +427,13 @@ Proof.
   { iIntros (βv). iDestruct 1 as (n'') "[H %]".
     iDestruct "H" as (n') "[#H %]". simplify_eq/=.
     iAssert (IT_of_V βv ≡ Nat n')%I as "#Hb".
-    { change (Nat n') with (IT_of_V (E:=(gReifiers_ops rs)) (NatV n')).
+    { change (Nat n') with (IT_of_V (E:=(gReifiers_ops rs)) (RetV n')).
       by iApply f_equivI. }
-    iAssert (⌜βv = NatV n'⌝)%I with "[-]" as %Hfoo.
+    iAssert (⌜βv = RetV n'⌝)%I with "[-]" as %Hfoo.
     { destruct βv as [r|f]; simpl.
-      - iPoseProof (Nat_inj' with "Hb") as "%Hr".
+      - iPoseProof (Ret_inj' with "Hb") as "%Hr".
         fold_leibniz. eauto.
-      - iExFalso. iApply (IT_nat_fun_ne).
+      - iExFalso. iApply (IT_ret_fun_ne).
         iApply internal_eq_sym. iExact "Hb". }
     iPureIntro. rewrite Hfoo. unfold ϕ.
     eauto. }
@@ -441,8 +441,8 @@ Proof.
   iPoseProof (Hlog with "[//]") as "Hlog".
   iAssert (has_substate σ) with "[Hs]" as "Hs".
   { unfold has_substate, has_full_state.
-    assert (of_state rs (IT (gReifiers_ops rs)) (σ, ()) ≡
-            of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state σ)) as -> ; last done. 
+    assert (of_state rs (IT (gReifiers_ops rs) natO) (σ, ()) ≡
+            of_idx rs (IT (gReifiers_ops rs) natO) sR_idx (sR_state σ)) as -> ; last done. 
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.

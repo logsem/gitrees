@@ -7,7 +7,8 @@ Section lambda.
   Local Opaque laterO_ap.
 
   Context {Σ : opsInterp}.
-  Notation IT := (IT Σ).
+
+  Notation IT := (IT Σ natO).
 
   Program Definition IF : IT -n> IT -n> IT -n> IT := λne t t1 t2,
       get_nat (λ n, if Nat.ltb 0 n then t1 else t2) t.
@@ -45,8 +46,8 @@ Section lambda.
   Program Definition LET : IT -n> (IT -n> IT) -n> IT := λne x f, get_val f x.
   Solve Obligations with solve_proper.
 
-  Lemma APP_Nat x y : APP (Nat x) y ≡ Err RuntimeErr.
-  Proof. simpl. by rewrite get_fun_nat. Qed.
+  Lemma APP_Nat x y : APP (Ret x) y ≡ Err RuntimeErr.
+  Proof. simpl. by rewrite get_fun_ret. Qed.
   Lemma APP_Err e x : APP (Err e) x ≡ Err e.
   Proof. simpl. by rewrite get_fun_err. Qed.
   Lemma APP_Fun f x : APP (Fun f) x ≡ Tau $ laterO_ap f x.
@@ -68,8 +69,8 @@ Section lambda.
   Qed.
   Lemma APP'_Err_r f e : APP' f (Err e) ≡ Err e.
   Proof. simpl. by rewrite get_val_err. Qed.
-  Lemma APP'_Nat_r f x : APP' f (Nat x) ≡ APP f (Next (Nat x)).
-  Proof. simpl. rewrite get_val_nat. done. Qed.
+  Lemma APP'_Nat_r f x : APP' f (Ret x) ≡ APP f (Next (Ret x)).
+  Proof. simpl. rewrite get_val_ret. done. Qed.
   Lemma APP'_Fun_r f x : APP' f (Fun x) ≡ APP f (Next (Fun x)).
   Proof. simpl. rewrite get_val_fun. done. Qed.
   Lemma APP'_Tick_r f t : APP' f (Tick t) ≡ Tick $ APP' f t.
@@ -80,7 +81,7 @@ Section lambda.
   Qed.
   Lemma APP'_Vis_r f op i k : APP' f (Vis op i k) ≡ Vis op i (laterO_map (APP' f) ◎ k).
   Proof. by rewrite get_val_vis. Qed.
-  Lemma APP_APP'_ITV' α (βv : ITV Σ) :
+  Lemma APP_APP'_ITV' α (βv : ITV Σ natO) :
     APP' α (IT_of_V βv) ≡ APP α (Next (IT_of_V βv)).
   Proof.
     destruct βv as [n|f]; simpl.
@@ -109,32 +110,32 @@ Section lambda.
   Qed.
   Lemma APP'_Err_l e x `{!AsVal x}: APP' (Err e) x ≡ Err e.
   Proof. rewrite APP_APP'_ITV. by rewrite APP_Err. Qed.
-  Lemma APP'_Nat_l x t `{!AsVal t}: APP' (Nat x) t ≡ Err RuntimeErr.
+  Lemma APP'_Nat_l x t `{!AsVal t}: APP' (Ret x) t ≡ Err RuntimeErr.
   Proof. rewrite APP_APP'_ITV. by rewrite APP_Nat. Qed.
   Lemma APP'_Fun_l f x `{!AsVal x} : APP' (Fun f) x ≡ Tau $ laterO_ap f (Next x).
   Proof. rewrite APP_APP'_ITV. by rewrite APP_Fun. Qed.
 
   Lemma IF_Err e t1 t2 : IF (Err e) t1 t2 ≡ Err e.
-  Proof. unfold IF. simpl. by rewrite get_nat_err. Qed.
+  Proof. unfold IF. simpl. by rewrite get_ret_err. Qed.
   Lemma IF_True n t1 t2 :
-    0 < n → IF (Nat n) t1 t2 ≡ t1.
+    0 < n → IF (Ret n) t1 t2 ≡ t1.
   Proof.
     intro Hn. unfold IF. simpl.
-    rewrite get_nat_nat.
+    rewrite get_ret_ret. simpl.
     assert (0 <? n = true) as ->; last by eauto.
     by apply Nat.ltb_lt.
   Qed.
   Lemma IF_False n t1 t2 :
-    0 ≥ n → IF (Nat n) t1 t2 ≡ t2.
+    0 ≥ n → IF (Ret n) t1 t2 ≡ t2.
   Proof.
     intro Hn. unfold IF. simpl.
-    rewrite get_nat_nat.
+    rewrite get_ret_ret. simpl.
     assert (0 <? n = false) as ->; last by eauto.
     by apply Nat.ltb_ge.
   Qed.
   Lemma IF_Tick t t1 t2 :
     IF (Tick t) t1 t2 ≡ Tick (IF t t1 t2).
-  Proof. rewrite {1}/IF /=. apply get_nat_tick. Qed.
+  Proof. rewrite {1}/IF /=. apply get_ret_tick. Qed.
   Lemma IF_Tick_n n t t1 t2 :
     IF (Tick_n n t) t1 t2 ≡ Tick_n n (IF t t1 t2).
   Proof.
@@ -144,7 +145,7 @@ Section lambda.
     IF (Vis op i k) t1 t2 ≡ Vis op i (laterO_map (IF_last t1 t2) ◎ k).
   Proof.
     rewrite {1}/IF /=.
-    rewrite get_nat_vis. repeat f_equiv.
+    rewrite get_ret_vis. repeat f_equiv.
     by intro.
   Qed.
 
@@ -155,15 +156,14 @@ Section lambda.
     intros ?. simpl.
     rewrite get_val_ITV /= get_val_err //.
   Qed.
-  Lemma NATOP_Nat n1 n2 f :
-    NATOP f (Nat n1) (Nat n2) ≡ Nat (f n1 n2).
+  Lemma NATOP_Ret n1 n2 f :
+    NATOP f (Ret n1) (Ret n2) ≡ Ret (f n1 n2).
   Proof.
     simpl.
-    rewrite get_val_nat/= get_val_nat/=.
-    Transparent get_nat2.
-    rewrite /get_nat2/=.
-    by rewrite !get_nat_nat.
-    Opaque get_nat2.
+    rewrite get_val_ret/= get_val_ret/=.
+    rewrite !get_ret_ret. simpl.
+    rewrite !get_ret_ret. simpl.
+    done.
   Qed.
   Lemma NATOP_Tick_r t1 t2 f :
     NATOP f t1 (Tick t2) ≡ Tick $ NATOP f t1 t2.

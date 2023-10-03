@@ -3,6 +3,7 @@ From gitrees Require Import prelude.
 From gitrees.gitree Require Import core.
 
 Section reifiers.
+  Context {A} `{!Cofe A}.
   #[local] Open Scope type.
 
   (** A single reifier *)
@@ -19,8 +20,8 @@ Section reifiers.
   Context (r : sReifier).
   Notation F := (sReifier_ops r).
   Notation stateF := (sReifier_state r).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F A).
+  Notation ITV := (ITV F A).
   Implicit Type op : opid F.
   Implicit Type α β : IT.
 
@@ -63,18 +64,18 @@ Section reifiers.
   Program Definition reify_err : errorO -n> stateM := λne e s, (s, Err e).
   Solve All Obligations with solve_proper.
 
-  Program Definition reify_nat : natO -n> stateM := λne n s, (s, Nat n).
+  Program Definition reify_ret : A -n> stateM := λne n s, (s, Ret n).
   Solve All Obligations with solve_proper.
 
   Program Definition unr : stateM -n>
-    sumO (sumO (sumO (sumO natO (laterO (stateM -n> stateM))) errorO) (laterO stateM))
+    sumO (sumO (sumO (sumO A (laterO (stateM -n> stateM))) errorO) (laterO stateM))
       (sigTO (λ op : opid F, prodO (oFunctor_apply (Ins (F op)) stateM) (oFunctor_apply (Outs (F op)) stateM -n> laterO stateM))).
   Proof. simple refine (λne d, inl (inl (inr (RuntimeErr)))). Qed.
 
   Definition reify : IT -n> stateM
     := IT_rec1 _
                reify_err
-               reify_nat
+               reify_ret
                reify_fun
                reify_tau
                reify_vis
@@ -82,7 +83,7 @@ Section reifiers.
   Definition unreify : stateM -n> IT
     := IT_rec2 _
                reify_err
-               reify_nat
+               reify_ret
                reify_fun
                reify_tau
                reify_vis
@@ -92,7 +93,7 @@ Section reifiers.
     reify (Fun f) σ ≡ (σ, Fun f).
   Proof.
     rewrite /reify/=.
-    trans (reify_fun (laterO_map (sandwich (Perr:=reify_err) (Pnat:=reify_nat)
+    trans (reify_fun (laterO_map (sandwich (Perr:=reify_err) (Pret:=reify_ret)
                                            (Parr:=reify_fun) (Ptau:=reify_tau)
                                            (Pvis:=reify_vis) (Punfold:=unr)
                                            stateM) f) σ).

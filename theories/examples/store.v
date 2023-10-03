@@ -97,8 +97,8 @@ Defined.
 Section constructors.
   Context {E : opsInterp}.
   Context `{!subEff storeE E}.
-  Notation IT := (IT E).
-  Notation ITV := (ITV E).
+  Notation IT := (IT E natO).
+  Notation ITV := (ITV E natO).
 
   Program Definition ALLOC : IT -n> (locO -n> IT) -n> IT :=
     (λne n k, Vis (E:=E) (subEff_opid $ inr (inr (inl ())))
@@ -106,7 +106,7 @@ Section constructors.
       (NextO ◎ k ◎ (subEff_outs (F:=storeE) (op:=inr (inr (inl ()))))^-1)).
   Solve Obligations with solve_proper.
 
-  Definition READ : locO -n> IT :=
+  Program Definition READ : locO -n> IT :=
     λne l, Vis (E:=E) (subEff_opid $ inl ())
                 (subEff_ins (F:=storeE) (op:=(inl ())) l)
                 ((subEff_outs (F:=storeE) (op:=(inl ())))^-1).
@@ -129,8 +129,8 @@ Section wp.
   Context {n : nat}.
   Variable (rs : gReifiers n).
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F natO).
+  Notation ITV := (ITV F natO).
   Notation stateO := (stateF ♯ IT).
 
   (* a separate ghost state for keeping track of locations *)
@@ -276,7 +276,7 @@ Section wp.
     nclose (nroot.@"storeE") ## E1 →
     heap_ctx -∗
     (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
-        ▷ ▷ (pointsto l β ={E2,E1}=∗ Φ (NatV 0))) -∗
+        ▷ ▷ (pointsto l β ={E2,E1}=∗ Φ (RetV 0))) -∗
     WP@{rs} WRITE l β @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
@@ -310,7 +310,7 @@ Section wp.
   Lemma wp_write (l : loc) (α β : IT) s Φ :
     heap_ctx -∗
     ▷ pointsto l α -∗
-    ▷▷ (pointsto l β -∗ Φ (NatV 0)) -∗
+    ▷▷ (pointsto l β -∗ Φ (RetV 0)) -∗
     WP@{rs} WRITE l β @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Hp Ha".
@@ -353,7 +353,7 @@ Section wp.
     nclose (nroot.@"storeE") ## E1 →
     heap_ctx -∗
     (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
-        ▷ ▷ (|={E2,E1}=> Φ (NatV 0))) -∗
+        ▷ ▷ (|={E2,E1}=> Φ (RetV 0))) -∗
     WP@{rs} DEALLOC l @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
@@ -385,7 +385,7 @@ Section wp.
   Lemma wp_dealloc (l : loc) α s Φ :
     heap_ctx -∗
     ▷ pointsto l α -∗
-    ▷ ▷ Φ (NatV 0) -∗
+    ▷ ▷ Φ (RetV 0) -∗
     WP@{rs} DEALLOC l @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Hl H".
@@ -402,7 +402,7 @@ Section wp.
     (heap_ctx -∗ WP@{rs} α {{ V }})%I.
 
   Definition logrel_nat (βv : ITV) : iProp :=
-    (∃ n, βv ≡ NatV n)%I.
+    (∃ n, βv ≡ RetV n)%I.
   Definition logrel_arr V1 V2 (βv : ITV) : iProp :=
     (∃ f, IT_of_V βv ≡ Fun f ∧ □ ∀ αv, V1 αv -∗
        logrel_expr V2 (APP' (Fun f) (IT_of_V αv)))%I.

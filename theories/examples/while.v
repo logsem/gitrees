@@ -2,8 +2,8 @@ From gitrees Require Import prelude gitree.
 
 Section while.
   Context {E : opsInterp}.
-  Notation IT := (IT E).
-  Notation ITV := (ITV E).
+  Notation IT := (IT E natO).
+  Notation ITV := (ITV E natO).
 
   Program Definition pre_while (while : IT -n> IT -n> IT) : IT -n> IT -n> IT :=
     λne cond body, IF cond (SEQ body (Tick (while cond body))) (Nat 0).

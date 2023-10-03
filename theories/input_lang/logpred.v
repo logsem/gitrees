@@ -8,8 +8,8 @@ Section io_lang.
   Variable rs : gReifiers sz.
   Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
+  Notation IT := (IT F natO).
+  Notation ITV := (ITV F natO).
   Context `{!invGS Σ, !stateG rs Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
 
@@ -22,7 +22,7 @@ Section io_lang.
   Local Notation expr_pred := (expr_pred s rs P).
 
   Program Definition interp_tnat : ITV -n> iProp := λne αv,
-    (∃ n, αv ≡ NatV n)%I.
+    (∃ n, αv ≡ RetV n)%I.
   Solve All Obligations with solve_proper.
   Program Definition interp_tarr (Φ1 Φ2 : ITV -n> iProp) := λne αv,
     (□ ∀ σ βv, has_substate σ -∗
@@ -113,13 +113,13 @@ Section io_lang.
     iIntros (σ ss) "Hs #Has".
     iSpecialize ("H" with "Hs Has").
     simpl.
-    iApply (expr_pred_bind (get_nat _) with "H").
+    iApply (expr_pred_bind (get_ret _) with "H").
     iIntros (αv) "Ha".
     iDestruct "Ha" as (σ') "[Ha Hs]".
     iDestruct "Ha" as (n) "Hn".
     iApply expr_pred_frame.
     iRewrite "Hn".
-    rewrite get_nat_nat.
+    rewrite get_ret_ret.
     iApply (wp_output with "Hs").
     { reflexivity. }
     iNext. iIntros "_ Hs /=".
@@ -197,7 +197,7 @@ Section io_lang.
     iDestruct "Ha" as (n2) "Ha".
     iRewrite "Hb". iRewrite "Ha".
     simpl. iApply expr_pred_frame.
-    rewrite NATOP_Nat. iApply wp_val. simpl.
+    rewrite NATOP_Ret. iApply wp_val. simpl.
     eauto with iFrame.
   Qed.
 
@@ -230,7 +230,7 @@ Local Definition rs : gReifiers _ := gReifiers_cons reify_io gReifiers_nil.
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Lemma logpred_adequacy cr Σ `{!invGpreS Σ}`{!statePreG rs Σ} τ (α : unitO -n> IT (gReifiers_ops rs)) (β : IT (gReifiers_ops rs)) st st' k :
+Lemma logpred_adequacy cr Σ `{!invGpreS Σ}`{!statePreG rs Σ} τ (α : unitO -n> IT (gReifiers_ops rs) natO) (β : IT (gReifiers_ops rs) natO) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ},
       (£ cr ⊢ valid1 rs notStuck (λ _:unitO, True)%I empC α τ)%I) →
   ssteps (gReifiers_sReifier rs) (α ()) st β st' k →
@@ -256,8 +256,8 @@ Proof.
   destruct st as [σ []].
   iAssert (has_substate σ) with "[Hst]" as "Hs".
   { unfold has_substate, has_full_state.
-    assert (of_state rs (IT (gReifiers_ops rs)) (σ,()) ≡
-            of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state σ)) as ->; last done.
+    assert (of_state rs (IT (gReifiers_ops rs) natO) (σ,()) ≡
+            of_idx rs (IT (gReifiers_ops rs) natO) sR_idx (sR_state σ)) as ->; last done.
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.

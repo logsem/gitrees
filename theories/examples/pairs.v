@@ -4,8 +4,8 @@ From gitrees.gitree Require Import core lambda.
 
 Section pairs.
   Context {E : opsInterp}.
-  Notation IT := (IT E).
-  Notation ITV := (ITV E).
+  Notation IT := (IT E natO).
+  Notation ITV := (ITV E natO).
 
   Program Definition pairITV : IT -n> IT -n> IT := λne a b,
       λit f, f ⊙ a ⊙ b.
