@@ -1038,19 +1038,19 @@ Section ITV.
       as [[e Ha2] | [[m Ha2] | [ [g Ha2] | [[la Ha2]|[op [i [k Ha2]]]] ]]].
     all: rewrite Ha2.
     - rewrite IT_to_V_Err.
-      rewrite equiv_option_Forall2. inversion 1.
+      rewrite option_equiv_Forall2. inversion 1.
     - rewrite IT_to_V_Nat.
-      rewrite equiv_option_Forall2. inversion 1 as [x y Hxy|].
+      rewrite option_equiv_Forall2. inversion 1 as [x y Hxy|].
       simplify_eq/=. rewrite -Hxy.
       done.
     - rewrite IT_to_V_Fun.
-      rewrite equiv_option_Forall2. inversion 1 as [x y Hxy|].
+      rewrite option_equiv_Forall2. inversion 1 as [x y Hxy|].
       simplify_eq/=. rewrite -Hxy.
       done.
     - rewrite IT_to_V_Tick.
-      rewrite equiv_option_Forall2. inversion 1.
+      rewrite option_equiv_Forall2. inversion 1.
     - rewrite IT_to_V_Vis.
-      rewrite equiv_option_Forall2. inversion 1.
+      rewrite option_equiv_Forall2. inversion 1.
   Qed.
 
   Lemma IT_to_V_None α {PROP : bi} `{!BiInternalEq PROP} :

@@ -10,8 +10,8 @@ install: [make "install"]
 remove: ["rm" "-rf" "%{lib}%/coq/user-contrib/gitrees"]
 depends: [
   "coq-equations" { (= "1.3+8.17") }
-  "coq-iris" { (= "dev.2023-06-30.0.7e865892") }
-  "coq-iris-heap-lang" { (= "dev.2023-06-30.0.7e865892") }
-  "coq-stdpp" { (= "dev.2023-06-01.0.d1254759") }
+  "coq-iris" { (= "dev.2023-09-29.0.4f3a385f") }
+  "coq-iris-heap-lang" { (= "dev.2023-09-29.0.4f3a385f") }
+  "coq-stdpp" { (= "dev.2023-09-29.0.7ddd0c05") }
   "coq" { (>= "8.17") | (= "dev") }
 ]
