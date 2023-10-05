@@ -8,9 +8,11 @@ Section io_lang.
   Variable rs : gReifiers sz.
   Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F natO).
-  Notation ITV := (ITV F natO).
-  Context `{!invGS Σ, !stateG rs Σ, !na_invG Σ}.
+  Context {R} `{!Cofe R}.
+  Context `{!SubOfe natO R}.
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
+  Context `{!invGS Σ, !stateG rs R Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
 
   Variable s : stuckness.
@@ -22,7 +24,7 @@ Section io_lang.
   Local Notation expr_pred := (expr_pred s rs P).
 
   Program Definition interp_tnat : ITV -n> iProp := λne αv,
-    (∃ n, αv ≡ RetV n)%I.
+    (∃ n : nat, αv ≡ RetV n)%I.
   Solve All Obligations with solve_proper.
   Program Definition interp_tarr (Φ1 Φ2 : ITV -n> iProp) := λne αv,
     (□ ∀ σ βv, has_substate σ -∗
@@ -226,12 +228,15 @@ Section io_lang.
 
 End io_lang.
 
+Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _ _} τ.
+Arguments interp_tarr {_ _ _ _ _ _ _ _ _ _ _} Φ1 Φ2.
+
 Local Definition rs : gReifiers _ := gReifiers_cons reify_io gReifiers_nil.
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Lemma logpred_adequacy cr Σ `{!invGpreS Σ}`{!statePreG rs Σ} τ (α : unitO -n> IT (gReifiers_ops rs) natO) (β : IT (gReifiers_ops rs) natO) st st' k :
-  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ},
+Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}`{!invGpreS Σ}`{!statePreG rs R Σ} τ (α : unitO -n> IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k :
+  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ},
       (£ cr ⊢ valid1 rs notStuck (λ _:unitO, True)%I empC α τ)%I) →
   ssteps (gReifiers_sReifier rs) (α ()) st β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
@@ -249,15 +254,15 @@ Proof.
   { apply Hdisj. }
   { by rewrite Hb. }
   intros H1 H2.
-  exists (interp_ty _ notStuck (λ _:unitO, True) τ)%I. split.
+  exists (interp_ty (s:=notStuck) (P:=(λ _:unitO, True)) τ)%I. split.
   { apply _. }
   iIntros "[Hcr  Hst]".
   iPoseProof (Hlog with "Hcr") as "Hlog".
   destruct st as [σ []].
   iAssert (has_substate σ) with "[Hst]" as "Hs".
   { unfold has_substate, has_full_state.
-    assert (of_state rs (IT (gReifiers_ops rs) natO) (σ,()) ≡
-            of_idx rs (IT (gReifiers_ops rs) natO) sR_idx (sR_state σ)) as ->; last done.
+    assert (of_state rs (IT (gReifiers_ops rs) _) (σ,()) ≡
+            of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)) as ->; last done.
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.
@@ -276,14 +281,18 @@ Proof.
   done.
 Qed.
 
-Lemma io_lang_safety e τ σ st' β k :
+Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k :
   typed empC e τ →
   ssteps (gReifiers_sReifier rs) (interp_expr _ e ()) (σ,()) β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
   intros Htyped Hsteps.
-  pose (Σ:=#[invΣ;stateΣ rs]).
+  pose (Σ:=#[invΣ;stateΣ rs natO]).
+  assert (invGpreS Σ).
+  { apply _. }
+  assert (statePreG rs natO Σ).
+  { apply _. }
   eapply (logpred_adequacy 0 Σ); eauto.
   intros ? ?. iIntros "_".
   by iApply fundamental.

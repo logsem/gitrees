@@ -7,44 +7,48 @@ Section fact.
   Definition rs : gReifiers 2 :=
     gReifiers_cons reify_io (gReifiers_cons reify_store gReifiers_nil).
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F natO).
-  Notation ITV := (ITV F natO).
+  Context {R} `{!Cofe R}.
+  Context `{!SubOfe natO R, !SubOfe unitO R}.
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
 
-  Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ}.
+  Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
   Notation iProp := (iProp Σ).
-
 
   Program Definition fact_imp_body (acc ℓ : loc) : IT :=
     WHILE (READ ℓ) $
          LET (READ ℓ) $ λne i,
          LET (NATOP Nat.mul i (READ acc)) $ λne r,
-         LET (NATOP Nat.sub i (Nat 1)) $ λne i,
+         LET (NATOP Nat.sub i (Ret 1)) $ λne i,
          SEQ (WRITE acc r)
              (WRITE ℓ i).
   Solve All Obligations with solve_proper_please.
 
   Program Definition fact_imp : IT := λit n,
-    flip get_nat n $ λ n,
-    ALLOC (Nat 1) $ λne acc,
-    ALLOC (Nat n) $ λne ℓ,
+    flip get_ret n $ λne (n : nat),
+    ALLOC (Ret 1) $ λne acc,
+    ALLOC (Ret n) $ λne ℓ,
       SEQ
         (fact_imp_body acc ℓ)
         (READ acc).
 
   Lemma wp_fact_imp_bod n m acc ℓ :
     heap_ctx -∗
-    pointsto acc (Nat m) -∗ pointsto ℓ (Nat n) -∗
-    WP@{rs} fact_imp_body acc ℓ {{ _, pointsto acc (Nat (m * fact n)) }}.
+    pointsto acc (Ret m) -∗ pointsto ℓ (Ret n) -∗
+    WP@{rs} fact_imp_body acc ℓ {{ _, pointsto acc (Ret (m * fact n)) }}.
   Proof.
     iIntros "#Hctx Hacc Hl".
     iLöb as "IH" forall (n m).
     unfold fact_imp_body.
     rewrite {2}(WHILE_eq (READ _)).
-    iApply (wp_bind rs (IFSCtx _ (Nat 0)) (READ ℓ)).
+    iApply (wp_bind rs (IFSCtx _ (Ret ())) (READ ℓ)).
     iApply (wp_read with "Hctx Hl").
     iNext. iNext. iIntros "Hl".
     iApply wp_val. iModIntro.
     unfold IFSCtx. simpl.
+    iAssert ((IT_of_V (E:=F) (RetV n)) ≡ (Ret n))%I as "#Hn".
+    { iPureIntro. apply (IT_of_V_Ret (B:=R)). }
+    iRewrite "Hn".
     destruct n as [|n].
     - rewrite IF_False ; last lia.
       iApply wp_val. simpl. rewrite Nat.mul_1_r//.
@@ -55,17 +59,23 @@ Section fact.
       iNext. iNext. iIntros "Hl".
       iApply wp_val. simpl.
       iApply wp_let.
-      iApply (wp_bind _ (NatOpRSCtx _ (Nat (S n)))).
+      iApply (wp_bind _ (NatOpRSCtx _ (Ret (S n)))).
       { solve_proper_please. }
       iModIntro.
       iApply (wp_read with "Hctx Hacc").
       iNext. iNext. iIntros "Hacc".
       iApply wp_val. iModIntro.
       simpl. unfold NatOpRSCtx.
-      unfold Nat.
+      (* TODO: look at this with amin *)
+      iAssert (IT_of_V (E:=F) (RetV m) ≡ (Ret m))%I as "#Hm".
+      { iPureIntro. apply (IT_of_V_Ret (B:=R)). }
+      iRewrite "Hm".
       rewrite NATOP_Ret.
       iApply wp_val. iModIntro.
       iApply wp_let.
+      iAssert (IT_of_V (E:=F) (RetV (S n)) ≡ (Ret (S n)))%I as "#Hsn".
+      { iPureIntro. apply (IT_of_V_Ret (B:=R)). }
+      iRewrite "Hsn".
       rewrite NATOP_Ret.
       iApply wp_val. iModIntro.
       simpl.
@@ -85,7 +95,7 @@ Section fact.
   Qed.
 
   Lemma wp_fact_imp (n : nat) :
-    heap_ctx ⊢ WP@{rs} fact_imp ⊙ (Nat n) {{  βv, βv ≡ RetV (fact n)  }}.
+    heap_ctx ⊢ WP@{rs} fact_imp ⊙ (Ret n) {{  βv, βv ≡ RetV (fact n)  }}.
   Proof.
     iIntros "#Hctx".
     iApply wp_lam. iNext.
@@ -100,7 +110,7 @@ Section fact.
     iIntros (ℓ) "Hl". simpl.
     iApply wp_seq.
     { solve_proper. }
-    iApply (wp_wand _ (λ _, pointsto acc (Nat $ fact n)) with "[-]"); last first.
+    iApply (wp_wand _ (λ _, pointsto acc (Ret $ fact n)) with "[-]"); last first.
     { simpl. iIntros (_) "Hacc".
       iModIntro. iApply (wp_read with "Hctx Hacc").
       iNext. iNext. iIntros "Hacc".
@@ -110,7 +120,7 @@ Section fact.
   Qed.
 
   Program Definition fact_io : IT :=
-    INPUT $ λne n, fact_imp ⊙ (Nat n).
+    INPUT $ λne n, fact_imp ⊙ (Ret n).
   Lemma wp_fact_io (n : nat) :
     heap_ctx ∗ has_substate (State [n] [])
     ⊢ WP@{rs} get_ret OUTPUT fact_io  {{ _, has_substate (State [] [fact n]) }}.

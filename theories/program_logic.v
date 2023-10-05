@@ -5,10 +5,11 @@ Section program_logic.
   Context {sz : nat}.
   Variable rs : gReifiers sz.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F natO).
-  Notation ITV := (ITV F natO).
+  Context {R} `{!Cofe R}.
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
 
-  Context `{!invGS Σ, !stateG rs Σ}.
+  Context `{!invGS Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Lemma wp_seq α β s Φ `{!NonExpansive Φ} :

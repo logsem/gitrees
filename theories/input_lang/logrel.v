@@ -10,7 +10,7 @@ Section logrel.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F natO).
   Notation ITV := (ITV F natO).
-  Context `{!invGS Σ, !stateG rs Σ}.
+  Context `{!invGS Σ, !stateG rs natO Σ}.
   Notation iProp := (iProp Σ).
   Notation restO := (gState_rest sR_idx rs ♯ IT).
 
@@ -126,7 +126,7 @@ Section logrel.
     subs_of_subs2 (cons_subs2 t α ss) Vz := Val t;
     subs_of_subs2 (cons_subs2 t α ss) (Vs v) := subs_of_subs2 ss v.
 
-  Equations its_of_subs2 {S} (ss : subs2 S) : interp_scope (E:=F) S :=
+  Equations its_of_subs2 {S} (ss : subs2 S) : interp_scope (E:=F) (R:=natO) S :=
     its_of_subs2 emp_subs2 := ();
     its_of_subs2 (cons_subs2 t α ss) := (IT_of_V α, its_of_subs2 ss).
 
@@ -356,10 +356,11 @@ Section logrel.
     iDestruct "H1" as (n1) "[Hn1 ->]".
     iDestruct "H2" as (n2) "[Hn2 ->]".
     unfold NatOpLSCtx.
-    iAssert ((NATOP (do_natop op) (IT_of_V β1) (IT_of_V β2)) ≡ Nat (do_natop op n1 n2))%I with "[Hn1 Hn2]" as "Hr".
+    iAssert ((NATOP (do_natop op) (IT_of_V β1) (IT_of_V β2)) ≡ Ret (do_natop op n1 n2))%I with "[Hn1 Hn2]" as "Hr".
     { iRewrite "Hn1". simpl.
       iRewrite "Hn2". simpl.
-      iPureIntro. apply NATOP_Ret. }
+      iPureIntro.
+      by rewrite NATOP_Ret. }
     iApply (logrel_step_pure (Val (Lit (do_natop op n1 n2)))).
     { intro. apply (Ectx_step' []). constructor.
       destruct op; simpl; eauto. }
@@ -400,22 +401,26 @@ End logrel.
 
 Definition κ {S} {E} : ITV E natO → val S :=  λ x,
     match x with
-    | RetV n => Lit n
+    | core.RetV n => Lit n
     | _ => Lit 0
     end.
+Lemma κ_Ret {S} {E} n : κ ((RetV n) : ITV E natO) = (Lit n : val S).
+Proof.
+  Transparent RetV. unfold RetV. simpl. done. Opaque RetV.
+Qed.
 Definition rs : gReifiers 1 := gReifiers_cons reify_io gReifiers_nil.
 
-Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs Σ} {S} (α : IT (gReifiers_ops rs) natO) (e : expr S) n σ σ' k :
-  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ},
+Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs natO Σ} {S} (α : IT (gReifiers_ops rs) natO) (e : expr S) n σ σ' k :
+  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs natO Σ},
       (True ⊢ logrel rs Tnat α e)%I) →
-  ssteps (gReifiers_sReifier rs) α (σ,()) (Nat n) σ' k → ∃ m σ', prim_steps e σ (Val $ Lit n) σ' m.
+  ssteps (gReifiers_sReifier rs) α (σ,()) (Ret n) σ' k → ∃ m σ', prim_steps e σ (Val $ Lit n) σ' m.
 Proof.
   intros Hlog Hst.
   pose (ϕ := λ (βv : ITV (gReifiers_ops rs) natO),
           ∃ m σ', prim_steps e σ (Val $ κ βv) σ' m).
   cut (ϕ (RetV n)).
-  { destruct 1 as ( m' & σ2 & Hm). simpl in Hm.
-    eexists; eauto. }
+  { destruct 1 as ( m' & σ2 & Hm).
+    exists m', σ2. revert Hm. by rewrite κ_Ret. }
   eapply (wp_adequacy 0); eauto.
   intros Hinv1 Hst1.
   pose (Φ := (λ (βv : ITV (gReifiers_ops rs) natO), ∃ n, logrel_val rs Tnat (Σ:=Σ) (S:=S) βv (Lit n)
@@ -426,9 +431,8 @@ Proof.
   exists Φ. split; first assumption. split.
   { iIntros (βv). iDestruct 1 as (n'') "[H %]".
     iDestruct "H" as (n') "[#H %]". simplify_eq/=.
-    iAssert (IT_of_V βv ≡ Nat n')%I as "#Hb".
-    { change (Nat n') with (IT_of_V (E:=(gReifiers_ops rs)) (RetV n')).
-      by iApply f_equivI. }
+    iAssert (IT_of_V βv ≡ Ret n')%I as "#Hb".
+    { iRewrite "H". iPureIntro. by rewrite IT_of_V_Ret. }
     iAssert (⌜βv = RetV n'⌝)%I with "[-]" as %Hfoo.
     { destruct βv as [r|f]; simpl.
       - iPoseProof (Ret_inj' with "Hb") as "%Hr".
@@ -468,7 +472,7 @@ Theorem adequacy (e : expr []) (k : nat) σ σ' n :
   ∃ mm σ', prim_steps e σ (Val $ Lit k) σ' mm.
 Proof.
   intros Hty Hst.
-  pose (Σ:=#[invΣ;stateΣ rs]).
+  pose (Σ:=#[invΣ;stateΣ rs natO]).
   eapply (logrel_nat_adequacy Σ (interp_expr rs e ())); last eassumption.
   intros ? ?.
   iPoseProof (fundamental rs) as "H".

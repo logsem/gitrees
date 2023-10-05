@@ -100,11 +100,11 @@ Section ucmra.
 End ucmra.
 
 Section weakestpre.
-  Context {n : nat} (rs : gReifiers n).
+  Context {n : nat} (rs : gReifiers n) {A} `{!Cofe A}.
   Notation rG := (gReifiers_sReifier rs).
   Notation F := (sReifier_ops rG).
-  Notation IT := (IT F natO).
-  Notation ITV := (ITV F natO).
+  Notation IT := (IT F A).
+  Notation ITV := (ITV F A).
   Notation stateF := (gReifiers_state rs).
   Notation stateO := (stateF ♯ IT).
   Notation stateR := (gReifiers_ucmra rs IT).
@@ -758,12 +758,13 @@ Section weakestpre.
 
 End weakestpre.
 
-Arguments wp {_} rs {_ _ _} α s E Φ.
-Arguments has_full_state {n _ _ _} σ.
-Arguments has_state_idx {n _ _ _} i σ.
-Arguments has_substate {n _ _ _ _ _} σ.
-Arguments stateG {n} rs Σ.
-Arguments stateΣ {n} rs.
+Arguments wp {_} rs {_ _ _ _ _} α s E Φ.
+Arguments has_full_state {n _ _ _ _ _} σ.
+Arguments has_state_idx {n _ _ _ _ _} i σ.
+Arguments has_substate {n _ _ _ _ _ _ _} σ.
+Arguments stateG {n} rs A {_} Σ.
+Arguments statePreG {n} rs A {_} Σ.
+Arguments stateΣ {n} rs A {_}.
 
 Definition notStuck : stuckness := λ e, False.
 
@@ -791,10 +792,10 @@ Definition notStuck : stuckness := λ e, False.
      format "'WP@{' re }  α  {{  Φ  } }") : bi_scope.
 
 Lemma wp_adequacy cr Σ `{!invGpreS Σ} n (rs : gReifiers n)
-  `{!statePreG rs Σ}
-  α σ βv σ' s k (ψ : (ITV (gReifiers_ops rs) natO) → Prop) :
+  {A} `{!Cofe A} `{!statePreG rs A Σ}
+  (α : IT _ A) σ βv σ' s k (ψ : (ITV (gReifiers_ops rs) A) → Prop) :
   ssteps (gReifiers_sReifier rs) α σ (IT_of_V βv) σ' k →
-  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ},
+  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs A Σ},
       ∃ Φ, NonExpansive Φ ∧ (∀ βv, Φ βv ⊢ ⌜ψ βv⌝)
       ∧ (£ cr ∗ has_full_state σ ⊢ WP@{rs} α @ s {{ Φ }})%I)  →
   ψ βv.
@@ -817,12 +818,12 @@ Proof.
 Qed.
 
 Lemma wp_safety cr Σ `{!invGpreS Σ} n (rs : gReifiers n)
-  `{!statePreG rs Σ} s k
-  (α β : IT (gReifiers_ops rs) natO) (σ σ' : gReifiers_state rs ♯ IT (gReifiers_ops rs) natO) :
+  {A} `{!Cofe A} `{!statePreG rs A Σ} s k
+  (α β : IT (gReifiers_ops rs) A) (σ σ' : gReifiers_state rs ♯ IT (gReifiers_ops rs) A) :
   (∀ Σ P Q, @disjunction_property Σ P Q) →
   ssteps (gReifiers_sReifier rs) α σ β σ' k →
   IT_to_V β ≡ None →
-  (∀ `{H1 : !invGS_gen HasLc Σ} `{H2: !stateG rs Σ},
+  (∀ `{H1 : !invGS_gen HasLc Σ} `{H2: !stateG rs A Σ},
       ∃ Φ, NonExpansive Φ ∧ (£ cr ∗ has_full_state σ ⊢ WP@{rs} α @ s {{ Φ }})%I)  →
   ((∃ β1 σ1, sstep (gReifiers_sReifier rs) β σ' β1 σ1)
    ∨ (∃ e, β ≡ Err e ∧ s e)).

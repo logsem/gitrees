@@ -97,8 +97,10 @@ Defined.
 Section constructors.
   Context {E : opsInterp}.
   Context `{!subEff storeE E}.
-  Notation IT := (IT E natO).
-  Notation ITV := (ITV E natO).
+  Context {R} `{!Cofe R}.
+  Context `{!SubOfe unitO R}.
+  Notation IT := (IT E R).
+  Notation ITV := (ITV E R).
 
   Program Definition ALLOC : IT -n> (locO -n> IT) -n> IT :=
     (λne n k, Vis (E:=E) (subEff_opid $ inr (inr (inl ())))
@@ -115,22 +117,25 @@ Section constructors.
   Program Definition WRITE : locO -n> IT -n> IT :=
     λne l a, Vis (E:=E) (subEff_opid $ inr (inl ()))
                 (subEff_ins (F:=storeE) (op:=(inr $ inl ())) (l,(Next a)))
-                (λne _, Next (Nat 0)).
+                (λne _, Next (Ret ())).
   Solve Obligations with solve_proper.
 
   Program Definition DEALLOC : locO -n> IT :=
     λne l, Vis (E:=E) (subEff_opid $ inr $ inr $ inr $ inl ())
                 (subEff_ins (F:=storeE) (op:=(inr $ inr $ inr $ inl ())) l)
-                (λne _, Next (Nat 0)).
+                (λne _, Next (Ret ())).
 End constructors.
 
 
 Section wp.
   Context {n : nat}.
   Variable (rs : gReifiers n).
+  Context {R} `{!Cofe R}.
+  Context `{!SubOfe unitO R}.
+
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F natO).
-  Notation ITV := (ITV F natO).
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
   Notation stateO := (stateF ♯ IT).
 
   (* a separate ghost state for keeping track of locations *)
@@ -154,7 +159,7 @@ Section wp.
   Qed.
 
   Context `{!subReifier reify_store rs}.
-  Context `{!invGS_gen HasLc Σ, !stateG rs Σ}.
+  Context `{!invGS_gen HasLc Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
 
   (** * The ghost state theory for the heap *)
@@ -276,7 +281,7 @@ Section wp.
     nclose (nroot.@"storeE") ## E1 →
     heap_ctx -∗
     (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
-        ▷ ▷ (pointsto l β ={E2,E1}=∗ Φ (RetV 0))) -∗
+        ▷ ▷ (pointsto l β ={E2,E1}=∗ Φ (RetV ()))) -∗
     WP@{rs} WRITE l β @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
@@ -294,7 +299,7 @@ Section wp.
     destruct (Next_uninj x) as [α' Ha'].
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
-    iExists σ,(),(<[l:=Next β]>σ),(Nat 0).
+    iExists σ,(),(<[l:=Next β]>σ),(Ret ()).
     iFrame "Hs".
     iSimpl. repeat iSplit; [ done | done | ].
     iNext. iIntros "Hlc".
@@ -310,7 +315,7 @@ Section wp.
   Lemma wp_write (l : loc) (α β : IT) s Φ :
     heap_ctx -∗
     ▷ pointsto l α -∗
-    ▷▷ (pointsto l β -∗ Φ (RetV 0)) -∗
+    ▷▷ (pointsto l β -∗ Φ (RetV ())) -∗
     WP@{rs} WRITE l β @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Hp Ha".
@@ -337,9 +342,7 @@ Section wp.
     simpl. change (Loc.fresh (dom σ)) with l.
     iSplit; first done.
     iSplit.
-    { simpl.
-      Set Printing Implicit.
-      rewrite ofe_iso_21. done. }
+    { simpl. rewrite ofe_iso_21. done. }
     iNext. iIntros "Hlc Hs".
     iMod (istate_alloc α l with "Hh") as "[Hh Hl]".
     { apply (not_elem_of_dom_1 (M:=gmap loc)).
@@ -353,7 +356,7 @@ Section wp.
     nclose (nroot.@"storeE") ## E1 →
     heap_ctx -∗
     (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
-        ▷ ▷ (|={E2,E1}=> Φ (RetV 0))) -∗
+        ▷ ▷ (|={E2,E1}=> Φ (RetV ()))) -∗
     WP@{rs} DEALLOC l @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
@@ -370,7 +373,7 @@ Section wp.
     { iApply (istate_loc_dom with "Hh Hp"). }
     destruct Hdom as [x Hx].
     destruct (Next_uninj x) as [β' Hb'].
-    iExists σ,(),(delete l σ),(Nat 0).
+    iExists σ,(),(delete l σ),(Ret ()).
     iFrame "Hs".
     repeat iSplit; simpl; eauto.
     iNext. iIntros "Hlc Hs".
@@ -385,7 +388,7 @@ Section wp.
   Lemma wp_dealloc (l : loc) α s Φ :
     heap_ctx -∗
     ▷ pointsto l α -∗
-    ▷ ▷ Φ (RetV 0) -∗
+    ▷ ▷ Φ (RetV ()) -∗
     WP@{rs} DEALLOC l @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Hl H".
@@ -396,104 +399,110 @@ Section wp.
     iModIntro. done.
   Qed.
 
-  (** * The logical relation *)
-  Definition N := nroot.@"heh".
-  Definition logrel_expr V (α : IT) : iProp :=
-    (heap_ctx -∗ WP@{rs} α {{ V }})%I.
+  (** * The logical relation TODO *)
+  (* Definition N := nroot.@"heh". *)
+  (* Definition logrel_expr V (α : IT) : iProp := *)
+  (*   (heap_ctx -∗ WP@{rs} α {{ V }})%I. *)
 
-  Definition logrel_nat (βv : ITV) : iProp :=
-    (∃ n, βv ≡ RetV n)%I.
-  Definition logrel_arr V1 V2 (βv : ITV) : iProp :=
-    (∃ f, IT_of_V βv ≡ Fun f ∧ □ ∀ αv, V1 αv -∗
-       logrel_expr V2 (APP' (Fun f) (IT_of_V αv)))%I.
-  Definition logrel_ref V (l : loc) : iProp :=
-    (inv (N.@l) (∃ βv, pointsto l (IT_of_V βv) ∗ V βv))%I.
+  (* Context `{!SubOfe natO R, !Inhabited R}. *)
 
-  Lemma logrel_alloc V V2 (αv :ITV) (k : locO -n> IT) `{!forall v, Persistent (V v)}
-    `{NonExpansive V2} :
-    V αv -∗
-    (∀ l, logrel_ref V l -∗ logrel_expr V2 (k l)) -∗
-    logrel_expr V2 (ALLOC (IT_of_V αv) k).
-  Proof.
-    iIntros "#HV H".
-    iIntros "#Hh".
-    iApply (wp_alloc with "Hh").
-    iNext. iNext.
-    iIntros (l) "Hl".
-    iMod (inv_alloc (N.@l) _ (∃ βv, pointsto l (IT_of_V βv) ∗ V βv)%I with "[Hl]")
-      as "#Hinv".
-    { eauto with iFrame. }
-    iSpecialize ("H" with "Hinv").
-    by iApply "H".
-  Qed.
+  (* Definition logrel_nat (βv : ITV) : iProp := *)
+  (*   (∃ n : nat, βv ≡ RetV n)%I. *)
+  (* Definition logrel_arr V1 V2 (βv : ITV) : iProp := *)
+  (*   (∃ f, IT_of_V βv ≡ Fun f ∧ □ ∀ αv, V1 αv -∗ *)
+  (*      logrel_expr V2 (APP' (Fun f) (IT_of_V αv)))%I. *)
+  (* Definition logrel_ref V (l : loc) : iProp := *)
+  (*   (inv (N.@l) (∃ βv, pointsto l (IT_of_V βv) ∗ V βv))%I. *)
 
-  Lemma logrel_write V αv l `{!forall v, Persistent (V v)} :
-    logrel_ref V l -∗
-    V αv -∗
-    logrel_expr logrel_nat (WRITE l (IT_of_V  αv)).
-  Proof.
-    iIntros "#Hl #Hav #Hctx".
-    iApply wp_subreify'.
-    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl1".
-    iInv (N.@l) as "HH" "Hcl2".
-    iDestruct "HH" as (βv) "[Hbv #HV]".
-    iApply (lc_fupd_elim_later with "Hlc").
-    iNext.
-    iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom".
-    { iApply (istate_loc_dom with "Hh Hbv"). }
-    iExists σ, (),(<[l:=Next (IT_of_V αv)]>σ),(Nat 0).
-    iFrame "Hs".
-    iSimpl. repeat iSplit; [ done | done | ].
-    iNext. iIntros "Hlc Hs".
-    iMod (istate_write _ _ (IT_of_V αv) with "Hh Hbv") as "[Hh Hlav]".
-    iMod ("Hcl2" with "[Hlav]") as "_".
-    { iNext. iExists _; by iFrame. }
-    iMod ("Hcl1" with "[Hlc Hh Hs]") as "_".
-    { iNext. iExists _; by iFrame. }
-    iModIntro.
-    iApply wp_val. iModIntro.
-    iExists 0. done.
-  Qed.
+  (* Lemma logrel_alloc V V2 (αv :ITV) (k : locO -n> IT) `{!forall v, Persistent (V v)} *)
+  (*   `{NonExpansive V2} : *)
+  (*   V αv -∗ *)
+  (*   (∀ l, logrel_ref V l -∗ logrel_expr V2 (k l)) -∗ *)
+  (*   logrel_expr V2 (ALLOC (IT_of_V αv) k). *)
+  (* Proof. *)
+  (*   iIntros "#HV H". *)
+  (*   iIntros "#Hh". *)
+  (*   iApply (wp_alloc with "Hh"). *)
+  (*   iNext. iNext. *)
+  (*   iIntros (l) "Hl". *)
+  (*   iMod (inv_alloc (N.@l) _ (∃ βv, pointsto l (IT_of_V βv) ∗ V βv)%I with "[Hl]") *)
+  (*     as "#Hinv". *)
+  (*   { eauto with iFrame. } *)
+  (*   iSpecialize ("H" with "Hinv"). *)
+  (*   by iApply "H". *)
+  (* Qed. *)
 
-  Lemma logrel_read V l `{!forall v, Persistent (V v)} :
-    logrel_ref V l -∗
-    logrel_expr V (READ l).
-  Proof.
-    iIntros "#Hr #Hctx".
-    iApply wp_subreify'.
-    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl1".
-    iInv (N.@l) as "HH" "Hcl2".
-    iDestruct "HH" as (βv) "[Hbv #HV]".
-    iAssert (▷ (σ !! l ≡ Some (Next (IT_of_V βv))))%I as "#Hlookup".
-    { iNext. iApply (istate_read with "Hh Hbv"). }
-    iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom".
-    { iNext. iApply (istate_loc_dom with "Hh Hbv"). }
-    iDestruct "Hdom" as ">%Hdom".
-    destruct Hdom as [x Hx].
-    destruct (Next_uninj x) as [β' Hb'].
-    iAssert (▷ ▷ (β' ≡ IT_of_V βv))%I as "#Hbv'".
-    { iNext. rewrite Hx. rewrite option_equivI.
-      rewrite Hb'. by iNext. }
-    iClear "Hlookup".
-    iApply (lc_fupd_elim_later with "Hlc").
-    iNext. iSimpl.
-    iExists σ,(Next β'),σ,β'. iFrame "Hs".
-    repeat iSplit.
-    { iPureIntro. rewrite Hx/= Hb'. done. }
-    { rewrite ofe_iso_21//. }
-    iNext. iIntros "Hlc Hs".
-    iMod ("Hcl2" with "[Hbv]") as "_".
-    { iNext. eauto with iFrame. }
-    iMod ("Hcl1" with "[Hlc Hh Hs]") as "_".
-    { iNext. eauto with iFrame. }
-    iModIntro.
-    iRewrite "Hbv'".
-    iApply wp_val.
-    iModIntro. done.
-  Qed.
+  (* Opaque Ret. (*TODO*) *)
+  (* Lemma logrel_write V αv l `{!forall v, Persistent (V v)} : *)
+  (*   logrel_ref V l -∗ *)
+  (*   V αv -∗ *)
+  (*   logrel_expr logrel_nat (WRITE l (IT_of_V  αv)). *)
+  (* Proof. *)
+  (*   iIntros "#Hl #Hav #Hctx". *)
+  (*   iApply wp_subreify'. *)
+  (*   iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl1". *)
+  (*   iInv (N.@l) as "HH" "Hcl2". *)
+  (*   iDestruct "HH" as (βv) "[Hbv #HV]". *)
+  (*   iApply (lc_fupd_elim_later with "Hlc"). *)
+  (*   iNext. *)
+  (*   iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom". *)
+  (*   { iApply (istate_loc_dom with "Hh Hbv"). } *)
+  (*   iExists σ, (),(<[l:=Next (IT_of_V αv)]>σ),(Ret ()). *)
+  (*   iFrame "Hs". *)
+  (*   iSimpl. repeat iSplit; [ done | done | ]. *)
+  (*   iNext. iIntros "Hlc Hs". *)
+  (*   iMod (istate_write _ _ (IT_of_V αv) with "Hh Hbv") as "[Hh Hlav]". *)
+  (*   iMod ("Hcl2" with "[Hlav]") as "_". *)
+  (*   { iNext. iExists _; by iFrame. } *)
+  (*   iMod ("Hcl1" with "[Hlc Hh Hs]") as "_". *)
+  (*   { iNext. iExists _; by iFrame. } *)
+  (*   iModIntro. *)
+  (*   iApply wp_val. iModIntro. *)
+  (*   iExists (). unfold RetV. done. *)
+  (* Qed. *)
+
+  (* Lemma logrel_read V l `{!forall v, Persistent (V v)} : *)
+  (*   logrel_ref V l -∗ *)
+  (*   logrel_expr V (READ l). *)
+  (* Proof. *)
+  (*   iIntros "#Hr #Hctx". *)
+  (*   iApply wp_subreify'. *)
+  (*   iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl1". *)
+  (*   iInv (N.@l) as "HH" "Hcl2". *)
+  (*   iDestruct "HH" as (βv) "[Hbv #HV]". *)
+  (*   iAssert (▷ (σ !! l ≡ Some (Next (IT_of_V βv))))%I as "#Hlookup". *)
+  (*   { iNext. iApply (istate_read with "Hh Hbv"). } *)
+  (*   iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom". *)
+  (*   { iNext. iApply (istate_loc_dom with "Hh Hbv"). } *)
+  (*   iDestruct "Hdom" as ">%Hdom". *)
+  (*   destruct Hdom as [x Hx]. *)
+  (*   destruct (Next_uninj x) as [β' Hb']. *)
+  (*   iAssert (▷ ▷ (β' ≡ IT_of_V βv))%I as "#Hbv'". *)
+  (*   { iNext. rewrite Hx. rewrite option_equivI. *)
+  (*     rewrite Hb'. by iNext. } *)
+  (*   iClear "Hlookup". *)
+  (*   iApply (lc_fupd_elim_later with "Hlc"). *)
+  (*   iNext. iSimpl. *)
+  (*   iExists σ,(Next β'),σ,β'. iFrame "Hs". *)
+  (*   repeat iSplit. *)
+  (*   { iPureIntro. rewrite Hx/= Hb'. done. } *)
+  (*   { rewrite ofe_iso_21//. } *)
+  (*   iNext. iIntros "Hlc Hs". *)
+  (*   iMod ("Hcl2" with "[Hbv]") as "_". *)
+  (*   { iNext. eauto with iFrame. } *)
+  (*   iMod ("Hcl1" with "[Hlc Hh Hs]") as "_". *)
+  (*   { iNext. eauto with iFrame. } *)
+  (*   iModIntro. *)
+  (*   iRewrite "Hbv'". *)
+  (*   iApply wp_val. *)
+  (*   iModIntro. done. *)
+  (* Qed. *)
 
 End wp.
 
-Arguments heap_ctx {_ _ _ _ _ _ _}.
-Arguments pointsto {_ _ _ _} _ _.
+Arguments heapG {_} rs R {_} Σ.
+Arguments heapPreG {_} rs R {_} Σ.
+Arguments heapΣ {_} rs R {_}.
+Arguments heap_ctx {_ _ _ _ _ _ _ _ _}.
+Arguments pointsto {_ _ _ _ _ _} _ _.
 #[global]  Opaque ALLOC READ WRITE DEALLOC.

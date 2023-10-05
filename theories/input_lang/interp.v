@@ -31,10 +31,11 @@ Defined.
 
 
 Section constructors.
-  Context {E : opsInterp}.
+  Context {E : opsInterp} {A} `{!Cofe A}.
   Context {subEff0 : subEff ioE E}.
-  Notation IT := (IT E natO).
-  Notation ITV := (ITV E natO).
+  Context {subOfe0 : SubOfe natO A}.
+  Notation IT := (IT E A).
+  Notation ITV := (ITV E A).
 
   Program Definition INPUT : (nat -n> IT) -n> IT := λne k, Vis (E:=E) (subEff_opid (inl ()))
                                                              (subEff_ins (F:=ioE) (op:=(inl ())) ())
@@ -45,10 +46,7 @@ Section constructors.
                         (subEff_ins (F:=ioE) (op:=(inr (inl ()))) m)
                         (λne _, NextO α).
   Solve All Obligations with solve_proper_please.
-  Definition OUTPUT : nat -n> IT.
-  Proof using E subEff0.
-    simple refine (λne m, OUTPUT_ m (Nat 0)).
-  Defined.
+  Program Definition OUTPUT : nat -n> IT := λne m, OUTPUT_ m (Ret 0).
 
   Lemma hom_INPUT k f `{!IT_hom f} : f (INPUT k) ≡ INPUT (OfeMor f ◎ k).
   Proof.
@@ -72,9 +70,11 @@ Section weakestpre.
   Variable (rs : gReifiers sz).
   Context {subR : subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F natO).
-  Notation ITV := (ITV F natO).
-  Context `{!invGS Σ, !stateG rs Σ}.
+  Context {R} `{!Cofe R}.
+  Context `{!SubOfe natO R}.
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
+  Context `{!invGS Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Lemma wp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ s :
@@ -111,13 +111,15 @@ Section interp.
   Context {sz : nat}.
   Variable (rs : gReifiers sz).
   Context {subR : subReifier reify_io rs}.
+  Context {R} `{!Cofe R}.
+  Context `{!SubOfe natO R}.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F natO).
-  Notation ITV := (ITV F natO).
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
 
   (** Interpreting individual operators *)
   Program Definition interp_input {A} : A -n> IT :=
-    λne env, INPUT Nat.
+    λne env, INPUT Ret.
   Program Definition interp_output {A} (t : A -n> IT) : A -n> IT :=
     get_ret OUTPUT ◎ t.
   Local Instance interp_ouput_ne {A} : NonExpansive2 (@interp_output A).
@@ -167,7 +169,7 @@ Section interp.
   Proof. solve_proper. Qed.
 
   Program Definition interp_nat (n : nat) {A} : A -n> IT :=
-    λne env, Nat n.
+    λne env, Ret n.
 
   (** Interpretation for all the syntactic categories: values, expressions, contexts *)
   Fixpoint interp_val {S} (v : val S) : interp_scope S -n> IT :=
@@ -224,13 +226,13 @@ Section interp.
 
   (** Applying renamings and subsitutions to the interpretation of scopes *)
   Equations interp_rens_scope {S S' : scope}
-            (E : interp_scope (E:=F) S') (s : rens S S') : interp_scope (E:=F) S :=
+            (E : interp_scope (E:=F) (R:=R) S') (s : rens S S') : interp_scope (E:=F) (R:=R) S :=
     interp_rens_scope (S:=[]) E s := tt : interp_scope [];
     interp_rens_scope (S:=_::_) E s :=
       (interp_var (hd_ren s) E, interp_rens_scope E (tl_ren s)).
 
   Equations interp_subs_scope {S S' : scope}
-            (E : interp_scope (E:=F) S') (s : subs S S') : interp_scope (E:=F) S :=
+            (E : interp_scope (E:=F) (R:=R) S') (s : subs S S') : interp_scope (E:=F) (R:=R) S :=
     interp_subs_scope (S:=[]) E s := tt : interp_scope [];
     interp_subs_scope (S:=_::_) E s :=
       (interp_expr (hd_sub s) E, interp_subs_scope E (tl_sub s)).
@@ -480,6 +482,7 @@ Section interp.
   Qed.
 
   Opaque INPUT OUTPUT_.
+  Opaque Ret.
 
   Lemma interp_expr_fill_yes_reify {S} K env (e e' : expr S)
     (σ σ' : stateO) (σr : gState_rest sR_idx rs ♯ IT) n :
@@ -493,7 +496,7 @@ Section interp.
              (gState_recomp σr (sR_state σ))).
     { f_equiv. by rewrite interp_ectx_fill. }
     inversion Hst; simplify_eq; cbn-[gState_recomp].
-    - trans (reify (gReifiers_sReifier rs) (INPUT (interp_ectx K env ◎ Nat)) (gState_recomp σr (sR_state σ))).
+    - trans (reify (gReifiers_sReifier rs) (INPUT (interp_ectx K env ◎ Ret)) (gState_recomp σr (sR_state σ))).
       { repeat f_equiv; eauto.
         rewrite hom_INPUT. f_equiv. by intro. }
       rewrite reify_vis_eq //; last first.
@@ -505,7 +508,7 @@ Section interp.
     - trans (reify (gReifiers_sReifier rs) (interp_ectx K env (OUTPUT n0)) (gState_recomp σr (sR_state σ))).
       { do 3 f_equiv; eauto.
         rewrite get_ret_ret//. }
-      trans (reify (gReifiers_sReifier rs) (OUTPUT_ n0 (interp_ectx K env (Nat 0))) (gState_recomp σr (sR_state σ))).
+      trans (reify (gReifiers_sReifier rs) (OUTPUT_ n0 (interp_ectx K env (Ret 0))) (gState_recomp σr (sR_state σ))).
       { do 2 f_equiv; eauto.
         rewrite hom_OUTPUT_//. }
       rewrite reify_vis_eq //; last first.

@@ -45,8 +45,9 @@ Inductive typed_var {ty : Type}: forall {S}, tyctx ty S → var S → ty → Pro
 Section interp.
   Local Open Scope type.
   Context {E: opsInterp}.
-  Notation IT := (IT E natO).
-  Notation ITV := (ITV E natO).
+  Context {R} `{!Cofe R}.
+  Notation IT := (IT E R).
+  Notation ITV := (ITV E R).
 
   Fixpoint interp_scope (S : scope) : ofe :=
     match S with
@@ -124,14 +125,15 @@ Section kripke_logrel.
 
   Context {sz : nat}.
   Variable rs : gReifiers sz.
+  Context {R} `{!Cofe R}.
 
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F natO).
-  Notation ITV := (ITV F natO).
-  Context `{!invGS Σ, !stateG rs Σ}.
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
+  Context `{!invGS Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
 
-  Context {A:ofe}.
+  Context {A:ofe}. (* The type & predicate for the explicit Kripke worlds *)
   Variable (P : A → iProp).
   Context `{!NonExpansive P}.
 
@@ -217,4 +219,4 @@ Section kripke_logrel.
     eauto with iFrame.
   Qed.
 End kripke_logrel.
-Arguments expr_pred_bind {_ _ _ _ _ _ _ _} _ {_}.
+Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_}.
