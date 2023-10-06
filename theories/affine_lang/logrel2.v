@@ -160,12 +160,7 @@ Section glue.
     iIntros "H #Hctx".
     iIntros (σ ss) "Hs Hss".
     iIntros (_) "Hp".
-    (* iSpecialize ("H" $! emp_ssubst with "Hctx [] [$Hs $Hp]"). *)
-    (* { iApply ssubst_valid_nil. } *)
-    (* dependent elimination ss as [emp_ssubst]. *)
     simpl. iApply wp_val.
-    (* iApply (wp_wand with "H"). *)
-    (* iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]". *)
     iModIntro. iExists tt. iFrame. simpl.
     eauto with iFrame.
   Qed.

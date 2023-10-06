@@ -1420,42 +1420,5 @@ Section it_hom.
 
 End it_hom.
 
-Section it_nat.
-  Context {E : opsInterp}.
-  Notation IT := (IT E natO).
-  Definition Nat : nat → IT := Ret.
-  Program Definition get_nat (f : nat → IT) : IT -n> IT
-    := get_ret (E:=E) (A:=natO) (λne n, f n).
-  #[global] Instance get_nat_ne n : Proper (pointwise_relation _ (dist n) ==> (dist n)) get_nat.
-  Proof.
-    repeat intro. unfold get_nat.
-    apply get_ret_ne. by intro.
-  Qed.
-  #[global] Instance get_nat_proper : Proper (pointwise_relation _ (≡) ==> (≡)) get_nat.
-  Proof.
-    repeat intro. unfold get_nat.
-    apply get_ret_proper. by intro.
-  Qed.
-
-  Program Definition get_nat2 (f : nat → nat → IT) : IT -n> IT -n> IT := λne x y,
-      get_nat (λ x, get_nat (λ y, f x y) y) x.
-  Solve All Obligations with solve_proper_please.
-  Global Instance get_nat2_ne n : Proper ((pointwise_relation _ (pointwise_relation _ (dist n))) ==> (dist n)) get_nat2.
-  Proof.
-    intros f1 f2 Hf. unfold get_nat2.
-    intros x y. simpl. apply get_nat_ne.
-    clear x. intros x. simpl. apply get_nat_ne.
-    clear y. intros y. simpl. apply Hf.
-  Qed.
-  Global Instance get_nat2_proper : Proper ((pointwise_relation _ (pointwise_relation _ (≡))) ==> (≡)) get_nat2.
-  Proof.
-    intros f1 f2 Hf. unfold get_nat2.
-    intros x y. simpl. apply get_nat_proper.
-    clear x. intros x. simpl. apply get_nat_proper.
-    clear y. intros y. simpl. apply Hf.
-  Qed.
-
-End it_nat.
-
 #[global] Opaque Ret Fun Tau Err Vis Tick.
 #[global] Opaque get_ret get_val get_fun.

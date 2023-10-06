@@ -244,7 +244,6 @@ Section logrel.
     iDestruct "Ha" as (l γ) "[Ha [Hl Hg]]".
     iApply expr_pred_frame.
     iRewrite "Ha". simpl.
-    unfold get_nat.
     rewrite IT_of_V_Ret.
     rewrite -> get_ret_ret; simpl.
     iApply wp_let.

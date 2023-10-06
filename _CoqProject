@@ -5,6 +5,7 @@ theories/prelude.v
 theories/lang_generic.v
 
 theories/gitree/core.v
+theories/gitree/subofe.v
 theories/gitree/lambda.v
 theories/gitree/reify.v
 theories/gitree/greifiers.v

@@ -468,7 +468,7 @@ Qed.
 
 Theorem adequacy (e : expr []) (k : nat) σ σ' n :
   typed empC e Tnat →
-  ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) (σ,()) (Nat k) σ' n →
+  ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) (σ,()) (Ret k : IT _ natO) σ' n →
   ∃ mm σ', prim_steps e σ (Val $ Lit k) σ' mm.
 Proof.
   intros Hty Hst.
