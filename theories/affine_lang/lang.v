@@ -52,7 +52,7 @@ Section affine.
   Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Context {R : ofe}.
-  Context `{!Cofe R, !SubOfe unitO R, !SubOfe natO R}.
+  Context `{!Cofe R, !SubOfe unitO R, !SubOfe natO R, !SubOfe locO R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
   Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
@@ -76,20 +76,6 @@ Section affine.
   Program Definition Force : IT -n> IT := λne e, e ⊙ (Ret 0).
 
   Local Open Scope type.
-
-  Definition nat_of_loc (l : loc) := Pos.to_nat $ encode (loc_car l).
-  Definition loc_of_nat (n : nat) :=
-    match decode (Pos.of_nat n) with
-    | Some l => Loc l
-    | None   => Loc 0%Z
-    end.
-  Lemma loc_of_nat_of_loc l : loc_of_nat (nat_of_loc l) = l.
-  Proof.
-    unfold loc_of_nat, nat_of_loc.
-    rewrite Pos2Nat.id.
-    rewrite decode_encode.
-    by destruct l.
-  Qed.
 
   Definition interp_litbool {A} (b : bool)  : A -n> IT := λne _,
     Ret (if b then 1 else 0).
@@ -118,18 +104,16 @@ Section affine.
     t (x, (y, env.2)).
   Solve All Obligations with solve_proper_please.
   Program Definition interp_alloc {A} (α : A -n> IT) : A -n> IT := λne env,
-    LET (α env) $ λne α,
-    ALLOC α $ λne l, Ret (nat_of_loc l).
+    LET (α env) $ λne α, ALLOC α Ret.
   Solve All Obligations with solve_proper_please.
   Program Definition interp_replace {A1 A2} (α : A1 -n> IT) (β : A2 -n> IT) : A1*A2 -n> IT := λne env,
     LET (β env.2) $ λne β,
-    flip get_ret (α env.1) $ λne (n : nat),
-    LET (READ (loc_of_nat n)) $ λne γ,
-    SEQ (WRITE (loc_of_nat n) β) (pairIT γ (Ret n)).
+    flip get_ret (α env.1) $ λne (l : loc),
+    LET (READ l) $ λne γ,
+    SEQ (WRITE l β) (pairIT γ (Ret l)).
   Solve All Obligations with solve_proper_please.
   Program Definition interp_dealloc {A} (α : A -n> IT) : A -n> IT := λne env,
-    flip get_ret (α env) $ λne (n : nat),
-    DEALLOC (loc_of_nat n).
+    get_ret DEALLOC (α env).
   Solve All Obligations with solve_proper_please.
 
   Program Definition glue_to_affine_fun (glue_from_affine glue_to_affine : IT -n> IT) : IT -n> IT := λne α,

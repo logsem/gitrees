@@ -63,6 +63,7 @@ Section glue.
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
   Context `{!SubOfe unitO R}.
+  Context `{!SubOfe locO R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
   Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ, !na_invG Σ}.
@@ -462,7 +463,7 @@ Local Definition rs : gReifiers 2 := gReifiers_cons reify_store (gReifiers_cons 
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Lemma logrel2_adequacy cr R `{!Cofe R, !SubOfe natO R, !SubOfe unitO R} Σ `{!invGpreS Σ}`{!statePreG rs R Σ} `{!heapPreG rs R Σ} `{!na_invG Σ}
+Lemma logrel2_adequacy cr R `{!Cofe R, !SubOfe locO R, !SubOfe natO R, !SubOfe unitO R} Σ `{!invGpreS Σ}`{!statePreG rs R Σ} `{!heapPreG rs R Σ} `{!na_invG Σ}
   τ (α : unitO -n>  IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ} `{H3: !heapG rs R Σ} p,
       (£ cr ⊢ valid2 rs p empC α τ)%I) →
@@ -519,7 +520,7 @@ Proof.
   eauto with iFrame.
 Qed.
 
-Definition R := sumO natO unitO.
+Definition R := sumO locO (sumO natO unitO).
 
 Lemma logrel2_safety e τ (β : IT (gReifiers_ops rs) R) st st' k :
   typed_glued empC e τ →

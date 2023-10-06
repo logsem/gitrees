@@ -57,6 +57,7 @@ Section logrel.
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
   Context `{!SubOfe unitO R}.
+  Context `{!SubOfe locO R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
   Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
@@ -91,7 +92,7 @@ Section logrel.
   Solve All Obligations with solve_proper_please.
 
   Program Definition interp_ref (Φ : ITV -n> iProp) : ITV -n> iProp := λne αv,
-    (∃ (l : loc) βv, αv ≡ RetV (nat_of_loc l) ∗ pointsto l (IT_of_V βv) ∗ Φ βv)%I.
+    (∃ (l : loc) βv, αv ≡ RetV l ∗ pointsto l (IT_of_V βv) ∗ Φ βv)%I.
   Solve All Obligations with solve_proper_please.
 
   Fixpoint interp_ty (τ : ty) : ITV -n> iProp :=
@@ -248,19 +249,17 @@ Section logrel.
     rewrite -> get_ret_ret; simpl.
     iApply wp_let.
     { solve_proper. }
-    rewrite {1}loc_of_nat_of_loc.
     iApply (wp_read with "Hctx Hl").
     iNext. iNext. iIntros "Hl".
     iApply wp_val. iModIntro.
     simpl. iApply wp_seq.
     { solve_proper. }
-    rewrite {1}loc_of_nat_of_loc.
     iApply (wp_write with "Hctx Hl").
     iNext. iNext. iIntros "Hl".
     rewrite get_val_ITV. simpl.
     rewrite get_val_ITV. simpl.
     iApply wp_val. iModIntro.
-    iExists γ,(RetV (nat_of_loc l)).
+    iExists γ,(RetV l).
     iSplit; first done.
     iFrame. eauto with iFrame.
   Qed.
@@ -277,7 +276,6 @@ Section logrel.
     iDestruct "Ha" as (l βv) "[Ha [Hl Hb]]".
     iRewrite "Ha". iApply expr_pred_frame. simpl.
     rewrite IT_of_V_Ret. rewrite -> get_ret_ret. simpl.
-    rewrite loc_of_nat_of_loc.
     iApply (wp_dealloc with "Hctx Hl").
     iNext. iNext. eauto with iFrame.
   Qed.
@@ -417,13 +415,13 @@ Arguments interp_tarr {_ _ _ _ _ _ _ _ _ _ _ _ _} Φ1 Φ2.
 Arguments interp_tbool {_ _ _ _ _ _}.
 Arguments interp_tnat {_ _ _ _ _ _}.
 Arguments interp_tunit {_ _ _ _ _ _}.
-Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _ _ _ _} τ.
+Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _ _ _ _ _} τ.
 
 Local Definition rs : gReifiers 2 := gReifiers_cons reify_store (gReifiers_cons input_lang.interp.reify_io gReifiers_nil).
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Lemma logrel1_adequacy cr Σ R `{!Cofe R, !SubOfe natO R, !SubOfe unitO R} `{!invGpreS Σ}
+Lemma logrel1_adequacy cr Σ R `{!Cofe R, !SubOfe natO R, !SubOfe unitO R, !SubOfe locO R} `{!invGpreS Σ}
   `{!statePreG rs R Σ} `{!heapPreG rs R Σ} τ
   (α : unitO -n>  IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ} `{H3: !heapG rs R Σ},
@@ -479,7 +477,7 @@ Proof.
   eauto with iFrame.
 Qed.
 
-Definition R := sumO unitO natO.
+Definition R := sumO locO (sumO unitO natO).
 Lemma logrel1_safety e τ (β : IT (gReifiers_ops rs) R) st st' k :
   typed empC e τ →
   ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) st β st' k →
