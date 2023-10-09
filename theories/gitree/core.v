@@ -1103,7 +1103,7 @@ Section ITV.
   Qed.
 
 End ITV.
-Arguments ITV E : clear implicits.
+Arguments ITV E A {_}.
 
 (** * Destructors / matching *)
 Section IT_destructors.
@@ -1207,25 +1207,25 @@ Section IT_destructors.
   Global Instance get_ret2_proper : Proper ((≡) ==> (≡)) get_ret2.
   Proof. apply ne_proper. apply _. Qed.
 
-  Lemma get_nat_err f e : get_nat f (Err e) ≡ Err e.
+  Lemma get_ret_err f e : get_ret f (Err e) ≡ Err e.
   Proof. by rewrite IT_rec1_err. Qed.
-  Lemma get_nat_fun f g : get_nat f (Fun g) ≡ Err RuntimeErr.
+  Lemma get_ret_fun f g : get_ret f (Fun g) ≡ Err RuntimeErr.
   Proof. by rewrite IT_rec1_fun. Qed.
-  Lemma get_nat_nat f n : get_nat f (Ret n) ≡ f n.
-  Proof. by rewrite IT_rec1_nat. Qed.
-  Lemma get_nat_tick f t : get_nat f (Tick t) ≡ Tick (get_nat f t).
+  Lemma get_ret_ret f n : get_ret f (Ret n) ≡ f n.
+  Proof. by rewrite IT_rec1_ret. Qed.
+  Lemma get_ret_tick f t : get_ret f (Tick t) ≡ Tick (get_ret f t).
   Proof.
     Opaque Tau.
     rewrite IT_rec1_tau.
     cbn-[prod_in]. f_equiv.
     rewrite -laterO_map_compose. simpl. done.
   Qed.
-  Lemma get_nat_tick_n f n t : get_nat f (Tick_n n t) ≡ Tick_n n (get_nat f t).
+  Lemma get_ret_tick_n f n t : get_ret f (Tick_n n t) ≡ Tick_n n (get_ret f t).
   Proof.
     induction n; first reflexivity.
-    rewrite get_nat_tick. by rewrite IHn.
+    rewrite get_ret_tick. by rewrite IHn.
   Qed.
-  Lemma get_nat_vis f op i k : get_nat f (Vis op i k) ≡ Vis op i (laterO_map (get_nat f) ◎ k).
+  Lemma get_ret_vis f op i k : get_ret f (Vis op i k) ≡ Vis op i (laterO_map (get_ret f) ◎ k).
   Proof.
     rewrite IT_rec1_vis. cbn-[prod_in]. f_equiv.
     - rewrite -oFunctor_map_compose.
@@ -1247,8 +1247,8 @@ Section IT_destructors.
 
   Lemma get_val_err f e : get_val f (Err e) ≡ Err e.
   Proof. by rewrite IT_rec1_err. Qed.
-  Lemma get_val_nat f n : get_val f (Ret n) ≡ f (Ret n).
-  Proof. by rewrite IT_rec1_nat. Qed.
+  Lemma get_val_ret f n : get_val f (Ret n) ≡ f (Ret n).
+  Proof. by rewrite IT_rec1_ret. Qed.
   Lemma get_val_fun f g : get_val f (Fun g) ≡ f (Fun g).
   Proof.
     rewrite IT_rec1_fun.
@@ -1260,7 +1260,7 @@ Section IT_destructors.
   Lemma get_val_ITV' f βv : get_val f (IT_of_V βv) ≡ f (IT_of_V βv).
   Proof.
     destruct βv; simpl.
-    - rewrite get_val_nat//.
+    - rewrite get_val_ret//.
     - rewrite get_val_fun//.
   Qed.
   Lemma get_val_ITV `{!AsVal β} f : get_val f β ≡ f β.
@@ -1306,8 +1306,8 @@ Section IT_destructors.
     { repeat f_equiv. apply sandwich_unsandwich. }
     by rewrite laterO_map_id.
   Qed.
-  Lemma get_fun_nat f n : get_fun f (Ret n) ≡ Err RuntimeErr.
-  Proof. by rewrite IT_rec1_nat. Qed.
+  Lemma get_fun_ret f n : get_fun f (Ret n) ≡ Err RuntimeErr.
+  Proof. by rewrite IT_rec1_ret. Qed.
 
   Lemma get_fun_vis f op i k : get_fun f (Vis op i k) ≡ Vis op i (laterO_map (get_fun f) ◎ k).
   Proof.
@@ -1347,8 +1347,9 @@ End IT_destructors.
 (** * Homomorphisms of ITs *)
 Section it_hom.
   Context {E : opsInterp}.
-  Notation IT := (IT E).
-  Notation ITV := (ITV E).
+  Context {A} `{!Cofe A}.
+  Notation IT := (IT E A).
+  Notation ITV := (ITV E A).
 
   Class IT_hom (f : IT → IT) := IT_HOM {
       hom_ne :: NonExpansive f;
@@ -1401,12 +1402,12 @@ Section it_hom.
     - intros op' i k. apply get_val_vis.
     - intros e. apply get_val_err.
   Qed.
-  #[export] Instance get_nat_hom (f : nat → IT) : IT_hom (get_nat f).
+  #[export] Instance get_ret_hom (f : A -n> IT) : IT_hom (get_ret f).
   Proof.
     simple refine (IT_HOM _ _ _ _ _).
-    - intro a. apply get_nat_tick.
-    - intros op' i k. apply get_nat_vis.
-    - intros e. apply get_nat_err.
+    - intro a. apply get_ret_tick.
+    - intros op' i k. apply get_ret_vis.
+    - intros e. apply get_ret_err.
   Qed.
   #[export] Instance get_fun_hom f : IT_hom (get_fun f).
   Proof.
@@ -1420,4 +1421,4 @@ Section it_hom.
 End it_hom.
 
 #[global] Opaque Ret Fun Tau Err Vis Tick.
-#[global] Opaque get_nat get_val get_fun.
+#[global] Opaque get_ret get_val get_fun.

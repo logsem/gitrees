@@ -1,20 +1,22 @@
 (** Core 'computational' operations on itrees: lambda, function application, arithmetic, etc *)
 From iris.prelude Require Import options.
 From iris.base_logic Require Export base_logic.
-From gitrees Require Import prelude gitree.core.
+From gitrees Require Export prelude gitree.core gitree.subofe.
 
 Section lambda.
   Local Opaque laterO_ap.
 
-  Context {Σ : opsInterp}.
-  Notation IT := (IT Σ).
+  Context {Σ : opsInterp} {A : ofe} `{!Cofe A}.
 
-  Program Definition IF : IT -n> IT -n> IT -n> IT := λne t t1 t2,
-      get_nat (λ n, if Nat.ltb 0 n then t1 else t2) t.
-  Solve All Obligations with solve_proper.
+  Notation IT := (IT Σ A).
 
-  Program Definition IF_last : IT -n> IT -n> IT -n> IT := λne t1 t2 t, IF t t1 t2.
-  Solve All Obligations with solve_proper.
+  Program Definition IF `{!SubOfe natO A} : IT -n> IT -n> IT -n> IT := λne t t1 t2,
+      get_ret (λne n, if Nat.ltb 0 n then t1 else t2) t.
+  Next Obligation. repeat intro. by rewrite H. Qed.
+  Solve All Obligations with solve_proper_please.
+
+  Program Definition IF_last `{!SubOfe natO A} : IT -n> IT -n> IT -n> IT := λne t1 t2 t, IF t t1 t2.
+  Solve All Obligations with solve_proper_please.
 
   (** A non-strict application, does not recurse under the effects of the argument *)
   Program Definition APP : IT -n> laterO IT -n> IT := λne f x,
@@ -31,10 +33,10 @@ Section lambda.
   (** We define the interpretation of NatOp in two stages.
       First, we recurse under ticks and visitors in both arguments, and only then perform the op
    *)
-  Program Definition NATOP (f : nat → nat → nat) : IT -n> IT -n> IT := λne t1 t2,
+  Program Definition NATOP `{!SubOfe natO A} (f : nat → nat → nat) : IT -n> IT -n> IT := λne t1 t2,
       get_val (λne v2,
         get_val (λne v1,
-                   get_nat2 (λ n1 n2, Nat (f n1 n2)) v1 v2) t1) t2.
+                   get_ret2 (λne n1 n2, Ret (f n1 n2)) v1 v2) t1) t2.
   Solve All Obligations with solve_proper_please.
 
   (** Sequencing *)
@@ -45,8 +47,8 @@ Section lambda.
   Program Definition LET : IT -n> (IT -n> IT) -n> IT := λne x f, get_val f x.
   Solve Obligations with solve_proper.
 
-  Lemma APP_Nat x y : APP (Nat x) y ≡ Err RuntimeErr.
-  Proof. simpl. by rewrite get_fun_nat. Qed.
+  Lemma APP_Ret x y : APP (core.Ret x) y ≡ Err RuntimeErr.
+  Proof. simpl. by rewrite core.get_fun_ret. Qed.
   Lemma APP_Err e x : APP (Err e) x ≡ Err e.
   Proof. simpl. by rewrite get_fun_err. Qed.
   Lemma APP_Fun f x : APP (Fun f) x ≡ Tau $ laterO_ap f x.
@@ -68,8 +70,8 @@ Section lambda.
   Qed.
   Lemma APP'_Err_r f e : APP' f (Err e) ≡ Err e.
   Proof. simpl. by rewrite get_val_err. Qed.
-  Lemma APP'_Nat_r f x : APP' f (Nat x) ≡ APP f (Next (Nat x)).
-  Proof. simpl. rewrite get_val_nat. done. Qed.
+  Lemma APP'_Ret_r f x : APP' f (core.Ret x) ≡ APP f (Next (core.Ret x)).
+  Proof. simpl. rewrite core.get_val_ret. done. Qed.
   Lemma APP'_Fun_r f x : APP' f (Fun x) ≡ APP f (Next (Fun x)).
   Proof. simpl. rewrite get_val_fun. done. Qed.
   Lemma APP'_Tick_r f t : APP' f (Tick t) ≡ Tick $ APP' f t.
@@ -80,11 +82,11 @@ Section lambda.
   Qed.
   Lemma APP'_Vis_r f op i k : APP' f (Vis op i k) ≡ Vis op i (laterO_map (APP' f) ◎ k).
   Proof. by rewrite get_val_vis. Qed.
-  Lemma APP_APP'_ITV' α (βv : ITV Σ) :
+  Lemma APP_APP'_ITV' α (βv : ITV Σ A) :
     APP' α (IT_of_V βv) ≡ APP α (Next (IT_of_V βv)).
   Proof.
     destruct βv as [n|f]; simpl.
-    - rewrite APP'_Nat_r//.
+    - rewrite APP'_Ret_r//.
     - rewrite APP'_Fun_r//.
   Qed.
   (* XXX: the names here are weird *)
@@ -109,74 +111,71 @@ Section lambda.
   Qed.
   Lemma APP'_Err_l e x `{!AsVal x}: APP' (Err e) x ≡ Err e.
   Proof. rewrite APP_APP'_ITV. by rewrite APP_Err. Qed.
-  Lemma APP'_Nat_l x t `{!AsVal t}: APP' (Nat x) t ≡ Err RuntimeErr.
-  Proof. rewrite APP_APP'_ITV. by rewrite APP_Nat. Qed.
+  Lemma APP'_Ret_l x t `{!AsVal t}: APP' (core.Ret x) t ≡ Err RuntimeErr.
+  Proof. rewrite APP_APP'_ITV. by rewrite APP_Ret. Qed.
   Lemma APP'_Fun_l f x `{!AsVal x} : APP' (Fun f) x ≡ Tau $ laterO_ap f (Next x).
   Proof. rewrite APP_APP'_ITV. by rewrite APP_Fun. Qed.
 
-  Lemma IF_Err e t1 t2 : IF (Err e) t1 t2 ≡ Err e.
-  Proof. unfold IF. simpl. by rewrite get_nat_err. Qed.
-  Lemma IF_True n t1 t2 :
-    0 < n → IF (Nat n) t1 t2 ≡ t1.
+  Lemma IF_Err `{!SubOfe natO A} e t1 t2 : IF (Err e) t1 t2 ≡ Err e.
+  Proof. unfold IF. simpl. by rewrite get_ret_err. Qed.
+  Lemma IF_True `{!SubOfe natO A} n t1 t2 :
+    0 < n → IF (Ret n) t1 t2 ≡ t1.
   Proof.
     intro Hn. unfold IF. simpl.
-    rewrite get_nat_nat.
-    assert (0 <? n = true) as ->; last by eauto.
-    by apply Nat.ltb_lt.
+    rewrite get_ret_ret.
+    destruct n; first lia; last eauto.
   Qed.
-  Lemma IF_False n t1 t2 :
-    0 ≥ n → IF (Nat n) t1 t2 ≡ t2.
+  Lemma IF_False `{!SubOfe natO A} n t1 t2 :
+    0 ≥ n → IF (Ret n) t1 t2 ≡ t2.
   Proof.
     intro Hn. unfold IF. simpl.
-    rewrite get_nat_nat.
-    assert (0 <? n = false) as ->; last by eauto.
-    by apply Nat.ltb_ge.
+    rewrite get_ret_ret.
+    destruct n; first eauto; last lia.
   Qed.
-  Lemma IF_Tick t t1 t2 :
+  Lemma IF_Tick `{!SubOfe natO A} t t1 t2 :
     IF (Tick t) t1 t2 ≡ Tick (IF t t1 t2).
-  Proof. rewrite {1}/IF /=. apply get_nat_tick. Qed.
-  Lemma IF_Tick_n n t t1 t2 :
+  Proof. rewrite {1}/IF /=. apply get_ret_tick. Qed.
+  Lemma IF_Tick_n `{!SubOfe natO A} n t t1 t2 :
     IF (Tick_n n t) t1 t2 ≡ Tick_n n (IF t t1 t2).
   Proof.
     induction n; eauto. by rewrite IF_Tick IHn.
   Qed.
-  Lemma IF_Vis op i k t1 t2 :
+  Lemma IF_Vis `{!SubOfe natO A} op i k t1 t2 :
     IF (Vis op i k) t1 t2 ≡ Vis op i (laterO_map (IF_last t1 t2) ◎ k).
   Proof.
     rewrite {1}/IF /=.
-    rewrite get_nat_vis. repeat f_equiv.
+    rewrite get_ret_vis. repeat f_equiv.
     by intro.
   Qed.
 
-  Lemma NATOP_Err_r f e t1 : NATOP f t1 (Err e) ≡ Err e.
+  Lemma NATOP_Err_r `{!SubOfe natO A} f e t1 : NATOP f t1 (Err e) ≡ Err e.
   Proof. simpl. by rewrite get_val_err. Qed.
-  Lemma NATOP_Err_l f e β : AsVal β → NATOP f (Err e) β ≡ Err e.
+  Lemma NATOP_Err_l `{!SubOfe natO A} f e β : AsVal β → NATOP f (Err e) β ≡ Err e.
   Proof.
     intros ?. simpl.
     rewrite get_val_ITV /= get_val_err //.
   Qed.
-  Lemma NATOP_Nat n1 n2 f :
-    NATOP f (Nat n1) (Nat n2) ≡ Nat (f n1 n2).
+  Lemma NATOP_Ret `{!SubOfe natO A} n1 n2 f :
+    NATOP f (Ret n1) (Ret n2) ≡ Ret (f n1 n2).
   Proof.
     simpl.
-    rewrite get_val_nat/= get_val_nat/=.
-    Transparent get_nat2.
-    rewrite /get_nat2/=.
-    by rewrite !get_nat_nat.
-    Opaque get_nat2.
+    rewrite get_val_ret/= get_val_ret/=.
+    rewrite !get_ret_ret. simpl.
+    rewrite !get_ret_ret. simpl.
+    done.
   Qed.
-  Lemma NATOP_Tick_r t1 t2 f :
+  Lemma NATOP_Tick_r `{!SubOfe natO A} t1 t2 f :
     NATOP f t1 (Tick t2) ≡ Tick $ NATOP f t1 t2.
   Proof.
     simpl. rewrite get_val_tick//.
   Qed.
-  Lemma NATOP_Tick_n_r t1 t2 f n :
+  Lemma NATOP_Tick_n_r `{!SubOfe natO A} t1 t2 f n :
     NATOP f t1 (Tick_n n t2) ≡ Tick_n n $ NATOP f t1 t2.
   Proof.
     induction n; eauto. rewrite NATOP_Tick_r.
     rewrite IHn. done.
   Qed.
-  Lemma NATOP_ITV_Tick_l t1 β f :
+  Lemma NATOP_ITV_Tick_l `{!SubOfe natO A} t1 β f :
     AsVal β →
     NATOP f (Tick t1) β ≡ Tick $ NATOP f t1 β.
   Proof.
@@ -184,7 +183,7 @@ Section lambda.
     rewrite get_val_tick. f_equiv.
     rewrite get_val_ITV. done.
   Qed.
-  Lemma NATOP_ITV_Tick_n_l t1 β f n :
+  Lemma NATOP_ITV_Tick_n_l `{!SubOfe natO A} t1 β f n :
     AsVal β →
     NATOP f (Tick_n n t1) β ≡ Tick_n n $ NATOP f t1 β.
   Proof.
@@ -192,12 +191,12 @@ Section lambda.
     induction n; eauto. rewrite NATOP_ITV_Tick_l.
     rewrite IHn. done.
   Qed.
-  Lemma NATOP_Vis_r t1 op i k f :
+  Lemma NATOP_Vis_r `{!SubOfe natO A} t1 op i k f :
     NATOP f t1 (Vis op i k) ≡ Vis op i (laterO_map (NATOP f t1) ◎ k).
   Proof.
     simpl. rewrite get_val_vis. f_equiv. solve_proper.
   Qed.
-  Lemma NATOP_ITV_Vis_l op i k β f :
+  Lemma NATOP_ITV_Vis_l `{!SubOfe natO A} op i k β f :
     AsVal β →
     NATOP f (Vis op i k) β ≡
     Vis op i (laterO_map (flipO (NATOP f) β) ◎ k).
@@ -212,21 +211,21 @@ Section lambda.
   Lemma LET_Val α f `{!AsVal α} : LET α f ≡ f α.
   Proof. unfold LET. simpl. rewrite get_val_ITV//. Qed.
 
-  Global Instance IF_Proper : Proper ((≡) ==> (≡)) IF.
+  Global Instance IF_Proper `{!SubOfe natO A} : Proper ((≡) ==> (≡)) IF.
   Proof. apply ne_proper. apply _. Qed.
   Global Instance APP_Proper : Proper ((≡) ==> (≡)) APP.
   Proof. apply ne_proper. apply _. Qed.
   Global Instance APP'_Proper : Proper ((≡) ==> (≡)) APP'.
   Proof. apply ne_proper. apply _. Qed.
-  Global Instance NATOP_Proper f : Proper ((≡) ==> (≡)) (NATOP f).
+  Global Instance NATOP_Proper `{!SubOfe natO A} f : Proper ((≡) ==> (≡)) (NATOP f).
   Proof. apply ne_proper. apply _. Qed.
 
   Opaque APP APP' IF NATOP.
   Definition AppLSCtx (β α : IT) := APP' α β.
   Definition AppRSCtx (β α : IT) := APP' β α.
-  Definition NatOpLSCtx f (β α : IT) := NATOP f α β.
-  Definition NatOpRSCtx f (β α : IT) := NATOP f β α.
-  Definition IFSCtx (β1 β2 α : IT) := IF α β1 β2.
+  Definition NatOpLSCtx `{!SubOfe natO A} f (β α : IT) := NATOP f α β.
+  Definition NatOpRSCtx `{!SubOfe natO A} f (β α : IT) := NATOP f β α.
+  Definition IFSCtx `{!SubOfe natO A} (β1 β2 α : IT) := IF α β1 β2.
   Definition SEQCtx (β2 α : IT) := SEQ α β2.
   Definition LETCTX f : IT -n> IT := λne x, LET x f.
 
@@ -251,27 +250,27 @@ Section lambda.
       by intro.
     - intros e. by rewrite APP'_Err_r.
   Qed.
-  #[local] Instance NatOpLSCtx_ne op (β : IT) : NonExpansive (NatOpLSCtx op β).
+  #[local] Instance NatOpLSCtx_ne op (β : IT) `{!SubOfe natO A} : NonExpansive (NatOpLSCtx op β).
   Proof.
     intro n. unfold NatOpLSCtx.
     repeat intro. repeat f_equiv; eauto.
   Qed.
-  #[export] Instance NatOpLSCtx_hom op (β : IT) : AsVal β → IT_hom (NatOpLSCtx op β).
+  #[export] Instance NatOpLSCtx_hom op (β : IT) `{!SubOfe natO A} `{!AsVal β} : IT_hom (NatOpLSCtx op β).
   Proof.
-    intros Hb. unfold NatOpLSCtx.
+    unfold NatOpLSCtx.
     simple refine (IT_HOM _ _ _ _ _).
     - intro a. simpl. rewrite NATOP_ITV_Tick_l//.
     - intros op' i k. simpl. rewrite NATOP_ITV_Vis_l//.
       repeat f_equiv. intro. reflexivity.
     - intros e. simpl. rewrite NATOP_Err_l//.
   Qed.
-  #[local] Instance NatOpRSCtx_ne op (β : IT) : NonExpansive (NatOpRSCtx op β).
+  #[local] Instance NatOpRSCtx_ne op (β : IT) `{!SubOfe natO A} : NonExpansive (NatOpRSCtx op β).
   Proof.
     intro n. unfold NatOpRSCtx.
     repeat intro. by apply (NATOP _ β).
     (* XXX why doesn't f_equiv work here? *)
   Qed.
-  #[export] Instance NatOpRSCtx_hom op (β : IT) : IT_hom (NatOpRSCtx op β).
+  #[export] Instance NatOpRSCtx_hom op (β : IT) `{!SubOfe natO A} : IT_hom (NatOpRSCtx op β).
   Proof.
     unfold NatOpRSCtx.
     simple refine (IT_HOM _ _ _ _ _).
@@ -280,9 +279,9 @@ Section lambda.
       repeat f_equiv. intro. reflexivity.
     - intros e. simpl. rewrite NATOP_Err_r//.
   Qed.
-  #[local] Instance IFSCtx_ne (β1 β2 : IT) : NonExpansive (IFSCtx β1 β2).
+  #[local] Instance IFSCtx_ne (β1 β2 : IT) `{!SubOfe natO A} : NonExpansive (IFSCtx β1 β2).
   Proof. unfold IFSCtx. solve_proper. Qed.
-  #[export] Instance IFSCtx_hom (β1 β2 : IT) : IT_hom (IFSCtx β1 β2).
+  #[export] Instance IFSCtx_hom (β1 β2 : IT) `{!SubOfe natO A} : IT_hom (IFSCtx β1 β2).
   Proof.
     unfold IFSCtx.
     simple refine (IT_HOM _ _ _ _ _).

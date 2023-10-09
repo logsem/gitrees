@@ -60,6 +60,9 @@ Proof.
   intros f1 f2 Hf g1 g2 Hg. intros [x|y]; simpl; eauto.
 Qed.
 
+Program Definition Empty_setO_rec A : Empty_setO -n> A := λne x, Empty_set_rect (λ _, A) x.
+Next Obligation. intros A n x y. inversion x. Qed.
+
 Program Definition constO {A B : ofe} : A -n> B -n> A := λne x _, x.
 Next Obligation. solve_proper. Qed.
 Next Obligation. solve_proper. Qed.
@@ -81,6 +84,42 @@ Program Definition prod_in {A B C : ofe} : (C -n> A) -n> (C -n> B) -n> C -n> pro
     := λne f g x, (f x, g x).
 Solve Obligations with solve_proper.
 
+Definition sumO_assoc A B C : sumO A (sumO B C) ≃ sumO (sumO A B) C.
+Proof.
+  simple refine (OfeIso _ _ _ _).
+  - refine (sumO_rec (inlO ◎ inlO) _).
+    refine (sumO_rec (inlO ◎ inrO) inrO).
+  - refine (sumO_rec _ (inrO ◎ inrO)).
+    refine (sumO_rec inlO (inrO ◎ inlO)).
+  - intros [[?|?]|?]; simpl; eauto.
+  - intros [?|[?|?]]; simpl; eauto.
+Defined.
+Definition sumO_compat_l A B C : A ≃ B → sumO A C ≃ sumO B C.
+Proof.
+  intros f.
+  simple refine (OfeIso _ _ _ _).
+  - refine (sumO_rec (inlO ◎ f) inrO).
+  - refine (sumO_rec (inlO ◎ f^-1) inrO).
+  - intros [?|?]; simpl; eauto.
+    rewrite ofe_iso_12//.
+  - intros [?|?]; simpl; eauto.
+    rewrite ofe_iso_21//.
+Defined.
+Definition sumO_sym A B : sumO A B ≃ sumO B A.
+Proof.
+  simple refine (OfeIso _ _ _ _).
+  - refine (sumO_rec inrO inlO).
+  - refine (sumO_rec inrO inlO).
+  - intros [?|?]; simpl; eauto.
+  - intros [?|?]; simpl; eauto.
+Defined.
+Definition sumO_unitO_r A : sumO A Empty_setO ≃ A.
+Proof.
+  simple refine (OfeIso _ inlO _ _).
+  - refine (sumO_rec cid (Empty_setO_rec _)).
+  - simpl. eauto.
+  - intros [?|?]; simpl; eauto. inversion o.
+Defined.
 
 Program Definition NextO {A} : A -n> laterO A := λne x, Next x.
 

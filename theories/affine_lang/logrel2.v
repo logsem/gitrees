@@ -54,22 +54,24 @@ Inductive typed_glued : forall {S}, tyctx S → expr S → ty → Type :=
   typed_glued Ω LitUnit tUnit
 .
 
-Local Arguments logpred.interp_tarr {_ _ _ _ _ _ _ _ _}.
-Local Arguments logpred.interp_ty {_ _ _ _ _ _ _ _ _} _.
-
 Section glue.
   Context {sz : nat}.
   Variable rs : gReifiers sz.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
-  Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ, !na_invG Σ}.
+  Context {R} `{!Cofe R}.
+  Context `{!SubOfe natO R}.
+  Context `{!SubOfe unitO R}.
+  Context `{!SubOfe locO R}.
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
+  Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
 
   Definition s : stuckness := λ e, e = OtherError.
   Variable p : na_inv_pool_name.
+
   Definition valid2 {S} (Ω : tyctx S) (α : interp_scope (E:=F) S -n> IT) (τ : ty) : iProp :=
      valid1 rs s (λ σ, has_substate σ ∗ na_own p ⊤)%I Ω α τ.
 
@@ -150,20 +152,17 @@ Section glue.
     iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
     iModIntro. iExists tt. eauto with iFrame.
   Qed.
+
   Lemma compat_glue_from_affine_unit α :
     valid2 empC α tUnit ⊢
-      heap_ctx -∗ io_valid empC α Tnat.
+      heap_ctx -∗ io_valid empC (constO (glue_from_affine _ ty_conv_unit (α ()))) Tnat.
   Proof.
     iIntros "H #Hctx".
     iIntros (σ ss) "Hs Hss".
     iIntros (_) "Hp".
-    iSpecialize ("H" $! emp_ssubst with "Hctx [] [$Hs $Hp]").
-    { iApply ssubst_valid_nil. }
-    dependent elimination ss as [emp_ssubst].
-    iApply (wp_wand with "H").
-    iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
+    simpl. iApply wp_val.
     iModIntro. iExists tt. iFrame. simpl.
-    iRewrite "Ha". eauto with iFrame.
+    eauto with iFrame.
   Qed.
 
   Local Opaque interp_tarr logpred.interp_tarr.
@@ -199,9 +198,9 @@ Section glue.
     iApply fupd_wp.
     { solve_proper. }
     iMod (na_inv_alloc p _ (nroot.@"yolo")
-            (pointsto l (Nat 1) ∨
-               (pointsto l (Nat 0) ∗ interp_tarr (interp_ty τ1) (interp_ty τ2) αv)) with "[Hl Ha]") as "#Hinv".
-    { iNext. iRight. iFrame. }
+            (pointsto l (Ret 1) ∨
+               (pointsto l (Ret 0) ∗ interp_tarr (interp_ty τ1) (interp_ty τ2) αv)) with "[Hl Ha]") as "#Hinv".
+    { iNext. iRight. by iFrame. }
     iModIntro. simpl. iApply wp_val.
     iModIntro. iExists tt. iFrame. iExists σ'. iFrame.
     iModIntro. clear σ σ'. iIntros (σ βv) "Hs #Hb".
@@ -241,7 +240,7 @@ Section glue.
       iModIntro.
       iApply wp_let.
       { solve_proper. }
-      iSpecialize ("Hb" $! _ (NatV 0) with "Hs []").
+      iSpecialize ("Hb" $! _ (RetV 0) with "Hs []").
       { eauto with iFrame. }
       iSpecialize ("Hb" $! tt with "Hp").
       iApply (wp_wand with "Hb").
@@ -360,7 +359,7 @@ Section glue.
     iClear "Hl". clear l.
     iApply fupd_wp.
     { solve_proper. }
-    iMod (inv_alloc (nroot.@"yolo") _ (∃ n, pointsto l' (Nat n)) with "[Hl']") as "#Hinv".
+    iMod (inv_alloc (nroot.@"yolo") _ (∃ n, pointsto l' (Ret n)) with "[Hl']") as "#Hinv".
     { iNext. iExists _; done. }
     iPoseProof ("Ha" $! _ (thunkedV (IT_of_V β'v) l') with "Hs [-Has Hp]") as "H1".
     { iModIntro. iIntros (σ' βn) "Hs Hbm".
@@ -372,7 +371,7 @@ Section glue.
       iApply (wp_read_atomic _ _ (⊤∖ nclose (nroot.@"storeE")) with "Hctx").
       { set_solver. }
       iInv (nroot.@"yolo") as (n) "Hl'" "Hcl".
-      iModIntro. iExists (Nat n). iFrame.
+      iModIntro. iExists (Ret n). iFrame.
       iNext. iNext. iIntros "Hl'".
       iMod ("Hcl" with "[Hl']") as "_".
       { iNext. eauto with iFrame. }
@@ -386,7 +385,7 @@ Section glue.
         iApply (wp_write_atomic _ _ (⊤∖ nclose (nroot.@"storeE")) with "Hctx").
         { set_solver. }
         iInv (nroot.@"yolo") as (n) "Hl'" "Hcl".
-        iModIntro. iExists (Nat n). iFrame.
+        iModIntro. iExists (Ret n). iFrame.
         iNext. iNext. iIntros "Hl'".
         iMod ("Hcl" with "[Hl']") as "_".
         { iNext. eauto with iFrame. }
@@ -459,9 +458,9 @@ Local Definition rs : gReifiers 2 := gReifiers_cons reify_store (gReifiers_cons 
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Lemma logrel2_adequacy cr Σ `{!invGpreS Σ}`{!statePreG rs Σ} `{!heapPreG rs Σ} `{!na_invG Σ}
-  τ (α : unitO -n>  IT (gReifiers_ops rs)) (β : IT (gReifiers_ops rs)) st st' k :
-  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs Σ} `{H3: !heapG rs Σ} p,
+Lemma logrel2_adequacy cr R `{!Cofe R, !SubOfe locO R, !SubOfe natO R, !SubOfe unitO R} Σ `{!invGpreS Σ}`{!statePreG rs R Σ} `{!heapPreG rs R Σ} `{!na_invG Σ}
+  τ (α : unitO -n>  IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k :
+  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ} `{H3: !heapG rs R Σ} p,
       (£ cr ⊢ valid2 rs p empC α τ)%I) →
   ssteps (gReifiers_sReifier rs) (α ()) st β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
@@ -487,9 +486,9 @@ Proof.
   iMod (new_heapG rs σ) as (H3) "H".
   iAssert (has_substate σ ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
   { unfold has_substate, has_full_state.
-    assert (of_state rs (IT (gReifiers_ops rs)) st ≡
-            of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state σ)
-            ⋅ of_idx rs (IT (gReifiers_ops rs)) sR_idx (sR_state ios)) as ->; last first.
+    assert (of_state rs (IT (gReifiers_ops rs) _) st ≡
+            of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)
+            ⋅ of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state ios)) as ->; last first.
     { rewrite -own_op. done. }
     unfold sR_idx. simpl.
     intro j.
@@ -516,8 +515,9 @@ Proof.
   eauto with iFrame.
 Qed.
 
+Definition R := sumO locO (sumO natO unitO).
 
-Lemma logrel2_safety e τ (β : IT (gReifiers_ops rs)) st st' k :
+Lemma logrel2_safety e τ (β : IT (gReifiers_ops rs) R) st st' k :
   typed_glued empC e τ →
   ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) st β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
@@ -525,8 +525,8 @@ Lemma logrel2_safety e τ (β : IT (gReifiers_ops rs)) st st' k :
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
   intros Hty Hst.
-  pose (Σ:=#[invΣ;stateΣ rs;heapΣ rs;na_invΣ]).
-  eapply (logrel2_adequacy 0 Σ); eauto.
+  pose (Σ:=#[invΣ;stateΣ rs R;heapΣ rs R;na_invΣ]).
+  eapply (logrel2_adequacy 0 R Σ); eauto.
   iIntros (? ? ? ?) "_".
   by iApply fundamental_affine_glued.
 Qed.

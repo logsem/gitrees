@@ -9,7 +9,7 @@ Module io_lang.
   Definition expr := input_lang.lang.expr.
   Definition tyctx := tyctx ty.
   Definition typed {S} := input_lang.lang.typed (S:=S).
-  Definition interp_closed {sz} (rs : gReifiers sz) `{!subReifier reify_io rs} (e : expr []) :=
+  Definition interp_closed {sz} (rs : gReifiers sz) `{!subReifier reify_io rs} (e : expr []) {R} `{!Cofe R, !SubOfe natO R} : IT (gReifiers_ops rs) R :=
     input_lang.interp.interp_expr rs e ().
 End io_lang.
 
@@ -51,17 +51,19 @@ Section affine.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
-  Notation IT := (IT F).
-  Notation ITV := (ITV F).
-  Context `{!invGS Σ, !stateG rs Σ, !heapG rs Σ}.
+  Context {R : ofe}.
+  Context `{!Cofe R, !SubOfe unitO R, !SubOfe natO R, !SubOfe locO R}.
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
+  Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Program Definition thunked : IT -n> locO -n> IT := λne e ℓ,
       λit _, IF (READ ℓ) (Err OtherError)
-                         (SEQ (WRITE ℓ (Nat 1)) e).
+                         (SEQ (WRITE ℓ (Ret 1)) e).
   Solve All Obligations with first [solve_proper|solve_proper_please].
   Program Definition thunkedV : IT -n> locO -n> ITV := λne e ℓ,
-      FunV $ Next (λne _, IF (READ ℓ) (Err OtherError) (SEQ (WRITE ℓ (Nat 1)) e)).
+      FunV $ Next (λne _, IF (READ ℓ) (Err OtherError) (SEQ (WRITE ℓ (Ret 1)) e)).
   Solve All Obligations with first [solve_proper|solve_proper_please].
   #[export] Instance thunked_into_val e l : IntoVal (thunked e l) (thunkedV e l).
   Proof.
@@ -69,31 +71,17 @@ Section affine.
   Qed.
 
   Program Definition Thunk : IT -n> IT := λne e,
-      ALLOC (Nat 0) (thunked e).
+      ALLOC (Ret 0) (thunked e).
   Solve All Obligations with first [solve_proper|solve_proper_please].
-  Program Definition Force : IT -n> IT := λne e, e ⊙ (Nat 0).
+  Program Definition Force : IT -n> IT := λne e, e ⊙ (Ret 0).
 
   Local Open Scope type.
 
-  Definition nat_of_loc (l : loc) := Pos.to_nat $ encode (loc_car l).
-  Definition loc_of_nat (n : nat) :=
-    match decode (Pos.of_nat n) with
-    | Some l => Loc l
-    | None   => Loc 0%Z
-    end.
-  Lemma loc_of_nat_of_loc l : loc_of_nat (nat_of_loc l) = l.
-  Proof.
-    unfold loc_of_nat, nat_of_loc.
-    rewrite Pos2Nat.id.
-    rewrite decode_encode.
-    by destruct l.
-  Qed.
-
   Definition interp_litbool {A} (b : bool)  : A -n> IT := λne _,
-    Nat (if b then 1 else 0).
+    Ret (if b then 1 else 0).
   Definition interp_litnat {A}  (n : nat) : A -n> IT := λne _,
-    Nat n.
-  Definition interp_litunit {A} : A -n> IT := λne _, Nat 0.
+    Ret n.
+  Definition interp_litunit {A} : A -n> IT := λne _, Ret tt.
   Program Definition interp_pair {A1 A2} (t1 : A1 -n> IT) (t2 : A2 -n> IT)
     : A1*A2 -n> IT := λne env,
     pairIT (t1 env.1) (t2 env.2).  (* we don't need to evaluate the pair here, i.e. lazy pairs? *)
@@ -116,18 +104,16 @@ Section affine.
     t (x, (y, env.2)).
   Solve All Obligations with solve_proper_please.
   Program Definition interp_alloc {A} (α : A -n> IT) : A -n> IT := λne env,
-    LET (α env) $ λne α,
-    ALLOC α $ λne l, Nat (nat_of_loc l).
+    LET (α env) $ λne α, ALLOC α Ret.
   Solve All Obligations with solve_proper_please.
   Program Definition interp_replace {A1 A2} (α : A1 -n> IT) (β : A2 -n> IT) : A1*A2 -n> IT := λne env,
     LET (β env.2) $ λne β,
-    flip get_nat (α env.1) $ λ n,
-    LET (READ (loc_of_nat n)) $ λne γ,
-    SEQ (WRITE (loc_of_nat n) β) (pairIT γ (Nat n)).
+    flip get_ret (α env.1) $ λne (l : loc),
+    LET (READ l) $ λne γ,
+    SEQ (WRITE l β) (pairIT γ (Ret l)).
   Solve All Obligations with solve_proper_please.
   Program Definition interp_dealloc {A} (α : A -n> IT) : A -n> IT := λne env,
-    flip get_nat (α env) $ λ n,
-    DEALLOC (loc_of_nat n).
+    get_ret DEALLOC (α env).
   Solve All Obligations with solve_proper_please.
 
   Program Definition glue_to_affine_fun (glue_from_affine glue_to_affine : IT -n> IT) : IT -n> IT := λne α,
@@ -149,20 +135,20 @@ Section affine.
   Solve All Obligations with solve_proper_please.
 
   Program Definition glue2_bool : IT -n> IT := λne α,
-      IF α (Nat 1) (Nat 0).
+      IF α (Ret 1) (Ret 0).
 
   Fixpoint glue_to_affine {τ t} (conv : ty_conv τ t) : IT -n> IT :=
     match conv with
     | ty_conv_bool => glue2_bool
     | ty_conv_int  => idfun
-    | ty_conv_unit => constO (Nat 0)
+    | ty_conv_unit => constO (Ret tt)
     | ty_conv_fun conv1 conv2 => glue_to_affine_fun (glue_from_affine conv1) (glue_to_affine conv2)
     end
   with glue_from_affine  {τ t} (conv : ty_conv τ t) : IT -n> IT :=
     match conv with
     | ty_conv_bool => idfun
     | ty_conv_int  => idfun
-    | ty_conv_unit => idfun
+    | ty_conv_unit => constO (Ret 0)
     | ty_conv_fun conv1 conv2 => glue_from_affine_fun (glue_from_affine conv2) (glue_to_affine conv1)
     end.
 
@@ -184,9 +170,9 @@ Section affine.
         constO $ glue_to_affine tconv (io_lang.interp_closed _ e)
     end.
 
-  Lemma wp_Thunk β s Φ `{!NonExpansive Φ}:
+  Lemma wp_Thunk (β:IT) s (Φ:ITV → iProp) `{!NonExpansive Φ} :
     ⊢ heap_ctx -∗
-      ▷ (∀ l, pointsto l (Nat 0) -∗ Φ (thunkedV β l)) -∗
+      ▷ (∀ l, pointsto l (Ret 0) -∗ Φ (thunkedV β l)) -∗
       WP@{rs} Thunk β @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx H".
@@ -198,18 +184,18 @@ Section affine.
 End affine.
 
 #[global] Opaque Thunk.
-Arguments Force {_ _}.
-Arguments Thunk {_ _ _}.
-Arguments thunked {_ _ _}.
-Arguments thunkedV {_ _ _}.
+Arguments Force {_ _ _ _ _}.
+Arguments Thunk {_ _ _ _ _ _ _}.
+Arguments thunked {_ _ _ _ _ _}.
+Arguments thunkedV {_ _ _ _ _ _ _}.
 
-Arguments interp_litbool {_ _ _}.
-Arguments interp_litnat {_ _ _}.
-Arguments interp_litunit {_ _ _}.
-Arguments interp_lam {_ _ _}.
-Arguments interp_app {_ _ _ _ _}.
-Arguments interp_pair {_ _ _ _}.
-Arguments interp_destruct {_ _ _ _ _}.
-Arguments interp_alloc {_ _ _ _}.
-Arguments interp_dealloc {_ _ _ _}.
-Arguments interp_replace {_ _ _ _ _}.
+Arguments interp_litbool {_ _ _ _ _ _}.
+Arguments interp_litnat {_ _ _ _ _ _}.
+Arguments interp_litunit {_ _ _ _ _ _}.
+Arguments interp_lam {_ _ _ _ _}.
+Arguments interp_app {_ _ _ _ _ _ _ _ _}.
+Arguments interp_pair {_ _ _ _ _ _}.
+Arguments interp_destruct {_ _ _ _ _ _ _ _ _}.
+Arguments interp_alloc {_ _ _ _ _ _ _}.
+Arguments interp_dealloc {_ _ _ _ _ _ _ _}.
+Arguments interp_replace {_ _ _ _ _ _ _ _ _}.
