@@ -5,9 +5,10 @@ This is the Coq formalization of guarded interaction trees, associated examples 
 ## Installation instructions
 
 To install the formalization you will need the Iris, std++, and Equations packages.
-The dependencies can be easily installed with the following commands:
+The dependencies can be easily installed using [Opam](https://opam.ocaml.org/) with the following commands:
 
 ```
+opam repo add coq-released https://coq.inria.fr/opam/released
 opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
 opam update
 opam install . --deps-only
