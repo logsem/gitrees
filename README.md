@@ -54,6 +54,7 @@ to the code structure.
     in `gitree/weakestpre.v`
   + The additional weakest precondition rules are in `program_logic.v`
     and `examples/store.v`
+  + The `iter` example is in `examples/iter.v`
 - **Section 7**
   + The logical relation and the adequacy proof are in `input_lang/logrel.v`
 - **Section 8**
