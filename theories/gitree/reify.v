@@ -11,7 +11,7 @@ Section reifiers.
     { sReifier_ops : opsInterp;
       sReifier_state : oFunctor;
       sReifier_re {X} `{!Cofe X} : forall (op : opid sReifier_ops),
-          (Ins (sReifier_ops op) ♯ X) * (sReifier_state ♯ X)
+          (Ins (sReifier_ops op) ♯ X) * (sReifier_state ♯ X) * (X -n> X)
               -n> optionO ((Outs (sReifier_ops op) ♯ X) * (sReifier_state ♯ X));
       sReifier_inhab :: Inhabited (sReifier_state ♯ unitO);
       sReifier_cofe X (HX : Cofe X) :: Cofe (sReifier_state ♯ X);
@@ -265,4 +265,3 @@ Section reifiers.
   Qed.
 
 End reifiers.
-

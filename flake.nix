@@ -32,12 +32,6 @@
             then patchShebangs coq-lint.sh
             fi
           '';
-
-          meta = with lib; {
-            description = "The Coq development of the Iris Project";
-            license = licenses.bsd3;
-            maintainers = [ maintainers.vbgl ];
-          };
         };
     in {
       devShell = pkgs.mkShell {
