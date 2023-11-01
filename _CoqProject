@@ -1,5 +1,17 @@
 -Q theories gitrees
+-Q vendor/Binding Binding
 -arg -w -arg -ssr-search-moved
+
+vendor/Binding/Properties.v
+vendor/Binding/Lib.v
+vendor/Binding/Set.v
+vendor/Binding/Auto.v
+vendor/Binding/Core.v
+vendor/Binding/Inc.v
+vendor/Binding/Intrinsic.v
+vendor/Binding/TermSimpl.v
+vendor/Binding/Product.v
+vendor/Binding/Env.v
 
 theories/prelude.v
 theories/lang_generic.v
@@ -28,4 +40,3 @@ theories/examples/store.v
 theories/examples/pairs.v
 theories/examples/while.v
 theories/examples/factorial.v
-

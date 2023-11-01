@@ -11,7 +11,7 @@ Section reifiers.
     { sReifier_ops : opsInterp;
       sReifier_state : oFunctor;
       sReifier_re {X} `{!Cofe X} : forall (op : opid sReifier_ops),
-          (Ins (sReifier_ops op) ♯ X) * (sReifier_state ♯ X) * (X -n> X)
+          (Ins (sReifier_ops op) ♯ X) * (sReifier_state ♯ X) * (laterO (X -n> X))
               -n> optionO ((Outs (sReifier_ops op) ♯ X) * (sReifier_state ♯ X));
       sReifier_inhab :: Inhabited (sReifier_state ♯ unitO);
       sReifier_cofe X (HX : Cofe X) :: Cofe (sReifier_state ♯ X);
@@ -46,19 +46,23 @@ Section reifiers.
   Solve All Obligations with solve_proper.
 
   Program Definition reify_vis ( op : opid F ) :
-   oFunctor_car (Ins (F op)) (sumO IT stateM) (prodO IT stateM) -n>
+    oFunctor_car (Ins (F op)) (sumO IT stateM) (prodO IT stateM) -n>
+     (laterO (sumO IT (stateF ♯ IT -n> prodO (stateF ♯ IT) IT) -n>
+       prodO IT (stateF ♯ IT -n> prodO (stateF ♯ IT) IT))) -n>
      (oFunctor_car (Outs (F op)) (prodO IT stateM) (sumO IT stateM) -n> laterO (prodO IT stateM)) -n> stateM.
   Proof.
     simpl.
-    simple refine (λne i (k : _ -n> _) (s : stateF ♯ IT), _).
-    - simple refine (let ns := sReifier_re r op (oFunctor_map _ (inlO,fstO) i, s) in _).
-      simple refine (from_option (λ ns,
-                         let out2' := k $ oFunctor_map (Outs (F op)) (fstO,inlO) ns.1 in
-                         (ns.2, Tau $ laterO_map fstO out2'))
-                       (s, Err RuntimeErr) ns).
+    simple refine (λne i j (k : _ -n> _) (s : stateF ♯ IT), _).
+    - simple refine (let ns := sReifier_re r op ((oFunctor_map _ (inlO, fstO) i, s), _) in _).
+      + simple refine (laterO_map (unsandwich _) j).
+      + simple refine (from_option (λ ns,
+                           let out2' := k $ oFunctor_map (Outs (F op)) (fstO, inlO) ns.1 in
+                           (ns.2, Tau $ laterO_map fstO out2'))
+                         (s, Err RuntimeErr) ns).
     - intros m s1 s2 Hs. simpl. eapply (from_option_ne (dist m)); solve_proper.
     - intros m k1 k2 Hk s. simpl. eapply (from_option_ne (dist m)); solve_proper.
     - intros m i1 i2 Hi k s. simpl. eapply (from_option_ne (dist m)); solve_proper.
+    - intros m i1 i2 Hi k j s. simpl. eapply (from_option_ne (dist m)); solve_proper.
   Defined.
 
   Program Definition reify_err : errorO -n> stateM := λne e s, (s, Err e).
@@ -68,8 +72,18 @@ Section reifiers.
   Solve All Obligations with solve_proper.
 
   Program Definition unr : stateM -n>
-    sumO (sumO (sumO (sumO A (laterO (stateM -n> stateM))) errorO) (laterO stateM))
-      (sigTO (λ op : opid F, prodO (oFunctor_apply (Ins (F op)) stateM) (oFunctor_apply (Outs (F op)) stateM -n> laterO stateM))).
+                             sumO
+                               (sumO
+                                  (sumO
+                                     (sumO A (laterO (stateM -n> stateM))) errorO)
+                                  (laterO stateM))
+                               (sigTO (λ op : opid F,
+                                      prodO (oFunctor_apply (Ins (F op)) stateM)
+                                        (prodO (laterO
+                                                  ((stateF ♯ IT -n> prodO (stateF ♯ IT) IT) -n>
+                                                     stateF ♯ IT -n> prodO (stateF ♯ IT) IT))
+                                           (oFunctor_apply (Outs (F op)) stateM -n>
+                                              laterO stateM)))).
   Proof. simple refine (λne d, inl (inl (inr (RuntimeErr)))). Qed.
 
   Definition reify : IT -n> stateM
@@ -93,10 +107,14 @@ Section reifiers.
     reify (Fun f) σ ≡ (σ, Fun f).
   Proof.
     rewrite /reify/=.
-    trans (reify_fun (laterO_map (sandwich (Perr:=reify_err) (Pret:=reify_ret)
-                                           (Parr:=reify_fun) (Ptau:=reify_tau)
-                                           (Pvis:=reify_vis) (Punfold:=unr)
-                                           stateM) f) σ).
+    trans (reify_fun (laterO_map
+                        (sandwich
+                           (IT_rec1 (stateF ♯ IT -n> prodO (stateF ♯ IT) IT)
+                              reify_err reify_ret reify_fun
+                              reify_tau reify_vis unr)
+                           (IT_rec2 (stateF ♯ IT -n> prodO (stateF ♯ IT) IT)
+                              reify_err reify_ret reify_fun
+                              reify_tau reify_vis unr)) f) σ).
     { f_equiv. apply IT_rec1_fun. }
     simpl. repeat f_equiv.
     rewrite -laterO_map_compose.
@@ -105,26 +123,44 @@ Section reifiers.
     apply laterO_map_id.
   Qed.
 
-  Lemma reify_vis_dist m op i o k σ σ' :
-    sReifier_re r op (i,σ) ≡{m}≡ Some (o,σ') →
-    reify (Vis op i k) σ ≡{m}≡ (σ', Tau $ k o).
+  Lemma reify_vis_dist m op i o k j σ σ' :
+    sReifier_re r op ((i, σ), k) ≡{m}≡ Some (o, σ') →
+    reify (Vis op i k j) σ ≡{m}≡ (σ', Tau $ j o).
   Proof.
     intros Hst.
     trans (reify_vis op
-             (oFunctor_map _ (sumO_rec idfun unreify,prod_in idfun reify) i)
-             (laterO_map (prod_in idfun reify) ◎ k ◎ (oFunctor_map _ (prod_in idfun reify,sumO_rec idfun unreify)))
+             (oFunctor_map _ (sumO_rec idfun unreify, prod_in idfun reify) i)
+             (laterO_map (sandwich (IT_rec1
+                                      (stateF ♯ IT -n> prodO (stateF ♯ IT) IT)
+                                      reify_err
+                                      reify_ret
+                                      reify_fun
+                                      reify_tau
+                                      reify_vis
+                                      unr)
+                            (IT_rec2
+                               (stateF ♯ IT -n> prodO (stateF ♯ IT) IT)
+                               reify_err
+                               reify_ret
+                               reify_fun
+                               reify_tau
+                               reify_vis
+                               unr)) k)
+             (laterO_map (prod_in idfun reify) ◎ j ◎ (oFunctor_map _ (prod_in idfun reify, sumO_rec idfun unreify)))
              σ).
     { f_equiv. rewrite IT_rec1_vis//. }
     Opaque prod_in. simpl.
-    pose (rs := (sReifier_re r op
-      (oFunctor_map (Ins (F op)) (inlO, fstO)
-                    (oFunctor_map (Ins (F op)) (sumO_rec idfun unreify, prod_in idfun reify) i), σ))).
+    pose (rs := sReifier_re r op ((oFunctor_map (Ins (F op)) (inlO, fstO)
+                   (oFunctor_map (Ins (F op)) (sumO_rec idfun unreify, prod_in idfun reify) i), σ), k)).
     fold rs.
-    assert (rs ≡ sReifier_re r op (i,σ)) as Hr'.
-    { unfold rs. f_equiv. f_equiv.
+    assert (rs ≡ sReifier_re r op (i, σ, k)) as Hr'.
+    {
+      unfold rs. f_equiv. f_equiv.
       rewrite -oFunctor_map_compose.
+      repeat f_equiv.
       etrans; last by apply oFunctor_map_id.
-      repeat f_equiv; intro; done. }
+      repeat f_equiv; intro; done.
+    }
     assert (rs ≡{m}≡ Some (o,σ')) as Hr.
     { by rewrite Hr' Hst. }
     trans (from_option (λ ns,
@@ -132,15 +168,27 @@ Section reifiers.
         Tau
           (laterO_map fstO
              (laterO_map (prod_in idfun reify)
-                (k
+                (j
                    (oFunctor_map (Outs (F op)) (prod_in idfun reify, sumO_rec idfun unreify)
                       (oFunctor_map (Outs (F op)) (fstO, inlO) ns.1)))))))
              (σ, Err RuntimeErr) (Some (o,σ'))).
-    { eapply (from_option_ne (dist m)); solve_proper. }
+    {
+      eapply (from_option_ne (dist m)); [solve_proper | solve_proper |].
+      rewrite <-Hr.
+      subst rs.
+      repeat f_equiv.
+      rewrite -laterO_map_compose.
+      trans (laterO_map idfun k); last by rewrite laterO_map_id.
+      do 2 f_equiv.
+      intros x y; simpl.
+      Transparent prod_in.
+      unfold prod_in; simpl.
+      reflexivity.
+    }
     simpl. repeat f_equiv.
     rewrite -laterO_map_compose.
     rewrite -oFunctor_map_compose.
-    trans (laterO_map idfun (k o)); last first.
+    trans (laterO_map idfun (j o)); last first.
     { by rewrite laterO_map_id. }
     repeat f_equiv.
     { intro; done. }
@@ -150,33 +198,48 @@ Section reifiers.
     repeat f_equiv; intro; done.
   Qed.
 
-  Lemma reify_vis_eq op i o k σ σ' :
-    sReifier_re r op (i,σ) ≡ Some (o,σ') →
-    reify (Vis op i k) σ ≡ (σ', Tau $ k o).
+  Lemma reify_vis_eq op i o k j σ σ' :
+    sReifier_re r op (i, σ, k) ≡ Some (o, σ') →
+    reify (Vis op i k j) σ ≡ (σ', Tau $ j o).
   Proof.
     intros H. apply equiv_dist=>m.
     apply reify_vis_dist.
     by apply equiv_dist.
   Qed.
 
-  Lemma reify_vis_None op i k σ :
-    sReifier_re r op (i,σ) ≡ None →
-    reify (Vis op i k) σ ≡ (σ, Err RuntimeErr).
+  Lemma reify_vis_None op i k j σ :
+    sReifier_re r op (i, σ, k) ≡ None →
+    reify (Vis op i k j) σ ≡ (σ, Err RuntimeErr).
   Proof.
     intros Hs.
     trans (reify_vis op
              (oFunctor_map _ (sumO_rec idfun unreify,prod_in idfun reify) i)
-             (laterO_map (prod_in idfun reify) ◎ k ◎ (oFunctor_map _ (prod_in idfun reify,sumO_rec idfun unreify)))
+             (laterO_map (sandwich (IT_rec1
+                                      (stateF ♯ IT -n> prodO (stateF ♯ IT) IT)
+                                      reify_err
+                                      reify_ret
+                                      reify_fun
+                                      reify_tau
+                                      reify_vis
+                                      unr)
+                            (IT_rec2
+                               (stateF ♯ IT -n> prodO (stateF ♯ IT) IT)
+                               reify_err
+                               reify_ret
+                               reify_fun
+                               reify_tau
+                               reify_vis
+                               unr)) k)
+             (laterO_map (prod_in idfun reify) ◎ j ◎ (oFunctor_map _ (prod_in idfun reify,sumO_rec idfun unreify)))
              σ).
     { f_equiv.
       apply IT_rec1_vis. }
     simpl.
-    pose (rs := (sReifier_re r op
-      (oFunctor_map (Ins (F op)) (inlO, fstO)
-                    (oFunctor_map (Ins (F op)) (sumO_rec idfun unreify, prod_in idfun reify) i), σ))).
+    pose (rs := sReifier_re r op ((oFunctor_map (Ins (F op)) (inlO, fstO)
+                   (oFunctor_map (Ins (F op)) (sumO_rec idfun unreify, prod_in idfun reify) i), σ), k)).
     fold rs.
-    assert (rs ≡ sReifier_re r op (i,σ)) as Hr'.
-    { unfold rs. f_equiv. f_equiv.
+    assert (rs ≡ sReifier_re r op (i,σ,k)) as Hr'.
+    { unfold rs. f_equiv. f_equiv. f_equiv.
       rewrite -oFunctor_map_compose.
       etrans; last by apply oFunctor_map_id.
       repeat f_equiv; intro; done. }
@@ -187,11 +250,21 @@ Section reifiers.
         Tau
           (laterO_map fstO
              (laterO_map (prod_in idfun reify)
-                (k
+                (j
                    (oFunctor_map (Outs (F op)) (prod_in idfun reify, sumO_rec idfun unreify)
                       (oFunctor_map (Outs (F op)) (fstO, inlO) ns.1)))))))
              (σ, Err RuntimeErr) None).
-    { apply from_option_proper; solve_proper. }
+    { apply from_option_proper; [solve_proper | solve_proper |].
+      rewrite <-Hr.
+      subst rs.
+      repeat f_equiv.
+      - reflexivity.
+      - rewrite -laterO_map_compose.
+        trans (laterO_map idfun k); last by rewrite laterO_map_id.
+        do 2 f_equiv.
+        intros x y; simpl.
+        reflexivity.
+    }
     reflexivity.
   Qed.
 
