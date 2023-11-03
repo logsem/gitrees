@@ -15,6 +15,7 @@ vendor/Binding/Env.v
 
 theories/prelude.v
 theories/lang_generic.v
+theories/lang_generic_sem.v
 
 theories/gitree/core.v
 theories/gitree/subofe.v

@@ -115,17 +115,18 @@ Section greifiers.
 
   Program Definition gReifiers_re {n} (rs : gReifiers n) {X} `{!Cofe X}
     (op : opid (gReifiers_ops rs)) :
-    (Ins (gReifiers_ops rs op) ♯ X) * (gReifiers_state rs ♯ X) -n>
+    (Ins (gReifiers_ops rs op) ♯ X) * (gReifiers_state rs ♯ X) * ((Outs (gReifiers_ops rs op) ♯ X) -n> laterO X) -n>
       optionO ((Outs (gReifiers_ops rs op) ♯ X) * (gReifiers_state rs ♯ X))
     :=  λne xst,
       let  i := projT1 op in
       let op' := projT2 op in
-      let x := xst.1 in
-      let st := xst.2 in
-      let fs := gState_decomp i st in
+      let a := xst.1.1 in
+      let b := xst.1.2 in
+      let c := xst.2 in
+      let fs := gState_decomp i b in
       let σ := fs.1 in
       let rest := fs.2 in
-      let rx := sReifier_re (rs !!! i) op' (x, σ) in
+      let rx := sReifier_re (rs !!! i) op' (a, σ, c) in
       optionO_map (prodO_map idfun (gState_recomp rest)) rx.
   Next Obligation. solve_proper_please. Qed.
 
@@ -136,103 +137,104 @@ Section greifiers.
        sReifier_re := @gReifiers_re n rs;
     |}.
 
-  Lemma gReifiers_re_idx {n}  (i : fin n) (rs : gReifiers n)
-    {X} `{!Cofe X} (op : opid (sReifier_ops (rs !!! i)))
-    (x : Ins (sReifier_ops _ op) ♯ X)
-    (σ : sReifier_state (rs !!! i) ♯ X) (rest : gState_rest i rs ♯ X) :
-    gReifiers_re rs (existT i op) (x, gState_recomp rest σ) ≡
-      optionO_map (prodO_map idfun (gState_recomp rest))
-           (sReifier_re (rs !!! i) op (x,σ)).
-  Proof.
-    unfold gReifiers_re. cbn-[prodO_map optionO_map].
-    f_equiv; last repeat f_equiv.
-    - eapply optionO_map_proper.
-      intros [x1 x2]; simpl. f_equiv.
-      f_equiv. f_equiv.
-      rewrite gState_decomp_recomp//.
-    - rewrite gState_decomp_recomp//.
-  Qed.
+  (* Lemma gReifiers_re_idx {n}  (i : fin n) (rs : gReifiers n) *)
+  (*   {X} `{!Cofe X} (op : opid (sReifier_ops (rs !!! i))) *)
+  (*   (x : Ins (sReifier_ops _ op) ♯ X) *)
+  (*   (σ : sReifier_state (rs !!! i) ♯ X) (rest : gState_rest i rs ♯ X) : *)
+  (*   gReifiers_re rs (existT i op) (x, gState_recomp rest σ) ≡ *)
+  (*     optionO_map (prodO_map idfun (gState_recomp rest)) *)
+  (*          (sReifier_re (rs !!! i) op (x,σ)). *)
+  (* Proof. *)
+  (*   unfold gReifiers_re. cbn-[prodO_map optionO_map]. *)
+  (*   f_equiv; last repeat f_equiv. *)
+  (*   - eapply optionO_map_proper. *)
+  (*     intros [x1 x2]; simpl. f_equiv. *)
+  (*     f_equiv. f_equiv. *)
+  (*     rewrite gState_decomp_recomp//. *)
+  (*   - rewrite gState_decomp_recomp//. *)
+  (* Qed. *)
 
-  Class subReifier {n} (r : sReifier) (rs : gReifiers n) :=
-    { sR_idx : fin n;
-      sR_ops :: subEff (sReifier_ops r) (sReifier_ops (rs !!! sR_idx));
-      sR_state  {X} `{!Cofe X} :
-        sReifier_state r ♯ X ≃ sReifier_state (rs !!! sR_idx) ♯ X;
-      sR_re (m : nat) {X} `{!Cofe X} (op : opid (sReifier_ops r))
-        (x : Ins (sReifier_ops _ op) ♯ X)
-        (y : Outs (sReifier_ops _ op) ♯ X)
-        (s1 s2 : sReifier_state r ♯ X) :
-        sReifier_re r op (x, s1) ≡{m}≡ Some (y, s2) →
-        sReifier_re (rs !!! sR_idx) (subEff_opid op)
-          (subEff_ins x, sR_state s1) ≡{m}≡
-          Some (subEff_outs y, sR_state s2) }.
+  (* Class subReifier {n} (r : sReifier) (rs : gReifiers n) := *)
+  (*   { sR_idx : fin n; *)
+  (*     sR_ops :: subEff (sReifier_ops r) (sReifier_ops (rs !!! sR_idx)); *)
+  (*     sR_state  {X} `{!Cofe X} : *)
+  (*       sReifier_state r ♯ X ≃ sReifier_state (rs !!! sR_idx) ♯ X; *)
+  (*     sR_re (m : nat) {X} `{!Cofe X} (op : opid (sReifier_ops r)) *)
+  (*       (x : Ins (sReifier_ops _ op) ♯ X) *)
+  (*       (y : Outs (sReifier_ops _ op) ♯ X) *)
+  (*       (s1 s2 : sReifier_state r ♯ X) *)
+  (*       (k : (Outs (sReifier_ops _ op) ♯ X -n> laterO X)) : *)
+  (*       sReifier_re r op (x, s1, k) ≡{m}≡ Some (y, s2) → *)
+  (*       sReifier_re (rs !!! sR_idx) (subEff_opid op) *)
+  (*         (subEff_ins x, sR_state s1, _) ≡{m}≡ *)
+  (*         Some (subEff_outs y, sR_state s2) }. *)
 
-  #[global] Instance subReifier_here {n} (r : sReifier) (rs : gReifiers n) :
-    subReifier r (gReifiers_cons r rs).
-  Proof.
-    simple refine ({| sR_idx := 0%fin |}).
-    - simpl. apply subEff_id.
-    - simpl. intros. apply iso_ofe_refl.
-    - intros X ? op x y s1 s2.
-      simpl. eauto.
-  Defined.
-  #[global] Instance subReifier_there {n} (r r' : sReifier) (rs : gReifiers n) :
-    subReifier r rs →
-    subReifier r (gReifiers_cons r' rs).
-  Proof.
-    intros SR.
-    simple refine ({| sR_idx := FS sR_idx |}).
-    - simpl. intros. apply sR_state.
-    - intros X ? op x y s1 s2.
-      simpl. apply sR_re.
-  Defined.
+  (* #[global] Instance subReifier_here {n} (r : sReifier) (rs : gReifiers n) : *)
+  (*   subReifier r (gReifiers_cons r rs). *)
+  (* Proof. *)
+  (*   simple refine ({| sR_idx := 0%fin |}). *)
+  (*   - simpl. apply subEff_id. *)
+  (*   - simpl. intros. apply iso_ofe_refl. *)
+  (*   - intros X ? op x y s1 s2. *)
+  (*     simpl. eauto. *)
+  (* Defined. *)
+  (* #[global] Instance subReifier_there {n} (r r' : sReifier) (rs : gReifiers n) : *)
+  (*   subReifier r rs → *)
+  (*   subReifier r (gReifiers_cons r' rs). *)
+  (* Proof. *)
+  (*   intros SR. *)
+  (*   simple refine ({| sR_idx := FS sR_idx |}). *)
+  (*   - simpl. intros. apply sR_state. *)
+  (*   - intros X ? op x y s1 s2. *)
+  (*     simpl. apply sR_re. *)
+  (* Defined. *)
 
-  #[local] Definition subR_op {n} {r : sReifier} {rs : gReifiers n} `{!subReifier r rs} :
-    opid (sReifier_ops r) → opid (gReifiers_ops rs).
-  Proof.
-    intros op.
-    simpl.
-    refine (existT sR_idx (subEff_opid op)).
-  Defined.
-  #[export] Instance subReifier_subEff {n} {r : sReifier} {rs : gReifiers n} `{!subReifier r rs} :
-    subEff (sReifier_ops r) (gReifiers_ops rs).
-  Proof.
-    simple refine {| subEff_opid := subR_op |}.
-    - intros op X ?. simpl.
-      apply subEff_ins.
-    - intros op X ?. simpl.
-      apply subEff_outs.
-  Defined.
+  (* #[local] Definition subR_op {n} {r : sReifier} {rs : gReifiers n} `{!subReifier r rs} : *)
+  (*   opid (sReifier_ops r) → opid (gReifiers_ops rs). *)
+  (* Proof. *)
+  (*   intros op. *)
+  (*   simpl. *)
+  (*   refine (existT sR_idx (subEff_opid op)). *)
+  (* Defined. *)
+  (* #[export] Instance subReifier_subEff {n} {r : sReifier} {rs : gReifiers n} `{!subReifier r rs} : *)
+  (*   subEff (sReifier_ops r) (gReifiers_ops rs). *)
+  (* Proof. *)
+  (*   simple refine {| subEff_opid := subR_op |}. *)
+  (*   - intros op X ?. simpl. *)
+  (*     apply subEff_ins. *)
+  (*   - intros op X ?. simpl. *)
+  (*     apply subEff_outs. *)
+  (* Defined. *)
 
-  Lemma subReifier_reify_idx {n} (r : sReifier) (rs : gReifiers n)
-    `{!subReifier r rs} {X} `{!Cofe X} (op : opid (sReifier_ops r))
-    (x : Ins (sReifier_ops _ op) ♯ X)
-    (y : Outs (sReifier_ops _ op) ♯ X)
-    (s1 s2 : sReifier_state r ♯ X) :
-        sReifier_re r op (x, s1) ≡ Some (y, s2) →
-        sReifier_re (rs !!! sR_idx) (subEff_opid op)
-          (subEff_ins x, sR_state s1) ≡
-          Some (subEff_outs y, sR_state s2).
-  Proof.
-    intros Hx. apply equiv_dist=>m.
-    apply sR_re. by apply equiv_dist.
-  Qed.
+  (* Lemma subReifier_reify_idx {n} (r : sReifier) (rs : gReifiers n) *)
+  (*   `{!subReifier r rs} {X} `{!Cofe X} (op : opid (sReifier_ops r)) *)
+  (*   (x : Ins (sReifier_ops _ op) ♯ X) *)
+  (*   (y : Outs (sReifier_ops _ op) ♯ X) *)
+  (*   (s1 s2 : sReifier_state r ♯ X) : *)
+  (*       sReifier_re r op (x, s1) ≡ Some (y, s2) → *)
+  (*       sReifier_re (rs !!! sR_idx) (subEff_opid op) *)
+  (*         (subEff_ins x, sR_state s1) ≡ *)
+  (*         Some (subEff_outs y, sR_state s2). *)
+  (* Proof. *)
+  (*   intros Hx. apply equiv_dist=>m. *)
+  (*   apply sR_re. by apply equiv_dist. *)
+  (* Qed. *)
 
-  Lemma subReifier_reify {n} (r : sReifier)
-    (rs : gReifiers n) `{!subReifier r rs} {X} `{!Cofe X}
-    (op : opid (sReifier_ops r))
-    (x : Ins (sReifier_ops _ op) ♯ X) (y : Outs (sReifier_ops _ op) ♯ X)
-    (σ σ' : sReifier_state r ♯ X) (rest : gState_rest sR_idx rs ♯ X) :
-    sReifier_re r op (x,σ) ≡ Some (y, σ') →
-    gReifiers_re rs (subEff_opid op)
-      (subEff_ins x, gState_recomp rest (sR_state σ))
-      ≡ Some (subEff_outs y, gState_recomp rest (sR_state σ')).
-  Proof.
-    intros Hre.
-    eapply subReifier_reify_idx in Hre.
-    rewrite gReifiers_re_idx//.
-    rewrite Hre. simpl. reflexivity.
-  Qed.
+  (* Lemma subReifier_reify {n} (r : sReifier) *)
+  (*   (rs : gReifiers n) `{!subReifier r rs} {X} `{!Cofe X} *)
+  (*   (op : opid (sReifier_ops r)) *)
+  (*   (x : Ins (sReifier_ops _ op) ♯ X) (y : Outs (sReifier_ops _ op) ♯ X) *)
+  (*   (σ σ' : sReifier_state r ♯ X) (rest : gState_rest sR_idx rs ♯ X) : *)
+  (*   sReifier_re r op (x,σ) ≡ Some (y, σ') → *)
+  (*   gReifiers_re rs (subEff_opid op) *)
+  (*     (subEff_ins x, gState_recomp rest (sR_state σ)) *)
+  (*     ≡ Some (subEff_outs y, gState_recomp rest (sR_state σ')). *)
+  (* Proof. *)
+  (*   intros Hre. *)
+  (*   eapply subReifier_reify_idx in Hre. *)
+  (*   rewrite gReifiers_re_idx//. *)
+  (*   rewrite Hre. simpl. reflexivity. *)
+  (* Qed. *)
 
   (** Lemma for reasoning internally in iProp *)
   Context `{!invGS_gen hlc Σ}.
@@ -242,40 +244,40 @@ Section greifiers.
   Notation sr := (gReifiers_sReifier rs).
 
   Lemma reify_vis_eqI {A} `{!Cofe A} op i k o σ σ' :
-    (gReifiers_re rs op (i,σ) ≡ Some (o,σ') ⊢@{iProp} reify sr (Vis op i k : IT _ A) σ ≡ (σ', Tau $ k o))%I.
+    (gReifiers_re rs op (i,σ,k) ≡ Some (o,σ') ⊢@{iProp} reify sr (Vis op i k : IT _ A) σ ≡ (σ', Tau $ k o))%I.
   Proof.
     apply uPred.internal_eq_entails=>m.
     intros H. apply reify_vis_dist. exact H.
   Qed.
-  Lemma subReifier_reify_idxI (r : sReifier)
-    `{!subReifier r rs} {X} `{!Cofe X} (op : opid (sReifier_ops r))
-    (x : Ins (sReifier_ops _ op) ♯ X)
-    (y : Outs (sReifier_ops _ op) ♯ X)
-    (s1 s2 : sReifier_state r ♯ X) :
-        sReifier_re r op (x, s1) ≡ Some (y, s2) ⊢@{iProp}
-        sReifier_re (rs !!! sR_idx) (subEff_opid op)
-          (subEff_ins x, sR_state s1) ≡
-          Some (subEff_outs y, sR_state s2).
-  Proof.
-    apply uPred.internal_eq_entails=>m.
-    apply sR_re.
-  Qed.
+  (* Lemma subReifier_reify_idxI (r : sReifier) *)
+  (*   `{!subReifier r rs} {X} `{!Cofe X} (op : opid (sReifier_ops r)) *)
+  (*   (x : Ins (sReifier_ops _ op) ♯ X) *)
+  (*   (y : Outs (sReifier_ops _ op) ♯ X) *)
+  (*   (s1 s2 : sReifier_state r ♯ X) : *)
+  (*       sReifier_re r op (x, s1) ≡ Some (y, s2) ⊢@{iProp} *)
+  (*       sReifier_re (rs !!! sR_idx) (subEff_opid op) *)
+  (*         (subEff_ins x, sR_state s1) ≡ *)
+  (*         Some (subEff_outs y, sR_state s2). *)
+  (* Proof. *)
+  (*   apply uPred.internal_eq_entails=>m. *)
+  (*   apply sR_re. *)
+  (* Qed. *)
 
-  Lemma subReifier_reifyI (r : sReifier)
-    `{!subReifier r rs} {X} `{!Cofe X}
-    (op : opid (sReifier_ops r))
-    (x : Ins (sReifier_ops _ op) ♯ X) (y : Outs (sReifier_ops _ op) ♯ X)
-    (σ σ' : sReifier_state r ♯ X) (rest : gState_rest sR_idx rs ♯ X) :
-    sReifier_re r op (x,σ) ≡ Some (y, σ') ⊢@{iProp}
-    gReifiers_re rs (subEff_opid op)
-      (subEff_ins x, gState_recomp rest (sR_state σ))
-      ≡ Some (subEff_outs y, gState_recomp rest (sR_state σ')).
-  Proof.
-    apply uPred.internal_eq_entails=>m.
-    intros He.
-    eapply sR_re in He.
-    rewrite gReifiers_re_idx//.
-    rewrite He. simpl. reflexivity.
-  Qed.
+  (* Lemma subReifier_reifyI (r : sReifier) *)
+  (*   `{!subReifier r rs} {X} `{!Cofe X} *)
+  (*   (op : opid (sReifier_ops r)) *)
+  (*   (x : Ins (sReifier_ops _ op) ♯ X) (y : Outs (sReifier_ops _ op) ♯ X) *)
+  (*   (σ σ' : sReifier_state r ♯ X) (rest : gState_rest sR_idx rs ♯ X) : *)
+  (*   sReifier_re r op (x,σ) ≡ Some (y, σ') ⊢@{iProp} *)
+  (*   gReifiers_re rs (subEff_opid op) *)
+  (*     (subEff_ins x, gState_recomp rest (sR_state σ)) *)
+  (*     ≡ Some (subEff_outs y, gState_recomp rest (sR_state σ')). *)
+  (* Proof. *)
+  (*   apply uPred.internal_eq_entails=>m. *)
+  (*   intros He. *)
+  (*   eapply sR_re in He. *)
+  (*   rewrite gReifiers_re_idx//. *)
+  (*   rewrite He. simpl. reflexivity. *)
+  (* Qed. *)
 
 End greifiers.

@@ -3,6 +3,9 @@ From gitrees Require Import gitree.
 Require Import List.
 Import ListNotations.
 
+Require Import Binding.Lib.
+From Equations Require Import Equations.
+
 Section interp.
   Local Open Scope type.
   Context {E: opsInterp}.
@@ -10,74 +13,67 @@ Section interp.
   Notation IT := (IT E R).
   Notation ITV := (ITV E R).
 
-  Fixpoint interp_scope (S : scope) : ofe :=
-    match S with
-    | [] => unitO
-    | τ::Sc => prodO IT (interp_scope Sc)
-    end.
+  Definition interp_scope (S : Set) : ofe := (leibnizO S) -n> IT.
 
-  Instance interp_scope_cofe S : Cofe (interp_scope S).
-  Proof. induction S; simpl; apply _. Qed.
+  Global Instance interp_scope_cofe S : Cofe (interp_scope S).
+  Proof. apply _. Qed.
 
-  Instance interp_scope_inhab S : Inhabited (interp_scope S).
-  Proof. induction S; simpl; apply _. Defined.
+  Global Instance interp_scope_inhab S : Inhabited (interp_scope S).
+  Proof. apply _. Defined.
 
-  Equations interp_var {S : scope} (v : var S) : interp_scope S -n> IT :=
-    interp_var (S:=(_::_))     Vz := fstO;
-    interp_var (S:=(_::Sc)) (Vs v) := interp_var v ◎ sndO.
+  Program Definition interp_var {S : Set} (v : S) : interp_scope S -n> IT :=
+    λne (f : interp_scope S), f v.
 
-  Instance interp_var_ne S (v : var S) : NonExpansive (@interp_var S v).
-  Proof.
-    intros n D1 D2 HD12. induction v; simp interp_var.
-    - by f_equiv.
-    - eapply IHv. by f_equiv.
-  Qed.
-
-  Global Instance interp_var_proper S (v : var S) : Proper ((≡) ==> (≡)) (interp_var v).
+  Global Instance interp_var_proper {S : Set} (v : S) : Proper ((≡) ==> (≡)) (interp_var v).
   Proof. apply ne_proper. apply _. Qed.
 
-  Definition interp_scope_split {S1 S2} :
-    interp_scope (S1 ++ S2) -n> interp_scope S1 * interp_scope S2.
-  Proof.
-    induction S1 as [|? S1]; simpl.
-    - simple refine (λne x, (tt, x)).
-      solve_proper.
-    - simple refine (λne xy, let ss := IHS1 xy.2 in ((xy.1, ss.1), ss.2)).
-      solve_proper.
-  Defined.
-
-  (** scope substituions *)
-  Inductive ssubst : scope → Type :=
-  | emp_ssubst : ssubst []
-  | cons_ssubst {S} : ITV → ssubst S → ssubst (tt::S)
-  .
-
-  Equations interp_ssubst {S} (ss : ssubst S) : interp_scope S :=
-    interp_ssubst emp_ssubst := tt;
-    interp_ssubst (cons_ssubst αv ss) := (IT_of_V αv, interp_ssubst ss).
-
-  Equations list_of_ssubst {S} (ss : ssubst S) : list ITV :=
-    list_of_ssubst emp_ssubst := [];
-    list_of_ssubst (cons_ssubst αv ss) := αv::(list_of_ssubst ss).
-
-  Equations ssubst_split {S1 S2} (αs : ssubst (S1++S2)) : ssubst S1 * ssubst S2 :=
-    ssubst_split (S1:=[]) αs := (emp_ssubst,αs);
-    ssubst_split (S1:=u::_) (cons_ssubst αv αs) :=
-      (cons_ssubst αv (ssubst_split αs).1, (ssubst_split αs).2).
-  Lemma interp_scope_ssubst_split {S1 S2} (αs : ssubst (S1++S2)) :
-    interp_scope_split (interp_ssubst αs) ≡
-      (interp_ssubst (ssubst_split αs).1, interp_ssubst (ssubst_split αs).2).
-  Proof.
-    induction S1 as [|u S1]; simpl.
-    - simp ssubst_split. simpl.
-      simp interp_ssubst. done.
-    - dependent elimination αs as [cons_ssubst αv αs].
-      simp ssubst_split. simpl.
-      simp interp_ssubst. repeat f_equiv; eauto; simpl.
-       + rewrite IHS1//.
-       + rewrite IHS1//.
+  (* TODO: rewrite in normal-human-being style *)
+  Program Definition extend_scope {S : Set}  : interp_scope S -n> IT -n> interp_scope (inc S)
+    := λne γ μ x, let x' : inc S := x in match x' with | VZ => μ | VS x'' => γ x'' end.
+  Next Obligation.
+    match goal with
+    | H : context G [(inc S)] |- _ => revert H
+    end.
+    intros [| a]; simpl; solve_proper.
+  Qed.
+  Next Obligation.
+    match goal with
+    | H : context G [(inc S)] |- _ => revert H
+    end.
+    intros [| a]; simpl; solve_proper.
   Qed.
 
+  (* (** scope substituions *) *)
+  (* Inductive ssubst : Set → Type := *)
+  (* | emp_ssubst : ssubst ∅ *)
+  (* | cons_ssubst {S} : ITV → ssubst S → ssubst (inc S) *)
+  (* . *)
+
+  (* Equations interp_ssubst {S} (ss : ssubst S) : interp_scope S := *)
+  (*   interp_ssubst emp_ssubst := tt; *)
+  (*   interp_ssubst (cons_ssubst αv ss) := (IT_of_V αv, interp_ssubst ss). *)
+
+  (* Equations list_of_ssubst {S} (ss : ssubst S) : list ITV := *)
+  (*   list_of_ssubst emp_ssubst := []; *)
+  (*   list_of_ssubst (cons_ssubst αv ss) := αv::(list_of_ssubst ss). *)
+
+  (* Equations ssubst_split {S1 S2} (αs : ssubst (S1++S2)) : ssubst S1 * ssubst S2 := *)
+  (*   ssubst_split (S1:=[]) αs := (emp_ssubst,αs); *)
+  (*   ssubst_split (S1:=u::_) (cons_ssubst αv αs) := *)
+  (*     (cons_ssubst αv (ssubst_split αs).1, (ssubst_split αs).2). *)
+  (* Lemma interp_scope_ssubst_split {S1 S2} (αs : ssubst (S1++S2)) : *)
+  (*   interp_scope_split (interp_ssubst αs) ≡ *)
+  (*     (interp_ssubst (ssubst_split αs).1, interp_ssubst (ssubst_split αs).2). *)
+  (* Proof. *)
+  (*   induction S1 as [|u S1]; simpl. *)
+  (*   - simp ssubst_split. simpl. *)
+  (*     simp interp_ssubst. done. *)
+  (*   - dependent elimination αs as [cons_ssubst αv αs]. *)
+  (*     simp ssubst_split. simpl. *)
+  (*     simp interp_ssubst. repeat f_equiv; eauto; simpl. *)
+  (*      + rewrite IHS1//. *)
+  (*      + rewrite IHS1//. *)
+  (* Qed. *)
 End interp.
 
 (* Common definitions and lemmas for Kripke logical relations *)
@@ -109,43 +105,43 @@ Section kripke_logrel.
   #[export] Instance expr_pred_proper : Proper ((≡) ==> (≡) ==> (≡)) expr_pred .
   Proof. solve_proper. Qed.
 
-  Definition ssubst_valid {ty} (interp_ty : ty → ITV -n> iProp) {S} (Γ : tyctx ty S) (ss : ssubst S) : iProp :=
-    ([∗ list] τx ∈ zip (list_of_tyctx Γ) (list_of_ssubst (E:=F) ss),
-      interp_ty (τx.1) (τx.2))%I.
+  (* Definition ssubst_valid {ty} (interp_ty : ty → ITV -n> iProp) {S} (Γ : tyctx ty S) (ss : ssubst S) : iProp := *)
+  (*   ([∗ list] τx ∈ zip (list_of_tyctx Γ) (list_of_ssubst (E:=F) ss), *)
+  (*     interp_ty (τx.1) (τx.2))%I. *)
 
-  Lemma ssubst_valid_nil {ty} (interp_ty : ty → ITV -n> iProp) :
-    ⊢ ssubst_valid interp_ty empC emp_ssubst.
-  Proof.
-    unfold ssubst_valid.
-    by simp list_of_tyctx list_of_ssubst.
-  Qed.
+  (* Lemma ssubst_valid_nil {ty} (interp_ty : ty → ITV -n> iProp) : *)
+  (*   ⊢ ssubst_valid interp_ty empC emp_ssubst. *)
+  (* Proof. *)
+  (*   unfold ssubst_valid. *)
+  (*   by simp list_of_tyctx list_of_ssubst. *)
+  (* Qed. *)
 
-  Lemma ssubst_valid_cons {ty} (interp_ty : ty → ITV -n> iProp) {S}
-    (Γ : tyctx ty S) (ss : ssubst S) τ αv :
-    ssubst_valid interp_ty (consC τ Γ) (cons_ssubst αv ss)
-    ⊣⊢ interp_ty τ αv ∗ ssubst_valid interp_ty Γ ss.
-  Proof.
-    unfold ssubst_valid.
-    by simp list_of_tyctx list_of_ssubst.
-  Qed.
+  (* Lemma ssubst_valid_cons {ty} (interp_ty : ty → ITV -n> iProp) {S} *)
+  (*   (Γ : tyctx ty S) (ss : ssubst S) τ αv : *)
+  (*   ssubst_valid interp_ty (consC τ Γ) (cons_ssubst αv ss) *)
+  (*   ⊣⊢ interp_ty τ αv ∗ ssubst_valid interp_ty Γ ss. *)
+  (* Proof. *)
+  (*   unfold ssubst_valid. *)
+  (*   by simp list_of_tyctx list_of_ssubst. *)
+  (* Qed. *)
 
-  Lemma ssubst_valid_app {ty} (interp_ty : ty → ITV -n> iProp)
-    {S1 S2} (Ω1 : tyctx ty S1) (Ω2 : tyctx ty S2) αs :
-    ssubst_valid interp_ty (tyctx_app Ω1 Ω2) αs ⊢
-     ssubst_valid interp_ty Ω1 (ssubst_split αs).1
-   ∗ ssubst_valid interp_ty Ω2 (ssubst_split αs).2.
-  Proof.
-    iInduction Ω1 as [|τ Ω1] "IH" forall (Ω2); simp tyctx_app ssubst_split.
-    - simpl. iIntros "$". iApply ssubst_valid_nil.
-    - iIntros "H".
-      rewrite {4 5}/ssubst_valid.
-      simpl in αs.
-      dependent elimination αs as [cons_ssubst αv αs].
-      simp ssubst_split. simpl.
-      simp list_of_ssubst list_of_tyctx.
-      simpl. iDestruct "H" as "[$ H]".
-      by iApply "IH".
-  Qed.
+  (* Lemma ssubst_valid_app {ty} (interp_ty : ty → ITV -n> iProp) *)
+  (*   {S1 S2} (Ω1 : tyctx ty S1) (Ω2 : tyctx ty S2) αs : *)
+  (*   ssubst_valid interp_ty (tyctx_app Ω1 Ω2) αs ⊢ *)
+  (*    ssubst_valid interp_ty Ω1 (ssubst_split αs).1 *)
+  (*  ∗ ssubst_valid interp_ty Ω2 (ssubst_split αs).2. *)
+  (* Proof. *)
+  (*   iInduction Ω1 as [|τ Ω1] "IH" forall (Ω2); simp tyctx_app ssubst_split. *)
+  (*   - simpl. iIntros "$". iApply ssubst_valid_nil. *)
+  (*   - iIntros "H". *)
+  (*     rewrite {4 5}/ssubst_valid. *)
+  (*     simpl in αs. *)
+  (*     dependent elimination αs as [cons_ssubst αv αs]. *)
+  (*     simp ssubst_split. simpl. *)
+  (*     simp list_of_ssubst list_of_tyctx. *)
+  (*     simpl. iDestruct "H" as "[$ H]". *)
+  (*     by iApply "IH". *)
+  (* Qed. *)
 
   Lemma expr_pred_ret α αv Φ `{!IntoVal α αv} :
     Φ αv ⊢ expr_pred α Φ.
@@ -155,21 +151,21 @@ Section kripke_logrel.
     eauto with iFrame.
   Qed.
 
-  Lemma expr_pred_bind f `{!IT_hom f} α Φ Ψ `{!NonExpansive Φ} :
-    expr_pred α Ψ ⊢
-    (∀ αv, Ψ αv -∗ expr_pred (f (IT_of_V αv)) Φ) -∗
-    expr_pred (f α) Φ.
-  Proof.
-    iIntros "H1 H2".
-    iIntros (x) "Hx".
-    iApply wp_bind.
-    { solve_proper. }
-    iSpecialize ("H1" with "Hx").
-    iApply (wp_wand with "H1").
-    iIntros (βv). iDestruct 1 as (y) "[Hb Hy]".
-    iModIntro.
-    iApply ("H2" with "Hb Hy").
-  Qed.
+  (* Lemma expr_pred_bind f `{!IT_hom f} α Φ Ψ `{!NonExpansive Φ} : *)
+  (*   expr_pred α Ψ ⊢ *)
+  (*   (∀ αv, Ψ αv -∗ expr_pred (f (IT_of_V αv)) Φ) -∗ *)
+  (*   expr_pred (f α) Φ. *)
+  (* Proof. *)
+  (*   iIntros "H1 H2". *)
+  (*   iIntros (x) "Hx". *)
+  (*   iApply wp_bind. *)
+  (*   { solve_proper. } *)
+  (*   iSpecialize ("H1" with "Hx"). *)
+  (*   iApply (wp_wand with "H1"). *)
+  (*   iIntros (βv). iDestruct 1 as (y) "[Hb Hy]". *)
+  (*   iModIntro. *)
+  (*   iApply ("H2" with "Hb Hy"). *)
+  (* Qed. *)
 
   Lemma expr_pred_frame α Φ :
     WP@{rs} α @ s {{ Φ }} ⊢ expr_pred α Φ.
@@ -179,5 +175,7 @@ Section kripke_logrel.
     iApply (wp_wand with "H").
     eauto with iFrame.
   Qed.
+
 End kripke_logrel.
-Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_}.
+
+(* Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_}. *)

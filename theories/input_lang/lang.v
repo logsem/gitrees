@@ -358,23 +358,23 @@ Inductive head_step {S} : expr S → state → expr S → state → ectx S → n
 | BetaS e1 v2 σ K :
   head_step (App (Val $ RecV e1) (Val v2)) σ (subst (Inc := inc) ((subst (Inc := inc) e1) (shift v2)) (RecV e1)) σ K (1,0)
 | InputS σ n σ' K :
-  update_input σ = (n,σ') →
-  head_step Input σ (Val (LitV n)) σ' K (1,1)
+  update_input σ = (n, σ') →
+  head_step Input σ (Val (LitV n)) σ' K (1, 1)
 | OutputS σ n σ' K :
   update_output n σ = σ' →
-  head_step (Output (Val (LitV n))) σ (Val (LitV 0)) σ' K (1,1)
+  head_step (Output (Val (LitV n))) σ (Val (LitV 0)) σ' K (1, 1)
 | NatOpS op v1 v2 v3 σ K :
   nat_op_interp op v1 v2 = Some v3 →
   head_step (NatOp op (Val v1) (Val v2)) σ
-            (Val v3) σ K (0,0)
+            (Val v3) σ K (0, 0)
 | IfTrueS n e1 e2 σ K :
   n > 0 →
   head_step (If (Val (LitV n)) e1 e2) σ
-            e1 σ K (0,0)
+            e1 σ K (0, 0)
 | IfFalseS n e1 e2 σ K :
   n = 0 →
   head_step (If (Val (LitV n)) e1 e2) σ
-    e2 σ K (0,0)
+    e2 σ K (0, 0)
 | CallccS e σ K :
   head_step (Callcc e) σ (subst (Inc := inc) e (ContV K)) σ K (0, 0)
 .
