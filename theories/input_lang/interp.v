@@ -114,6 +114,7 @@ Program Definition throwE : opInterp :=  {|
 |}.
 
 Definition ioE := @[inputE;outputE;callccE;throwE].
+
 (* Canonical Structure reify_io : sReifier. *)
 (* Proof. *)
 (*   simple refine {| sReifier_ops := ioE; *)
@@ -136,6 +137,9 @@ Definition ioE := @[inputE;outputE;callccE;throwE].
 (*       admit. *)
 (*     + admit. *)
 (* Admitted. *)
+
+(* reify throw (x, next(fun(κ))) σ _ = (κ x) *)
+(* reify throw _ _ _ = Error      *)
 
 Section constructors.
   Context {E : opsInterp} {A} `{!Cofe A}.

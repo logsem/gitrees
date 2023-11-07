@@ -12,7 +12,7 @@ Section reifiers.
       sReifier_state : oFunctor;
       sReifier_re {X} `{!Cofe X} : forall (op : opid sReifier_ops),
           (Ins (sReifier_ops op) ♯ X) * (sReifier_state ♯ X) * ((Outs (sReifier_ops op) ♯ X) -n> laterO X)
-              -n> optionO ((Outs (sReifier_ops op) ♯ X) * (sReifier_state ♯ X));
+              -n> optionO (laterO X * (sReifier_state ♯ X));
       sReifier_inhab :: Inhabited (sReifier_state ♯ unitO);
       sReifier_cofe X (HX : Cofe X) :: Cofe (sReifier_state ♯ X);
     }.
@@ -51,11 +51,13 @@ Section reifiers.
   Proof.
     simpl.
     simple refine (λne i (k : _ -n> _) (s : stateF ♯ IT), _).
-    - simple refine (let ns := sReifier_re r op (oFunctor_map _ (inlO,fstO) i, s, (λne o, (laterO_map fstO $ k $ oFunctor_map (Outs (F op)) (fstO, inlO) o))) in _).
+    - simple refine
+        (let ns := sReifier_re r op
+                     (oFunctor_map _ (inlO,fstO) i, s,
+                       (λne o, (laterO_map fstO $ k $ oFunctor_map (Outs (F op)) (fstO, inlO) o))) in _).
       + intros m s1 s2 Hs. solve_proper.
       + simple refine (from_option (λ ns,
-                           let out2' := k $ oFunctor_map (Outs (F op)) (fstO,inlO) ns.1 in
-                           (ns.2, Tau $ laterO_map fstO out2'))
+                           (ns.2, Tau $ ns.1))
                          (s, Err RuntimeErr) ns).
     - intros m s1 s2 Hs. simpl. eapply (from_option_ne (dist m)); solve_proper.
     - intros m k1 k2 Hk s. simpl. eapply (from_option_ne (dist m)); [solve_proper | solve_proper |].
@@ -109,8 +111,8 @@ Section reifiers.
   Qed.
 
   Lemma reify_vis_dist m op i o k σ σ' :
-    sReifier_re r op (i,σ,k) ≡{m}≡ Some (o,σ') →
-    reify (Vis op i k) σ ≡{m}≡ (σ', Tau $ k o).
+    sReifier_re r op (i, σ, k) ≡{m}≡ Some (o, σ') →
+    reify (Vis op i k) σ ≡{m}≡ (σ', Tau o).
   Proof.
     intros Hst.
     trans (reify_vis op
@@ -131,50 +133,37 @@ Section reifiers.
       repeat f_equiv; intro; done. }
     assert (rs ≡{m}≡ Some (o, σ')) as Hr.
     { by rewrite Hr' Hst. }
-    trans (from_option (λ ns,
-       (ns.2,
-        Tau
-          (laterO_map fstO
-             (laterO_map (prod_in idfun reify)
-                (k
-                   (oFunctor_map (Outs (F op)) (prod_in idfun reify, sumO_rec idfun unreify)
-                      (oFunctor_map (Outs (F op)) (fstO, inlO) ns.1)))))))
-             (σ, Err RuntimeErr) (Some (o,σ'))).
-    {
+    trans (from_option (λ ns : laterO IT * stateF ♯ IT, (ns.2, Tau ns.1))
+             (σ, Err RuntimeErr)
+             rs).
+    - subst rs.
       eapply (from_option_ne (dist m)); [solve_proper | solve_proper |].
-      rewrite <-Hr.
-      subst rs.
       do 2 f_equiv.
-      intros x; simpl.
+      intros ?; simpl.
       rewrite -laterO_map_compose.
+      rewrite -oFunctor_map_compose.
       etrans; first (rewrite laterO_map_id; reflexivity).
       f_equiv.
-      rewrite -oFunctor_map_compose.
       trans (oFunctor_map _ (idfun, idfun) x).
-      - do 3 f_equiv.
-        + intros y; simpl.
+      + do 3 f_equiv.
+        * intros y; simpl.
           Transparent prod_in.
           by unfold prod_in.
-        + intros y; simpl.
+        * intros y; simpl.
           reflexivity.
-      - by rewrite oFunctor_map_id.
-    }
-    simpl. repeat f_equiv.
-    rewrite -laterO_map_compose.
-    rewrite -oFunctor_map_compose.
-    trans (laterO_map idfun (k o)); last first.
-    { by rewrite laterO_map_id. }
-    repeat f_equiv.
-    { intro; done. }
-    trans (oFunctor_map _ (idfun, idfun) o); last first.
-    { by rewrite oFunctor_map_id.  }
-    simpl.
-    repeat f_equiv; intro; done.
+      + by rewrite oFunctor_map_id.
+    - subst rs.
+      trans (from_option (λ ns : laterO IT * stateF ♯ IT, (ns.2, Tau ns.1))
+             (σ, Err RuntimeErr)
+             (Some (o, σ'))).
+      + eapply (from_option_ne (dist m)); [solve_proper | solve_proper |].
+        by rewrite Hr.
+      + reflexivity.
   Qed.
 
   Lemma reify_vis_eq op i o k σ σ' :
     sReifier_re r op (i,σ,k) ≡ Some (o,σ') →
-    reify (Vis op i k) σ ≡ (σ', Tau $ k o).
+    reify (Vis op i k) σ ≡ (σ', Tau $ o).
   Proof.
     intros H. apply equiv_dist=>m.
     apply reify_vis_dist.
@@ -205,51 +194,42 @@ Section reifiers.
       repeat f_equiv; intro; done. }
     assert (rs ≡ None) as Hr.
     { by rewrite Hr' Hs. }
-    trans (from_option (λ ns,
-       (ns.2,
-        Tau
-          (laterO_map fstO
-             (laterO_map (prod_in idfun reify)
-                (k
-                   (oFunctor_map (Outs (F op)) (prod_in idfun reify, sumO_rec idfun unreify)
-                      (oFunctor_map (Outs (F op)) (fstO, inlO) ns.1)))))))
-             (σ, Err RuntimeErr) None).
+    trans (from_option (λ ns : laterO IT * stateF ♯ IT, (ns.2, Tau ns.1))
+             (σ, Err RuntimeErr)
+             rs).
     {
       apply from_option_proper; [solve_proper | solve_proper |].
-      rewrite -Hr Hr'.
+      subst rs.
       do 2 f_equiv.
-      - rewrite -oFunctor_map_compose.
-        f_equiv.
-        trans (oFunctor_map _ (idfun, idfun) i).
-        + do 3 f_equiv.
-          * intros y; simpl.
-            Transparent prod_in.
-            by unfold prod_in.
-          * intros y; simpl.
-            reflexivity.
-        + by rewrite oFunctor_map_id.
-      - intros x; simpl.
-        rewrite -laterO_map_compose.
-        trans (laterO_map idfun (k x)); last first.
-        { by rewrite laterO_map_id. }
-        repeat f_equiv.
-        { intro; done. }
-        trans (oFunctor_map _ (idfun, idfun) x); last first.
-        { by rewrite oFunctor_map_id.  }
-        simpl.
-        rewrite -oFunctor_map_compose.
-        repeat f_equiv; intro; done.
+      intros x; simpl.
+      rewrite -laterO_map_compose -oFunctor_map_compose.
+      trans (laterO_map idfun (k x)); last first.
+      { by rewrite laterO_map_id. }
+      f_equiv; first (f_equiv; intros ?; reflexivity).
+      f_equiv.
+      trans (oFunctor_map _ (idfun, idfun) x).
+      - do 3 f_equiv.
+        + intros y; simpl.
+          Transparent prod_in.
+          by unfold prod_in.
+        + intros y; simpl.
+          reflexivity.
+      - by rewrite oFunctor_map_id.
     }
-    reflexivity.
+    trans (from_option (λ ns : laterO IT * stateF ♯ IT, (ns.2, Tau ns.1)) (σ, Err RuntimeErr) None).
+    - f_equiv; [| assumption].
+      intros [? ?] [? ?] [? ?]; simpl in *; f_equiv; [assumption | f_equiv; assumption].
+    - reflexivity.
   Qed.
 
+  (* true only for ctx-independent effects *)
   (* Lemma reify_vis_cont op i k1 k2 σ1 σ2 β *)
   (*   {PROP : bi} `{!BiInternalEq PROP} : *)
-  (*   (reify (Vis op i (laterO_map k2 ◎ k1)) σ1 ≡ (σ2, Tick β) ⊢ *)
+  (*   (reify (Vis op i k1) σ1 ≡ (σ2, Tick β) ⊢ *)
   (*    reify (Vis op i (laterO_map k2 ◎ k1)) σ1 ≡ (σ2, Tick (k2 β)) : PROP)%I. *)
   (* Proof. *)
-  (*   destruct (sReifier_re r op (i,σ1, laterO_map k2 ◎ k1)) as [[o σ2']|] eqn:Hre; last first. *)
-  (*   - rewrite (reify_vis_None _ _ (laterO_map k2 ◎ k1)); last by rewrite Hre//. *)
+  (*   destruct (sReifier_re r op (i, σ1, k1)) as [[o σ2']|] eqn:Hre; last first. *)
+  (*   - rewrite (reify_vis_None _ _ k1); last by rewrite Hre//. *)
   (*     iIntros "Hr". iExFalso. *)
   (*     iPoseProof (prod_equivI with "Hr") as "[_ Hk]". *)
   (*     simpl. iApply (IT_tick_err_ne). by iApply internal_eq_sym. *)
