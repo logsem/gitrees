@@ -266,12 +266,12 @@ Section greifiers.
   Variable (rs : gReifiers sz).
   Notation sr := (gReifiers_sReifier rs).
 
-  (* Lemma reify_vis_eqI {A} `{!Cofe A} op i k o σ σ' : *)
-  (*   (gReifiers_re rs op (i, σ, k) ≡ Some (o,σ') ⊢@{iProp} reify sr (Vis op i k : IT _ A) σ ≡ (σ', Tau $ k o))%I. *)
-  (* Proof. *)
-  (*   apply uPred.internal_eq_entails=>m. *)
-  (*   intros H. apply reify_vis_dist. exact H. *)
-  (* Qed. *)
+  Lemma reify_vis_eqI {A} `{!Cofe A} op i k o σ σ' :
+    (gReifiers_re rs op (i, σ, k) ≡ Some (o,σ') ⊢@{iProp} reify sr (Vis op i k : IT _ A) σ ≡ (σ', Tau $ o))%I.
+  Proof.
+    apply uPred.internal_eq_entails=>m.
+    intros H. apply reify_vis_dist. exact H.
+  Qed.
 
   Lemma subReifier_reify_idxI (r : sReifier)
     `{!subReifier r rs} {X} `{!Cofe X} (op : opid (sReifier_ops r))
