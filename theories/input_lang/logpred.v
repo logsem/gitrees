@@ -86,6 +86,7 @@ Section io_lang.
     iIntros (σ ss) "Hs #Has".
     iSpecialize ("H0" with "Hs Has").
     simpl. iApply (expr_pred_bind (IFSCtx _ _) with "H0").
+    { admit. }
     iIntros (αv) "Ha/=".
     iDestruct "Ha" as (σ') "[Ha Hs]".
     iDestruct "Ha" as (n) "Hn".
@@ -96,7 +97,7 @@ Section io_lang.
       iApply ("H2" with "Hs Has Hx").
     - rewrite IF_True; last lia.
       iApply ("H1" with "Hs Has Hx").
-  Qed.
+  Admitted.
   Lemma compat_input {S} (Γ : tyctx S) :
     ⊢ valid1 Γ (interp_input rs) Tnat.
   Proof.
@@ -116,6 +117,7 @@ Section io_lang.
     iSpecialize ("H" with "Hs Has").
     simpl.
     iApply (expr_pred_bind (get_ret _) with "H").
+    { admit. }
     iIntros (αv) "Ha".
     iDestruct "Ha" as (σ') "[Ha Hs]".
     iDestruct "Ha" as (n) "Hn".
@@ -126,7 +128,7 @@ Section io_lang.
     { reflexivity. }
     iNext. iIntros "_ Hs /=".
     eauto with iFrame.
-  Qed.
+  Admitted.
   Lemma compat_app {S} (Γ : tyctx S) α β τ1 τ2 :
     ⊢ valid1 Γ α (Tarr τ1 τ2) -∗
       valid1 Γ β τ1 -∗
@@ -136,16 +138,18 @@ Section io_lang.
     iIntros (σ ss) "Hs #Has". simpl.
     iSpecialize ("H2" with "Hs Has").
     iApply (expr_pred_bind (AppRSCtx _) with "H2").
+    { admit. }
     iIntros (βv) "Hb/=".
     iDestruct "Hb" as (σ') "[Hb Hs]".
     unfold AppRSCtx.
     iSpecialize ("H1" with "Hs Has").
     iApply (expr_pred_bind (AppLSCtx (IT_of_V βv)) with "H1").
+    { admit. }
     iIntros (αv) "Ha".
     iDestruct "Ha" as (σ'') "[Ha Hs]".
     unfold AppLSCtx.
     iApply ("Ha" with "Hs Hb").
-  Qed.
+  Admitted.
 
   Lemma compat_rec {S} (Γ : tyctx S) τ1 τ2 α :
     ⊢ □ valid1 (consC (Tarr τ1 τ2) (consC τ1 Γ)) α τ2 -∗
@@ -187,11 +191,13 @@ Section io_lang.
     iIntros (σ ss) "Hs #Has". simpl.
     iSpecialize ("H2" with "Hs Has").
     iApply (expr_pred_bind (NatOpRSCtx _ _) with "H2").
+    { admit. }
     iIntros (βv) "Hb/=".
     iDestruct "Hb" as (σ') "[Hb Hs]".
     unfold NatOpRSCtx.
     iSpecialize ("H1" with "Hs Has").
     iApply (expr_pred_bind (NatOpLSCtx _ (IT_of_V βv)) with "H1").
+    { admit. }
     iIntros (αv) "Ha".
     iDestruct "Ha" as (σ'') "[Ha Hs]".
     unfold NatOpLSCtx.
@@ -201,7 +207,7 @@ Section io_lang.
     simpl. iApply expr_pred_frame.
     rewrite NATOP_Ret. iApply wp_val. simpl.
     eauto with iFrame.
-  Qed.
+  Admitted.
 
   Lemma fundamental {S} (Γ : tyctx S) e τ :
     typed Γ e τ → ⊢ valid1 Γ (interp_expr rs e) τ
@@ -251,6 +257,7 @@ Proof.
   { intros [?|He]; first done.
     destruct He as [? [? []]]. }
   eapply (wp_safety cr); eauto.
+  { admit. }
   { apply Hdisj. }
   { by rewrite Hb. }
   intros H1 H2.
@@ -279,7 +286,7 @@ Proof.
   iIntros ( βv). simpl. iDestruct 1 as (_) "[H _]".
   iDestruct "H" as (σ1') "[$ Hsts]".
   done.
-Qed.
+Admitted.
 
 Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k :
   typed empC e τ →

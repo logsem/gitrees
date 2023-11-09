@@ -12,7 +12,11 @@ Section program_logic.
   Context `{!invGS Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
 
-  Lemma wp_seq α β s Φ `{!NonExpansive Φ} :
+  Lemma wp_seq α β s Φ `{!NonExpansive Φ}
+    {G : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
+       CtxIndep (gReifiers_sReifier rs)
+         (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}
+    :
     WP@{rs} α @ s {{ _, WP@{rs} β @ s {{ Φ }} }} ⊢ WP@{rs} SEQ α β @ s {{ Φ }}.
   Proof.
     iIntros "H".
@@ -22,7 +26,11 @@ Section program_logic.
     by rewrite SEQ_Val.
   Qed.
 
-  Lemma wp_let α (f : IT -n> IT) s Φ `{!NonExpansive Φ} :
+  Lemma wp_let α (f : IT -n> IT) s Φ `{!NonExpansive Φ}
+    {G : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
+       CtxIndep (gReifiers_sReifier rs)
+         (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}
+    :
     WP@{rs} α @ s {{ αv, WP@{rs} f (IT_of_V αv) @ s {{ Φ }} }} ⊢ WP@{rs} (LET α f) @ s {{ Φ }}.
   Proof.
     iIntros "H".
@@ -41,4 +49,3 @@ Section program_logic.
 
 
 End program_logic.
-

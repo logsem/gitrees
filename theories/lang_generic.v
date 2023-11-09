@@ -194,21 +194,24 @@ Section kripke_logrel.
     eauto with iFrame.
   Qed.
 
-  (* Lemma expr_pred_bind f `{!IT_hom f} α Φ Ψ `{!NonExpansive Φ} : *)
-  (*   expr_pred α Ψ ⊢ *)
-  (*   (∀ αv, Ψ αv -∗ expr_pred (f (IT_of_V αv)) Φ) -∗ *)
-  (*   expr_pred (f α) Φ. *)
-  (* Proof. *)
-  (*   iIntros "H1 H2". *)
-  (*   iIntros (x) "Hx". *)
-  (*   iApply wp_bind. *)
-  (*   { solve_proper. } *)
-  (*   iSpecialize ("H1" with "Hx"). *)
-  (*   iApply (wp_wand with "H1"). *)
-  (*   iIntros (βv). iDestruct 1 as (y) "[Hb Hy]". *)
-  (*   iModIntro. *)
-  (*   iApply ("H2" with "Hb Hy"). *)
-  (* Qed. *)
+  Lemma expr_pred_bind f `{!IT_hom f} α Φ Ψ `{!NonExpansive Φ}
+    {G : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
+       CtxIndep (gReifiers_sReifier rs)
+         (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o} :
+    expr_pred α Ψ ⊢
+    (∀ αv, Ψ αv -∗ expr_pred (f (IT_of_V αv)) Φ) -∗
+    expr_pred (f α) Φ.
+  Proof.
+    iIntros "H1 H2".
+    iIntros (x) "Hx".
+    iApply wp_bind.
+    { solve_proper. }
+    iSpecialize ("H1" with "Hx").
+    iApply (wp_wand with "H1").
+    iIntros (βv). iDestruct 1 as (y) "[Hb Hy]".
+    iModIntro.
+    iApply ("H2" with "Hb Hy").
+  Qed.
 
   Lemma expr_pred_frame α Φ :
     WP@{rs} α @ s {{ Φ }} ⊢ expr_pred α Φ.
@@ -220,4 +223,4 @@ Section kripke_logrel.
   Qed.
 End kripke_logrel.
 
-(* Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_}. *)
+Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_}.
