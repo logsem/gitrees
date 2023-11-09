@@ -200,6 +200,7 @@ Section istep.
       iApply (IT_tick_vis_ne). by iApply (internal_eq_sym with "Ha").
   Qed.
 
+  (* ctx-free steps *)
   (* Local Lemma effect_safe_externalize (α : IT) σ : *)
   (*   (⊢ ∃ β σ', (∃ op i k, α ≡ Vis op i k ∧ reify r α σ ≡ (σ', Tick β)) : iProp) → *)
   (*   ∃ β σ', sstep r α σ β σ'. *)
