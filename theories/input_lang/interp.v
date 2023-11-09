@@ -18,15 +18,13 @@ Program Definition outputE : opInterp := {|
 
 Program Definition callccE : opInterp :=
   {|
-    Ins := (▶ ∙ -n> ▶ ∙)%OF;
-    Outs := unitO;
-    (* Outs := (▶  ∙)%OF; *)
+    Ins := ((▶ ∙ -n> ▶ ∙) -n> ▶ ∙)%OF;
+    Outs := (▶ ∙)%OF;
   |}.
 Program Definition throwE : opInterp :=
   {|
-    Ins := (▶ ∙ * ▶ ∙)%OF;
-    Outs := unitO;
-    (* Outs := (▶ ∙)%OF; *)
+    Ins := ((▶∙ -n> ▶∙) * ▶ ∙)%OF;
+    Outs := Empty_setO;
   |}.
 Definition ioE := @[inputE;outputE;callccE;throwE].
 Canonical Structure reify_io : sReifier.
@@ -49,15 +47,22 @@ Proof.
     cbn in HRn, HRσ, HR |-*.
     rewrite HRn HRσ. apply (@Some_ne (prodO (laterO X) stateO)).
     apply pair_dist_inj; solve_proper.
-  - simple refine (λne (us : ((laterO X -n> laterO X) * stateO *
-                                (unitO -n> laterO X))%type),
-                     Some $ (us.2 (), us.1.2) : optionO (prodO (laterO X) stateO)).
-    intros n f1 f2 HR. solve_proper.
-  - simple refine (λne (us : ((laterO X * laterO X) * stateO *
-                                (unitO -n> laterO X))%type),
-                     Some $ (us.2 (), us.1.2 ) : optionO (prodO (laterO X) stateO)).
-    intros ????. solve_proper.
-Defined.
+  - simple refine (λne (us : (((laterO X -n> laterO X) -n> laterO X) * stateO *
+                                (laterO X -n> laterO X))%type),
+                     let '(f, σ, k) := us in
+                     Some $ (k (f k), σ) : optionO (laterO X * stateO)%type).
+    intros n [[f1 σ1] k1] [[f2 σ2] k2] [[Hf Hσ] Hk].
+    cbn in Hf, Hσ, Hk |-*.
+    solve_proper.
+  - simple refine (λne ( us : (prodO (laterO X -n> laterO X) (laterO X) *
+                                 stateO * (Empty_setO -n> laterO X))%type),
+                     let '((k', e), σ, _) := us in
+                     Some $ (k' e, σ) : optionO (laterO X * stateO)%type
+      ).
+    intros n [[[k1 e1] σ1] ĸ] [[[k2 e2] σ2] ĸ2] [[[Hk He] Hσ] _].
+    cbn in *|-*.
+    solve_proper.
+    Defined.
 
 (* Definition callccIF : oFunctor := (▶ ∙)%OF. *)
 
@@ -191,9 +196,10 @@ Section constructors.
   Notation IT := (IT E A).
   Notation ITV := (ITV E A).
 
-  Program Definition INPUT : (nat -n> IT) -n> IT := λne k, Vis (E:=E) (subEff_opid (inl ()))
-                                                             (subEff_ins (F:=ioE) (op:=(inl ())) ())
-                                                             (NextO ◎ k ◎ (subEff_outs (F:=ioE) (op:=(inl ())))^-1).
+  Program Definition INPUT : (nat -n> IT) -n> IT :=
+    λne k, Vis (E:=E) (subEff_opid (inl ()))
+             (subEff_ins (F:=ioE) (op:=(inl ())) ())
+             (NextO ◎ k ◎ (subEff_outs (F:=ioE) (op:=(inl ())))^-1).
   Solve Obligations with solve_proper.
   Program Definition OUTPUT_ : nat -n> IT -n> IT :=
     λne m α, Vis (E:=E) (subEff_opid (inr (inl ())))
@@ -202,29 +208,60 @@ Section constructors.
   Solve All Obligations with solve_proper_please.
   Program Definition OUTPUT : nat -n> IT := λne m, OUTPUT_ m (Ret 0).
 
-  Program Definition CALLCC : (laterO IT -n> laterO IT) -n> (IT -n> IT) -n> IT :=
-    λne f k, Vis (E := E) (subEff_opid (inr (inr (inl ()))))
-               (subEff_ins (F := ioE) (op :=(inr (inr (inl ())))) f)
-               (λne _, NextO (Fun (NextO k))).
+  Program Definition CALLCC : ((laterO IT -n> laterO IT) -n> laterO IT) -n>
+                                IT :=
+    λne f, Vis (E := E) (subEff_opid (inr (inr (inl ()))))
+             (subEff_ins (F := ioE) (op :=(inr (inr (inl ())))) f)
+             (λne x, (subEff_outs (F := ioE) (op := inr (inr (inl ()))))^-1 x).
+             (* (λne _, NextO (Fun (NextO k))). *)
   Next Obligation. solve_proper_please. Qed.
   Next Obligation.
     intros. intros f1 f2 R.
-    repeat f_equiv. solve_proper.
+    by repeat f_equiv.
   Qed.
-  Next Obligation. solve_proper. Qed.
 
-  Program Definition THROW : (laterO IT) -n> (IT -n> IT) -n> IT :=
+  (* THROW (e : expression) (k : continuation argument) *)
+  Program Definition THROW : (laterO IT) -n> laterO (IT -n> IT) -n> IT :=
     λne e k, Vis (E := E) (subEff_opid (inr (inr (inr (inl ())))))
                (subEff_ins (F := ioE) (op := (inr (inr (inr (inl ())))))
-                  (e, NextO (Fun (NextO k))))
-               (λne _, NextO (APP (Fun (NextO k)) e)).
-  Next Obligation. solve_proper_please. Qed.
+                           (laterO_ap k, e))
+               (λne x, match
+                         (subEff_outs (F := ioE)
+                            (op := (inr (inr (inr (inl ()))))))^-1
+                           x with end).
   Next Obligation.
-    intros. intros f1 f2 R.
-    repeat f_equiv; first done.
-    solve_proper.
+    intros. intros f1 f2 R. cbn. destruct ((subEff_outs ^-1) f1).
   Qed.
-  Next Obligation. solve_proper_please. Qed.
+  Solve All Obligations with solve_proper.
+
+  (* Let's see which one is easier to work with *)
+  Program Definition THROW' : IT -n> IT -n> IT :=
+      λne e k, get_fun
+                 (λne f, Vis (E := E) (subEff_opid (E := E) (F := ioE)
+                                         (inr (inr (inr (inl ())))))
+                           (subEff_ins (F := ioE) (op := (inr (inr (inr (inl ())))))
+                              (laterO_ap f, NextO e))
+               (λne x, match
+                         (subEff_outs (F := ioE)
+                            (op := (inr (inr (inr (inl ()))))))^-1
+                           x with end)
+                 ) k.
+  Next Obligation. intros. intros f1. destruct (subEff_outs^-1 f1). Qed.
+  Solve Obligations with try solve_proper.
+  Next Obligation. intros n f1 f2 R. solve_proper_please. Qed.
+
+  (* Program Definition THROW : (laterO IT) -n> (IT -n> IT) -n> IT := *)
+  (*   λne e k, Vis (E := E) (subEff_opid (inr (inr (inr (inl ()))))) *)
+  (*              (subEff_ins (F := ioE) (op := (inr (inr (inr (inl ()))))) *)
+  (*                 (e, NextO (Fun (NextO k)))) *)
+  (*              (λne _, NextO (APP (Fun (NextO k)) e)). *)
+  (* Next Obligation. solve_proper_please. Qed. *)
+  (* Next Obligation. *)
+  (*   intros. intros f1 f2 R. *)
+  (*   repeat f_equiv; first done. *)
+  (*   solve_proper. *)
+  (* Qed. *)
+  (* Next Obligation. solve_proper_please. Qed. *)
 
   Lemma hom_INPUT k f `{!IT_hom f} : f (INPUT k) ≡ INPUT (OfeMor f ◎ k).
   Proof.
@@ -455,7 +492,7 @@ Section interp.
     solve_proper.
   Qed.
 
-  Axiom falso : False.
+  (* Axiom falso : False. *)
 
   (** Interpretation for all the syntactic categories: values, expressions, contexts *)
   Fixpoint interp_val {S} (v : val S) : interp_scope S -n> IT :=
