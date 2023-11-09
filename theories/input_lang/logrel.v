@@ -13,6 +13,9 @@ Section logrel.
   Context `{!invGS Σ, !stateG rs natO Σ}.
   Notation iProp := (iProp Σ).
   Notation restO := (gState_rest sR_idx rs ♯ IT).
+  Variable (HCi : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
+    CtxIndep (gReifiers_sReifier rs)
+      (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) natO) o).
 
   Canonical Structure exprO S := leibnizO (expr S).
   Canonical Structure valO S := leibnizO (val S).
@@ -73,7 +76,7 @@ Section logrel.
       (∀ v βv, logrel_val τ1 βv v -∗
                    logrel_expr V2 (f (IT_of_V βv)) (fill K (Val v))) -∗
       logrel_expr V2 (f α) (fill K e).
-  Proof.
+  Proof using HCi.
     iIntros "H1 H2".
     iLöb as "IH" forall (α e).
     iIntros (σ) "Hs".
@@ -168,7 +171,7 @@ Section logrel.
       logrel_valid Γ e1 α1 τ -∗
       logrel_valid Γ e2 α2 τ -∗
       logrel_valid Γ (If e0 e1 e2) (interp_if rs α0 α1 α2) τ.
-  Proof.
+  Proof using HCi.
     iIntros "H0 H1 H2". iIntros (ss) "#Hss".
     simpl. simp subst_expr.
     pose (s := (subs_of_subs2 ss)). fold s.
@@ -276,7 +279,7 @@ Section logrel.
   ⊢ logrel_valid Γ e1 α1 (Tarr τ1 τ2) -∗
     logrel_valid Γ e2 α2 τ1 -∗
     logrel_valid Γ (App e1 e2) (interp_app rs α1 α2) τ2.
-  Proof.
+  Proof using HCi.
     iIntros "H1 H2".  iIntros (ss) "#Hss".
     iSpecialize ("H1" with "Hss").
     iSpecialize ("H2" with "Hss").
@@ -314,7 +317,7 @@ Section logrel.
   Lemma compat_output {S} Γ (e: expr S) α :
     ⊢ logrel_valid Γ e α Tnat -∗
       logrel_valid Γ (Output e) (interp_output rs α) Tnat.
-  Proof.
+  Proof using HCi.
     iIntros "H1".
     iIntros (ss) "Hss".
     iSpecialize ("H1" with "Hss").
@@ -342,7 +345,7 @@ Section logrel.
     ⊢ logrel_valid Γ e1 α1 Tnat -∗
       logrel_valid Γ e2 α2 Tnat -∗
       logrel_valid Γ (NatOp op e1 e2) (interp_natop rs op α1 α2) Tnat.
-  Proof.
+  Proof using HCi.
     iIntros "H1 H2".  iIntros (ss) "#Hss".
     iSpecialize ("H1" with "Hss").
     iSpecialize ("H2" with "Hss").
@@ -373,7 +376,7 @@ Section logrel.
     typed Γ e τ → ⊢ logrel_valid Γ e (interp_expr rs e) τ
   with fundamental_val {S} (Γ : tyctx S) τ v :
     typed_val Γ v τ → ⊢ logrel_valid Γ (Val v) (interp_val rs v) τ.
-  Proof.
+  Proof using HCi.
     - induction 1; simpl.
       + by apply fundamental_val.
       + by apply compat_var.
@@ -446,7 +449,7 @@ Proof.
   iAssert (has_substate σ) with "[Hs]" as "Hs".
   { unfold has_substate, has_full_state.
     assert (of_state rs (IT (gReifiers_ops rs) natO) (σ, ()) ≡
-            of_idx rs (IT (gReifiers_ops rs) natO) sR_idx (sR_state σ)) as -> ; last done. 
+            of_idx rs (IT (gReifiers_ops rs) natO) sR_idx (sR_state σ)) as -> ; last done.
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.
@@ -466,7 +469,10 @@ Proof.
 Qed.
 
 
-Theorem adequacy (e : expr []) (k : nat) σ σ' n :
+Theorem adequacy (e : expr []) (k : nat) σ σ' n
+  (HCi : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
+     CtxIndep (gReifiers_sReifier rs) (IT (sReifier_ops (gReifiers_sReifier rs)) natO) o)
+  :
   typed empC e Tnat →
   ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) (σ,()) (Ret k : IT _ natO) σ' n →
   ∃ mm σ', prim_steps e σ (Val $ Lit k) σ' mm.
