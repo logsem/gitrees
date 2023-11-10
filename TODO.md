@@ -1,0 +1,4 @@
+- Backward compatibility (affine lang, examples)
+- Reification for callcc
+- Denotation for input lang + callcc
+- Rules for context-dependent effects
