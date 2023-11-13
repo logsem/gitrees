@@ -588,7 +588,7 @@ Section weakestpre.
     rewrite reify_vis_eq //.
     pose proof (@subReifier_reify n sR rs _ IT _ op x y (k ◎ subEff_outs) σ σ' rest) as H.
     simpl in H.
-    rewrite ofe_iso_12 in H.
+    rewrite (ofe_iso_12 (subEff_outs)) in H.
     rewrite <-H.
     - simpl.
       repeat f_equiv.
