@@ -76,7 +76,7 @@ approach of (Benton, Hur, Kennedy, McBride, JAR 2012) with well-scoped
 terms and substitutions/renamings. 
 
 
-## Disjunction property
+### Disjunction property
 Some results in the formalization make use of the disjunction property
 of Iris: if (P ∨ Q) is provable, then either P or Q are provable on
 their own. This propery is used to show safety of the weakest
@@ -101,7 +101,7 @@ formalization, we added the disjunction propety as an assumption to
 the safety theorem (`wp_safety`) and all of its instances (e.g. in
 logical relations).
 
-## Ground type of errors
+### Ground type of errors
 
 One other difference with the paper worth mentioning, is that in the
 formalization we "hardcode" the type `Err` of errors, whereas in the
