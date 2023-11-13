@@ -70,7 +70,41 @@ to the code structure.
 
 ## Notes
 
+### Representations of binders
 For the representation of languages with binders, we follow the
 approach of (Benton, Hur, Kennedy, McBride, JAR 2012) with well-scoped
 terms and substitutions/renamings. 
 
+
+## Disjunction property
+Some results in the formalization make use of the disjunction property
+of Iris: if (P ∨ Q) is provable, then either P or Q are provable on
+their own. This propery is used to show safety of the weakest
+precondition, and it is related to the difference between internal and
+external reductions.
+
+The internal reductions of GITrees is the relation `istep`, as defined
+in the paper, and it has type `iProp` as it is an internal relatin.
+There is also a similar *external* reduction relation `sstep` which
+lives in Coq's `Prop`. We use the `istep` relation in our definitions
+(since it is an internal relation), but we want to state the safety
+result w.r.t. the external relation `sstep`, which we take to be the
+'proper definition' of the reductions for GITrees.
+
+Showing that `istep`-safety implies `sstep`-safety (i.e. that if a
+GITree can do an `istep` then it can also do a `sstep`) requires the
+disjunction propety. The disjunction property for Iris can be shown
+assuming classical axioms (e.g. LEM) on the `Prop`-level.
+
+In order not to introduce classical axioms into the whole
+formalization, we added the disjunction propety as an assumption to
+the safety theorem (`wp_safety`) and all of its instances (e.g. in
+logical relations).
+
+## Ground type of errors
+
+One other difference with the paper worth mentioning, is that in the
+formalization we "hardcode" the type `Err` of errors, whereas in the
+paper we leave it parameterized. That is why in the `affine_lang` case
+study we use `OtherError` to represent linearity violations, instead
+of `Err(Lin)`.
