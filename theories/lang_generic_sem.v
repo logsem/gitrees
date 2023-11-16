@@ -3,7 +3,7 @@ From gitrees Require Import gitree.
 Require Import List.
 Import ListNotations.
 
-Require Import Binding.Lib.
+Require Import Binding.Lib Binding.Set.
 From Equations Require Import Equations.
 
 Section interp.
@@ -42,6 +42,9 @@ Section interp.
     end.
     intros [| a]; simpl; solve_proper.
   Qed.
+
+  Program Definition ren_scope {S S'} (δ : S [→] S') (env : interp_scope S')
+    : interp_scope S := λne x, env (δ x).
 
   (* (** scope substituions *) *)
   (* Inductive ssubst : Set → Type := *)

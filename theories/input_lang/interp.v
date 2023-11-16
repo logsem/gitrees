@@ -13,24 +13,14 @@ Program Definition outputE : opInterp := {|
   Outs := unitO;
 |}.
 
-Program Definition callccE : opInterp :=
-  {|
-    Ins := ((▶ ∙ -n> ▶ ∙) -n> ▶ ∙)%OF;
-    Outs := (▶ ∙)%OF;
-  |}.
-Program Definition throwE : opInterp :=
-  {|
-    Ins := ((▶∙ -n> ▶∙) * ▶ ∙)%OF;
-    Outs := Empty_setO;
-  |}.
-Definition ioE := @[inputE;outputE;callccE;throwE].
+Definition ioE := @[inputE;outputE].
 Canonical Structure reify_io : sReifier.
 Proof.
   simple refine {| sReifier_ops := ioE;
                    sReifier_state := stateO
                 |}.
   intros X HX op.
-  destruct op as [[] | [ | [ | [ | []]]]]; simpl.
+  destruct op as [[] | [ | []]]; simpl.
   - simple refine (λne (us : (unitO * stateO * (natO -n> laterO X))%type),
                      let out : (natO * stateO)%type := (update_input (sndO (fstO us))) in
                      Some $ (us.2 out.1, out.2) :
@@ -44,147 +34,7 @@ Proof.
     cbn in HRn, HRσ, HR |-*.
     rewrite HRn HRσ. apply (@Some_ne (prodO (laterO X) stateO)).
     apply pair_dist_inj; solve_proper.
-  - simple refine (λne (us : (((laterO X -n> laterO X) -n> laterO X) * stateO *
-                                (laterO X -n> laterO X))%type),
-                     let '(f, σ, k) := us in
-                     Some $ (k (f k), σ) : optionO (laterO X * stateO)%type).
-    intros n [[f1 σ1] k1] [[f2 σ2] k2] [[Hf Hσ] Hk].
-    cbn in Hf, Hσ, Hk |-*.
-    solve_proper.
-  - simple refine (λne ( us : (prodO (laterO X -n> laterO X) (laterO X) *
-                                 stateO * (Empty_setO -n> laterO X))%type),
-                     let '((k', e), σ, _) := us in
-                     Some $ (k' e, σ) : optionO (laterO X * stateO)%type
-      ).
-    intros n [[[k1 e1] σ1] ĸ] [[[k2 e2] σ2] ĸ2] [[[Hk He] Hσ] _].
-    cbn in *|-*.
-    solve_proper.
-    Defined.
-
-(* Definition callccIF : oFunctor := (▶ ∙)%OF. *)
-
-(* #[local] Instance callccIF_inhabited X `{!Cofe X, !Inhabited X} : Inhabited (callccIF ♯ X). *)
-(* Proof. *)
-(*   constructor. *)
-(*   unshelve refine (Next inhabitant). *)
-(* Qed. *)
-(* #[local] Instance callccIF_cofe X `{!Cofe X} : Cofe (callccIF ♯ X). *)
-(* Proof. apply _. Qed. *)
-(* #[local] Instance callccIF_contr : oFunctorContractive callccIF. *)
-(* Proof. *)
-(*   intros ???????? n [a b] [c d] H. *)
-(*   apply laterO_map_contractive. *)
-(*   destruct n as [| n]. *)
-(*   - apply dist_later_0. *)
-(*   - apply dist_later_S. *)
-(*     apply dist_later_S in H. *)
-(*     destruct H as [H1 H2]; simpl in H1, H2. *)
-(*     by f_equiv. *)
-(* Qed. *)
-
-(* Definition callccOF : oFunctor := unitO. *)
-
-(* #[local] Instance callccOF_inhabited X `{!Cofe X, !Inhabited X} : Inhabited (callccOF ♯ X). *)
-(* Proof. *)
-(*   constructor. *)
-(*   simpl. *)
-(*   constructor. *)
-(* Qed. *)
-(* #[local] Instance callccOF_cofe X `{!Cofe X} : Cofe (callccOF ♯ X). *)
-(* Proof. apply _. Qed. *)
-(* #[local] Instance callccOF_contr : oFunctorContractive callccOF. *)
-(* Proof. *)
-(*   intros ???????? n [a b] [c d] H. *)
-(*   solve_proper. *)
-(* Qed. *)
-
-(* Program Definition callccE : opInterp :=  {| *)
-(*                                           Ins := callccIF; *)
-(*                                           Outs := callccOF; *)
-(*                                         |}. *)
-
-(* Definition throwIF : oFunctor := (▶ ∙ * ▶ ∙)%OF. *)
-
-(* #[local] Instance throwIF_inhabited X `{!Cofe X, !Inhabited X} : Inhabited (throwIF ♯ X). *)
-(* Proof. *)
-(*   constructor. *)
-(*   unshelve refine (Next inhabitant, Next inhabitant). *)
-(* Qed. *)
-(* #[local] Instance throwIF_cofe X `{!Cofe X} : Cofe (throwIF ♯ X). *)
-(* Proof. apply _. Qed. *)
-(* #[local] Instance throwIF_contr : oFunctorContractive throwIF. *)
-(* Proof. *)
-(*   intros ???????? n [a b] [c d] H. *)
-(*   simpl. *)
-(*   f_equiv. *)
-(*   { *)
-(*     apply laterO_map_contractive. *)
-(*     destruct n as [| n]. *)
-(*     - apply dist_later_0. *)
-(*     - apply dist_later_S. *)
-(*       apply dist_later_S in H. *)
-(*       destruct H as [H1 H2]; simpl in H1, H2. *)
-(*       assumption. *)
-(*   } *)
-(*   { *)
-(*     apply laterO_map_contractive. *)
-(*     destruct n as [| n]. *)
-(*     - apply dist_later_0. *)
-(*     - apply dist_later_S. *)
-(*       apply dist_later_S in H. *)
-(*       destruct H as [H1 H2]; simpl in H1, H2. *)
-(*       assumption. *)
-(*   } *)
-(* Qed. *)
-
-(* Definition throwOF : oFunctor := unitO. *)
-
-(* #[local] Instance throwOF_inhabited X `{!Cofe X, !Inhabited X} : Inhabited (throwOF ♯ X). *)
-(* Proof. *)
-(*   constructor. *)
-(*   apply (Next inhabitant). *)
-(* Qed. *)
-(* #[local] Instance throwOF_cofe X `{!Cofe X} : Cofe (throwOF ♯ X). *)
-(* Proof. apply _. Qed. *)
-(* #[local] Instance throwOF_contr : oFunctorContractive throwOF. *)
-(* Proof. *)
-(*   intros ???????? n [a b] [c d] H. *)
-(*   unfold throwOF; simpl. *)
-(*   reflexivity. *)
-(* Qed. *)
-
-(* Program Definition throwE : opInterp :=  {| *)
-(*   Ins := throwIF; *)
-(*   Outs := throwOF; *)
-(* |}. *)
-
-(* Definition ioE := @[inputE;outputE;callccE;throwE]. *)
-
-(* Canonical Structure reify_io : sReifier. *)
-(* Proof. *)
-(*   simple refine {| sReifier_ops := ioE; *)
-(*                    sReifier_state := stateO *)
-(*                 |}. *)
-(*   intros X HX op. *)
-(*   destruct op as [ | [ | [ | [| []]]]]; simpl. *)
-(*   - simple refine (λne (us : prodO (prodO unitO stateO) (natO -n> laterO X)), *)
-(*        Some $ update_input (sndO (fstO us)) : optionO (prodO natO stateO)). *)
-(*     intros n [[] s1] [[] s2] [[Hs1 Hs2] Hs]; simpl in *. *)
-(*     repeat f_equiv. apply Hs2. *)
-(*   - simple refine (λne (us : prodO (prodO natO stateO) (unitO -n> laterO X)), *)
-(*        Some $ ((), update_output (fstO (fstO us)) (sndO (fstO us))) : optionO (prodO unitO stateO)). *)
-(*     intros n [m s1] [m' s2] [-> Hs]. solve_proper. *)
-(*   - simple refine (λne (us : prodO (prodO (laterO X) stateO) (unitO -n> laterO X)), Some $ ((), sndO (fstO us))). *)
-(*     solve_proper. *)
-(*   - simple refine (λne (us : prodO (prodO (prodO (laterO X) (laterO X)) stateO) (unitO -n> laterO X)), _). *)
-(*     + destruct us as [[[us0 us1] us2] us3]. *)
-(*       (* if us1 is next(fun(k)) some k(us0) else none *) *)
-(*       admit. *)
-(*     + admit. *)
-(* Admitted. *)
-
-(* reify throw (x, next(fun(κ))) σ _ = (κ x) *)
-(* reify throw _ _ _ = Error      *)
+Defined.
 
 Section constructors.
   Context {E : opsInterp} {A} `{!Cofe A}.
@@ -222,61 +72,6 @@ Section constructors.
                         (λne _, NextO α).
   Solve All Obligations with solve_proper_please.
   Program Definition OUTPUT : nat -n> IT := λne m, OUTPUT_ m (Ret 0).
-
-  Program Definition CALLCC : ((laterO IT -n> laterO IT) -n> laterO IT) -n>
-                                IT :=
-    λne f, Vis (E := E) (subEff_opid (inr (inr (inl ()))))
-             (subEff_ins (F := ioE) (op :=(inr (inr (inl ())))) f)
-             (λne x, (subEff_outs (F := ioE) (op := inr (inr (inl ()))))^-1 x).
-             (* (λne _, NextO (Fun (NextO k))). *)
-  Next Obligation. solve_proper_please. Qed.
-  Next Obligation.
-    intros. intros f1 f2 R.
-    by repeat f_equiv.
-  Qed.
-
-  (* THROW (e : expression) (k : continuation argument) *)
-  Program Definition THROW : (laterO IT) -n> laterO (IT -n> IT) -n> IT :=
-    λne e k, Vis (E := E) (subEff_opid (inr (inr (inr (inl ())))))
-               (subEff_ins (F := ioE) (op := (inr (inr (inr (inl ())))))
-                           (laterO_ap k, e))
-               (λne x, match
-                         (subEff_outs (F := ioE)
-                            (op := (inr (inr (inr (inl ()))))))^-1
-                           x with end).
-  Next Obligation.
-    intros. intros f1 f2 R. cbn. destruct ((subEff_outs ^-1) f1).
-  Qed.
-  Solve All Obligations with solve_proper.
-
-  (* Let's see which one is easier to work with *)
-  Program Definition THROW' : IT -n> IT -n> IT :=
-      λne e k, get_fun
-                 (λne f, Vis (E := E) (subEff_opid (E := E) (F := ioE)
-                                         (inr (inr (inr (inl ())))))
-                           (subEff_ins (F := ioE) (op := (inr (inr (inr (inl ())))))
-                              (laterO_ap f, NextO e))
-               (λne x, match
-                         (subEff_outs (F := ioE)
-                            (op := (inr (inr (inr (inl ()))))))^-1
-                           x with end)
-                 ) k.
-  Next Obligation. intros. intros f1. destruct (subEff_outs^-1 f1). Qed.
-  Solve Obligations with try solve_proper.
-  Next Obligation. intros n f1 f2 R. solve_proper_please. Qed.
-
-  (* Program Definition THROW : (laterO IT) -n> (IT -n> IT) -n> IT := *)
-  (*   λne e k, Vis (E := E) (subEff_opid (inr (inr (inr (inl ()))))) *)
-  (*              (subEff_ins (F := ioE) (op := (inr (inr (inr (inl ()))))) *)
-  (*                 (e, NextO (Fun (NextO k)))) *)
-  (*              (λne _, NextO (APP (Fun (NextO k)) e)). *)
-  (* Next Obligation. solve_proper_please. Qed. *)
-  (* Next Obligation. *)
-  (*   intros. intros f1 f2 R. *)
-  (*   repeat f_equiv; first done. *)
-  (*   solve_proper. *)
-  (* Qed. *)
-  (* Next Obligation. solve_proper_please. Qed. *)
 
   Lemma hom_INPUT k f `{!IT_hom f} : f (INPUT k) ≡ INPUT (OfeMor f ◎ k).
   Proof.
