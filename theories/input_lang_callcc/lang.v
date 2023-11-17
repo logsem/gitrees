@@ -376,7 +376,7 @@ Inductive head_step {S} : expr S → state → expr S → state → ectx S → n
   head_step (If (Val (LitV n)) e1 e2) σ
     e2 σ K (0, 0)
 | CallccS e σ K :
-  head_step (Callcc e) σ (subst (Inc := inc) e (ContV K)) σ K (1, 0)
+  head_step (Callcc e) σ (subst (Inc := inc) e (ContV K)) σ K (1, 1)
 .
 
 Lemma head_step_io_01 {S} (e1 e2 : expr S) σ1 σ2 K n m :
