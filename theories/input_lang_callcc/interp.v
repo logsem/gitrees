@@ -385,7 +385,7 @@ Section interp.
          end
   with interp_ectx {S} (K : ectx S) : interp_scope S -n> (IT -n> IT) :=
          match K with
-         | EmptyK => λne env, λne t, t
+         | EmptyK => λne env, idfun
          | AppLK e1 K => interp_applk (interp_expr e1) (interp_ectx K)
          | AppRK K v2 => interp_apprk (interp_ectx K) (interp_val v2)
          | NatOpLK op e1 K => interp_natoplk op (interp_expr e1) (interp_ectx K)
@@ -396,6 +396,14 @@ Section interp.
          | ThrowRK v K => interp_throwrk (interp_val v) (interp_ectx K)
          end.
   Solve All Obligations with first [ solve_proper | solve_proper_please ].
+
+  Open Scope syn_scope.
+
+  Example callcc_ex : expr Empty_set :=
+    NatOp + (# 1) (Callcc (NatOp + (# 1) (Throw (# 2) (VarV VZ)))).
+  Eval cbn in callcc_ex.
+  Eval cbn in interp_expr callcc_ex
+                (λne (x : leibnizO Empty_set), match x with end).
 
   Global Instance interp_val_asval {S} {D : interp_scope S} {H : ∀ (x : S), AsVal (D x)} (v : val S)
     : AsVal (interp_val v D).
@@ -597,12 +605,47 @@ Section interp.
         intros ?; simpl; repeat f_equiv; by apply interp_val_subst.
   Qed.
 
-  (* (** ** Interpretation is a homomorphism *) *)
-  #[global] Instance interp_ectx_item_hom {S} (Ki : ectx S) env :
-    IT_hom (interp_ectx Ki env).
+  (** ** Interpretation is a homomorphism (for some constructors) *)
+  (* #[global] Instance interp_ectx_item_hom {S} (Ki : ectx S) env : *)
+  (*   IT_hom (interp_ectx Ki env). *)
+  (* Proof. *)
+  (*   destruct Ki; simpl. *)
+  (* Admitted. *)
+  #[global] Instance interp_ectx_item_hom_emp {S} env :
+    IT_hom (interp_ectx (EmptyK : ectx S) env).
   Proof.
-    destruct Ki; simpl.
-  Admitted.
+    simple refine (IT_HOM _ _ _ _ _); intros; auto.
+    simpl. fold (@idfun IT). f_equiv. intro. simpl.
+    by rewrite laterO_map_id.
+  Qed.
+
+  #[global] Instance interp_ectx_item_hom_output {S} (K : ectx S) env :
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (OutputK K) env).
+  Proof.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros.
+    - simpl. by rewrite !hom_tick.
+    - simpl. rewrite !hom_vis.
+      f_equiv. intro. simpl. rewrite laterO_map_compose.
+      f_equiv; auto. f_equiv. intro y. simpl. auto.
+    - simpl. by rewrite !hom_err.
+  Qed.
+  
+  (* #[global] Instance interp_ectx_item_hom_if {S} *)
+  (*   (K : ectx S) (e1 e2 : expr S) env : *)
+  (*   IT_hom (interp_ectx K env) -> *)
+  (*   IT_hom (interp_ectx (IfK K e1 e2) env). *)
+  (* Proof. *)
+  (*   intros. simple refine (IT_HOM _ _ _ _ _); intros. *)
+  (*   - simpl. rewrite -IF_Tick. do 3 f_equiv. apply hom_tick. *)
+  (*   - simpl. assert ((interp_ectx K env (Vis op i ko)) ≡ *)
+  (*       (Vis op i (laterO_map (λne y, interp_ectx K env y) ◎ ko))). *)
+  (*     { by rewrite hom_vis. } *)
+  (*     trans (IF (Vis op i (laterO_map (λne y : IT, interp_ectx K env y) ◎ ko)) *)
+  (*              (interp_expr e1 env) (interp_expr e2 env)). *)
+  (*     { do 3 f_equiv. by rewrite hom_vis. } *)
+  (*     rewrite IF_Vis. f_equiv. simpl. *)
+  (*     intro. simpl. rewrite -laterO_map_compose. *)
 
   (** ** Finally, preservation of reductions *)
   Lemma interp_expr_head_step {S : Set} (env : interp_scope S) (H : ∀ (x : S), AsVal (env x)) (e : expr S) e' σ σ' K n :
