@@ -8,26 +8,82 @@ Require Import Binding.Set.
 
 Notation stateO := (leibnizO state).
 
-Program Definition inputE : opInterp := {|
-                                         Ins := unitO;
-                                         Outs := natO;
-                                       |}.
-Program Definition outputE : opInterp := {|
-                                          Ins := natO;
-                                          Outs := unitO;
-                                        |}.
+Program Definition inputE : opInterp :=
+  {|
+    Ins := unitO;
+    Outs := natO;
+  |}.
+Program Definition outputE : opInterp :=
+  {|
+    Ins := natO;
+    Outs := unitO;
+  |}.
 
-Program Definition callccE : opInterp :=  {|
-                                          Ins := ((▶ ∙ -n> ▶ ∙) -n> ▶ ∙);
-                                          Outs := (▶ ∙);
-                                        |}.
+Program Definition callccE : opInterp :=
+  {|
+    Ins := ((▶ ∙ -n> ▶ ∙) -n> ▶ ∙);
+    Outs := (▶ ∙);
+  |}.
 
-Program Definition throwE : opInterp :=  {|
-                                         Ins := (▶ ∙ * (▶ (∙ -n> ∙)));
-                                         Outs := Empty_setO;
-                                       |}.
+Program Definition throwE : opInterp :=
+  {|
+    Ins := (▶ ∙ * (▶ (∙ -n> ∙)));
+    Outs := Empty_setO;
+  |}.
 
 Definition ioE := @[inputE;outputE;callccE;throwE].
+
+Definition reify_input X `{Cofe X} : unitO * stateO * (natO -n> laterO X) →
+                                     option (laterO X * stateO) :=
+  λ '(_, σ, k), let '(n, σ') := (update_input σ : prodO natO stateO) in
+                Some (k n, σ').
+#[export] Instance reify_input_ne X `{Cofe X} :
+  NonExpansive (reify_input X : prodO (prodO unitO stateO)
+                                  (natO -n> laterO X) →
+                                  optionO (prodO (laterO X) stateO)).
+Proof.
+  intros n [[? σ1] k1] [[? σ2] k2]. simpl.
+  intros [[_ ->] Hk]. simpl in *.
+  repeat f_equiv. assumption.
+Qed.
+
+Definition reify_output X `{Cofe X} : (natO * stateO * (unitO -n> laterO X)) →
+                                      optionO (prodO (laterO X) stateO) :=
+  λ '(n, σ, k), Some (k (), ((update_output n σ) : stateO)).
+#[export] Instance reify_output_ne X `{Cofe X} :
+  NonExpansive (reify_output X : prodO (prodO natO stateO)
+                                   (unitO -n> laterO X) →
+                                 optionO (prodO (laterO X) stateO)).
+Proof.
+  intros ? [[]] [[]] []; simpl in *.
+  repeat f_equiv; first assumption; apply H0.
+Qed.
+
+Definition reify_callcc X `{Cofe X} : ((laterO X -n> laterO X) -n> laterO X) *
+                                        stateO * (laterO X -n> laterO X) →
+                                      option (laterO X * stateO) :=
+  λ '(f, σ, k), Some ((k (f k): laterO X), σ : stateO).
+#[export] Instance reify_callcc_ne X `{Cofe X} :
+  NonExpansive (reify_callcc X :
+    prodO (prodO ((laterO X -n> laterO X) -n> laterO X) stateO)
+      (laterO X -n> laterO X) →
+    optionO (prodO (laterO X) stateO)).
+Proof. intros ?[[]][[]][[]]. simpl in *. repeat f_equiv; auto. Qed.
+
+Definition reify_throw X `{Cofe X} :
+  ((laterO X * (laterO (X -n> X))) * stateO * (Empty_setO -n> laterO X)) →
+  option (laterO X * stateO) :=
+  λ '((e, k'), σ, _),
+    Some (((laterO_ap k' : laterO X -n> laterO X) e : laterO X), σ : stateO).
+#[export] Instance reify_throw_ne X `{Cofe X} :
+  NonExpansive (reify_throw X :
+      prodO (prodO (prodO (laterO X) (laterO (X -n> X))) stateO)
+        (Empty_setO -n> laterO X) →
+    optionO (prodO (laterO X) (stateO))).
+Proof.
+  intros ?[[[]]][[[]]]?. rewrite /reify_throw.
+  repeat f_equiv; apply H0.
+Qed.
 
 Canonical Structure reify_io : sReifier.
 Proof.
@@ -36,24 +92,10 @@ Proof.
                 |}.
   intros X HX op.
   destruct op as [ | [ | [ | [| []]]]]; simpl.
-  - simple refine (λne (us : prodO (prodO unitO stateO) (natO -n> laterO X)),
-        let a : (prodO natO stateO) := (update_input (sndO (fstO us))) in
-       Some $ ((sndO us) (fstO a), sndO a) : optionO (prodO (laterO X) stateO)).
-    intros n [[] s1] [[] s2] [[Hs1 Hs2] Hs]; simpl in *.
-    repeat f_equiv; assumption.
-  - simple refine (λne (us : prodO (prodO natO stateO) (unitO -n> laterO X)),
-        let a : stateO := update_output (fstO (fstO us)) (sndO (fstO us)) in
-        Some $ ((sndO us) (), a) : optionO (prodO (laterO X) stateO)).
-    intros n [[t1 t2] s1] [[y1 y2] s2] [Hs' Hs]. simpl in *.
-    repeat f_equiv.
-    + apply Hs.
-    + apply Hs'.
-    + apply Hs'.
-  - simple refine (λne (us : prodO (prodO ((laterO X -n> laterO X) -n> laterO X) stateO) (laterO X -n> laterO X)), Some $ ((fstO (fstO us)) (sndO us), sndO (fstO us))).
-    solve_proper.
-  - simple refine (λne (us : prodO (prodO (prodO (laterO X) (laterO (X -n> X))) stateO) (Empty_setO -n> laterO X)), Some (laterO_ap us.1.1.2 us.1.1.1, sndO (fstO us))).
-    intros ????.
-    repeat f_equiv; assumption.
+  - simple refine (OfeMor (reify_input X)).
+  - simple refine (OfeMor (reify_output X)).
+  - simple refine (OfeMor (reify_callcc X)).
+  - simple refine (OfeMor (reify_throw X)).
 Defined.
 
 Section constructors.
@@ -63,16 +105,13 @@ Section constructors.
   Notation IT := (IT E A).
   Notation ITV := (ITV E A).
 
-  Program Definition CALLCC : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT :=
-    λne k, Vis (E:=E) (subEff_opid (inr (inr (inl ()))))
-             (subEff_ins (F:=ioE) (op:=(inr (inr (inl ())))) k)
-             (λne o, (subEff_outs (F:=ioE) (op:=(inr (inr (inl ())))))^-1 o).
-  Solve All Obligations with solve_proper.
 
-  Program Definition INPUT : (nat -n> IT) -n> IT := λne k, Vis (E:=E) (subEff_opid (inl ()))
-                                                             (subEff_ins (F:=ioE) (op:=(inl ())) ())
-                                                             (NextO ◎ k ◎ (subEff_outs (F:=ioE) (op:=(inl ())))^-1).
+  Program Definition INPUT : (nat -n> IT) -n> IT :=
+    λne k, Vis (E:=E) (subEff_opid (inl ()))
+             (subEff_ins (F:=ioE) (op:=(inl ())) ())
+             (NextO ◎ k ◎ (subEff_outs (F:=ioE) (op:=(inl ())))^-1).
   Solve Obligations with solve_proper.
+
   Program Definition OUTPUT_ : nat -n> IT -n> IT :=
     λne m α, Vis (E:=E) (subEff_opid (inr (inl ())))
                         (subEff_ins (F:=ioE) (op:=(inr (inl ()))) m)
@@ -95,10 +134,17 @@ Section constructors.
     done.
   Qed.
 
+  Program Definition CALLCC : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT :=
+    λne k, Vis (E:=E) (subEff_opid (inr (inr (inl ()))))
+             (subEff_ins (F:=ioE) (op:=(inr (inr (inl ())))) k)
+             (λne o, (subEff_outs (F:=ioE) (op:=(inr (inr (inl ())))))^-1 o).
+  Solve All Obligations with solve_proper.
+
   Program Definition THROW : IT -n> (laterO (IT -n> IT)) -n> IT :=
     λne m α, Vis (E:=E) (subEff_opid (inr (inr (inr (inl ())))))
-                        (subEff_ins (F:=ioE) (op:=(inr (inr (inr (inl ()))))) (NextO m, α))
-                        (λne _, laterO_ap α (NextO m)).
+               (subEff_ins (F:=ioE) (op:=(inr (inr (inr (inl ())))))
+                  (NextO m, α))
+               (λne _, laterO_ap α (NextO m)).
   Next Obligation.
     solve_proper.
   Qed.
@@ -185,8 +231,11 @@ Section interp.
   Local Instance interp_ouput_ne {A} : NonExpansive2 (@interp_output A).
   Proof. solve_proper. Qed.
 
-  Program Definition interp_callcc {S} (e : @interp_scope F R _ (inc S) -n> IT)
-    : interp_scope S -n> IT := λne env, CALLCC (λne (f : laterO IT -n> laterO IT), (Next (e (@extend_scope F R _ _ env (Fun (Next (λne x, Tau (f (Next x))))))))).
+  Program Definition interp_callcc {S}
+    (e : @interp_scope F R _ (inc S) -n> IT) : interp_scope S -n> IT :=
+    λne env, CALLCC (λne (f : laterO IT -n> laterO IT),
+                       (Next (e (@extend_scope F R _ _ env
+                                   (Fun (Next (λne x, Tau (f (Next x))))))))).
   Next Obligation.
     solve_proper.
   Qed.
@@ -208,7 +257,9 @@ Section interp.
   Qed.
 
   Program Definition interp_throw {A} (n : A -n> IT) (m : A -n> IT)
-    : A -n> IT := λne env, get_fun (λne (f : laterO (IT -n> IT)), THROW (n env) f) (m env).
+    : A -n> IT :=
+    λne env, get_fun (λne (f : laterO (IT -n> IT)),
+                        THROW (n env) f) (m env).
   Next Obligation.
     intros ????.
     intros n' x y H.
