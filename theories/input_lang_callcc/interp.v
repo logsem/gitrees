@@ -651,6 +651,68 @@ Section interp.
       apply IF_Err.
   Qed.
 
+  #[global] Instance interp_ectx_item_hom_appl {S} (K : ectx S)
+    (e : expr S) env :
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (AppLK e K) env).
+  Proof.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - by rewrite !hom_tick.
+    - rewrite !hom_vis. f_equiv. intro x. simpl.
+      by rewrite laterO_map_compose.
+    - by rewrite !hom_err.
+  Qed.
+
+  #[global] Instance interp_ectx_item_hom_appr {S} (K : ectx S)
+    (v : val S) (env : interp_scope S) :
+    (forall (x : S), AsVal (env x)) -> (* FIXME: probably not reasonable *)
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (AppRK K v) env).
+  Proof.
+    intros Hval H. simple refine (IT_HOM _ _ _ _ _); intros.
+    - simpl. rewrite -APP'_Tick_l. do 2 f_equiv. apply hom_tick.
+    - Disable Notation "⊙". simpl.
+      trans (APP' (Vis op i (laterO_map (interp_ectx K env) ◎ ko))
+               (interp_val v env)).
+      + do 2f_equiv. rewrite hom_vis. do 3 f_equiv. by intro.
+      + rewrite APP'_Vis_l. f_equiv. intro x. simpl.
+        by rewrite -laterO_map_compose.
+    - simpl. trans (APP' (Err e) (interp_val v env)).
+      { do 2f_equiv. apply hom_err. }
+      apply APP'_Err_l, interp_val_asval.
+  Qed.
+
+  #[global] Instance interp_ectx_item_homm_natopl {S} (K : ectx S)
+    (e : expr S) op env :
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (NatOpLK op e K) env).
+  Proof.
+    intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - by rewrite !hom_tick.
+    - rewrite !hom_vis. f_equiv. intro x. simpl.
+      by rewrite laterO_map_compose.
+    - by rewrite !hom_err.
+  Qed.
+
+  #[global] Instance interp_ectx_item_homm_natopr {S} (K : ectx S)
+    (v : val S) op (env : interp_scope S) :
+    (forall (x : S), AsVal (env x)) -> (* FIXME: probably not reasonable *)
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (NatOpRK op K v) env).
+  Proof.
+    intros Hval H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - rewrite -NATOP_ITV_Tick_l. do 2 f_equiv. apply hom_tick.
+    - trans (NATOP (do_natop op)
+               (Vis op0 i (laterO_map (interp_ectx K env) ◎ ko))
+               (interp_val v env)).
+      { do 2 f_equiv. rewrite hom_vis. f_equiv. by intro. }
+      rewrite NATOP_ITV_Vis_l. f_equiv. intro x. simpl.
+      by rewrite -laterO_map_compose.
+    - trans (NATOP (do_natop op) (Err e) (interp_val v env)).
+      + do 2 f_equiv. apply hom_err.
+      + apply NATOP_Err_l, interp_val_asval.
+  Qed.
+
 
   (** ** Finally, preservation of reductions *)
   Lemma interp_expr_head_step {S : Set} (env : interp_scope S) (H : ∀ (x : S), AsVal (env x)) (e : expr S) e' σ σ' K n :
