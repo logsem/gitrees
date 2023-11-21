@@ -631,21 +631,26 @@ Section interp.
     - simpl. by rewrite !hom_err.
   Qed.
   
-  (* #[global] Instance interp_ectx_item_hom_if {S} *)
-  (*   (K : ectx S) (e1 e2 : expr S) env : *)
-  (*   IT_hom (interp_ectx K env) -> *)
-  (*   IT_hom (interp_ectx (IfK K e1 e2) env). *)
-  (* Proof. *)
-  (*   intros. simple refine (IT_HOM _ _ _ _ _); intros. *)
-  (*   - simpl. rewrite -IF_Tick. do 3 f_equiv. apply hom_tick. *)
-  (*   - simpl. assert ((interp_ectx K env (Vis op i ko)) ≡ *)
-  (*       (Vis op i (laterO_map (λne y, interp_ectx K env y) ◎ ko))). *)
-  (*     { by rewrite hom_vis. } *)
-  (*     trans (IF (Vis op i (laterO_map (λne y : IT, interp_ectx K env y) ◎ ko)) *)
-  (*              (interp_expr e1 env) (interp_expr e2 env)). *)
-  (*     { do 3 f_equiv. by rewrite hom_vis. } *)
-  (*     rewrite IF_Vis. f_equiv. simpl. *)
-  (*     intro. simpl. rewrite -laterO_map_compose. *)
+  #[global] Instance interp_ectx_item_hom_if {S}
+    (K : ectx S) (e1 e2 : expr S) env :
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (IfK K e1 e2) env).
+  Proof.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros.
+    - simpl. rewrite -IF_Tick. do 3 f_equiv. apply hom_tick.
+    - simpl. assert ((interp_ectx K env (Vis op i ko)) ≡
+        (Vis op i (laterO_map (λne y, interp_ectx K env y) ◎ ko))).
+      { by rewrite hom_vis. }
+      trans (IF (Vis op i (laterO_map (λne y : IT, interp_ectx K env y) ◎ ko))
+               (interp_expr e1 env) (interp_expr e2 env)).
+      { do 3 f_equiv. by rewrite hom_vis. }
+      rewrite IF_Vis. f_equiv. simpl.
+      intro. simpl. by rewrite -laterO_map_compose.
+    - simpl. trans (IF (Err e) (interp_expr e1 env) (interp_expr e2 env)).
+      { repeat f_equiv. apply hom_err. }
+      apply IF_Err.
+  Qed.
+
 
   (** ** Finally, preservation of reductions *)
   Lemma interp_expr_head_step {S : Set} (env : interp_scope S) (H : ∀ (x : S), AsVal (env x)) (e : expr S) e' σ σ' K n :
