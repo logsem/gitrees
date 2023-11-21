@@ -368,13 +368,13 @@ Section interp.
   Fixpoint interp_val {S} (v : val S) : interp_scope S -n> IT :=
     match v with
     | LitV n => interp_nat n
-    | VarV x => interp_var x
     | RecV e => interp_rec (interp_expr e)
     | ContV K => interp_cont (interp_ectx K)
     end
   with interp_expr {S} (e : expr S) : interp_scope S -n> IT :=
          match e with
          | Val v => interp_val v
+         | Var x => interp_var x
          | App e1 e2 => interp_app (interp_expr e1) (interp_expr e2)
          | NatOp op e1 e2 => interp_natop op (interp_expr e1) (interp_expr e2)
          | If e e1 e2 => interp_if (interp_expr e) (interp_expr e1) (interp_expr e2)
@@ -400,16 +400,15 @@ Section interp.
   Open Scope syn_scope.
 
   Example callcc_ex : expr Empty_set :=
-    NatOp + (# 1) (Callcc (NatOp + (# 1) (Throw (# 2) (VarV VZ)))).
+    NatOp + (# 1) (Callcc (NatOp + (# 1) (Throw (# 2) (Var VZ)))).
   Eval cbn in callcc_ex.
   Eval cbn in interp_expr callcc_ex
                 (λne (x : leibnizO Empty_set), match x with end).
 
-  Global Instance interp_val_asval {S} {D : interp_scope S} {H : ∀ (x : S), AsVal (D x)} (v : val S)
+  Global Instance interp_val_asval {S} {D : interp_scope S} (v : val S)
     : AsVal (interp_val v D).
   Proof.
     destruct v; simpl.
-    - apply H.
     - apply _.
     - rewrite interp_rec_unfold. apply _.
     - apply _.
@@ -419,8 +418,8 @@ Section interp.
 
   Global Instance ArrDist {A B : Set} `{Dist B} : Dist (A [→] B) := fun n => fun f g => ∀ x, f x ≡{n}≡ g x.
 
-  Global Instance ren_scope_proper S S2 :
-    Proper ((≡) ==> (≡) ==> (≡)) (@ren_scope F _ CR S S2).
+  Global Instance ren_scope_proper {S S'} :
+    Proper ((≡) ==> (≡) ==> (≡)) (@ren_scope F _ CR S S').
   Proof.
     intros D D' HE s1 s2 Hs.
     intros x; simpl.
@@ -441,10 +440,11 @@ Section interp.
   Proof.
     - destruct e; simpl.
       + by apply interp_val_ren.
+      + reflexivity.
       + repeat f_equiv; by apply interp_expr_ren.
       + repeat f_equiv; by apply interp_expr_ren.
       + repeat f_equiv; by apply interp_expr_ren.
-      + f_equiv.
+      + repeat f_equiv; by apply interp_expr_ren.
       + repeat f_equiv; by apply interp_expr_ren.
       + repeat f_equiv.
         intros ?; simpl.
@@ -461,7 +461,6 @@ Section interp.
           repeat f_equiv; by apply interp_expr_ren.
         * by apply interp_expr_ren.
     - destruct e; simpl.
-      + reflexivity.
       + reflexivity.
       + clear -interp_expr_ren.
         apply bi.siProp.internal_eq_soundness.
@@ -517,12 +516,12 @@ Section interp.
   Qed.
 
   Program Definition sub_scope {S S'} (δ : S [⇒] S') (env : interp_scope S')
-    : interp_scope S := λne x, interp_val (δ x) env.
+    : interp_scope S := λne x, interp_expr (δ x) env.
 
   Global Instance SubEquiv {A B : Set} : Equiv (A [⇒] B) := fun f g => ∀ x, f x = g x.
 
-  Global Instance sub_scope_proper S S2 :
-    Proper ((≡) ==> (≡) ==> (≡)) (@sub_scope S S2).
+  Global Instance sub_scope_proper {S S'} :
+    Proper ((≡) ==> (≡) ==> (≡)) (@sub_scope S S').
   Proof.
     intros D D' HE s1 s2 Hs.
     intros x; simpl.
@@ -544,6 +543,8 @@ Section interp.
   Proof.
     - destruct e; simpl.
       + by apply interp_val_subst.
+      + term_simpl.
+        reflexivity.
       + repeat f_equiv; by apply interp_expr_subst.
       + repeat f_equiv; by apply interp_expr_subst.
       + repeat f_equiv; by apply interp_expr_subst.
@@ -556,7 +557,7 @@ Section interp.
         f_equiv.
         intros [| x']; simpl.
         * reflexivity.
-        * rewrite interp_val_ren.
+        * rewrite interp_expr_ren.
           f_equiv.
           intros ?; reflexivity.
       + repeat f_equiv.
@@ -566,8 +567,6 @@ Section interp.
           repeat f_equiv; by apply interp_expr_subst.
         * by apply interp_expr_subst.
     - destruct e; simpl.
-      + term_simpl.
-        reflexivity.
       + reflexivity.
       + clear -interp_expr_subst.
         apply bi.siProp.internal_eq_soundness.
@@ -583,7 +582,7 @@ Section interp.
         iIntros (y').
         destruct y' as [| [| y]]; simpl; first done.
         * by iRewrite - "IH".
-        * do 2 rewrite interp_val_ren.
+        * do 2 rewrite interp_expr_ren.
           iApply f_equivI.
           iApply internal_eq_pointwise.
           iIntros (z).
@@ -606,11 +605,7 @@ Section interp.
   Qed.
 
   (** ** Interpretation is a homomorphism (for some constructors) *)
-  (* #[global] Instance interp_ectx_item_hom {S} (Ki : ectx S) env : *)
-  (*   IT_hom (interp_ectx Ki env). *)
-  (* Proof. *)
-  (*   destruct Ki; simpl. *)
-  (* Admitted. *)
+
   #[global] Instance interp_ectx_item_hom_emp {S} env :
     IT_hom (interp_ectx (EmptyK : ectx S) env).
   Proof.
@@ -630,7 +625,7 @@ Section interp.
       f_equiv; auto. f_equiv. intro y. simpl. auto.
     - simpl. by rewrite !hom_err.
   Qed.
-  
+
   #[global] Instance interp_ectx_item_hom_if {S}
     (K : ectx S) (e1 e2 : expr S) env :
     IT_hom (interp_ectx K env) ->
