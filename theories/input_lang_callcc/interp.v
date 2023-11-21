@@ -660,11 +660,10 @@ Section interp.
 
   #[global] Instance interp_ectx_hom_appr {S} (K : ectx S)
     (v : val S) (env : interp_scope S) :
-    (AsVal (interp_val v env)) -> (* FIXME: probably not reasonable *)
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (AppRK K v) env).
   Proof.
-    intros Hval H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - rewrite -APP'_Tick_l. do 2 f_equiv. apply hom_tick.
     - trans (APP' (Vis op i (laterO_map (interp_ectx K env) ◎ ko))
                (interp_val v env)).
@@ -673,7 +672,7 @@ Section interp.
         by rewrite -laterO_map_compose.
     - trans (APP' (Err e) (interp_val v env)).
       { do 2f_equiv. apply hom_err. }
-      by apply APP'_Err_l.
+      apply APP'_Err_l, interp_val_asval.
   Qed.
 
   #[global] Instance interp_ectx_hom_natopl {S} (K : ectx S)
@@ -690,7 +689,6 @@ Section interp.
 
   #[global] Instance interp_ectx_hom_natopr {S} (K : ectx S)
     (v : val S) op (env : interp_scope S) :
-    (AsVal (interp_val v env)) -> (* FIXME: probably not reasonable *)
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (NatOpRK op K v) env).
   Proof.
@@ -704,7 +702,7 @@ Section interp.
       by rewrite -laterO_map_compose.
     - trans (NATOP (do_natop op) (Err e) (interp_val v env)).
       + do 2 f_equiv. apply hom_err.
-      + by apply NATOP_Err_l.
+      + by apply NATOP_Err_l, interp_val_asval.
   Qed.
 
 
