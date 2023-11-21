@@ -11,6 +11,7 @@ Inductive nat_op := Add | Sub | Mult.
 Inductive expr {X : Set} :=
 (* Values *)
 | Val (v : val) : expr
+| Var (x : X) : expr
 (* Base lambda calculus *)
 | App (e₁ : expr) (e₂ : expr) : expr
 (* Base types and their operations *)
@@ -22,7 +23,6 @@ Inductive expr {X : Set} :=
 | Callcc (e : @expr (inc X)) : expr
 | Throw (e₁ : expr) (e₂ : expr) : expr
 with val {X : Set} :=
-| VarV (x : X) : val
 | LitV (n : nat) : val
 | RecV (e : @expr (inc (inc X))) : val
 | ContV (K : ectx) : val
@@ -112,6 +112,7 @@ Local Open Scope bind_scope.
 Fixpoint emap {A B : Set} (f : A [→] B) (e : expr A) : expr B :=
   match e with
   | Val v => Val (vmap f v)
+  | Var x => Var (f x)
   | App e₁ e₂ => App (emap f e₁) (emap f e₂)
   | NatOp o e₁ e₂ => NatOp o (emap f e₁) (emap f e₂)
   | If e₁ e₂ e₃ => If (emap f e₁) (emap f e₂) (emap f e₃)
@@ -122,7 +123,6 @@ Fixpoint emap {A B : Set} (f : A [→] B) (e : expr A) : expr B :=
   end
 with vmap {A B : Set} (f : A [→] B) (v : val A) : val B :=
        match v with
-       | VarV x => VarV (f x)
        | LitV n => LitV n
        | RecV e => RecV (emap ((f ↑) ↑) e)
        | ContV K => ContV (kmap f K)
@@ -158,11 +158,12 @@ Proof.
     intros f; term_simpl; first done; rewrite IH; reflexivity.
 Qed.
 
-#[export] Instance SPC_val : SetPureCore val := @VarV.
+#[export] Instance SPC_expr : SetPureCore expr := @Var.
 
 Fixpoint ebind {A B : Set} (f : A [⇒] B) (e : expr A) : expr B :=
   match e with
   | Val v => Val (vbind f v)
+  | Var x => f x
   | App e₁ e₂ => App (ebind f e₁) (ebind f e₂)
   | NatOp o e₁ e₂ => NatOp o (ebind f e₁) (ebind f e₂)
   | If e₁ e₂ e₃ => If (ebind f e₁) (ebind f e₂) (ebind f e₃)
@@ -173,7 +174,6 @@ Fixpoint ebind {A B : Set} (f : A [⇒] B) (e : expr A) : expr B :=
   end
 with vbind {A B : Set} (f : A [⇒] B) (v : val A) : val B :=
        match v with
-       | VarV x => f x
        | LitV n => LitV n
        | RecV e => RecV (ebind ((f ↑) ↑) e)
        | ContV K => ContV (kbind f K)
@@ -195,7 +195,7 @@ with kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B :=
 #[export] Instance BindCore_val  : BindCore val := @vbind.
 #[export] Instance BindCore_ectx  : BindCore ectx := @kbind.
 
-#[export] Instance IP_typ : SetPure val.
+#[export] Instance IP_typ : SetPure expr.
 Proof.
   split; intros; reflexivity.
 Qed.
@@ -356,7 +356,7 @@ Definition update_output (n:nat) (s : state) : state :=
 
 Inductive head_step {S} : expr S → state → expr S → state → ectx S → nat * nat → Prop :=
 | BetaS e1 v2 σ K :
-  head_step (App (Val $ RecV e1) (Val v2)) σ (subst (Inc := inc) ((subst (Inc := inc) e1) (shift v2)) (RecV e1)) σ K (1,0)
+  head_step (App (Val $ RecV e1) (Val v2)) σ (subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1) (Val (shift (Inc := inc) v2))) (Val (RecV e1))) σ K (1,0)
 | InputS σ n σ' K :
   update_input σ = (n, σ') →
   head_step Input σ (Val (LitV n)) σ' K (1, 1)
@@ -376,7 +376,7 @@ Inductive head_step {S} : expr S → state → expr S → state → ectx S → n
   head_step (If (Val (LitV n)) e1 e2) σ
     e2 σ K (0, 0)
 | CallccS e σ K :
-  head_step (Callcc e) σ (subst (Inc := inc) e (ContV K)) σ K (1, 1)
+  head_step (Callcc e) σ (subst (Inc := inc) e (Val (ContV K))) σ K (1, 1)
 .
 
 Lemma head_step_io_01 {S} (e1 e2 : expr S) σ1 σ2 K n m :
@@ -526,6 +526,9 @@ Inductive typed {S : Set} (Γ : S -> ty) : expr S → ty → Prop :=
 | typed_Val (τ : ty) (v : val S)  :
   typed_val Γ v τ →
   typed Γ (Val v) τ
+| typed_Var (τ : ty) (v : S)  :
+  Γ v = τ →
+  typed Γ (Var v) τ
 | typed_App (τ1 τ2 : ty) e1 e2 :
   typed Γ e1 (Tarr τ1 τ2) →
   typed Γ e2 τ1 →
@@ -552,9 +555,6 @@ Inductive typed {S : Set} (Γ : S -> ty) : expr S → ty → Prop :=
   typed (Γ ▹ Tcont τ) e τ ->
   typed Γ (Callcc e) τ
 with typed_val {S : Set} (Γ : S -> ty) : val S → ty → Prop :=
-| typed_Var (τ : ty) (v : S)  :
-  Γ v = τ →
-  typed_val Γ (VarV v) τ
 | typed_Lit n :
   typed_val Γ (LitV n) Tnat
 | typed_RecV (τ1 τ2 : ty) (e : expr (inc (inc S))) :
