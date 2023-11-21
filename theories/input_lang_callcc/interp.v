@@ -606,7 +606,7 @@ Section interp.
 
   (** ** Interpretation is a homomorphism (for some constructors) *)
 
-  #[global] Instance interp_ectx_item_hom_emp {S} env :
+  #[global] Instance interp_ectx_hom_emp {S} env :
     IT_hom (interp_ectx (EmptyK : ectx S) env).
   Proof.
     simple refine (IT_HOM _ _ _ _ _); intros; auto.
@@ -614,7 +614,7 @@ Section interp.
     by rewrite laterO_map_id.
   Qed.
 
-  #[global] Instance interp_ectx_item_hom_output {S} (K : ectx S) env :
+  #[global] Instance interp_ectx_hom_output {S} (K : ectx S) env :
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (OutputK K) env).
   Proof.
@@ -626,7 +626,7 @@ Section interp.
     - simpl. by rewrite !hom_err.
   Qed.
 
-  #[global] Instance interp_ectx_item_hom_if {S}
+  #[global] Instance interp_ectx_hom_if {S}
     (K : ectx S) (e1 e2 : expr S) env :
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (IfK K e1 e2) env).
@@ -646,9 +646,109 @@ Section interp.
       apply IF_Err.
   Qed.
 
+  #[global] Instance interp_ectx_hom_appl {S}
+    (K : ectx S) (e : expr S) env :
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (AppLK e K) env).
+  Proof.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros.
+    - simpl; rewrite hom_tick.
+      apply APP'_Tick_r.
+    - simpl; rewrite !hom_vis.
+      f_equiv.
+      intro; simpl.
+      rewrite laterO_map_compose.
+      f_equiv; last done.
+      f_equiv.
+      intro; done.
+    - simpl; by rewrite !hom_err.
+  Qed.
+
+  #[global] Instance interp_ectx_hom_appr {S}
+    (K : ectx S) (v : val S) env :
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (AppRK K v) env).
+  Proof.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros.
+    - simpl.
+      rewrite -APP'_Tick_l.
+      do 2 f_equiv.
+      apply hom_tick.
+    - simpl.
+      trans (Vis op i (laterO_map (λne y, interp_ectx K env y) ◎ ko) ⊙ (interp_val v env)).
+      { do 2 f_equiv. apply hom_vis. }
+      rewrite APP'_Vis_l.
+      simpl.
+      f_equiv.
+      intro; simpl.
+      rewrite -laterO_map_compose.
+      do 2 f_equiv.
+      by intro; simpl.
+    - simpl.
+      trans ((Err e) ⊙ (interp_val v env)).
+      { do 2 f_equiv; apply hom_err. }
+      by rewrite APP'_Err_l.
+  Qed.
+
+  #[global] Instance interp_ectx_hom_natl {S}
+    op (K : ectx S) (e : expr S) env :
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (NatOpLK op e K) env).
+  Proof.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros.
+    - simpl; by rewrite !hom_tick.
+    - simpl; rewrite !hom_vis.
+      f_equiv.
+      intro; simpl.
+      rewrite laterO_map_compose.
+      reflexivity.
+    - simpl; by rewrite !hom_err.
+  Qed.
+
+  #[global] Instance interp_ectx_hom_natr {S}
+    op (K : ectx S) (v : val S) env :
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (NatOpRK op K v) env).
+  Proof.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros.
+    - simpl.
+      trans (NATOP (do_natop op) (Tick (interp_ectx K env α)) (interp_val v env)).
+      { do 2 f_equiv; apply hom_tick. }
+      by rewrite NATOP_ITV_Tick_l.
+    - simpl.
+      trans (NATOP (do_natop op) (Vis _ i (laterO_map (λne y, interp_ectx K env y) ◎ ko)) (interp_val v env)).
+      { do 2 f_equiv; apply hom_vis. }
+      rewrite NATOP_ITV_Vis_l.
+      f_equiv.
+      intro; simpl.
+      rewrite -laterO_map_compose.
+      do 2 f_equiv.
+      by intro; simpl.
+    - simpl.
+      trans (NATOP (do_natop op) (Err e) (interp_val v env)).
+      { do 2 f_equiv; apply hom_err. }
+      by rewrite NATOP_Err_l.
+  Qed.
+
+  #[global] Instance interp_ectx_hom_throwr {S}
+    (K : ectx S) (v : val S) env :
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (ThrowRK v K) env).
+  Proof.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros.
+    - simpl; rewrite -get_fun_tick.
+      f_equiv.
+      apply hom_tick.
+    - simpl; rewrite !hom_vis.
+      f_equiv.
+      intro; simpl.
+      rewrite laterO_map_compose.
+      reflexivity.
+    - simpl; by rewrite !hom_err.
+  Qed.
 
   (** ** Finally, preservation of reductions *)
-  Lemma interp_expr_head_step {S : Set} (env : interp_scope S) (H : ∀ (x : S), AsVal (env x)) (e : expr S) e' σ σ' K n :
+  Lemma interp_expr_head_step {S : Set} (env : interp_scope S) (e : expr S) e' σ σ' K n :
     head_step e σ e' σ' K (n, 0) →
     interp_expr e env ≡ Tick_n n $ interp_expr e' env.
   Proof.
@@ -677,7 +777,7 @@ Section interp.
       reflexivity.
   Qed.
 
-  Lemma interp_expr_fill_no_reify {S} K (env : interp_scope S) (H : ∀ (x : S), AsVal (env x)) (e e' : expr S) σ σ' n :
+  Lemma interp_expr_fill_no_reify {S} K (env : interp_scope S) (e e' : expr S) σ σ' n :
     head_step e σ e' σ' K (n, 0) →
     interp_expr (fill K e) env ≡ Tick_n n $ interp_expr (fill K e') env.
   Proof.
@@ -687,13 +787,12 @@ Section interp.
     trans (interp_ectx K env (Tick_n n (interp_expr e' env))).
     {
       f_equiv. apply (interp_expr_head_step env) in He.
-      - apply He.
-      - apply H.
+      apply He.
     }
     trans (Tick_n n $ interp_ectx K env (interp_expr e' env)); last first.
     { f_equiv. symmetry. apply interp_comp. }
-    apply hom_tick_n. apply _.
-  Qed.
+    apply hom_tick_n.
+  Admitted.
 
   Opaque INPUT OUTPUT_.
   Opaque Ret.
@@ -713,6 +812,7 @@ Section interp.
     - trans (reify (gReifiers_sReifier rs) (INPUT (interp_ectx K env ◎ Ret)) (gState_recomp σr (sR_state σ))).
       {
         repeat f_equiv; eauto.
+        unshelve erewrite hom_INPUT.
         rewrite hom_INPUT. f_equiv. by intro.
       }
       rewrite reify_vis_eq //; last first.
