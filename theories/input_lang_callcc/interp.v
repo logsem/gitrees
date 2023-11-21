@@ -606,11 +606,7 @@ Section interp.
   Qed.
 
   (** ** Interpretation is a homomorphism (for some constructors) *)
-  (* #[global] Instance interp_ectx_item_hom {S} (Ki : ectx S) env : *)
-  (*   IT_hom (interp_ectx Ki env). *)
-  (* Proof. *)
-  (*   destruct Ki; simpl. *)
-  (* Admitted. *)
+
   #[global] Instance interp_ectx_item_hom_emp {S} env :
     IT_hom (interp_ectx (EmptyK : ectx S) env).
   Proof.
@@ -623,22 +619,22 @@ Section interp.
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (OutputK K) env).
   Proof.
-    intros. simple refine (IT_HOM _ _ _ _ _); intros.
-    - simpl. by rewrite !hom_tick.
-    - simpl. rewrite !hom_vis.
-      f_equiv. intro. simpl. rewrite laterO_map_compose.
-      f_equiv; auto. f_equiv. intro y. simpl. auto.
-    - simpl. by rewrite !hom_err.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - by rewrite !hom_tick.
+    - rewrite !hom_vis.
+      f_equiv. intro. simpl. rewrite -laterO_map_compose.
+      do 2 f_equiv. by intro.
+    - by rewrite !hom_err.
   Qed.
-  
+
   #[global] Instance interp_ectx_item_hom_if {S}
     (K : ectx S) (e1 e2 : expr S) env :
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (IfK K e1 e2) env).
   Proof.
-    intros. simple refine (IT_HOM _ _ _ _ _); intros.
-    - simpl. rewrite -IF_Tick. do 3 f_equiv. apply hom_tick.
-    - simpl. assert ((interp_ectx K env (Vis op i ko)) ≡
+    intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - rewrite -IF_Tick. do 3 f_equiv. apply hom_tick.
+    - assert ((interp_ectx K env (Vis op i ko)) ≡
         (Vis op i (laterO_map (λne y, interp_ectx K env y) ◎ ko))).
       { by rewrite hom_vis. }
       trans (IF (Vis op i (laterO_map (λne y : IT, interp_ectx K env y) ◎ ko))
@@ -646,7 +642,7 @@ Section interp.
       { do 3 f_equiv. by rewrite hom_vis. }
       rewrite IF_Vis. f_equiv. simpl.
       intro. simpl. by rewrite -laterO_map_compose.
-    - simpl. trans (IF (Err e) (interp_expr e1 env) (interp_expr e2 env)).
+    - trans (IF (Err e) (interp_expr e1 env) (interp_expr e2 env)).
       { repeat f_equiv. apply hom_err. }
       apply IF_Err.
   Qed.
@@ -665,21 +661,20 @@ Section interp.
 
   #[global] Instance interp_ectx_item_hom_appr {S} (K : ectx S)
     (v : val S) (env : interp_scope S) :
-    (forall (x : S), AsVal (env x)) -> (* FIXME: probably not reasonable *)
+    (AsVal (interp_val v env)) -> (* FIXME: probably not reasonable *)
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (AppRK K v) env).
   Proof.
-    intros Hval H. simple refine (IT_HOM _ _ _ _ _); intros.
-    - simpl. rewrite -APP'_Tick_l. do 2 f_equiv. apply hom_tick.
-    - Disable Notation "⊙". simpl.
-      trans (APP' (Vis op i (laterO_map (interp_ectx K env) ◎ ko))
+    intros Hval H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - rewrite -APP'_Tick_l. do 2 f_equiv. apply hom_tick.
+    - trans (APP' (Vis op i (laterO_map (interp_ectx K env) ◎ ko))
                (interp_val v env)).
       + do 2f_equiv. rewrite hom_vis. do 3 f_equiv. by intro.
       + rewrite APP'_Vis_l. f_equiv. intro x. simpl.
         by rewrite -laterO_map_compose.
-    - simpl. trans (APP' (Err e) (interp_val v env)).
+    - trans (APP' (Err e) (interp_val v env)).
       { do 2f_equiv. apply hom_err. }
-      apply APP'_Err_l, interp_val_asval.
+      by apply APP'_Err_l.
   Qed.
 
   #[global] Instance interp_ectx_item_homm_natopl {S} (K : ectx S)
@@ -696,7 +691,7 @@ Section interp.
 
   #[global] Instance interp_ectx_item_homm_natopr {S} (K : ectx S)
     (v : val S) op (env : interp_scope S) :
-    (forall (x : S), AsVal (env x)) -> (* FIXME: probably not reasonable *)
+    (AsVal (interp_val v env)) -> (* FIXME: probably not reasonable *)
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (NatOpRK op K v) env).
   Proof.
@@ -710,7 +705,7 @@ Section interp.
       by rewrite -laterO_map_compose.
     - trans (NATOP (do_natop op) (Err e) (interp_val v env)).
       + do 2 f_equiv. apply hom_err.
-      + apply NATOP_Err_l, interp_val_asval.
+      + by apply NATOP_Err_l.
   Qed.
 
 
