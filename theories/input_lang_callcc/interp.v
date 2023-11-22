@@ -301,10 +301,16 @@ Section interp.
     by do 2 f_equiv.
   Qed.
 
-  Program Definition interp_rec {S : Set} (body : @interp_scope F R _ (inc (inc S)) -n> IT) : @interp_scope F R _ S -n> IT := mmuu (interp_rec_pre body).
+  Program Definition interp_rec {S : Set}
+    (body : @interp_scope F R _ (inc (inc S)) -n> IT) :
+    @interp_scope F R _ S -n> IT :=
+    mmuu (interp_rec_pre body).
 
-  Program Definition ir_unf {S : Set} (body : @interp_scope F R _ (inc (inc S)) -n> IT) env : IT -n> IT :=
-    λne a, body (@extend_scope F R _ _ (@extend_scope F R _ _ env (interp_rec body env)) a).
+  Program Definition ir_unf {S : Set}
+    (body : @interp_scope F R _ (inc (inc S)) -n> IT) env : IT -n> IT :=
+    λne a, body (@extend_scope F R _ _
+                   (@extend_scope F R _ _ env (interp_rec body env))
+                   a).
   Next Obligation.
     intros.
     solve_proper_prepare.
@@ -337,31 +343,48 @@ Section interp.
   Program Definition interp_nat (n : nat) {A} : A -n> IT :=
     λne env, Ret n.
 
-  Program Definition interp_cont {A} (K : A -n> (IT -n> IT)) : A -n> IT := λne env, Fun (Next (K env)).
+  Program Definition interp_cont {A} (K : A -n> (IT -n> IT)) : A -n> IT :=
+    λne env, Fun (Next (K env)).
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_applk {A} (q : A -n> IT) (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) := λne env t, interp_app q (λne env, K env t) env.
+  Program Definition interp_applk {A} (q : A -n> IT)
+    (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) :=
+    λne env t, interp_app q (λne env, K env t) env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_apprk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT) : A -n> (IT -n> IT) := λne env t, interp_app (λne env, K env t) q env.
+  Program Definition interp_apprk {A} (K : A -n> (IT -n> IT))
+    (q : A -n> IT) : A -n> (IT -n> IT) :=
+    λne env t, interp_app (λne env, K env t) q env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_natoplk {A} (op : nat_op) (q : A -n> IT) (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) := λne env t, interp_natop op q (λne env, K env t) env.
+  Program Definition interp_natoplk {A} (op : nat_op) (q : A -n> IT)
+    (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) :=
+    λne env t, interp_natop op q (λne env, K env t) env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_natoprk {A} (op : nat_op) (K : A -n> (IT -n> IT)) (q : A -n> IT) : A -n> (IT -n> IT) := λne env t, interp_natop op (λne env, K env t) q env.
+  Program Definition interp_natoprk {A} (op : nat_op) (K : A -n> (IT -n> IT))
+    (q : A -n> IT) : A -n> (IT -n> IT) :=
+    λne env t, interp_natop op (λne env, K env t) q env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_ifk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT) (p : A -n> IT) : A -n> (IT -n> IT) := λne env t, interp_if (λne env, K env t) q p env.
+  Program Definition interp_ifk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT)
+    (p : A -n> IT) : A -n> (IT -n> IT) :=
+    λne env t, interp_if (λne env, K env t) q p env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_outputk {A} (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) := λne env t, interp_output (λne env, K env t) env.
+  Program Definition interp_outputk {A} (K : A -n> (IT -n> IT)) :
+    A -n> (IT -n> IT) :=
+    λne env t, interp_output (λne env, K env t) env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_throwlk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT) : A -n> (IT -n> IT) := λne env t, interp_throw (λne env, K env t) q env.
+  Program Definition interp_throwlk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT) :
+    A -n> (IT -n> IT) :=
+    λne env t, interp_throw (λne env, K env t) q env.
   Solve All Obligations with solve_proper_please.
 
-  Program Definition interp_throwrk {A} (q : A -n> IT) (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) := λne env t, interp_throw q (λne env, K env t) env.
+  Program Definition interp_throwrk {A} (q : A -n> IT) (K : A -n> (IT -n> IT)) :
+    A -n> (IT -n> IT) :=
+    λne env t, interp_throw q (λne env, K env t) env.
   Solve All Obligations with solve_proper_please.
 
   (** Interpretation for all the syntactic categories: values, expressions, contexts *)
@@ -414,9 +437,11 @@ Section interp.
     - apply _.
   Qed.
 
-  Global Instance ArrEquiv {A B : Set} : Equiv (A [→] B) := fun f g => ∀ x, f x = g x.
+  Global Instance ArrEquiv {A B : Set} : Equiv (A [→] B) :=
+    fun f g => ∀ x, f x = g x.
 
-  Global Instance ArrDist {A B : Set} `{Dist B} : Dist (A [→] B) := fun n => fun f g => ∀ x, f x ≡{n}≡ g x.
+  Global Instance ArrDist {A B : Set} `{Dist B} : Dist (A [→] B) :=
+    fun n => fun f g => ∀ x, f x ≡{n}≡ g x.
 
   Global Instance ren_scope_proper {S S'} :
     Proper ((≡) ==> (≡) ==> (≡)) (@ren_scope F _ CR S S').
