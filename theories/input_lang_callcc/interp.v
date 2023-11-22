@@ -135,16 +135,16 @@ Section constructors.
   Qed.
 
   Program Definition CALLCC : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT :=
-    λne k, Vis (E:=E) (subEff_opid (inr (inr (inl ()))))
-             (subEff_ins (F:=ioE) (op:=(inr (inr (inl ())))) k)
+    λne f, Vis (E:=E) (subEff_opid (inr (inr (inl ()))))
+             (subEff_ins (F:=ioE) (op:=(inr (inr (inl ())))) f)
              (λne o, (subEff_outs (F:=ioE) (op:=(inr (inr (inl ())))))^-1 o).
   Solve All Obligations with solve_proper.
 
   Program Definition THROW : IT -n> (laterO (IT -n> IT)) -n> IT :=
-    λne m α, Vis (E:=E) (subEff_opid (inr (inr (inr (inl ())))))
+    λne e k, Vis (E:=E) (subEff_opid (inr (inr (inr (inl ())))))
                (subEff_ins (F:=ioE) (op:=(inr (inr (inr (inl ())))))
-                  (NextO m, α))
-               (λne _, laterO_ap α (NextO m)).
+                  (NextO e, k))
+               (λne _, laterO_ap k (NextO e)).
   Next Obligation.
     solve_proper.
   Qed.
@@ -256,10 +256,10 @@ Section interp.
     repeat f_equiv.
   Qed.
 
-  Program Definition interp_throw {A} (n : A -n> IT) (m : A -n> IT)
+  Program Definition interp_throw {A} (e : A -n> IT) (k : A -n> IT)
     : A -n> IT :=
     λne env, get_fun (λne (f : laterO (IT -n> IT)),
-                        THROW (n env) f) (m env).
+                        THROW (e env) f) (k env).
   Next Obligation.
     intros ????.
     intros n' x y H.
@@ -377,14 +377,14 @@ Section interp.
     λne env t, interp_output (λne env, K env t) env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_throwlk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT) :
+  Program Definition interp_throwlk {A} (K : A -n> (IT -n> IT)) (k : A -n> IT) :
     A -n> (IT -n> IT) :=
-    λne env t, interp_throw (λne env, K env t) q env.
+    λne env t, interp_throw (λne env, K env t) k env.
   Solve All Obligations with solve_proper_please.
 
-  Program Definition interp_throwrk {A} (q : A -n> IT) (K : A -n> (IT -n> IT)) :
+  Program Definition interp_throwrk {A} (e : A -n> IT) (K : A -n> (IT -n> IT)) :
     A -n> (IT -n> IT) :=
-    λne env t, interp_throw q (λne env, K env t) env.
+    λne env t, interp_throw e (λne env, K env t) env.
   Solve All Obligations with solve_proper_please.
 
   (** Interpretation for all the syntactic categories: values, expressions, contexts *)
