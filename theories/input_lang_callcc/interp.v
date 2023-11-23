@@ -135,15 +135,15 @@ Section constructors.
   Qed.
 
   Program Definition CALLCC : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT :=
-    λne k, Vis (E:=E) (subEff_opid (inr (inr (inl ()))))
-             (subEff_ins (F:=ioE) (op:=(inr (inr (inl ())))) k)
+    λne f, Vis (E:=E) (subEff_opid (inr (inr (inl ()))))
+             (subEff_ins (F:=ioE) (op:=(inr (inr (inl ())))) f)
              (λne o, (subEff_outs (F:=ioE) (op:=(inr (inr (inl ())))))^-1 o).
   Solve All Obligations with solve_proper.
 
   Program Definition THROW : IT -n> (laterO (IT -n> IT)) -n> IT :=
-    λne m α, Vis (E:=E) (subEff_opid (inr (inr (inr (inl ())))))
+    λne e k, Vis (E:=E) (subEff_opid (inr (inr (inr (inl ())))))
                (subEff_ins (F:=ioE) (op:=(inr (inr (inr (inl ())))))
-                  (NextO m, α))
+                  (NextO e, k))
                (λne x, Empty_setO_rec _ ((subEff_outs (F:=ioE) (op:=(inr (inr (inr (inl ()))))))^-1 x)).
   Next Obligation.
     solve_proper_prepare.
@@ -267,10 +267,10 @@ Section interp.
     repeat f_equiv.
   Qed.
 
-  Program Definition interp_throw {A} (n : A -n> IT) (m : A -n> IT)
+  Program Definition interp_throw {A} (e : A -n> IT) (k : A -n> IT)
     : A -n> IT :=
     λne env, get_val (λne x, get_fun (λne (f : laterO (IT -n> IT)),
-                                 THROW x f) (m env)) (n env).
+                                 THROW x f) (k env)) (e env).
   Next Obligation.
     solve_proper.
   Qed.
@@ -322,10 +322,16 @@ Section interp.
     by do 2 f_equiv.
   Qed.
 
-  Program Definition interp_rec {S : Set} (body : @interp_scope F R _ (inc (inc S)) -n> IT) : @interp_scope F R _ S -n> IT := mmuu (interp_rec_pre body).
+  Program Definition interp_rec {S : Set}
+    (body : @interp_scope F R _ (inc (inc S)) -n> IT) :
+    @interp_scope F R _ S -n> IT :=
+    mmuu (interp_rec_pre body).
 
-  Program Definition ir_unf {S : Set} (body : @interp_scope F R _ (inc (inc S)) -n> IT) env : IT -n> IT :=
-    λne a, body (@extend_scope F R _ _ (@extend_scope F R _ _ env (interp_rec body env)) a).
+  Program Definition ir_unf {S : Set}
+    (body : @interp_scope F R _ (inc (inc S)) -n> IT) env : IT -n> IT :=
+    λne a, body (@extend_scope F R _ _
+                   (@extend_scope F R _ _ env (interp_rec body env))
+                   a).
   Next Obligation.
     intros.
     solve_proper_prepare.
@@ -358,31 +364,48 @@ Section interp.
   Program Definition interp_nat (n : nat) {A} : A -n> IT :=
     λne env, Ret n.
 
-  Program Definition interp_cont {A} (K : A -n> (IT -n> IT)) : A -n> IT := λne env, Fun (Next (K env)).
+  Program Definition interp_cont {A} (K : A -n> (IT -n> IT)) : A -n> IT :=
+    λne env, Fun (Next (K env)).
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_applk {A} (q : A -n> IT) (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) := λne env t, interp_app q (λne env, K env t) env.
+  Program Definition interp_applk {A} (q : A -n> IT)
+    (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) :=
+    λne env t, interp_app q (λne env, K env t) env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_apprk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT) : A -n> (IT -n> IT) := λne env t, interp_app (λne env, K env t) q env.
+  Program Definition interp_apprk {A} (K : A -n> (IT -n> IT))
+    (q : A -n> IT) : A -n> (IT -n> IT) :=
+    λne env t, interp_app (λne env, K env t) q env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_natoplk {A} (op : nat_op) (q : A -n> IT) (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) := λne env t, interp_natop op q (λne env, K env t) env.
+  Program Definition interp_natoplk {A} (op : nat_op) (q : A -n> IT)
+    (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) :=
+    λne env t, interp_natop op q (λne env, K env t) env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_natoprk {A} (op : nat_op) (K : A -n> (IT -n> IT)) (q : A -n> IT) : A -n> (IT -n> IT) := λne env t, interp_natop op (λne env, K env t) q env.
+  Program Definition interp_natoprk {A} (op : nat_op) (K : A -n> (IT -n> IT))
+    (q : A -n> IT) : A -n> (IT -n> IT) :=
+    λne env t, interp_natop op (λne env, K env t) q env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_ifk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT) (p : A -n> IT) : A -n> (IT -n> IT) := λne env t, interp_if (λne env, K env t) q p env.
+  Program Definition interp_ifk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT)
+    (p : A -n> IT) : A -n> (IT -n> IT) :=
+    λne env t, interp_if (λne env, K env t) q p env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_outputk {A} (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) := λne env t, interp_output (λne env, K env t) env.
+  Program Definition interp_outputk {A} (K : A -n> (IT -n> IT)) :
+    A -n> (IT -n> IT) :=
+    λne env t, interp_output (λne env, K env t) env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_throwlk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT) : A -n> (IT -n> IT) := λne env t, interp_throw (λne env, K env t) q env.
+  Program Definition interp_throwlk {A} (K : A -n> (IT -n> IT)) (k : A -n> IT) :
+    A -n> (IT -n> IT) :=
+    λne env t, interp_throw (λne env, K env t) k env.
   Solve All Obligations with solve_proper_please.
 
-  Program Definition interp_throwrk {A} (q : A -n> IT) (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) := λne env t, interp_throw q (λne env, K env t) env.
+  Program Definition interp_throwrk {A} (e : A -n> IT) (K : A -n> (IT -n> IT)) :
+    A -n> (IT -n> IT) :=
+    λne env t, interp_throw e (λne env, K env t) env.
   Solve All Obligations with solve_proper_please.
 
   (** Interpretation for all the syntactic categories: values, expressions, contexts *)
@@ -435,9 +458,11 @@ Section interp.
     - apply _.
   Qed.
 
-  Global Instance ArrEquiv {A B : Set} : Equiv (A [→] B) := fun f g => ∀ x, f x = g x.
+  Global Instance ArrEquiv {A B : Set} : Equiv (A [→] B) :=
+    fun f g => ∀ x, f x = g x.
 
-  Global Instance ArrDist {A B : Set} `{Dist B} : Dist (A [→] B) := fun n => fun f g => ∀ x, f x ≡{n}≡ g x.
+  Global Instance ArrDist {A B : Set} `{Dist B} : Dist (A [→] B) :=
+    fun n => fun f g => ∀ x, f x ≡{n}≡ g x.
 
   Global Instance ren_scope_proper {S S'} :
     Proper ((≡) ==> (≡) ==> (≡)) (@ren_scope F _ CR S S').
@@ -628,12 +653,12 @@ Section interp.
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (OutputK K) env).
   Proof.
-    intros. simple refine (IT_HOM _ _ _ _ _); intros.
-    - simpl. by rewrite !hom_tick.
-    - simpl. rewrite !hom_vis.
-      f_equiv. intro. simpl. rewrite laterO_map_compose.
-      f_equiv; auto. f_equiv. intro y. simpl. auto.
-    - simpl. by rewrite !hom_err.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - by rewrite !hom_tick.
+    - rewrite !hom_vis.
+      f_equiv. intro. simpl. rewrite -laterO_map_compose.
+      do 2 f_equiv. by intro.
+    - by rewrite !hom_err.
   Qed.
 
   #[global] Instance interp_ectx_hom_if {S}
@@ -641,17 +666,17 @@ Section interp.
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (IfK K e1 e2) env).
   Proof.
-    intros. simple refine (IT_HOM _ _ _ _ _); intros.
-    - simpl. rewrite -IF_Tick. do 3 f_equiv. apply hom_tick.
-    - simpl. assert ((interp_ectx K env (Vis op i ko)) ≡
-                       (Vis op i (laterO_map (λne y, interp_ectx K env y) ◎ ko))).
+    intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - rewrite -IF_Tick. do 3 f_equiv. apply hom_tick.
+    - assert ((interp_ectx K env (Vis op i ko)) ≡
+        (Vis op i (laterO_map (λne y, interp_ectx K env y) ◎ ko))).
       { by rewrite hom_vis. }
       trans (IF (Vis op i (laterO_map (λne y : IT, interp_ectx K env y) ◎ ko))
                (interp_expr e1 env) (interp_expr e2 env)).
       { do 3 f_equiv. by rewrite hom_vis. }
       rewrite IF_Vis. f_equiv. simpl.
       intro. simpl. by rewrite -laterO_map_compose.
-    - simpl. trans (IF (Err e) (interp_expr e1 env) (interp_expr e2 env)).
+    - trans (IF (Err e) (interp_expr e1 env) (interp_expr e2 env)).
       { repeat f_equiv. apply hom_err. }
       apply IF_Err.
   Qed.
@@ -673,15 +698,14 @@ Section interp.
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (AppRK K v) env).
   Proof.
-    intros H. simple refine (IT_HOM _ _ _ _ _); intros.
-    - simpl. rewrite -APP'_Tick_l. do 2 f_equiv. apply hom_tick.
-    - simpl.
-      trans (APP' (Vis op i (laterO_map (interp_ectx K env) ◎ ko))
+    intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - rewrite -APP'_Tick_l. do 2 f_equiv. apply hom_tick.
+    - trans (APP' (Vis op i (laterO_map (interp_ectx K env) ◎ ko))
                (interp_val v env)).
       + do 2f_equiv. rewrite hom_vis. do 3 f_equiv. by intro.
       + rewrite APP'_Vis_l. f_equiv. intro x. simpl.
         by rewrite -laterO_map_compose.
-    - simpl. trans (APP' (Err e) (interp_val v env)).
+    - trans (APP' (Err e) (interp_val v env)).
       { do 2f_equiv. apply hom_err. }
       apply APP'_Err_l, interp_val_asval.
   Qed.
@@ -713,7 +737,7 @@ Section interp.
       by rewrite -laterO_map_compose.
     - trans (NATOP (do_natop op) (Err e) (interp_val v env)).
       + do 2 f_equiv. apply hom_err.
-      + apply NATOP_Err_l, interp_val_asval.
+      + by apply NATOP_Err_l, interp_val_asval.
   Qed.
 
   Lemma get_fun_ret' E A `{Cofe A} n : (∀ f, @get_fun E A _ f (core.Ret n) ≡ Err RuntimeErr).
@@ -1015,4 +1039,4 @@ Section interp.
   Admitted.
 
 End interp.
-#[global] Opaque INPUT OUTPUT_.
+#[global] Opaque INPUT OUTPUT_ CALLCC THROW.
