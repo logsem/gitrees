@@ -144,25 +144,17 @@ Section constructors.
     λne m α, Vis (E:=E) (subEff_opid (inr (inr (inr (inl ())))))
                (subEff_ins (F:=ioE) (op:=(inr (inr (inr (inl ())))))
                   (NextO m, α))
-               (λne _, laterO_ap α (NextO m)).
+               (λne x, Empty_setO_rec _ ((subEff_outs (F:=ioE) (op:=(inr (inr (inr (inl ()))))))^-1 x)).
   Next Obligation.
-    solve_proper.
+    solve_proper_prepare.
+    destruct ((subEff_outs ^-1) x).
   Qed.
   Next Obligation.
     intros; intros ???; simpl.
-    repeat f_equiv; [assumption |].
-    intros ?; simpl.
-    apply Next_contractive.
-    destruct n as [| n].
-    - apply dist_later_0.
-    - apply dist_later_S.
-      apply dist_later_S in H.
-      apply H.
+    repeat f_equiv. assumption.
   Qed.
   Next Obligation.
     intros ?????; simpl.
-    repeat f_equiv; [assumption |].
-    intros ?; simpl.
     repeat f_equiv; assumption.
   Qed.
 
@@ -207,7 +199,26 @@ Section weakestpre.
     { simpl. done. }
     iModIntro. iIntros "H1 H2".
     iApply wp_val. by iApply ("Ha" with "H1 H2").
-    Unshelve. simpl; constructor.
+  Qed.
+
+  Lemma wp_throw (σ : stateO) (f : laterO (IT -n> IT)) (x : IT) Φ s :
+    has_substate σ -∗
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} later_car f x @ s {{ Φ }}) -∗
+    WP@{rs} (THROW x f) @ s {{ Φ }}.
+  Proof.
+    iIntros "Hs Ha".
+    unfold THROW. simpl.
+    iApply (wp_subreify with "Hs").
+    {
+      simpl.
+      do 2 f_equiv; reflexivity.
+    }
+    {
+      simpl.
+      reflexivity.
+    }
+    iModIntro.
+    iApply "Ha".
   Qed.
 
 End weakestpre.
@@ -258,12 +269,22 @@ Section interp.
 
   Program Definition interp_throw {A} (n : A -n> IT) (m : A -n> IT)
     : A -n> IT :=
-    λne env, get_fun (λne (f : laterO (IT -n> IT)),
-                        THROW (n env) f) (m env).
+    λne env, get_val (λne x, get_fun (λne (f : laterO (IT -n> IT)),
+                                 THROW x f) (m env)) (n env).
   Next Obligation.
-    intros ????.
-    intros n' x y H.
-    f_equiv; assumption.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    solve_proper_prepare.
+    repeat f_equiv.
+    intro; simpl.
+    by repeat f_equiv.
+  Qed.
+  Next Obligation.
+    solve_proper_prepare.
+    repeat f_equiv; last done.
+    intro; simpl.
+    by repeat f_equiv.
   Qed.
 
   Program Definition interp_natop {A} (op : nat_op) (t1 t2 : A -n> IT) : A -n> IT :=
@@ -457,8 +478,6 @@ Section interp.
       + repeat f_equiv.
         * intros ?; simpl.
           repeat f_equiv; first by apply interp_expr_ren.
-          intros ?; simpl.
-          repeat f_equiv; by apply interp_expr_ren.
         * by apply interp_expr_ren.
     - destruct e; simpl.
       + reflexivity.
@@ -487,12 +506,10 @@ Section interp.
       + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_val_ren].
       + repeat f_equiv; [by apply interp_expr_ren | by apply interp_ectx_ren].
       + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_val_ren].
-      + repeat f_equiv; last by apply interp_expr_ren.
-        intros ?; simpl; repeat f_equiv; first by apply interp_ectx_ren.
-        intros ?; simpl; repeat f_equiv; by apply interp_ectx_ren.
       + repeat f_equiv; last by apply interp_ectx_ren.
-        intros ?; simpl; repeat f_equiv; first by apply interp_val_ren.
-        intros ?; simpl; repeat f_equiv; by apply interp_val_ren.
+        intros ?; simpl; repeat f_equiv; by apply interp_expr_ren.
+      + repeat f_equiv; last by apply interp_val_ren.
+        intros ?; simpl; repeat f_equiv; first by apply interp_ectx_ren.
   Qed.
 
   Lemma interp_comp {S} (e : expr S) (env : interp_scope S) (K : ectx S):
@@ -509,10 +526,7 @@ Section interp.
     - repeat f_equiv.
       intros ?; simpl.
       repeat f_equiv.
-      + by rewrite IHK.
-      + intros ?; simpl.
-        repeat f_equiv.
-        by rewrite IHK.
+      by rewrite IHK.
   Qed.
 
   Program Definition sub_scope {S S'} (δ : S [⇒] S') (env : interp_scope S')
@@ -563,8 +577,6 @@ Section interp.
       + repeat f_equiv.
         * intros ?; simpl.
           repeat f_equiv; first by apply interp_expr_subst.
-          intros ?; simpl.
-          repeat f_equiv; by apply interp_expr_subst.
         * by apply interp_expr_subst.
     - destruct e; simpl.
       + reflexivity.
@@ -596,12 +608,10 @@ Section interp.
       + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_val_subst].
       + repeat f_equiv; [by apply interp_expr_subst | by apply interp_ectx_subst].
       + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_val_subst].
-      + repeat f_equiv; last by apply interp_expr_subst.
-        intros ?; simpl; repeat f_equiv; first by apply interp_ectx_subst.
-        intros ?; simpl; repeat f_equiv; by apply interp_ectx_subst.
       + repeat f_equiv; last by apply interp_ectx_subst.
-        intros ?; simpl; repeat f_equiv; first by apply interp_val_subst.
-        intros ?; simpl; repeat f_equiv; by apply interp_val_subst.
+        intros ?; simpl; repeat f_equiv; first by apply interp_expr_subst.
+      + repeat f_equiv; last by apply interp_val_subst.
+        intros ?; simpl; repeat f_equiv; first by apply interp_ectx_subst.
   Qed.
 
   (** ** Interpretation is a homomorphism (for some constructors) *)
@@ -706,22 +716,71 @@ Section interp.
       + apply NATOP_Err_l, interp_val_asval.
   Qed.
 
+  Lemma get_fun_ret' E A `{Cofe A} n : (∀ f, @get_fun E A _ f (core.Ret n) ≡ Err RuntimeErr).
+  Proof.
+    intros.
+    by rewrite IT_rec1_ret.
+  Qed.
 
   #[global] Instance interp_ectx_hom_throwr {S}
     (K : ectx S) (v : val S) env :
     IT_hom (interp_ectx K env) ->
-    IT_hom (interp_ectx (ThrowRK v K) env).
+    IT_hom (interp_ectx (ThrowRK v K)%ectx env).
   Proof.
-    intros. simple refine (IT_HOM _ _ _ _ _); intros.
-    - simpl; rewrite -get_fun_tick.
-      f_equiv.
-      apply hom_tick.
-    - simpl; rewrite !hom_vis.
+    intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - pose proof (interp_val_asval v (D := env)).
+      rewrite ->2 get_val_ITV.
+      simpl.
+      rewrite hom_tick.
+      destruct (IT_dont_confuse ((interp_ectx K env α))) as [(e' & HEQ) |[(n & HEQ) |[(f & HEQ) |[(β & HEQ) | (op & i & k & HEQ)]]]].
+      + rewrite HEQ !get_fun_tick !get_fun_err.
+        reflexivity.
+      + rewrite HEQ !get_fun_tick !get_fun_ret'.
+        reflexivity.
+      + rewrite HEQ !get_fun_tick !get_fun_fun//=.
+      + rewrite HEQ !get_fun_tick.
+        reflexivity.
+      + rewrite HEQ !get_fun_tick !get_fun_vis.
+        reflexivity.
+    - pose proof (interp_val_asval v (D := env)).
+      rewrite get_val_ITV.
+      simpl.
+      rewrite hom_vis.
+      rewrite get_fun_vis.
       f_equiv.
       intro; simpl.
-      rewrite laterO_map_compose.
+      rewrite -laterO_map_compose.
+      repeat f_equiv.
+      intro; simpl.
+      rewrite get_val_ITV.
+      simpl.
       reflexivity.
-    - simpl; by rewrite !hom_err.
+    - pose proof (interp_val_asval v (D := env)).
+      rewrite get_val_ITV.
+      simpl.
+      rewrite hom_err.
+      rewrite get_fun_err.
+      reflexivity.
+  Qed.
+
+  #[global] Instance interp_ectx_hom_throwl {S}
+    (K : ectx S) (e : expr S) env :
+    IT_hom (interp_ectx K env) ->
+    IT_hom (interp_ectx (ThrowLK K e)%ectx env).
+  Proof.
+    intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl; [by rewrite !hom_tick| | by rewrite !hom_err].
+    rewrite !hom_vis.
+    f_equiv.
+    intro; simpl.
+    rewrite -laterO_map_compose.
+    reflexivity.
+  Qed.
+
+  #[global] Instance interp_ectx_hom {S}
+    (K : ectx S) env :
+    IT_hom (interp_ectx K env).
+  Proof.    
+    induction K; apply _. 
   Qed.
 
   (** ** Finally, preservation of reductions *)
@@ -756,29 +815,28 @@ Section interp.
 
   Lemma interp_expr_fill_no_reify {S} K (env : interp_scope S) (e e' : expr S) σ σ' n :
     head_step e σ e' σ' K (n, 0) →
-    interp_expr (fill K e) env ≡ Tick_n n $ interp_expr (fill K e') env.
+    interp_expr (fill K e) env
+      ≡
+      Tick_n n $ interp_expr (fill K e') env.
   Proof.
     intros He.
-    trans (interp_ectx K env (interp_expr e env)).
-    { apply interp_comp. }
-    trans (interp_ectx K env (Tick_n n (interp_expr e' env))).
-    {
-      f_equiv. apply (interp_expr_head_step env) in He.
-      apply He.
-    }
-    trans (Tick_n n $ interp_ectx K env (interp_expr e' env)); last first.
-    { f_equiv. symmetry. apply interp_comp. }
-    apply hom_tick_n.
-  Admitted.
+    rewrite !interp_comp.    
+    erewrite <-hom_tick_n.
+    - apply (interp_expr_head_step env) in He.
+      rewrite He.
+      reflexivity.
+    - apply _.
+  Qed.
 
-  Opaque INPUT OUTPUT_.
+  Opaque INPUT OUTPUT_ CALLCC THROW.
+  Opaque extend_scope.
   Opaque Ret.
 
   Lemma interp_expr_fill_yes_reify {S} K env (e e' : expr S)
     (σ σ' : stateO) (σr : gState_rest sR_idx rs ♯ IT) n :
     head_step e σ e' σ' K (n, 1) →
     reify (gReifiers_sReifier rs)
-      (interp_expr (fill K e) env)  (gState_recomp σr (sR_state σ))
+      (interp_expr (fill K e) env) (gState_recomp σr (sR_state σ))
       ≡ (gState_recomp σr (sR_state σ'), Tick_n n $ interp_expr (fill K e') env).
   Proof.
     intros Hst.
@@ -789,14 +847,26 @@ Section interp.
     - trans (reify (gReifiers_sReifier rs) (INPUT (interp_ectx K env ◎ Ret)) (gState_recomp σr (sR_state σ))).
       {
         repeat f_equiv; eauto.
-        unshelve erewrite hom_INPUT.
-        rewrite hom_INPUT. f_equiv. by intro.
+        rewrite hom_vis.
+        Transparent INPUT.
+        unfold INPUT.
+        simpl.
+        f_equiv.
+        intro; simpl.
+        rewrite laterO_map_Next.
+        simpl.
+        reflexivity.
       }
       rewrite reify_vis_eq //; last first.
       {
-        (* rewrite subReifier_reify/=//. *)
-        (* rewrite H4. done. *)
-        admit.
+        epose proof (@subReifier_reify sz reify_io rs _ IT _ (inl ()) () (Next (interp_ectx K env (Ret n0))) (NextO ◎ (interp_ectx K env ◎ Ret)) σ σ' σr) as H.
+        simpl in H.
+        simpl.
+        erewrite <-H; last first.
+        - rewrite H5.
+          reflexivity.
+        - (* holds *)
+          admit.
       }
       repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.
@@ -809,22 +879,52 @@ Section interp.
       trans (reify (gReifiers_sReifier rs) (OUTPUT_ n0 (interp_ectx K env (Ret 0))) (gState_recomp σr (sR_state σ))).
       {
         do 2 f_equiv; eauto.
-        rewrite hom_OUTPUT_//.
+        rewrite hom_vis.
+        Transparent OUTPUT.
+        unfold OUTPUT.
+        Transparent OUTPUT_.
+        unfold OUTPUT_.
+        simpl.
+        f_equiv.
+        intro; simpl.
+        rewrite laterO_map_Next.
+        simpl.
+        reflexivity.
       }
       rewrite reify_vis_eq //; last first.
       {
-        (* rewrite subReifier_reify/=//. *)
-        admit.
+        epose proof (@subReifier_reify sz reify_io rs _ IT _ (inr (inl ())) n0 (Next (interp_ectx K env ((Ret 0)))) (constO (Next (interp_ectx K env ((Ret 0))))) σ (update_output n0 σ) σr) as H.
+        simpl in H.
+        simpl.
+        erewrite <-H; last first.
+        - reflexivity.
+        - (* holds *)
+          admit.
       }
       repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.
       reflexivity.
-    - simpl.
+    - match goal with
+      | |- context G [ofe_mor_car _ _ (CALLCC) ?g] => set (f := g)
+      end.
+      Transparent CALLCC.
+      unfold CALLCC.
+      simpl.           
       rewrite interp_comp.
+      rewrite interp_expr_subst.
+      etrans.
+      {
+        apply ofe_mor_car_proper; last reflexivity.
+        apply ofe_mor_car_proper; first reflexivity.
+        rewrite hom_vis.
+        reflexivity.
+      }
+      subst f.
+      (* doesnt hold due to a missing tau in reify + extra tick in interp *)
       admit.
   Admitted.
 
-  Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m (env : interp_scope S) (G : ∀ (x : S), AsVal (env x)) :
+  Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m (env : interp_scope S) :
     prim_step e1 σ1 e2 σ2 (n,m) →
     ssteps (gReifiers_sReifier rs)
               (interp_expr e1 env) (gState_recomp σr (sR_state σ1))
@@ -835,9 +935,11 @@ Section interp.
     {
       destruct (head_step_io_01 _ _ _ _ _ _ _ H2); subst.
       - assert (σ1 = σ2) as ->.
-        { eapply head_step_no_io; eauto. }
-        eapply (interp_expr_fill_no_reify K) in H2; last done.
-        rewrite H2. eapply ssteps_tick_n.
+        { eapply head_step_no_io; eauto. }        
+        unshelve eapply (interp_expr_fill_no_reify K) in H2; first apply env.
+        rewrite H2.
+        rewrite interp_comp.
+        eapply ssteps_tick_n.
       - inversion H2;subst.
         + eapply (interp_expr_fill_yes_reify K env _ _ _ _ σr) in H2.
           rewrite interp_comp.
@@ -867,9 +969,47 @@ Section interp.
           Opaque OUTPUT_.
           rewrite interp_comp /= get_ret_ret hom_OUTPUT_.
           eauto.
-        + admit.
+        + eapply (interp_expr_fill_yes_reify K env _ _ _ _ σr) in H2.
+          rewrite !interp_comp interp_expr_subst.
+          change 1 with (Nat.add 1 0). econstructor; last first.
+          { apply ssteps_zero; reflexivity. }
+          rewrite -interp_comp.
+          eapply sstep_reify.
+          { Transparent CALLCC. unfold CALLCC. rewrite interp_comp hom_vis.
+            f_equiv. reflexivity.
+          }
+          rewrite H2.
+          simpl.
+          repeat f_equiv.
+          rewrite -interp_expr_subst.
+          rewrite interp_comp.
+          reflexivity.
     }
     {
+      rewrite !interp_comp.
+      simpl.
+      pose proof (interp_val_asval v (D := env)).
+      rewrite get_val_ITV.
+      simpl.
+      rewrite get_fun_fun.
+      simpl.
+      change 1 with (Nat.add 1 0). econstructor; last first.
+      { apply ssteps_zero; reflexivity. }
+      eapply sstep_reify; first (rewrite hom_vis; reflexivity).
+      trans (reify (gReifiers_sReifier rs) (THROW (interp_val v env) (Next (interp_ectx K' env))) (gState_recomp σr (sR_state σ2))).
+      {
+        f_equiv; last done.
+        f_equiv.
+        rewrite hom_vis.
+        Transparent THROW.
+        unfold THROW.
+        simpl.
+        f_equiv.
+        intros x; simpl.
+        destruct ((subEff_outs ^-1) x).
+      }
+      rewrite reify_vis_eq; first (rewrite Tick_eq; reflexivity).
+      (* holds *)
       admit.
     }
   Admitted.

@@ -108,7 +108,7 @@ Section kripke_logrel.
   #[export] Instance expr_pred_proper : Proper ((≡) ==> (≡) ==> (≡)) expr_pred .
   Proof. solve_proper. Qed.
 
-  (* Definition ssubst_valid {ty} (interp_ty : ty → ITV -n> iProp) {S} (Γ : tyctx ty S) (ss : ssubst S) : iProp := *)
+  (* Definition ssubst_valid {ty} (interp_ty : ty → ITV -n> iProp) {S} (Γ : S -> ty) (ss : ssubst S) : iProp := *)
   (*   ([∗ list] τx ∈ zip (list_of_tyctx Γ) (list_of_ssubst (E:=F) ss), *)
   (*     interp_ty (τx.1) (τx.2))%I. *)
 

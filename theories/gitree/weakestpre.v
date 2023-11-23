@@ -502,8 +502,8 @@ Section weakestpre.
     forall (x : Ins (F op) ♯ IT)
            (k : Outs (F op) ♯ IT -n> laterO IT),
     (|={E1,E2}=>  ∃ σ y σ' β, has_state_idx i σ ∗
-                  sReifier_re (rs !!! i) lop (x, σ, k) ≡ Some (k y, σ') ∗
-                  k y ≡ Next β ∗
+                  sReifier_re (rs !!! i) lop (x, σ, k) ≡ Some (y, σ') ∗
+                  y ≡ Next β ∗
          ▷ (£ 1 -∗ has_state_idx i σ' ={E2,E1}=∗ WP β @ s;E1 {{ Φ }}))
     -∗ WP (Vis op x k) @ s;E1 {{ Φ }}.
   Proof.
@@ -514,10 +514,10 @@ Section weakestpre.
     iModIntro. iExists σ, σ', β.
     iFrame "Hlst".
     iIntros (rest).    iFrame "H".
-    iAssert (gReifiers_re rs op (x, gState_recomp rest σ, _) ≡ Some (k y, gState_recomp rest σ'))%I
+    iAssert (gReifiers_re rs op (x, gState_recomp rest σ, _) ≡ Some (y, gState_recomp rest σ'))%I
       with "[Hreify]"  as "Hgreify".
     { rewrite gReifiers_re_idx.
-      iAssert (optionO_map (prodO_map idfun (gState_recomp rest)) (sReifier_re (rs !!! i) lop (x, σ, k)) ≡ optionO_map (prodO_map idfun (gState_recomp rest)) (Some (k y, σ')))%I with "[Hreify]" as "H".
+      iAssert (optionO_map (prodO_map idfun (gState_recomp rest)) (sReifier_re (rs !!! i) lop (x, σ, k)) ≡ optionO_map (prodO_map idfun (gState_recomp rest)) (Some (y, σ')))%I with "[Hreify]" as "H".
       - iApply (f_equivI with "Hreify").
       - simpl. iExact "H".
     }
@@ -549,8 +549,8 @@ Section weakestpre.
     (op : opid (sReifier_ops sR)) (x : Ins (sReifier_ops sR op) ♯ IT)
     (k : Outs (sReifier_ops sR op) ♯ IT -n> laterO IT) :
     (|={E1,E2}=> ∃ σ y σ' β, has_substate σ ∗
-                              sReifier_re sR op (x, σ, k) ≡ Some (k y, σ') ∗
-                              k y  ≡ Next β ∗
+                              sReifier_re sR op (x, σ, k) ≡ Some (y, σ') ∗
+                              y  ≡ Next β ∗
                               ▷ (£ 1 -∗ has_substate σ' ={E2,E1}=∗ WP β @ s;E1 {{ Φ }}))
     -∗ WP (Vis (subEff_opid op) (subEff_ins x) (k ◎ (subEff_outs)^-1)) @ s;E1 {{ Φ }}.
   Proof.
@@ -558,23 +558,22 @@ Section weakestpre.
     iApply wp_reify_idx'.
     iMod "H" as (σ y σ' β) "[Hlst [Hreify [Hk H]]]".
     iModIntro.
-    iExists (sR_state σ), (subEff_outs y), (sR_state σ'), β.
+    iExists (sR_state σ), y, (sR_state σ'), β.
     simpl.
     iFrame "Hlst H".
     rewrite subReifier_reify_idxI.
     iRewrite "Hreify".
     simpl.
-    rewrite ofe_iso_21.
     by iFrame "Hk".
   Qed.
 
   Lemma wp_subreify E1 s Φ sR `{!subReifier sR rs}
     (op : opid (sReifier_ops sR))
-    (x : Ins (sReifier_ops sR op) ♯ IT) (y : Outs (sReifier_ops sR op) ♯ IT)
+    (x : Ins (sReifier_ops sR op) ♯ IT) (y : laterO IT)
     (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT)
     (σ σ' : sReifier_state sR ♯ IT) β :
-    sReifier_re sR op (x, σ, (k ◎ subEff_outs)) ≡ Some (k ((subEff_outs) y), σ') →
-    k (subEff_outs y) ≡ Next β →
+    sReifier_re sR op (x, σ, (k ◎ subEff_outs)) ≡ Some (y, σ') →
+    y ≡ Next β →
     has_substate σ -∗
                       ▷ (£ 1 -∗ has_substate σ' -∗ WP β @ s;E1 {{ Φ }})
     -∗
@@ -588,7 +587,6 @@ Section weakestpre.
     rewrite reify_vis_eq //.
     pose proof (@subReifier_reify n sR rs _ IT _ op x y (k ◎ subEff_outs) σ σ' rest) as H.
     simpl in H.
-    rewrite (ofe_iso_12 (subEff_outs)) in H.
     rewrite <-H.
     - simpl.
       repeat f_equiv.
