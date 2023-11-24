@@ -944,89 +944,49 @@ Section interp.
       simpl.
       rewrite interp_comp.
       rewrite interp_expr_subst.
-      etrans.
+      match goal with
+      | |- context G [Vis _ _ ?q] => set (k := q)
+      end.
+      match goal with
+      | |- context G [(ofe_mor_car _ _ (@ofe_iso_2 _ _ ?s)) ?s'] => set (fσ := s); set (σ'' := s')
+      end.
+      pose (@subEff_ins ioE F subEff0 (inr (inr (inl ()))) IT _) as k'.
+      simpl in k'.
+      pose (fff := k' f).
+      trans (reify (gReifiers_sReifier rs)
+               (Vis (subEff_opid (inr (inr (inl ()))))
+                  fff
+                  (laterO_map (interp_ectx K env) ◎ k))
+               ((fσ ^-1) σ'')).
       {
-        apply ofe_mor_car_proper; last reflexivity.
-        apply ofe_mor_car_proper; first reflexivity.
+        do 2 f_equiv.
         rewrite hom_vis.
+        unfold fff, k.
+        do 3 f_equiv.
+        intro; simpl.
         reflexivity.
       }
-      (* subst f. *)
-      unfold sub_scope.
-
-      unshelve eassert ((extend_scope env (λit x : IT, Tau (laterO_map (interp_ectx K env) (Next x))))
-                          ≡
-                          (sub_scope (mk_subst (Val (cont K))) env)).
+      rewrite reify_vis_eq //; last first.
       {
-        apply interp_cont_obligation_1.
-      }
-      {
-        Transparent extend_scope.
-        intros [| x]; term_simpl.
+        epose proof (@subReifier_reify sz reify_io rs _ IT _ (inr (inr (inl ()))) f _ (laterO_map (interp_ectx K env)) σ' σ' σr) as H.
+        simpl in H.
+        simpl.
+        erewrite <-H; last first.
         - reflexivity.
-        - reflexivity.
+        - simpl.
+          subst k k' fff σ'' fσ f.
+          admit.
       }
-      (* Check reify. *)
-      (* Locate "≡". *)
-      (* clear. *)
-      (* Set Printing All. *)
-      (* setoid_rewrite reify_vis_eq; last first. *)
-      (* { *)
-      (*   (* pose proof (@subEff_outs ioE F subEff0 (inr (inr (inl ()))) IT _). *) *)
-      (*   (* simpl in X. *) *)
-      (*   (* pose (KKK := ((laterO_map (interp_ectx K env) ◎ (X ^-1)))). *) *)
-      (*   unshelve epose (T := @sReifier_re reify_io IT _ (inr (inr (inl ()))) ((f, σ'), (laterO_map (interp_ectx K env)))). *)
-      (*   assert (T ≡ *)
-      (*             SomeO (Next (interp_ectx K env (interp_expr e0 (λne x : leibnizO (inc S), interp_expr (mk_subst (Val (cont K)) x) env))), σ')). *)
-      (*   { *)
-      (*     subst T. *)
-      (*     simpl. *)
-      (*     do 2 f_equiv. *)
-      (*     etrans; first apply laterO_map_Next. *)
-      (*     do 2 f_equiv. *)
-      (*     f_equiv. *)
-      (*     Transparent extend_scope. *)
-      (*     intros [| x]; term_simpl. *)
-      (*     - admit. *)
-      (*     - reflexivity. *)
-      (*   } *)
-      (*   simpl. *)
-      (*   pose proof (@subEff_outs ioE F subEff0 (inr (inr (inl ()))) IT _). *)
-      (*   simpl in X. *)
-      (*   pose (KKK := ((laterO_map (interp_ectx K env) ◎ (X ^-1)))). *)
-      (*   pose proof (@subEff_ins ioE F subEff0 (inr (inr (inl ()))) IT _). *)
-      (*   simpl in X0. *)
-      (*   pose (fff := X0 f). *)
-      (*   simpl in KKK.         *)
-      (*   (* epose proof (@subReifier_reify sz reify_io rs subR IT _ (inr (inr (inl ()))) f _) as H'. *) *)
-      (*   epose proof (@subReifier_reify sz (rs !!! projT1 (subEff_opid (inr (inr (inl ()))))) rs _ IT _ (projT2 (subEff_opid (inr (inr (inl ()))))) fff _ KKK (gState_decomp (projT1 (subEff_opid (inr (inr (inl ()))))) ((gState_decomp' sR_idx rs ^-1) (sR_state σ', σr))).1 (gState_decomp (projT1 (subEff_opid (inr (inr (inl ()))))) ((gState_decomp' sR_idx rs ^-1) (sR_state σ', σr))).1 _) as H''. *)
-
-      (*   erewrite H''. *)
-      (*   - simpl. *)
-      (*     reflexivity. *)
-      (*   simpl in H'. *)
-
-      (*   _ (laterO_map (interp_ectx K env) ◎ (subEff_outs ^-1)) idfun σ σ σr *)
-      (* } *)
-      (* eassert ( *)
-      (*     (reify (gReifiers_sReifier rs) *)
-      (*        (Vis (subEff_opid (inr (inr (inl ())))) *)
-      (*           (subEff_ins f) *)
-      (*           (laterO_map (interp_ectx K env) ◎ (subEff_outs ^-1)))) *)
-      (*       ≡ *)
-      (*       (Nat 0, σ')). *)
-      (* rewrite reify_vis_eq //; last first. *)
-      (* { *)
-      (*   epose proof (@subReifier_reify sz reify_io rs _ IT _ (inr (inr (inl ()))) (λne f : laterO IT -n> laterO IT, Next (interp_expr e0 (extend_scope env (λit x : IT, Tau (f (Next x)))))) (Next (interp_ectx K env ((Ret 0)))) (constO (Next (interp_ectx K env ((Ret 0))))) σ (update_output n0 σ) σr) as H. *)
-      (*   simpl in H. *)
-      (*   simpl. *)
-      (*   erewrite <-H; last first. *)
-      (*   - reflexivity. *)
-      (*   - (* holds *) *)
-      (*     admit. *)
-      (* } *)
-      (* doesnt hold due to a missing tau in reify + extra tick in interp *)
-      admit.
+      f_equiv.
+      rewrite Tick_eq.
+      f_equiv.
+      rewrite laterO_map_Next.
+      do 3 f_equiv.
+      Transparent extend_scope.
+      intros [| x]; term_simpl.
+      + (* holds *)
+        admit.
+      + reflexivity.
   Admitted.
 
   Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m (env : interp_scope S) :
@@ -1101,7 +1061,10 @@ Section interp.
       change 1 with (Nat.add 1 0). econstructor; last first.
       { apply ssteps_zero; reflexivity. }
       eapply sstep_reify; first (rewrite hom_vis; reflexivity).
-      trans (reify (gReifiers_sReifier rs) (THROW (interp_val v env) (Next (interp_ectx K' env))) (gState_recomp σr (sR_state σ2))).
+      match goal with
+      | |- context G [ofe_mor_car _ _ _ (Next ?f)] => set (f' := f)
+      end.
+      trans (reify (gReifiers_sReifier rs) (THROW (interp_val v env) (Next f')) (gState_recomp σr (sR_state σ2))).
       {
         f_equiv; last done.
         f_equiv.
@@ -1109,12 +1072,14 @@ Section interp.
         Transparent THROW.
         unfold THROW.
         simpl.
-        f_equiv.
+        repeat f_equiv.
         intros x; simpl.
         destruct ((subEff_outs ^-1) x).
       }
       rewrite reify_vis_eq; first (rewrite Tick_eq; reflexivity).
-      (* holds *)
+      subst f'.
+      pose proof @sstep_tick.
+      (* holds (but with extra tick step) *)
       admit.
     }
   Admitted.
