@@ -13,9 +13,9 @@ Section program_logic.
   Notation iProp := (iProp Σ).
 
   Lemma wp_seq α β s Φ `{!NonExpansive Φ}
-    {G : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-       CtxIndep (gReifiers_sReifier rs)
-         (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}
+    (* {G : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)), *)
+    (*    CtxIndep (gReifiers_sReifier rs) *)
+    (*      (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o} *)
     :
     WP@{rs} α @ s {{ _, WP@{rs} β @ s {{ Φ }} }} ⊢ WP@{rs} SEQ α β @ s {{ Φ }}.
   Proof.
@@ -27,9 +27,9 @@ Section program_logic.
   Qed.
 
   Lemma wp_let α (f : IT -n> IT) s Φ `{!NonExpansive Φ}
-    {G : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-       CtxIndep (gReifiers_sReifier rs)
-         (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}
+    (* {G : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)), *)
+    (*    CtxIndep (gReifiers_sReifier rs) *)
+    (*      (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o} *)
     :
     WP@{rs} α @ s {{ αv, WP@{rs} f (IT_of_V αv) @ s {{ Φ }} }} ⊢ WP@{rs} (LET α f) @ s {{ Φ }}.
   Proof.

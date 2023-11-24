@@ -24,7 +24,6 @@ Program Definition callccE : opInterp :=
     Ins := ((▶ ∙ -n> ▶ ∙) -n> ▶ ∙);
     Outs := (▶ ∙);
   |}.
-
 Program Definition throwE : opInterp :=
   {|
     Ins := (▶ ∙ * (▶ (∙ -n> ∙)));
@@ -365,8 +364,15 @@ Section interp.
     λne env, Ret n.
 
   Program Definition interp_cont {A} (K : A -n> (IT -n> IT)) : A -n> IT :=
-    λne env, Fun (Next (K env)).
+    λne env, (Fun (Next (λne x, Tau (laterO_map (K env) (Next x))))).
   Solve All Obligations with solve_proper.
+  Next Obligation.
+    intros.
+    solve_proper_prepare.
+    repeat f_equiv.
+    intro; simpl.
+    by repeat f_equiv.
+  Qed.
 
   Program Definition interp_applk {A} (q : A -n> IT)
     (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) :=
@@ -522,7 +528,8 @@ Section interp.
         * by iRewrite - "IH".
         * done.
       + repeat f_equiv.
-        intros ?; simpl; by apply interp_ectx_ren.
+        intros ?; simpl.
+        repeat f_equiv; by apply interp_ectx_ren.
     - destruct e; simpl; intros ?; simpl.
       + reflexivity.
       + repeat f_equiv; by apply interp_ectx_ren.
@@ -624,7 +631,8 @@ Section interp.
           iApply internal_eq_pointwise.
           iIntros (z).
           done.
-      + repeat f_equiv; by apply interp_ectx_subst.
+      + repeat f_equiv; intro; simpl; repeat f_equiv.
+        by apply interp_ectx_subst.
     - destruct e; simpl; intros ?; simpl.
       + reflexivity.
       + repeat f_equiv; by apply interp_ectx_subst.
@@ -803,8 +811,8 @@ Section interp.
   #[global] Instance interp_ectx_hom {S}
     (K : ectx S) env :
     IT_hom (interp_ectx K env).
-  Proof.    
-    induction K; apply _. 
+  Proof.
+    induction K; apply _.
   Qed.
 
   (** ** Finally, preservation of reductions *)
@@ -844,7 +852,7 @@ Section interp.
       Tick_n n $ interp_expr (fill K e') env.
   Proof.
     intros He.
-    rewrite !interp_comp.    
+    rewrite !interp_comp.
     erewrite <-hom_tick_n.
     - apply (interp_expr_head_step env) in He.
       rewrite He.
@@ -933,7 +941,7 @@ Section interp.
       end.
       Transparent CALLCC.
       unfold CALLCC.
-      simpl.           
+      simpl.
       rewrite interp_comp.
       rewrite interp_expr_subst.
       etrans.
@@ -943,7 +951,80 @@ Section interp.
         rewrite hom_vis.
         reflexivity.
       }
-      subst f.
+      (* subst f. *)
+      unfold sub_scope.
+
+      unshelve eassert ((extend_scope env (λit x : IT, Tau (laterO_map (interp_ectx K env) (Next x))))
+                          ≡
+                          (sub_scope (mk_subst (Val (cont K))) env)).
+      {
+        apply interp_cont_obligation_1.
+      }
+      {
+        Transparent extend_scope.
+        intros [| x]; term_simpl.
+        - reflexivity.
+        - reflexivity.
+      }
+      (* Check reify. *)
+      (* Locate "≡". *)
+      (* clear. *)
+      (* Set Printing All. *)
+      (* setoid_rewrite reify_vis_eq; last first. *)
+      (* { *)
+      (*   (* pose proof (@subEff_outs ioE F subEff0 (inr (inr (inl ()))) IT _). *) *)
+      (*   (* simpl in X. *) *)
+      (*   (* pose (KKK := ((laterO_map (interp_ectx K env) ◎ (X ^-1)))). *) *)
+      (*   unshelve epose (T := @sReifier_re reify_io IT _ (inr (inr (inl ()))) ((f, σ'), (laterO_map (interp_ectx K env)))). *)
+      (*   assert (T ≡ *)
+      (*             SomeO (Next (interp_ectx K env (interp_expr e0 (λne x : leibnizO (inc S), interp_expr (mk_subst (Val (cont K)) x) env))), σ')). *)
+      (*   { *)
+      (*     subst T. *)
+      (*     simpl. *)
+      (*     do 2 f_equiv. *)
+      (*     etrans; first apply laterO_map_Next. *)
+      (*     do 2 f_equiv. *)
+      (*     f_equiv. *)
+      (*     Transparent extend_scope. *)
+      (*     intros [| x]; term_simpl. *)
+      (*     - admit. *)
+      (*     - reflexivity. *)
+      (*   } *)
+      (*   simpl. *)
+      (*   pose proof (@subEff_outs ioE F subEff0 (inr (inr (inl ()))) IT _). *)
+      (*   simpl in X. *)
+      (*   pose (KKK := ((laterO_map (interp_ectx K env) ◎ (X ^-1)))). *)
+      (*   pose proof (@subEff_ins ioE F subEff0 (inr (inr (inl ()))) IT _). *)
+      (*   simpl in X0. *)
+      (*   pose (fff := X0 f). *)
+      (*   simpl in KKK.         *)
+      (*   (* epose proof (@subReifier_reify sz reify_io rs subR IT _ (inr (inr (inl ()))) f _) as H'. *) *)
+      (*   epose proof (@subReifier_reify sz (rs !!! projT1 (subEff_opid (inr (inr (inl ()))))) rs _ IT _ (projT2 (subEff_opid (inr (inr (inl ()))))) fff _ KKK (gState_decomp (projT1 (subEff_opid (inr (inr (inl ()))))) ((gState_decomp' sR_idx rs ^-1) (sR_state σ', σr))).1 (gState_decomp (projT1 (subEff_opid (inr (inr (inl ()))))) ((gState_decomp' sR_idx rs ^-1) (sR_state σ', σr))).1 _) as H''. *)
+
+      (*   erewrite H''. *)
+      (*   - simpl. *)
+      (*     reflexivity. *)
+      (*   simpl in H'. *)
+
+      (*   _ (laterO_map (interp_ectx K env) ◎ (subEff_outs ^-1)) idfun σ σ σr *)
+      (* } *)
+      (* eassert ( *)
+      (*     (reify (gReifiers_sReifier rs) *)
+      (*        (Vis (subEff_opid (inr (inr (inl ())))) *)
+      (*           (subEff_ins f) *)
+      (*           (laterO_map (interp_ectx K env) ◎ (subEff_outs ^-1)))) *)
+      (*       ≡ *)
+      (*       (Nat 0, σ')). *)
+      (* rewrite reify_vis_eq //; last first. *)
+      (* { *)
+      (*   epose proof (@subReifier_reify sz reify_io rs _ IT _ (inr (inr (inl ()))) (λne f : laterO IT -n> laterO IT, Next (interp_expr e0 (extend_scope env (λit x : IT, Tau (f (Next x)))))) (Next (interp_ectx K env ((Ret 0)))) (constO (Next (interp_ectx K env ((Ret 0))))) σ (update_output n0 σ) σr) as H. *)
+      (*   simpl in H. *)
+      (*   simpl. *)
+      (*   erewrite <-H; last first. *)
+      (*   - reflexivity. *)
+      (*   - (* holds *) *)
+      (*     admit. *)
+      (* } *)
       (* doesnt hold due to a missing tau in reify + extra tick in interp *)
       admit.
   Admitted.
@@ -959,7 +1040,7 @@ Section interp.
     {
       destruct (head_step_io_01 _ _ _ _ _ _ _ H2); subst.
       - assert (σ1 = σ2) as ->.
-        { eapply head_step_no_io; eauto. }        
+        { eapply head_step_no_io; eauto. }
         unshelve eapply (interp_expr_fill_no_reify K) in H2; first apply env.
         rewrite H2.
         rewrite interp_comp.

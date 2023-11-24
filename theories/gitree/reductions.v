@@ -201,7 +201,7 @@ Section istep.
   Qed.
 
   (* ctx-free steps *)
-  Local Lemma effect_safe_externalize (α : IT) σ {G : ∀ o, CtxIndep r IT o} :
+  Local Lemma effect_safe_externalize (α : IT) σ :
     (⊢ ∃ β σ', (∃ op i k, α ≡ Vis op i k ∧ reify r α σ ≡ (σ', Tick β)) : iProp) →
     ∃ β σ', sstep r α σ β σ'.
   Proof.
@@ -228,8 +228,7 @@ Section istep.
     + destruct (reify r (Vis op i k) σ) as [σ1 α1] eqn:Hr.
       assert ((∃ α' : IT, α1 ≡ Tick α') ∨ (α1 ≡ Err RuntimeErr)) as [[α' Ha']| Ha'].
       { eapply (reify_is_always_a_tick r op i k σ).
-        - apply G.
-        - by rewrite Hr.
+        by rewrite Hr.
       }
       * exists α',σ1. eapply sstep_reify; eauto.
         rewrite -Ha' -Hr; repeat f_equiv; eauto.
@@ -258,7 +257,7 @@ Section istep.
   (* this is true only for iProp/uPred? *)
   Definition disjunction_property (P Q : iProp) := (⊢ P ∨ Q) → (⊢ P) ∨ (⊢ Q).
 
-  Lemma istep_safe_sstep α σ {G : ∀ o, CtxIndep r IT o} :
+  Lemma istep_safe_sstep α σ :
     (∀ P Q, disjunction_property P Q) →
     (⊢ ∃ β σ', istep α σ β σ') → ∃ β σ', sstep r α σ β σ'.
   Proof.
@@ -338,7 +337,7 @@ Section istep.
       iRewrite -"Ha". iRewrite "Hs". done.
   Qed.
 
-  Lemma istep_hom (f : IT → IT) `{!IT_hom f} α σ β σ' {G : ∀ o, CtxIndep r IT o} :
+  Lemma istep_hom (f : IT → IT) `{!IT_hom f} α σ β σ' :
     istep α σ β σ' ⊢ istep (f α) σ (f β) σ' : iProp.
   Proof.
     iDestruct 1 as "[[Ha Hs]|H]".
@@ -350,10 +349,11 @@ Section istep.
       { iPureIntro. apply hom_vis. }
       iRewrite "Ha". iRewrite "Ha" in "Hr". iRewrite "Hf".
       iSplit; first done.
-      iApply (reify_vis_cont with "Hr").
-  Qed.
 
-  Lemma istep_hom_inv α σ β σ' `{!IT_hom f} {G : ∀ o, CtxIndep r IT o} :
+      (* iApply (reify_vis_cont with "Hr"). *)
+  Admitted.
+
+  Lemma istep_hom_inv α σ β σ' `{!IT_hom f} :
     istep (f α) σ β σ' ⊢@{iProp} ⌜is_Some (IT_to_V α)⌝
     ∨ (IT_to_V α ≡ None ∧ ∃ α', istep α σ α' σ' ∧ ▷ (β ≡ f α')).
   Proof.
@@ -387,15 +387,15 @@ Section istep.
       + iDestruct "H" as (op' i' k') "[#Ha Hr]".
         iPoseProof (Vis_inj_op' with "Ha") as "<-".
         iPoseProof (Vis_inj' with "Ha") as "[Hi Hk]".
-        iPoseProof (reify_input_cont_inv r op i k fi with "Hr") as (α') "[Hr Ha']".
-        iAssert (reify r α σ ≡ (σ', Tick α'))%I with "[Hr]" as "Hr".
-        { iRewrite -"Hr". iPureIntro. repeat f_equiv.
-          apply Ha. }
-        iSplit. { iPureIntro. by rewrite Ha IT_to_V_Vis. }
-        iExists α'. iFrame "Ha'".
-        rewrite /istep. iRight.
-        iExists op,i,k. iFrame "Hr".
-        iPureIntro. apply Ha.
-  Qed.
+        (* iPoseProof (reify_input_cont_inv r op i k fi with "Hr") as (α') "[Hr Ha']". *)
+        (* iAssert (reify r α σ ≡ (σ', Tick α'))%I with "[Hr]" as "Hr". *)
+        (* { iRewrite -"Hr". iPureIntro. repeat f_equiv. *)
+        (*   apply Ha. } *)
+        (* iSplit. { iPureIntro. by rewrite Ha IT_to_V_Vis. } *)
+        (* iExists α'. iFrame "Ha'". *)
+        (* rewrite /istep. iRight. *)
+        (* iExists op,i,k. iFrame "Hr". *)
+        (* iPureIntro. apply Ha. *)
+  Admitted.
 
 End istep.

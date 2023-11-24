@@ -43,8 +43,8 @@ Section io_lang.
   Program Definition ı_scope
     : @interp_scope F R _ ∅ := λne x, match x with end.
 
-  Definition ssubst_valid {ty} (interp_ty : ty → ITV -n> iProp) {S : Set} (Γ : S -> ty) (ss : S [⇒] ∅) : iProp :=
-    (∀ x, □ expr_pred (interp_expr _ (ss x) ı_scope) (interp_ty (Γ x)))%I.
+  Definition ssubst_valid {ty} (interp_ty : ty → ITV -n> iProp) {S : Set} (Γ : S -> ty) (ss : interp_scope S) : iProp :=
+    (∀ x, □ expr_pred (ss x) (interp_ty (Γ x)))%I.
 
   #[global] Instance io_lang_interp_ty_pers  τ βv : Persistent (io_lang.interp_ty τ βv).
   Proof. induction τ; apply _. Qed.
@@ -55,9 +55,9 @@ Section io_lang.
 
   Program Definition valid1 {S : Set} (Γ : S -> ty) (α : @interp_scope F R _ S -n> IT) (τ : ty) : iProp :=
     (∀ σ ss, has_substate σ -∗ ssubst_valid interp_ty Γ ss -∗
-    expr_pred (α ((@sub_scope sz rs R _ SO _ S ∅ ss ı_scope))) (λne v, ∃ σ', interp_ty τ v ∗ has_substate σ'))%I.
+    expr_pred (α ss) (λne v, ∃ σ', interp_ty τ v ∗ has_substate σ'))%I.
   Solve Obligations with solve_proper.
-
+    
   Lemma compat_nat {S : Set} n (Ω : S -> ty) :
     ⊢ valid1 Ω (interp_nat rs n) Tnat.
   Proof.
@@ -92,18 +92,20 @@ Section io_lang.
     iIntros "H0 H1 H2".
     iIntros (σ ss) "Hs #Has".
     iSpecialize ("H0" with "Hs Has").
-    simpl. (* iApply (expr_pred_bind (IFSCtx _ _) with "H0"). *)
-    (* iIntros (αv) "Ha/=". *)
-    (* iDestruct "Ha" as (σ') "[Ha Hs]". *)
-    (* iDestruct "Ha" as (n) "Hn". *)
-    (* unfold IFSCtx. iIntros (x) "Hx". *)
-    (* iRewrite "Hn". *)
-    (* destruct n as [|n]. *)
-    (* - rewrite IF_False; last lia. *)
-    (*   iApply ("H2" with "Hs Has Hx"). *)
-    (* - rewrite IF_True; last lia. *)
-    (*   iApply ("H1" with "Hs Has Hx"). *)
-  Admitted.
+    simpl.
+    iApply (expr_pred_bind (IFSCtx _ _) with "H0").
+    iIntros (αv) "Ha/=".
+    iDestruct "Ha" as (σ') "[Ha Hs]".
+    iDestruct "Ha" as (n) "Hn".
+    unfold IFSCtx. iIntros (x) "Hx".
+    iRewrite "Hn".
+    destruct n as [|n].
+    - rewrite IF_False; last lia.
+      iApply ("H2" with "Hs Has Hx").
+    - rewrite IF_True; last lia.
+      iApply ("H1" with "Hs Has Hx").
+  Qed.
+  
   Lemma compat_input {S : Set} (Γ : S -> ty) :
     ⊢ valid1 Γ (interp_input rs) Tnat.
   Proof.
@@ -123,18 +125,19 @@ Section io_lang.
     iIntros (σ ss) "Hs #Has".
     iSpecialize ("H" with "Hs Has").
     simpl.
-    (* iApply (expr_pred_bind (get_ret _) with "H"). *)
-    (* iIntros (αv) "Ha". *)
-    (* iDestruct "Ha" as (σ') "[Ha Hs]". *)
-    (* iDestruct "Ha" as (n) "Hn". *)
-    (* iApply expr_pred_frame. *)
-    (* iRewrite "Hn". *)
-    (* rewrite get_ret_ret. *)
-    (* iApply (wp_output with "Hs"). *)
-    (* { reflexivity. } *)
-    (* iNext. iIntros "_ Hs /=". *)
-    (* eauto with iFrame. *)
-  Admitted.
+    iApply (expr_pred_bind (get_ret _) with "H").
+    iIntros (αv) "Ha".
+    iDestruct "Ha" as (σ') "[Ha Hs]".
+    iDestruct "Ha" as (n) "Hn".
+    iApply expr_pred_frame.
+    iRewrite "Hn".
+    rewrite get_ret_ret.
+    iApply (wp_output with "Hs").
+    { reflexivity. }
+    iNext. iIntros "_ Hs /=".
+    eauto with iFrame.
+  Qed.
+  
   Lemma compat_app {S : Set} (Γ : S -> ty) α β τ1 τ2 :
     ⊢ valid1 Γ α (Tarr τ1 τ2) -∗
       valid1 Γ β τ1 -∗
@@ -143,25 +146,24 @@ Section io_lang.
     iIntros "H1 H2".
     iIntros (σ ss) "Hs #Has". simpl.
     iSpecialize ("H2" with "Hs Has").
-    (* iApply (expr_pred_bind (AppRSCtx _) with "H2"). *)
-    (* iIntros (βv) "Hb/=". *)
-    (* iDestruct "Hb" as (σ') "[Hb Hs]". *)
-    (* unfold AppRSCtx. *)
-    (* iSpecialize ("H1" with "Hs Has"). *)
-    (* iApply (expr_pred_bind (AppLSCtx (IT_of_V βv)) with "H1"). *)
-    (* iIntros (αv) "Ha". *)
-    (* iDestruct "Ha" as (σ'') "[Ha Hs]". *)
-    (* unfold AppLSCtx. *)
-    (* iApply ("Ha" with "Hs Hb"). *)
-  Admitted.
+    iApply (expr_pred_bind (AppRSCtx _) with "H2").
+    iIntros (βv) "Hb/=".
+    iDestruct "Hb" as (σ') "[Hb Hs]".
+    unfold AppRSCtx.
+    iSpecialize ("H1" with "Hs Has").
+    iApply (expr_pred_bind (AppLSCtx (IT_of_V βv)) with "H1").
+    iIntros (αv) "Ha".
+    iDestruct "Ha" as (σ'') "[Ha Hs]".
+    unfold AppLSCtx.
+    iApply ("Ha" with "Hs Hb").
+  Qed.
 
   Lemma compat_rec {S : Set} (Γ : S -> ty) τ1 τ2 α :
     ⊢ □ valid1 ((Γ ▹ (Tarr τ1 τ2) ▹ τ1)) α τ2 -∗
       valid1 Γ (interp_rec rs α) (Tarr τ1 τ2).
   Proof.
     iIntros "#H". iIntros (σ ss) "Hs #Hss".
-    pose (env := (sub_scope rs ss ı_scope)). fold env.
-    simp subst_expr.
+    pose (env := ss). fold env.    
     pose (f := (ir_unf rs α env)).
     iAssert (interp_rec rs α env ≡ IT_of_V $ FunV (Next f))%I as "Hf".
     { iPureIntro. apply interp_rec_unfold. }
@@ -173,8 +175,26 @@ Section io_lang.
     iIntros (x) "Hx".
     iApply wp_lam.
     iNext.
-    unfold f. simpl.
-  Admitted.
+    unfold valid1.
+    iAssert (IT_of_V (FunV (Next f)) ≡ interp_rec rs α env)%I as "Heq".
+    { rewrite interp_rec_unfold. done. }    
+    iRewrite -"Heq".
+    unfold f.
+    Opaque extend_scope.
+    simpl.
+    pose (ss' := (extend_scope (extend_scope env (interp_rec rs α env)) (IT_of_V βv))).
+    iApply ("H" with "[$Hs] [] [$Hx]").
+    Transparent extend_scope.
+    iIntros (x'); destruct x' as [| [| x']]; simpl.
+    - iModIntro.
+      by iApply expr_pred_ret.
+    - iModIntro.
+      iRewrite - "Heq".
+      iApply expr_pred_ret.
+      iModIntro.
+      iApply "IH".
+    - iApply "Hss".
+  Qed.
 
   Lemma compat_natop {S : Set} (Γ : S -> ty) op α β :
     ⊢ valid1 Γ α Tnat -∗
@@ -184,23 +204,36 @@ Section io_lang.
     iIntros "H1 H2".
     iIntros (σ ss) "Hs #Has". simpl.
     iSpecialize ("H2" with "Hs Has").
-    (* iApply (expr_pred_bind (NatOpRSCtx _ _) with "H2"). *)
-    (* iIntros (βv) "Hb/=". *)
-    (* iDestruct "Hb" as (σ') "[Hb Hs]". *)
-    (* unfold NatOpRSCtx. *)
-    (* iSpecialize ("H1" with "Hs Has"). *)
-    (* iApply (expr_pred_bind (NatOpLSCtx _ (IT_of_V βv)) with "H1"). *)
-    (* iIntros (αv) "Ha". *)
-    (* iDestruct "Ha" as (σ'') "[Ha Hs]". *)
-    (* unfold NatOpLSCtx. *)
-    (* iDestruct "Hb" as (n1) "Hb". *)
-    (* iDestruct "Ha" as (n2) "Ha". *)
-    (* iRewrite "Hb". iRewrite "Ha". *)
-    (* simpl. iApply expr_pred_frame. *)
-    (* rewrite NATOP_Ret. iApply wp_val. simpl. *)
-    (* eauto with iFrame. *)
-  Admitted.
+    iApply (expr_pred_bind (NatOpRSCtx _ _) with "H2").
+    iIntros (βv) "Hb/=".
+    iDestruct "Hb" as (σ') "[Hb Hs]".
+    unfold NatOpRSCtx.
+    iSpecialize ("H1" with "Hs Has").
+    iApply (expr_pred_bind (NatOpLSCtx _ (IT_of_V βv)) with "H1").
+    iIntros (αv) "Ha".
+    iDestruct "Ha" as (σ'') "[Ha Hs]".
+    unfold NatOpLSCtx.
+    iDestruct "Hb" as (n1) "Hb".
+    iDestruct "Ha" as (n2) "Ha".
+    iRewrite "Hb". iRewrite "Ha".
+    simpl. iApply expr_pred_frame.
+    rewrite NATOP_Ret. iApply wp_val. simpl.
+    eauto with iFrame.
+  Qed.
 
+  Lemma compat_throw {S : Set} (Γ : S -> ty) τ τ' α β :
+    ⊢ valid1 Γ α τ -∗
+      valid1 Γ β (Tcont τ) -∗
+      valid1 Γ (interp_throw _ α β) τ'.
+  Proof.
+  Admitted.
+    
+  Lemma compat_callcc {S : Set} (Γ : S -> ty) τ α :
+    ⊢ valid1 (Γ ▹ Tcont τ) α τ -∗
+      valid1 Γ (interp_callcc _ α) τ.
+  Proof.
+  Admitted.
+    
   Lemma fundamental {S : Set} (Γ : S -> ty) e τ :
     typed Γ e τ → ⊢ valid1 Γ (interp_expr rs e) τ
   with fundamental_val {S : Set} (Γ : S -> ty) v τ :
@@ -214,17 +247,18 @@ Section io_lang.
       + iApply compat_if;  iApply fundamental; eauto.
       + iApply compat_input.
       + iApply compat_output; iApply fundamental; eauto.
-      + admit.
-      + admit.
+      + iApply compat_throw; iApply fundamental; eauto.
+      + iApply compat_callcc; iApply fundamental; eauto.
     - destruct 1.
       + iApply compat_nat.
       + iApply compat_rec; iApply fundamental; eauto.
-  Admitted.
+  Qed.
+  
   Lemma fundmanetal_closed (e : expr ∅) (τ : ty) :
     typed □ e τ →
     ⊢ valid1 □ (interp_expr rs e) τ.
   Proof. apply fundamental. Qed.
-
+  
 End io_lang.
 
 Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _ _} τ.
@@ -234,51 +268,56 @@ Local Definition rs : gReifiers _ := gReifiers_cons reify_io gReifiers_nil.
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-(* Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}`{!invGpreS Σ}`{!statePreG rs R Σ} τ (α : interp_scope ∅ -n> IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k : *)
-(*   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ}, *)
-(*       (£ cr ⊢ valid1 rs notStuck (λ _:unitO, True)%I □ α τ)%I) → *)
-(*   ssteps (gReifiers_sReifier rs) (α (@ı_scope _ rs R _)) st β st' k → *)
-(*   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1) *)
-(*    ∨ (∃ βv, IT_of_V βv ≡ β). *)
-(* Proof. *)
-(*   intros Hlog Hst. *)
-(*   destruct (IT_to_V β) as [βv|] eqn:Hb. *)
-(*   { right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. } *)
-(*   left. *)
-(*   cut ((∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1) *)
-(*       ∨ (∃ e, β ≡ Err e ∧ notStuck e)). *)
-(*   { intros [?|He]; first done. *)
-(*     destruct He as [? [? []]]. } *)
-(*   eapply (wp_safety cr); eauto. *)
-(*   { apply Hdisj. } *)
-(*   { by rewrite Hb. } *)
-(*   intros H1 H2. *)
-(*   exists (interp_ty (s:=notStuck) (P:=(λ _:unitO, True)) τ)%I. split. *)
-(*   { apply _. } *)
-(*   iIntros "[Hcr  Hst]". *)
-(*   iPoseProof (Hlog with "Hcr") as "Hlog". *)
-(*   destruct st as [σ []]. *)
-(*   iAssert (has_substate σ) with "[Hst]" as "Hs". *)
-(*   { unfold has_substate, has_full_state. *)
-(*     assert (of_state rs (IT (gReifiers_ops rs) _) (σ,()) ≡ *)
-(*             of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)) as ->; last done. *)
-(*     intro j. unfold sR_idx. simpl. *)
-(*     unfold of_state, of_idx. *)
-(*     destruct decide as [Heq|]; last first. *)
-(*     { inv_fin j; first done. *)
-(*       intros i. inversion i. } *)
-(*     inv_fin j; last done. *)
-(*     intros Heq. *)
-(*     rewrite (eq_pi _ _ Heq eq_refl)//. *)
-(*   } *)
-(*   iSpecialize ("Hlog" $! σ with "Hs []"). *)
-(*   { iApply ssubst_valid_nil. } *)
-(*   iSpecialize ("Hlog" $! tt with "[//]"). *)
-(*   iApply (wp_wand with"Hlog"). *)
-(*   iIntros ( βv). simpl. iDestruct 1 as (_) "[H _]". *)
-(*   iDestruct "H" as (σ1') "[$ Hsts]". *)
-(*   done. *)
-(* Qed. *)
+(* Check IT_of_to_V. *)
+(* Search SetoidClass.Setoid. *)
+
+(* Lemma logpred_adequacy (* cr *) (* Σ *) R `{!Cofe R(* , SubOfe natO R *)} (* `{!invGpreS Σ} `{!statePreG rs R Σ} *) (* τ *) *)
+(*   (* (α : interp_scope ∅ -n> IT (gReifiers_ops rs) R) *) *)
+(*   (β : @IT (gReifiers_ops rs) R _) (* st st' k *) : *)
+(*   (* (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ}, *) *)
+(*   (*     (£ cr ⊢ valid1 rs notStuck (λ _:unitO, True)%I □ α τ)%I) → *) *)
+(*   (* ssteps (gReifiers_sReifier rs) (α (@ı_scope _ rs R _)) st β st' k → *) *)
+(*   (* (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1) *) *)
+(*   (*  ∨ *) (∃ βv, IT_of_V βv ≡ β). *)
+(* (* Proof. *) *)
+(* (*   intros Hlog Hst. *) *)
+(* (*   destruct (IT_to_V β) as [βv|] eqn:Hb. *) *)
+(* (*   { right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. } *) *)
+(* (*   left. *) *)
+(* (*   cut ((∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1) *) *)
+(* (*       ∨ (∃ e, β ≡ Err e ∧ notStuck e)). *) *)
+(* (*   { intros [?|He]; first done. *) *)
+(* (*     destruct He as [? [? []]]. } *) *)
+(* (*   eapply (wp_safety cr); eauto. *) *)
+(* (*   { apply Hdisj. } *) *)
+(* (*   { by rewrite Hb. } *) *)
+(* (*   intros H1 H2. *) *)
+(* (*   exists (interp_ty (s:=notStuck) (P:=(λ _:unitO, True)) τ)%I. split. *) *)
+(* (*   { apply _. } *) *)
+(* (*   iIntros "[Hcr  Hst]". *) *)
+(* (*   iPoseProof (Hlog with "Hcr") as "Hlog". *) *)
+(* (*   destruct st as [σ []]. *) *)
+(* (*   iAssert (has_substate σ) with "[Hst]" as "Hs". *) *)
+(* (*   { unfold has_substate, has_full_state. *) *)
+(* (*     assert (of_state rs (IT (gReifiers_ops rs) _) (σ,()) ≡ *) *)
+(* (*             of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)) as ->; last done. *) *)
+(* (*     intro j. unfold sR_idx. simpl. *) *)
+(* (*     unfold of_state, of_idx. *) *)
+(* (*     destruct decide as [Heq|]; last first. *) *)
+(* (*     { inv_fin j; first done. *) *)
+(* (*       intros i. inversion i. } *) *)
+(* (*     inv_fin j; last done. *) *)
+(* (*     intros Heq. *) *)
+(* (*     rewrite (eq_pi _ _ Heq eq_refl)//. *) *)
+(* (*   } *) *)
+(* (*   iSpecialize ("Hlog" $! σ with "Hs []"). *) *)
+(* (*   { iApply ssubst_valid_nil. } *) *)
+(* (*   iSpecialize ("Hlog" $! tt with "[//]"). *) *)
+(* (*   iApply (wp_wand with"Hlog"). *) *)
+(* (*   iIntros ( βv). simpl. iDestruct 1 as (_) "[H _]". *) *)
+(* (*   iDestruct "H" as (σ1') "[$ Hsts]". *) *)
+(* (*   done. *) *)
+(* (* Qed. *) *)
 
 (* Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k : *)
 (*   typed empC e τ → *)

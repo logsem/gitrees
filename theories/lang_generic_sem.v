@@ -108,44 +108,6 @@ Section kripke_logrel.
   #[export] Instance expr_pred_proper : Proper ((≡) ==> (≡) ==> (≡)) expr_pred .
   Proof. solve_proper. Qed.
 
-  (* Definition ssubst_valid {ty} (interp_ty : ty → ITV -n> iProp) {S} (Γ : S -> ty) (ss : ssubst S) : iProp := *)
-  (*   ([∗ list] τx ∈ zip (list_of_tyctx Γ) (list_of_ssubst (E:=F) ss), *)
-  (*     interp_ty (τx.1) (τx.2))%I. *)
-
-  (* Lemma ssubst_valid_nil {ty} (interp_ty : ty → ITV -n> iProp) : *)
-  (*   ⊢ ssubst_valid interp_ty empC emp_ssubst. *)
-  (* Proof. *)
-  (*   unfold ssubst_valid. *)
-  (*   by simp list_of_tyctx list_of_ssubst. *)
-  (* Qed. *)
-
-  (* Lemma ssubst_valid_cons {ty} (interp_ty : ty → ITV -n> iProp) {S} *)
-  (*   (Γ : tyctx ty S) (ss : ssubst S) τ αv : *)
-  (*   ssubst_valid interp_ty (consC τ Γ) (cons_ssubst αv ss) *)
-  (*   ⊣⊢ interp_ty τ αv ∗ ssubst_valid interp_ty Γ ss. *)
-  (* Proof. *)
-  (*   unfold ssubst_valid. *)
-  (*   by simp list_of_tyctx list_of_ssubst. *)
-  (* Qed. *)
-
-  (* Lemma ssubst_valid_app {ty} (interp_ty : ty → ITV -n> iProp) *)
-  (*   {S1 S2} (Ω1 : tyctx ty S1) (Ω2 : tyctx ty S2) αs : *)
-  (*   ssubst_valid interp_ty (tyctx_app Ω1 Ω2) αs ⊢ *)
-  (*    ssubst_valid interp_ty Ω1 (ssubst_split αs).1 *)
-  (*  ∗ ssubst_valid interp_ty Ω2 (ssubst_split αs).2. *)
-  (* Proof. *)
-  (*   iInduction Ω1 as [|τ Ω1] "IH" forall (Ω2); simp tyctx_app ssubst_split. *)
-  (*   - simpl. iIntros "$". iApply ssubst_valid_nil. *)
-  (*   - iIntros "H". *)
-  (*     rewrite {4 5}/ssubst_valid. *)
-  (*     simpl in αs. *)
-  (*     dependent elimination αs as [cons_ssubst αv αs]. *)
-  (*     simp ssubst_split. simpl. *)
-  (*     simp list_of_ssubst list_of_tyctx. *)
-  (*     simpl. iDestruct "H" as "[$ H]". *)
-  (*     by iApply "IH". *)
-  (* Qed. *)
-
   Lemma expr_pred_ret α αv Φ `{!IntoVal α αv} :
     Φ αv ⊢ expr_pred α Φ.
   Proof.
@@ -154,21 +116,21 @@ Section kripke_logrel.
     eauto with iFrame.
   Qed.
 
-  (* Lemma expr_pred_bind f `{!IT_hom f} α Φ Ψ `{!NonExpansive Φ} : *)
-  (*   expr_pred α Ψ ⊢ *)
-  (*   (∀ αv, Ψ αv -∗ expr_pred (f (IT_of_V αv)) Φ) -∗ *)
-  (*   expr_pred (f α) Φ. *)
-  (* Proof. *)
-  (*   iIntros "H1 H2". *)
-  (*   iIntros (x) "Hx". *)
-  (*   iApply wp_bind. *)
-  (*   { solve_proper. } *)
-  (*   iSpecialize ("H1" with "Hx"). *)
-  (*   iApply (wp_wand with "H1"). *)
-  (*   iIntros (βv). iDestruct 1 as (y) "[Hb Hy]". *)
-  (*   iModIntro. *)
-  (*   iApply ("H2" with "Hb Hy"). *)
-  (* Qed. *)
+  Lemma expr_pred_bind f `{!IT_hom f} α Φ Ψ `{!NonExpansive Φ} :
+    expr_pred α Ψ ⊢
+    (∀ αv, Ψ αv -∗ expr_pred (f (IT_of_V αv)) Φ) -∗
+    expr_pred (f α) Φ.
+  Proof.
+    iIntros "H1 H2".
+    iIntros (x) "Hx".
+    iApply wp_bind.
+    { solve_proper. }
+    iSpecialize ("H1" with "Hx").
+    iApply (wp_wand with "H1").
+    iIntros (βv). iDestruct 1 as (y) "[Hb Hy]".
+    iModIntro.
+    iApply ("H2" with "Hb Hy").
+  Qed.
 
   Lemma expr_pred_frame α Φ :
     WP@{rs} α @ s {{ Φ }} ⊢ expr_pred α Φ.
@@ -181,4 +143,4 @@ Section kripke_logrel.
 
 End kripke_logrel.
 
-(* Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_}. *)
+Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_}.

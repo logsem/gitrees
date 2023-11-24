@@ -371,7 +371,7 @@ Section weakestpre.
     iIntros "H". iApply (wp_wand with "H"); auto.
   Qed.
 
-  Lemma wp_bind (f : IT → IT) `{!IT_hom f} (α : IT) s Φ `{!NonExpansive Φ} E1 {G : ∀ o : opid F, CtxIndep rG IT o} :
+  Lemma wp_bind (f : IT → IT) `{!IT_hom f} (α : IT) s Φ `{!NonExpansive Φ} E1 (* {G : ∀ o : opid F, CtxIndep rG IT o} *) :
     WP α @ s;E1 {{ βv, WP (f (IT_of_V βv)) @ s;E1 {{ βv, Φ βv }} }} ⊢ WP (f α) @ s;E1 {{ Φ }}.
   Proof.
     assert (NonExpansive (λ βv0, WP f (IT_of_V βv0) @ s;E1 {{ βv1, Φ βv1 }})%I).
@@ -411,6 +411,7 @@ Section weakestpre.
           iDestruct "Hsafe" as "[Hsafe|Herr]".
           - iDestruct "Hsafe" as (α' σ') "Hsafe". iLeft.
             iExists (f α'), σ'. iApply (istep_hom with "Hsafe").
+
           - iDestruct "Herr" as (e) "[Herr %]".
             iRight. iExists e. iSplit; last done.
             iRewrite "Herr". rewrite hom_err//. }
@@ -835,8 +836,7 @@ Proof.
 Qed.
 
 Lemma wp_safety cr Σ `{!invGpreS Σ} n (rs : gReifiers n)
-  {A} `{!Cofe A} `{!statePreG rs A Σ} s k {G : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-                                             CtxIndep (gReifiers_sReifier rs) (IT (sReifier_ops (gReifiers_sReifier rs)) A) o}
+  {A} `{!Cofe A} `{!statePreG rs A Σ} s k
   (α β : IT (gReifiers_ops rs) A) (σ σ' : gReifiers_state rs ♯ IT (gReifiers_ops rs) A) :
   (∀ Σ P Q, @disjunction_property Σ P Q) →
   ssteps (gReifiers_sReifier rs) α σ β σ' k →
@@ -853,7 +853,6 @@ Proof.
   { intros [Hprf | Hprf]%Hdisj.
     - left.
       apply (istep_safe_sstep _ (Σ:=Σ)).
-      { apply G. }
       { apply Hdisj. }
       done.
     - right.
