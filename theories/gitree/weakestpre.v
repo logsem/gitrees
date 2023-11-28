@@ -371,63 +371,6 @@ Section weakestpre.
     iIntros "H". iApply (wp_wand with "H"); auto.
   Qed.
 
-  Lemma wp_bind (f : IT → IT) `{!IT_hom f} (α : IT) s Φ `{!NonExpansive Φ} E1 (* {G : ∀ o : opid F, CtxIndep rG IT o} *) :
-    WP α @ s;E1 {{ βv, WP (f (IT_of_V βv)) @ s;E1 {{ βv, Φ βv }} }} ⊢ WP (f α) @ s;E1 {{ Φ }}.
-  Proof.
-    assert (NonExpansive (λ βv0, WP f (IT_of_V βv0) @ s;E1 {{ βv1, Φ βv1 }})%I).
-    { solve_proper. }
-    iIntros "H". iLöb as "IH" forall (α).
-    rewrite (wp_unfold (f _)).
-    destruct (IT_to_V (f α)) as [βv|] eqn:Hfa.
-    - iLeft. iExists βv. iSplit; first done.
-      assert (is_Some (IT_to_V α)) as [αv Ha].
-      { apply (IT_hom_val_inv _ f). rewrite Hfa.
-        done. }
-      assert (IntoVal α αv).
-      { apply IT_of_to_V'. by rewrite Ha. }
-      rewrite wp_val_inv.
-      iApply wp_val_inv.
-      rewrite IT_of_to_V'; last by rewrite -Ha.
-      rewrite IT_of_to_V'; last by rewrite -Hfa.
-      by iApply fupd_wp.
-    - iRight. iSplit; eauto.
-      iIntros (σ) "Hs".
-      rewrite wp_unfold.
-      iDestruct "H" as "[H | H]".
-      + iDestruct "H" as (αv) "[Hav H]".
-        iPoseProof (IT_of_to_V with "Hav") as "Hav".
-        iMod "H" as "H". rewrite wp_unfold.
-        iDestruct "H" as "[H|H]".
-        { iExFalso. iDestruct "H" as (βv) "[H _]".
-          iRewrite "Hav" in "H". rewrite Hfa.
-          iApply (option_equivI with "H"). }
-        iDestruct "H" as "[_ H]".
-        iMod ("H" with "Hs") as "H". iModIntro.
-        iRewrite "Hav" in "H". done.
-      + iDestruct "H" as "[Hav H]".
-        iMod ("H" with "Hs") as "[Hsafe H]". iModIntro.
-        iSplit.
-        { (* safety *)
-          iDestruct "Hsafe" as "[Hsafe|Herr]".
-          - iDestruct "Hsafe" as (α' σ') "Hsafe". iLeft.
-            iExists (f α'), σ'. iApply (istep_hom with "Hsafe").
-
-          - iDestruct "Herr" as (e) "[Herr %]".
-            iRight. iExists e. iSplit; last done.
-            iRewrite "Herr". rewrite hom_err//. }
-        iIntros (σ' β) "Hst".
-        rewrite {1}istep_hom_inv. iDestruct "Hst" as "[%Ha | [_ Hst]]".
-        { destruct Ha as [αv Ha]. rewrite Ha.
-          iExFalso.
-          iApply (option_equivI with "Hav"). }
-        iDestruct "Hst" as (α') "[Hst Hb]".
-        iIntros "Hlc".
-        iMod ("H" with "Hst Hlc") as "H". iModIntro.
-        iNext. iMod "H" as "H". iModIntro.
-        iMod "H" as "[$ H]".
-        iModIntro. iRewrite "Hb". by iApply "IH".
-  Qed.
-
   (* XXX: strengthen it with later credits *)
   Lemma wp_tick α s E1 Φ :
     ▷ WP α @ s;E1 {{ Φ }} ⊢ WP (Tick α) @ s;E1 {{ Φ }}.
@@ -445,7 +388,6 @@ Section weakestpre.
       iMod "Hcl" as "_".
       iModIntro. iRewrite "Hb". by iFrame.
   Qed.
-
 
   Opaque gState_recomp.
 
@@ -774,9 +716,309 @@ Section weakestpre.
       iExFalso. iApply (option_equivI with "Hb").
   Qed.
 
+  Definition clwp_def (e : IT) (s : stuckness) E (Φ : ITV -n> iProp) : iProp :=
+    (∀ (K : IT -n> IT) {HK : IT_hom K} (Ψ : ITV -n> iProp), (∀ v, Φ v -∗ wp (K (IT_of_V v)) s E Ψ)
+            -∗ wp (K e) s E Ψ).
+  Definition clwp_aux : seal (@clwp_def). by eexists. Qed.
+  Definition clwp := unseal clwp_aux.
+  Definition clwp_eq : @clwp = @clwp_def := seal_eq clwp_aux.
+
+  Notation "'CLWP' e @ s ; E {{ Φ } }" :=
+    (clwp e s E Φ)
+      (at level 20, e, s, Φ at level 200,
+        format "'CLWP' e @ s ; E {{  Φ  } }") : bi_scope.
+
+  Notation "'CLWP' α @ s ; E {{ v , Q } }" :=
+    (clwp α s E (λne v, Q))
+      (at level 20, α, s, Q at level 200,
+        format "'[hv' 'CLWP'  α  '/' @  s  ;  E  '/' {{  '[' v ,  '/' Q  ']' } } ']'") : bi_scope.  
+
+  Notation "'CLWP' α @ s {{ β , Φ } }" :=
+    (clwp α s ⊤ (λne β, Φ))
+      (at level 20, α, Φ at level 200,
+        format "'CLWP'  α  @  s  {{  β ,  Φ  } }") : bi_scope.
+
+  Notation "'CLWP' α @ s {{ Φ } }" :=
+    (clwp α s ⊤ Φ)
+      (at level 20, α, Φ at level 200,
+        format "'CLWP' α @ s {{ Φ } }") : bi_scope.
+
+  Lemma clwp_cl {s E e} {Φ : ITV -n> iProp} (K : IT -n> IT) {HK : IT_hom K} :
+    CLWP e @ s ; E {{ Φ }} -∗
+                              (∀ (Ψ : ITV -n> iProp), (∀ v, Φ v -∗ WP (K (IT_of_V v)) @ s ; E {{ Ψ }})
+                                    -∗ WP (K e) @ s ; E {{ Ψ }})%I.
+  Proof.
+    rewrite clwp_eq /clwp_def. iIntros "H". iIntros (?).
+    iApply "H".
+  Qed.
+  
+  Lemma unfold_clwp (s : stuckness) (E : coPset) (e : IT) (Φ : ITV -n> iProp) :
+    CLWP e @ s ; E {{Φ}} ⊣⊢
+    (∀ (K : IT -n> IT) {HK : IT_hom K} (Ψ : ITV -n> iProp), (∀ v, Φ v -∗ WP (K (IT_of_V v)) @ s ; E {{ Ψ }})
+    -∗ WP (K e) @ s ; E {{ Ψ }})%I.
+  Proof.
+    by rewrite clwp_eq /clwp_def.
+  Qed.
+
+  Lemma clwp_wp s (E : coPset) (e : IT) (Φ : ITV -n> iProp) :
+    CLWP e @ s ; E {{ Φ }} ⊢ WP e @ s ; E {{ Φ }}.
+  Proof.
+    iIntros "H". rewrite unfold_clwp.
+    unshelve iSpecialize ("H" $! idfun _ Φ with "[]").
+    - apply _.
+    - iIntros (w) "Hw". simpl. 
+      iApply wp_val; rewrite /IntoVal /=.
+      done.
+    - by simpl.
+  Qed.
+
+  Global Instance clwp_ne s E e m :
+    Proper ((dist m) ==> dist m) (clwp e s E).
+  Proof.
+    repeat intros?; rewrite !unfold_clwp.
+    solve_proper.
+  Qed.
+
+  Global Instance clwp_proper s E e :
+    Proper ((≡) ==> (≡)) (clwp e s E).
+  Proof.
+    by intros Φ Φ' ?; apply equiv_dist=>m; apply clwp_ne=>v; apply equiv_dist.
+  Qed.
+
+  Lemma clwp_value' s E (Φ : ITV -n> iProp) v :
+    Φ v ⊢ CLWP (IT_of_V v) @ s ; E {{ Φ }}.
+  Proof.
+    iIntros "HΦ"; rewrite unfold_clwp.
+    iIntros (K HK Ψ) "HK". iApply ("HK" with "HΦ").
+  Qed.
+  
+  Lemma clwp_value_inv s E (Φ : ITV -n> iProp) v :
+    CLWP (IT_of_V v) @ s ; E {{ Φ }} ={E}=∗ Φ v.
+  Proof.
+    iIntros "H"; iApply wp_val_inv'; last by iApply clwp_wp.
+    iPureIntro. by apply IT_to_of_V.
+  Qed.
+
+  Lemma fupd_clwp s E e (Φ : ITV -n> iProp) :
+    (|={E}=> CLWP e @ s ; E {{ Φ }}) ⊢ CLWP e @ s ; E {{ Φ }}.
+  Proof.
+    iIntros "H"; rewrite !unfold_clwp.
+    iIntros (K HK Ψ) "HK".
+    iMod "H"; by iApply "H".
+  Qed.
+
+  Global Instance clwp_ne' s E (Φ : ITV -n> iProp) m :
+    Proper ((dist m) ==> dist m) (fun x => clwp x s E Φ).
+  Proof.
+    repeat intros?; rewrite !unfold_clwp.
+    solve_proper.
+  Qed.
+
+  Global Instance clwp_proper' s E (Φ : ITV -n> iProp) :
+    Proper ((≡) ==> (≡)) (fun x => clwp x s E Φ).
+  Proof.
+    intros e e' ?.
+    rewrite !unfold_clwp.
+    solve_proper.
+  Qed.
+
+  Global Instance clwp_ne'' s E (Φ : ITV -n> iProp) m :
+    Proper ((dist m) ==> dist m) (fun (x : ITVO) => clwp (IT_of_V x) s E Φ).
+  Proof.
+    repeat intros?; rewrite !unfold_clwp.
+    solve_proper.
+  Qed.
+
+  Global Instance clwp_proper'' s E (Φ : ITV -n> iProp) :
+    Proper ((≡) ==> (≡)) (fun (x : ITVO) => clwp (IT_of_V x) s E Φ).
+  Proof.
+    intros e e' ?.
+    rewrite !unfold_clwp.
+    solve_proper.
+  Qed.
+
+  Global Instance clwp_ne''' s E (Φ : ITV -n> iProp) (K : IT -n> IT) {HK : IT_hom K} :
+    NonExpansive (λ v : ITVO, (CLWP (K (IT_of_V v)) @ s ; E{{ Φ }})%I).
+  Proof.
+    repeat intros?; rewrite !unfold_clwp.
+    solve_proper.
+  Qed.
+
+  Global Instance upd_ne {X : ofe} E (Φ : X -n> iProp) :
+    NonExpansive (λ (a : X), (|={E}=> Φ a)%I).
+  Proof.
+    solve_proper.
+  Qed.
+  
+  Lemma clwp_fupd s E e (Φ : ITV -n> iProp) :
+    CLWP e @ s ; E {{ v , |={E}=> Φ v }} ⊢ CLWP e @ s ; E {{ Φ }}.
+  Proof.
+    iIntros "H"; rewrite !unfold_clwp.
+    iIntros (K HK Ψ) "HK".
+    iApply "H". iIntros (w) ">Hw"; by iApply "HK".
+  Qed.
+  
+  Lemma clwp_bind (K : IT -n> IT) {HK : IT_hom K} s E e (Φ : ITV -n> iProp) :
+    CLWP e @ s ; E {{ v , CLWP (K (IT_of_V v)) @ s ; E {{ Φ }} }}
+    ⊢ CLWP (K e) @ s ; E {{ Φ }}.
+  Proof.
+    iIntros "H"; rewrite !unfold_clwp. iIntros (K' HK' Ψ) "HK'".
+    assert (K' (K e) = (K' ◎ K) e) as ->; first done.    
+    iApply "H".
+    - iPureIntro.
+      apply _.
+    - iIntros (v) "Hv".
+      simpl.
+      rewrite !unfold_clwp.
+      iApply "Hv".
+      iIntros (w) "Hw".
+      by iApply "HK'".
+  Qed.
+  
+  Lemma clwp_mono E e (Φ Ψ : ITV -n> iProp) : (∀ v, Φ v ⊢ Ψ v) →
+    CLWP e @ E {{ Φ }} ⊢ CLWP e @ E {{ Ψ }}.
+  Proof.
+    iIntros (HΦ) "H"; rewrite !unfold_clwp. iIntros (K HK χ) "HK".
+    iApply "H". iIntros (w) "Hw". iApply "HK"; by iApply HΦ.
+  Qed.
+
+  Lemma clwp_value s E (Φ : ITV -n> iProp) e v `{!IntoVal e v} :
+    Φ v ⊢ CLWP e @ s ; E {{ Φ }}.
+  Proof.
+    iIntros "H".
+    assert (e = IT_of_V v) as ->.
+    { admit. }
+    by iApply clwp_value'.
+  Admitted.
+
+  Lemma clwp_value_fupd' s E (Φ : ITV -n> iProp) v :
+    (|={E}=> Φ v) ⊢ CLWP (IT_of_V v) @ s ; E {{ Φ }}.
+  Proof. intros. by rewrite -clwp_fupd -clwp_value'. Qed.
+
+  Lemma clwp_value_fupd s E (Φ : ITV -n> iProp) e v `{!IntoVal e v} :
+    (|={E}=> Φ v) ⊢ CLWP e @ s ; E {{ Φ }}.
+  Proof. intros. rewrite -clwp_fupd -clwp_value //. Qed.
+
+  Global Instance upd_ast_l {X : ofe} R (Φ : X -n> iProp) :
+    NonExpansive (λ (a : X), (R ∗ Φ a)%I).
+  Proof.
+    solve_proper.
+  Qed.
+  
+  Lemma clwp_frame_l s E e (Φ : ITV -n> iProp) R :
+    R ∗ CLWP e @ s ; E {{ Φ }} ⊢ CLWP e @ s ; E {{ v, R ∗ Φ v }}.
+  Proof.
+    iIntros "[HR H]"; rewrite !unfold_clwp. iIntros (K HK Ψ) "HK".
+    iApply "H". iIntros (v) "Hv". iApply "HK"; iFrame.
+  Qed.
+
+  Global Instance upd_ast_r {X : ofe} R (Φ : X -n> iProp) :
+    NonExpansive (λ (a : X), (Φ a ∗ R)%I).
+  Proof.
+    solve_proper.
+  Qed.
+  
+  Lemma clwp_frame_r s E e (Φ : ITV -n> iProp) R :
+    CLWP e @ s ; E {{ Φ }} ∗ R ⊢ CLWP e @ s ; E {{ v, Φ v ∗ R }}.
+  Proof.
+    iIntros "[H HR]"; rewrite !unfold_clwp. iIntros (K HK Ψ) "HK".
+    iApply "H". iIntros (v) "Hv". iApply "HK"; iFrame.
+  Qed.
+
+  Lemma clwp_wand s E e (Φ Ψ : ITV -n> iProp) :
+    CLWP e @ s ; E {{ Φ }} -∗ (∀ v, Φ v -∗ Ψ v) -∗ CLWP e @ s ; E {{ Ψ }}.
+  Proof.
+    iIntros "Hwp H". rewrite !unfold_clwp.
+    iIntros (K HK χ) "HK".
+    iApply "Hwp". iIntros (?) "?"; iApply "HK"; by iApply "H".
+  Qed.
+  
+  Lemma clwp_wand_l s E e (Φ Ψ : ITV -n> iProp) :
+    (∀ v, Φ v -∗ Ψ v) ∗ CLWP e @ s ; E {{ Φ }} ⊢ CLWP e @ s ; E {{ Ψ }}.
+  Proof. iIntros "[H Hwp]". iApply (clwp_wand with "Hwp H"). Qed.
+  
+  Lemma clwp_wand_r s E e (Φ Ψ : ITV -n> iProp) :
+    CLWP e @ s ; E {{ Φ }} ∗ (∀ v, Φ v -∗ Ψ v) ⊢ CLWP e @ s ; E {{ Ψ }}.
+  Proof. iIntros "[Hwp H]". iApply (clwp_wand with "Hwp H"). Qed.
+  
+  Lemma clwp_tick α s E1 Φ :
+    ▷ CLWP α @ s;E1 {{ Φ }} ⊢ CLWP (Tick α) @ s;E1 {{ Φ }}.
+  Proof.
+    iIntros "H".
+    rewrite clwp_eq /clwp_def.
+    iIntros (K HK Ψ) "G".
+    rewrite hom_tick.
+    iApply wp_tick.
+    iNext.
+    by iApply "H".
+  Qed.
+
+  Lemma clwp_reify  E1 s Φ i (lop : opid (sReifier_ops (rs !!! i)))
+    x k σ σ' β :
+    let op : opid F := (existT i lop) in
+    (∀ (k' : IT -n> IT) (HK : IT_hom k') rest, reify (Vis op x (laterO_map k' ◎ k)) (gState_recomp rest σ) ≡ (gState_recomp rest σ', Tick (k' β))) →
+    has_state_idx i σ -∗
+    ▷ (£ 1 -∗ has_state_idx i σ' -∗ CLWP β @ s;E1 {{ Φ }})
+    -∗ CLWP (Vis op x k) @ s;E1 {{ Φ }}.
+  Proof.
+    intros op Hr.
+    iIntros "Hlst H".
+    rewrite clwp_eq /clwp_def.
+    iIntros (K HK Ψ) "G".    
+    rewrite hom_vis.
+    unshelve iApply (@wp_reify _ _ _ _ _ _ _ σ σ' (K β) with "[$Hlst] [-]").
+    - intros.
+      rewrite -Hr.
+      do 3 f_equiv.
+      by intro; simpl.
+    - iNext.
+      iIntros "HC HS".
+      iSpecialize ("H" with "HC HS").
+      unshelve iSpecialize ("H" $! K _); first apply _.
+      simpl.
+      by iApply "H".
+  Qed.
+  
+  Lemma clwp_subreify E1 s Φ sR `{!subReifier sR rs}
+    (op : opid (sReifier_ops sR))
+    (x : Ins (sReifier_ops sR op) ♯ IT) (y : laterO IT)
+    (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT)
+    (σ σ' : sReifier_state sR ♯ IT) β :
+    (∀ (k' : IT -n> IT) {Hk : IT_hom k'}, sReifier_re sR op (x, σ, (laterO_map k' ◎ k ◎ subEff_outs)) ≡ Some (Next (k' β), σ')) →
+    has_substate σ -∗
+                      ▷ (£ 1 -∗ has_substate σ' -∗ CLWP β @ s;E1 {{ Φ }})
+    -∗
+       CLWP (Vis (subEff_opid op) (subEff_ins x) k) @ s;E1 {{ Φ }}.
+  Proof.
+    intros HSR.
+    iIntros "Hlst H".
+    iApply (clwp_reify with "Hlst H").
+    intros k' ? rest.
+    rewrite reify_vis_eq //.
+    {
+      f_equiv.
+      symmetry.
+      apply Tick_eq.
+    }
+    pose proof (@subReifier_reify n sR rs _ IT _ op x (Next (k' β)) ((laterO_map k' ◎ k) ◎ subEff_outs) σ σ' rest) as H.
+    simpl in H.
+    simpl.
+    rewrite <-H.
+    {
+      repeat f_equiv.
+      - solve_proper.
+      - intro; simpl.
+        rewrite ofe_iso_12.
+        reflexivity.
+    }
+    clear H.
+    by apply HSR.
+  Qed.
+
 End weakestpre.
 
 Arguments wp {_} rs {_ _ _ _ _} α s E Φ.
+Arguments clwp {_} rs {_ _ _ _ _} e s E Φ.
 Arguments has_full_state {n _ _ _ _ _} σ.
 Arguments has_state_idx {n _ _ _ _ _} i σ.
 Arguments has_substate {n _ _ _ _ _ _ _} σ.
@@ -807,90 +1049,113 @@ Definition notStuck : stuckness := λ e, False.
 
   Notation "'WP@{' re } α {{ Φ } }" := (wp re α notStuck ⊤ Φ)
     (at level 20, α, Φ at level 200,
-     format "'WP@{' re }  α  {{  Φ  } }") : bi_scope.
+      format "'WP@{' re }  α  {{  Φ  } }") : bi_scope.
 
-Lemma wp_adequacy cr Σ `{!invGpreS Σ} n (rs : gReifiers n)
-  {A} `{!Cofe A} `{!statePreG rs A Σ}
-  (α : IT _ A) σ βv σ' s k (ψ : (ITV (gReifiers_ops rs) A) → Prop) :
-  ssteps (gReifiers_sReifier rs) α σ (IT_of_V βv) σ' k →
-  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs A Σ},
-      ∃ Φ, NonExpansive Φ ∧ (∀ βv, Φ βv ⊢ ⌜ψ βv⌝)
-      ∧ (£ cr ∗ has_full_state σ ⊢ WP@{rs} α @ s {{ Φ }})%I)  →
-  ψ βv.
-Proof.
-  intros Hst Hprf.
-  cut (⊢ ⌜ψ βv⌝ : iProp Σ)%I.
-  { intros HH. eapply uPred.pure_soundness; eauto. }
-  eapply (step_fupdN_soundness_lc _ 0 (cr + 3*k)).
-  intros Hinv. iIntros "[Hcr Hlc]".
-  iMod (new_state_interp rs σ) as (sg) "[Hs Hs2]".
-  destruct (Hprf Hinv sg) as (Φ & HΦ & HΦψ & Hprf').
-  iPoseProof (Hprf' with "[$Hcr $Hs2]") as "Hic".
-  iPoseProof (wp_ssteps with "[$Hs $Hic]") as "Hphi".
-  { eassumption. }
-  iMod ("Hphi" with "Hlc") as "[Hst H]".
-  rewrite wp_val_inv; eauto.
-  iMod "H" as "H".
-  rewrite HΦψ. iFrame "H".
-  by iApply fupd_mask_intro_discard.
-Qed.
+  Notation "'CLWP@{' re } α @ s ; E {{ Φ } }" := (clwp re α s E Φ)
+    (at level 20, α, s, Φ at level 200, only parsing) : bi_scope.
 
-Lemma wp_safety cr Σ `{!invGpreS Σ} n (rs : gReifiers n)
-  {A} `{!Cofe A} `{!statePreG rs A Σ} s k
-  (α β : IT (gReifiers_ops rs) A) (σ σ' : gReifiers_state rs ♯ IT (gReifiers_ops rs) A) :
-  (∀ Σ P Q, @disjunction_property Σ P Q) →
-  ssteps (gReifiers_sReifier rs) α σ β σ' k →
-  IT_to_V β ≡ None →
-  (∀ `{H1 : !invGS_gen HasLc Σ} `{H2: !stateG rs A Σ},
-      ∃ Φ, NonExpansive Φ ∧ (£ cr ∗ has_full_state σ ⊢ WP@{rs} α @ s {{ Φ }})%I)  →
-  ((∃ β1 σ1, sstep (gReifiers_sReifier rs) β σ' β1 σ1)
-   ∨ (∃ e, β ≡ Err e ∧ s e)).
-Proof.
-  Opaque istep.
-  intros Hdisj Hstep Hbv Hwp.
-  cut (⊢@{iProp Σ} (∃ β1 σ1, istep (gReifiers_sReifier rs) β σ' β1 σ1)
-       ∨ (∃ e, β ≡ Err e ∧ ⌜s e⌝))%I.
-  { intros [Hprf | Hprf]%Hdisj.
-    - left.
-      apply (istep_safe_sstep _ (Σ:=Σ)).
-      { apply Hdisj. }
-      done.
-    - right.
-      destruct (IT_dont_confuse β)
-        as [[e Ha] | [[m Ha] | [ [g Ha] | [[α' Ha]|[op [i [ko Ha]]]] ]]].
-      + exists e. split; eauto.
-        eapply uPred.pure_soundness.
-        iPoseProof (Hprf) as "H".
-        iDestruct "H" as (e') "[He %Hs]". rewrite Ha.
-        iPoseProof (Err_inj' with "He") as "%He".
-        iPureIntro. rewrite He//.
-      + exfalso. eapply uPred.pure_soundness.
-        iPoseProof (Hprf) as "H".
-        iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.
-        iApply (IT_ret_err_ne with "Ha").
-      + exfalso. eapply uPred.pure_soundness.
-        iPoseProof (Hprf) as "H".
-        iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.
-        iApply (IT_fun_err_ne with "Ha").
-      + exfalso. eapply uPred.pure_soundness.
-        iPoseProof (Hprf) as "H".
-        iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.
-        iApply (IT_tick_err_ne with "Ha").
-      + exfalso. eapply uPred.pure_soundness.
-        iPoseProof (Hprf) as "H".
-        iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.
-        iApply (IT_vis_err_ne with "Ha"). }
-  eapply (step_fupdN_soundness_lc _ 0 (cr + (3*k+2))).
-  intros Hinv. iIntros "[Hcr Hlc]".
-  iMod (new_state_interp rs σ) as (sg) "[Hs Hs2]".
-  destruct (Hwp Hinv sg) as (Φ & HΦ & Hprf').
-  iPoseProof (Hprf' with "[$Hs2 $Hcr]") as "Hic".
-  iPoseProof (wp_ssteps_isafe with "[$Hs $Hic]") as "H".
-  { eassumption. }
-  iMod ("H" with "Hlc") as "[H | H]".
-  { iDestruct "H" as (βv) "%Hbeta".
-    exfalso. rewrite Hbeta  in Hbv.
-    inversion Hbv. }
-  iFrame "H".
-  by iApply fupd_mask_intro_discard.
-Qed.
+  Notation "'CLWP@{' re } α @ s ; E {{ v , Q } }" := (clwp re α s E (λ v, Q))
+    (at level 20, α, s, Q at level 200,
+       format "'[hv' 'CLWP@{' re }  α  '/' @  s  ;  E  '/' {{  '[' v ,  '/' Q  ']' } } ']'") : bi_scope.
+
+  Notation "'CLWP@{' re } α @  s {{ β , Φ } }" := (clwp re α s ⊤ (λ β, Φ))
+    (at level 20, α, Φ at level 200,
+     format "'CLWP@{' re }  α  @  s  {{  β ,  Φ  } }") : bi_scope.
+
+  Notation "'CLWP@{' re } α  @  s {{ Φ } }" := (clwp re α s ⊤ Φ)
+    (at level 20, α, Φ at level 200,
+     format "'CLWP@{' re }  α  @  s  {{  Φ  } }") : bi_scope.
+
+  Notation "'CLWP@{' re } α {{ β , Φ } }" := (clwp re α notStuck ⊤ (λ β, Φ))
+    (at level 20, α, Φ at level 200,
+     format "'CLWP@{' re }  α  {{  β ,  Φ  } }") : bi_scope.
+
+  Notation "'CLWP@{' re } α {{ Φ } }" := (clwp re α notStuck ⊤ Φ)
+    (at level 20, α, Φ at level 200,
+     format "'CLWP@{' re }  α  {{  Φ  } }") : bi_scope.
+
+  Lemma wp_adequacy cr Σ `{!invGpreS Σ} n (rs : gReifiers n)
+    {A} `{!Cofe A} `{!statePreG rs A Σ}
+    (α : IT _ A) σ βv σ' s k (ψ : (ITV (gReifiers_ops rs) A) → Prop) :
+    ssteps (gReifiers_sReifier rs) α σ (IT_of_V βv) σ' k →
+    (∀ `{H1 : !invGS Σ} `{H2: !stateG rs A Σ},
+       ∃ Φ, NonExpansive Φ ∧ (∀ βv, Φ βv ⊢ ⌜ψ βv⌝)
+            ∧ (£ cr ∗ has_full_state σ ⊢ WP@{rs} α @ s {{ Φ }})%I)  →
+    ψ βv.
+  Proof.
+    intros Hst Hprf.
+    cut (⊢ ⌜ψ βv⌝ : iProp Σ)%I.
+    { intros HH. eapply uPred.pure_soundness; eauto. }
+    eapply (step_fupdN_soundness_lc _ 0 (cr + 3*k)).
+    intros Hinv. iIntros "[Hcr Hlc]".
+    iMod (new_state_interp rs σ) as (sg) "[Hs Hs2]".
+    destruct (Hprf Hinv sg) as (Φ & HΦ & HΦψ & Hprf').
+    iPoseProof (Hprf' with "[$Hcr $Hs2]") as "Hic".
+    iPoseProof (wp_ssteps with "[$Hs $Hic]") as "Hphi".
+    { eassumption. }
+    iMod ("Hphi" with "Hlc") as "[Hst H]".
+    rewrite wp_val_inv; eauto.
+    iMod "H" as "H".
+    rewrite HΦψ. iFrame "H".
+    by iApply fupd_mask_intro_discard.
+  Qed.
+
+  Lemma wp_safety cr Σ `{!invGpreS Σ} n (rs : gReifiers n)
+    {A} `{!Cofe A} `{!statePreG rs A Σ} s k
+    (α β : IT (gReifiers_ops rs) A) (σ σ' : gReifiers_state rs ♯ IT (gReifiers_ops rs) A) :
+    (∀ Σ P Q, @disjunction_property Σ P Q) →
+    ssteps (gReifiers_sReifier rs) α σ β σ' k →
+    IT_to_V β ≡ None →
+    (∀ `{H1 : !invGS_gen HasLc Σ} `{H2: !stateG rs A Σ},
+       ∃ Φ, NonExpansive Φ ∧ (£ cr ∗ has_full_state σ ⊢ WP@{rs} α @ s {{ Φ }})%I)  →
+    ((∃ β1 σ1, sstep (gReifiers_sReifier rs) β σ' β1 σ1)
+     ∨ (∃ e, β ≡ Err e ∧ s e)).
+  Proof.
+    Opaque istep.
+    intros Hdisj Hstep Hbv Hwp.
+    cut (⊢@{iProp Σ} (∃ β1 σ1, istep (gReifiers_sReifier rs) β σ' β1 σ1)
+          ∨ (∃ e, β ≡ Err e ∧ ⌜s e⌝))%I.
+    { intros [Hprf | Hprf]%Hdisj.
+      - left.
+        apply (istep_safe_sstep _ (Σ:=Σ)).
+        { apply Hdisj. }
+        done.
+      - right.
+        destruct (IT_dont_confuse β)
+          as [[e Ha] | [[m Ha] | [ [g Ha] | [[α' Ha]|[op [i [ko Ha]]]] ]]].
+        + exists e. split; eauto.
+          eapply uPred.pure_soundness.
+          iPoseProof (Hprf) as "H".
+          iDestruct "H" as (e') "[He %Hs]". rewrite Ha.
+          iPoseProof (Err_inj' with "He") as "%He".
+          iPureIntro. rewrite He//.
+        + exfalso. eapply uPred.pure_soundness.
+          iPoseProof (Hprf) as "H".
+          iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.
+          iApply (IT_ret_err_ne with "Ha").
+        + exfalso. eapply uPred.pure_soundness.
+          iPoseProof (Hprf) as "H".
+          iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.
+          iApply (IT_fun_err_ne with "Ha").
+        + exfalso. eapply uPred.pure_soundness.
+          iPoseProof (Hprf) as "H".
+          iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.
+          iApply (IT_tick_err_ne with "Ha").
+        + exfalso. eapply uPred.pure_soundness.
+          iPoseProof (Hprf) as "H".
+          iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.
+          iApply (IT_vis_err_ne with "Ha"). }
+    eapply (step_fupdN_soundness_lc _ 0 (cr + (3*k+2))).
+    intros Hinv. iIntros "[Hcr Hlc]".
+    iMod (new_state_interp rs σ) as (sg) "[Hs Hs2]".
+    destruct (Hwp Hinv sg) as (Φ & HΦ & Hprf').
+    iPoseProof (Hprf' with "[$Hs2 $Hcr]") as "Hic".
+    iPoseProof (wp_ssteps_isafe with "[$Hs $Hic]") as "H".
+    { eassumption. }
+    iMod ("H" with "Hlc") as "[H | H]".
+    { iDestruct "H" as (βv) "%Hbeta".
+      exfalso. rewrite Hbeta  in Hbv.
+      inversion Hbv. }
+    iFrame "H".
+    by iApply fupd_mask_intro_discard.
+  Qed.
