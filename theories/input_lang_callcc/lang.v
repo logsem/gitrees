@@ -473,7 +473,7 @@ Inductive prim_step {S} : ∀ (e1 : expr S) (σ1 : state)
 | Throw_step e1 σ e2 (K : ectx S) v K' :
   e1 = (fill K (Throw (of_val v) (ContV K'))) ->
   e2 = (fill K' v) ->
-  prim_step e1 σ e2 σ (1, 0).
+  prim_step e1 σ e2 σ (2, 0).
 
 Lemma prim_step_pure {S} (e1 e2 : expr S) σ1 σ2 n :
   prim_step e1 σ1 e2 σ2 (n,0) → σ1 = σ2.

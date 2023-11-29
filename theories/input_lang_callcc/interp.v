@@ -242,6 +242,33 @@ Section weakestpre.
     iApply "Ha".
   Qed.
 
+  Lemma wp_callcc (σ : stateO) (f : (laterO IT -n> laterO IT) -n> laterO IT) (k : IT -n> IT) {Hk : IT_hom k} Φ s :
+    has_substate σ -∗
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k (later_car (f (laterO_map k))) @ s {{ Φ }}) -∗
+    WP@{rs} (k (CALLCC f)) @ s {{ Φ }}.
+  Proof.
+    iIntros "Hs Ha".
+    unfold CALLCC. simpl.
+    rewrite hom_vis.
+    iApply (wp_subreify _ _ _ _ _ _ _ ((later_map k ((f (laterO_map k))))) with "Hs").
+    {
+      simpl.
+      repeat f_equiv.
+      - rewrite ofe_iso_21.
+        f_equiv.
+        intro; simpl.
+        f_equiv.
+        apply ofe_iso_21.
+      - reflexivity.
+    }
+    {
+      rewrite later_map_Next.
+      reflexivity.
+    }
+    iModIntro.
+    iApply "Ha".
+  Qed.
+
 End weakestpre.
 
 Section interp.
@@ -904,7 +931,7 @@ Section interp.
         rewrite hom_INPUT.
         do 2 f_equiv. by intro.
       }
-      rewrite reify_vis_eq //; last first.
+      rewrite reify_vis_eq //; first last.
       {
         epose proof (@subReifier_reify sz reify_io rs _ IT _ (inl ()) () (Next (interp_ectx K env (Ret n0))) (NextO ◎ (interp_ectx K env ◎ Ret)) σ σ' σr) as H.
         simpl in H.
@@ -1047,8 +1074,9 @@ Section interp.
       simpl.
       rewrite get_fun_fun.
       simpl.
-      change 1 with (Nat.add 1 0). econstructor; last first.
-      { apply ssteps_zero; reflexivity. }
+      change 2 with (Nat.add (Nat.add 1 1) 0).
+      econstructor; last first.
+      { apply ssteps_tick_n. }
       eapply sstep_reify; first (rewrite hom_vis; reflexivity).
       match goal with
       | |- context G [ofe_mor_car _ _ _ (Next ?f)] => set (f' := f)
@@ -1066,8 +1094,15 @@ Section interp.
         destruct ((subEff_outs ^-1) x).
       }
       rewrite reify_vis_eq; first (rewrite Tick_eq; reflexivity).
-      subst f'.
-      pose proof @sstep_tick.
+      assert (laterO_ap (Next f') (Next (interp_val v env))
+                ≡
+                (Next (Tau (Next ((interp_ectx K' env) (interp_val v env)))))).
+      {
+        simpl.
+        rewrite laterO_map_Next.
+        reflexivity.
+      }
+
       (* holds (but with extra tick step) *)
       admit.
     }

@@ -25,13 +25,6 @@ Section reifiers.
   Implicit Type op : opid F.
   Implicit Type α β : IT.
 
-  (* Class CtxIndep (X : ofe) `{!Cofe X} (op : opid F) := { *)
-  (*     cont_irrelev : *)
-  (*     (∃ f : (prodO (Ins (sReifier_ops r _) ♯ X) ((sReifier_state r) ♯ X)) -n> *)
-  (*              optionO (prodO (Outs (sReifier_ops r _) ♯ X) (sReifier_state r ♯ X)), *)
-  (*        ∀ i σ κ, @sReifier_re _ X _ op (i, σ, κ) ≡ fmap (prodO_map κ idfun) (f (i, σ))); *)
-  (*   }. *)
-
   Notation stateM := ((stateF ♯ IT -n> (stateF ♯ IT) * IT)).
   #[local] Instance stateT_inhab : Inhabited stateM.
   Proof.
@@ -229,50 +222,65 @@ Section reifiers.
     - reflexivity.
   Qed.
 
-  Lemma reify_vis_cont op i k1 (k2 : IT -n> IT) σ1 σ2 β
-    {PROP : bi} `{!BiInternalEq PROP} (* (H : IT_hom k2) *) :
-    (reify (Vis op i k1) σ1 ≡ (σ2, Tick β) ⊢
-     reify (Vis op i (laterO_map k2 ◎ k1)) σ1 ≡ (σ2, Tick (k2 β)) : PROP)%I.
+  Lemma reify_is_always_a_tick op x k σ β σ' :
+    reify (Vis op x k) σ ≡ (σ', β) → (∃ β', β ≡ Tick β') ∨ (β ≡ Err RuntimeErr).
   Proof.
-    destruct (sReifier_re r op (i, σ1, k1)) as [[o σ2']|] eqn:Hre; last first.
-    - rewrite (reify_vis_None _ _ k1); last by rewrite Hre//.
-      iIntros "Hr". iExFalso.
-      iPoseProof (prod_equivI with "Hr") as "[_ Hk]".
-      simpl. iApply (IT_tick_err_ne). by iApply internal_eq_sym.
-    - (* destruct H as [[f H]]. *)
-      (* pose proof (H i σ1 k1) as H1. *)
-      (* pose proof (H i σ1 (laterO_map k2 ◎ k1)) as H2. *)
-      (* assert (∃ o σ', f (i, σ1) = Some (o, σ')) as [o' [σ' H3]]. *)
-      (* { *)
-      (*   destruct (f (i, σ1)) as [[? ?] | ?]; first (do 2 eexists; reflexivity). *)
-      (*   simpl in H1. rewrite Hre in H1; inversion H1. *)
-      (* } *)
-      (* rewrite H3 in H1. *)
-      (* simpl in H1. *)
-      (* rewrite H3 in H2. *)
-      (* simpl in H2. *)
-      (* clear f H H3 Hre. *)
-      rewrite reify_vis_eq; last first.
-      { by rewrite Hre. }
-      iIntros "Hr".
-      iPoseProof (prod_equivI with "Hr") as "[Hs Hk]".
-      iPoseProof (Tau_inj' with "Hk") as "Hk".
-      simpl.
-      (* pose proof hom_vis. *)
-      (* rewrite H.       *)
-      (* iRewrite - "Hs". *)
-      (* rewrite reify_vis_eq; last first. *)
-      (* { by rewrite Hre. } *)
-      (* iRewrite "Hk". *)
-      (* rewrite -Tick_eq. *)
-      (* done. *)
-      (* reflexivity. *)
-      (* rewrite term *)
-      (* iApply prod_equivI. simpl.       *)
-      (* iSplit; eauto. *)
-      (* iApply Tau_inj'. iRewrite "Hk". *)
-      (* rewrite laterO_map_Next. done. *)
-  Admitted.
+    destruct (sReifier_re r op (x, σ, k)) as [[o σ'']|] eqn:Hre; last first.
+    - rewrite reify_vis_None; last by rewrite Hre//.
+      intros [_ ?]. by right.
+    - rewrite reify_vis_eq;last by rewrite Hre.
+      intros [? Ho].
+      left.
+      simpl in *.
+      destruct (Next_uninj o) as [t Ht].
+      exists (t).
+      rewrite <-Ho.
+      rewrite Ht.
+      reflexivity.
+  Qed.
+
+  (* Lemma reify_vis_cont op i k1 (k2 : IT -n> IT) σ1 σ2 β *)
+  (*   {PROP : bi} `{!BiInternalEq PROP} (H : IT_hom k2) : *)
+  (*   (reify (Vis op i k1) σ1 ≡ (σ2, Tick β) ⊢ *)
+  (*    reify (Vis op i (laterO_map k2 ◎ k1)) σ1 ≡ (σ2, Tick (k2 β)) : PROP)%I. *)
+  (* Proof. *)
+  (*   destruct (sReifier_re r op (i, σ1, k1)) as [[o σ2']|] eqn:Hre; last first. *)
+  (*   - rewrite (reify_vis_None _ _ k1); last by rewrite Hre//. *)
+  (*     iIntros "Hr". iExFalso. *)
+  (*     iPoseProof (prod_equivI with "Hr") as "[_ Hk]". *)
+  (*     simpl. iApply (IT_tick_err_ne). by iApply internal_eq_sym. *)
+  (*   - rewrite reify_vis_eq; last first. *)
+  (*     { by rewrite Hre. } *)
+  (*     iIntros "Hr". *)
+  (*     iPoseProof (prod_equivI with "Hr") as "[Hs Hk]". *)
+  (*     iPoseProof (Tau_inj' with "Hk") as "Hk". *)
+  (*     iAssert (reify (Vis op i (laterO_map k2 ◎ k1)) σ1 ≡ (reify (k2 (Vis op i k1)) σ1))%I as "HEQ". *)
+  (*     { *)
+  (*       iPureIntro. *)
+  (*       do 2 f_equiv. *)
+  (*       rewrite hom_vis. *)
+  (*       f_equiv. *)
+  (*       intro; simpl; reflexivity. *)
+  (*     } *)
+  (*     iRewrite "HEQ". *)
+  (*     iEval (iPureIntro; etrans). *)
+  (*     trans (reify (k2 (Vis op i k1)) σ1). *)
+  (*     simpl. *)
+  (*     (* pose proof hom_vis. *) *)
+  (*     (* rewrite H.       *) *)
+  (*     (* iRewrite - "Hs". *) *)
+  (*     (* rewrite reify_vis_eq; last first. *) *)
+  (*     (* { by rewrite Hre. } *) *)
+  (*     (* iRewrite "Hk". *) *)
+  (*     (* rewrite -Tick_eq. *) *)
+  (*     (* done. *) *)
+  (*     (* reflexivity. *) *)
+  (*     (* rewrite term *) *)
+  (*     (* iApply prod_equivI. simpl.       *) *)
+  (*     (* iSplit; eauto. *) *)
+  (*     (* iApply Tau_inj'. iRewrite "Hk". *) *)
+  (*     (* rewrite laterO_map_Next. done. *) *)
+  (* Admitted. *)
 
   (* Lemma reify_input_cont_inv op i (k1 : _ -n> laterO IT) (k2 : IT -n> IT) σ1 σ2 β *)
   (*   {PROP : bi} `{!BiInternalEq PROP} *)
@@ -321,22 +329,5 @@ Section reifiers.
   (*         rewrite laterO_map_Next. done. } *)
   (*       iNext. by iApply internal_eq_sym. *)
   (* Qed. *)
-
-  Lemma reify_is_always_a_tick op x k σ β σ' :
-    reify (Vis op x k) σ ≡ (σ', β) → (∃ β', β ≡ Tick β') ∨ (β ≡ Err RuntimeErr).
-  Proof.
-    destruct (sReifier_re r op (x, σ, k)) as [[o σ'']|] eqn:Hre; last first.
-    - rewrite reify_vis_None; last by rewrite Hre//.
-      intros [_ ?]. by right.
-    - rewrite reify_vis_eq;last by rewrite Hre.
-      intros [? Ho].
-      left.
-      simpl in *.
-      destruct (Next_uninj o) as [t Ht].
-      exists (t).
-      rewrite <-Ho.
-      rewrite Ht.
-      reflexivity.
-  Qed.
 
 End reifiers.
