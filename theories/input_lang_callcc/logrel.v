@@ -179,10 +179,36 @@ Section logrel.
     by iApply ("HK" $! αv v with "[$H1] [$Hs]").
   Qed.
 
+  Lemma logrel_head_step_pure_ectx {S} n K (κ : HOM) (e' e : expr S) α V :
+    (∀ σ K, head_step e σ e' σ K (n, 0)) →
+    ⊢ logrel_expr V (`κ α) (fill K e') -∗ logrel_expr V (`κ α) (fill K e).
+  Proof.
+    intros Hpure.
+    iIntros "H".
+    iIntros (κ' K') "#HK'".
+    iIntros (σ) "Hs".
+    iSpecialize ("H" with "HK'").
+    iSpecialize ("H" with "Hs").
+    iApply (wp_wand with "H").
+    iIntros (βv). iDestruct 1 as ([m m'] v σ' Hsteps) "[H2 Hs]".
+    iExists ((Nat.add n m),m'),v,σ'. iFrame "H2 Hs".
+    iPureIntro.
+    eapply (prim_steps_app (n, 0) (m, m')); eauto.
+    eapply prim_step_steps.
+    rewrite !fill_comp.
+    eapply Ectx_step; last apply Hpure; done.
+  Qed.
+
   Lemma HOM_ccompose (f g : HOM)
     : ∀ α, `f (`g α) = (`f ◎ `g) α.
   Proof.
     intro; reflexivity.
+  Qed.
+
+  Program Definition HOM_compose (f g : HOM) : HOM := exist _ (`f ◎ `g) _.
+  Next Obligation.
+    intros f g; simpl.
+    apply _.
   Qed.
 
   Lemma logrel_bind {S} (f : HOM) (K : ectx S)
@@ -192,7 +218,6 @@ Section logrel.
       obs_ref (`f α) (fill K e).
   Proof.
     iIntros "H1 #H2".
-    iLöb as "IH" forall (α e).
     iIntros (σ) "Hs".
     iApply (wp_wand with "[H1 H2 Hs] []"); first iApply ("H1" with "[H2] [$Hs]").
     - iIntros (βv v). iModIntro.
@@ -226,26 +251,6 @@ Section logrel.
     iModIntro.
     iIntros (ss γ) "Hss".
     iApply "Hss".
-  Qed.
-
-  Lemma logrel_head_step_pure_ectx {S} n K (κ : HOM) (e' e : expr S) α V :
-    (∀ σ K, head_step e σ e' σ K (n, 0)) →
-    ⊢ logrel_expr V (`κ α) (fill K e') -∗ logrel_expr V (`κ α) (fill K e).
-  Proof.
-    intros Hpure.
-    iIntros "H".
-    iIntros (κ' K') "#HK'".
-    iIntros (σ) "Hs".
-    iSpecialize ("H" with "HK'").
-    iSpecialize ("H" with "Hs").
-    iApply (wp_wand with "H").
-    iIntros (βv). iDestruct 1 as ([m m'] v σ' Hsteps) "[H2 Hs]".
-    iExists ((Nat.add n m),m'),v,σ'. iFrame "H2 Hs".
-    iPureIntro.
-    eapply (prim_steps_app (n, 0) (m, m')); eauto.
-    eapply prim_step_steps.
-    rewrite !fill_comp.
-    eapply Ectx_step; last apply Hpure; done.
   Qed.
 
   Lemma compat_recV {S : Set} (Γ : S -> ty) (e : expr (inc (inc S))) τ1 τ2 α :
@@ -328,12 +333,6 @@ Section logrel.
     apply _.
   Qed.
 
-  Program Definition HOM_compose (f g : HOM) : HOM := exist _ (`f ◎ `g) _.
-  Next Obligation.
-    intros f g; simpl.
-    apply _.
-  Qed.
-
   Lemma compat_if {S : Set} (Γ : S -> ty) (e0 e1 e2 : expr S) α0 α1 α2 τ :
     ⊢ logrel_valid Γ e0 α0  Tnat -∗
       logrel_valid Γ e1 α1 τ -∗
@@ -407,14 +406,55 @@ Section logrel.
         lia.
   Qed.
 
+  (* Program Definition AppLSCtx_HOM α : HOM := exist _ (λne x, AppLSCtx x α) _. *)
+  (* Next Obligation. *)
+  (*   intros; simpl. *)
+  (*   apply _. *)
+  (* Qed. *)
+
+  (* Program Definition AppRSCtx_HOM α : HOM := exist _ (λne x, AppRSCtx α x) _. *)
+  (* Next Obligation. *)
+  (*   intros; simpl. *)
+  (*   apply _. *)
+  (* Qed. *)
+
   (* Lemma compat_app {S} Γ (e1 e2 : expr S) τ1 τ2 α1 α2 : *)
   (* ⊢ logrel_valid Γ e1 α1 (Tarr τ1 τ2) -∗ *)
   (*   logrel_valid Γ e2 α2 τ1 -∗ *)
   (*   logrel_valid Γ (App e1 e2) (interp_app rs α1 α2) τ2. *)
   (* Proof. *)
-  (*   iIntros "H1 H2".  iIntros (ss) "#Hss". *)
+  (*   iIntros "#H1 #H2". *)
+  (*   iIntros (ss). *)
+  (*   iModIntro. *)
+  (*   iIntros (γ). *)
+  (*   iIntros "#Hss". *)
   (*   iSpecialize ("H1" with "Hss"). *)
   (*   iSpecialize ("H2" with "Hss"). *)
+  (*   unfold interp_app. *)
+  (*   simpl. *)
+  (*   assert ((bind γ (App e1 e2))%syn = (fill (AppLK (bind γ e1) EmptyK) (bind γ e2))) as ->. *)
+  (*   { reflexivity. } *)
+
+  (*   pose (κ' := (AppLSCtx_HOM (α2 ss))). *)
+  (*   assert ((α1 ss ⊙ (α2 ss)) = ((`κ') (α1 ss))) as ->. *)
+  (*   { simpl; unfold AppLSCtx. reflexivity. } *)
+  (*   iIntros (κ K) "#HK". *)
+  (*   assert ((`κ) ((`κ') (α2 ss)) = ((`κ) ◎ (`κ')) (α1 ss)) as ->. *)
+  (*   { reflexivity. } *)
+  (*   pose (sss := (HOM_compose κ κ')). *)
+  (*   assert ((`κ ◎ `κ') = (`sss)) as ->. *)
+  (*   { reflexivity. } *)
+  (*   rewrite fill_comp. *)
+  (*   iApply logrel_bind. *)
+  (*   - by iApply "H2". *)
+  (*   - subst sss κ'. *)
+  (*     iIntros (βv v). iModIntro. iIntros "HV". *)
+  (*     unfold AppRSCtx_HOM; simpl; unfold AppRSCtx. *)
+  (*     pose (κ'' := (AppRSCtx_HOM (IT_of_V βv))). *)
+  (*     assert (((`κ) (AppLSCtx (IT_of_V βv) (α2 ss))) = ((`κ'') (α1 ss))) as ->. *)
+  (*     { simpl. *)
+  (*       unfold AppRSCtx, AppLSCtx. *)
+  (*     } *)
   (*   pose (s := (subs_of_subs2 ss)). fold s. *)
   (*   pose (env := its_of_subs2 ss). fold env. *)
   (*   simp subst_expr. simpl. *)
@@ -428,24 +468,41 @@ Section logrel.
   (*   iApply ("H1" with "H2"). *)
   (* Qed. *)
 
-  (* Lemma compat_input {S} Γ : *)
-  (*   ⊢ logrel_valid Γ (Input : expr S) (interp_input rs) Tnat. *)
-  (* Proof. *)
-  (*   iIntros (ss) "Hss". *)
-  (*   iIntros (σ) "Hs". *)
-  (*   destruct (update_input σ) as [n σ'] eqn:Hinp. *)
-  (*   iApply (wp_input with "Hs []"); first eauto. *)
-  (*   iNext. iIntros "Hlc Hs". *)
-  (*   iApply wp_val. *)
-  (*   iExists (1,1),(Lit n),σ'. *)
-  (*   iFrame "Hs". iModIntro. iSplit. *)
-  (*   { iPureIntro. *)
-  (*     simp subst_expr. *)
-  (*     apply prim_step_steps. *)
-  (*     apply (Ectx_step' []). *)
-  (*     by constructor. } *)
-  (*   iExists n. eauto. *)
-  (* Qed. *)
+  Lemma compat_input {S} Γ :
+    ⊢ logrel_valid Γ (Input : expr S) (interp_input rs) Tnat.
+  Proof.
+    iModIntro.
+    iIntros (ss γ) "#Hss".
+    iIntros (κ K) "#HK".
+    unfold interp_input.
+    term_simpl.
+    iIntros (σ) "Hs".
+    destruct (update_input σ) as [n σ'] eqn:Hinp.
+    rewrite hom_vis.
+    iApply (wp_subreify with "Hs").
+    - simpl; rewrite Hinp.
+      rewrite later_map_Next.
+      rewrite ofe_iso_21.
+      reflexivity.
+    - reflexivity.
+    - iNext.
+      iIntros "Hlc Hs".
+      iSpecialize ("HK" $! (RetV n) (LitV n) with "[]"); first by iExists n.
+      iSpecialize ("HK" $! σ' with "Hs").
+      iApply (wp_wand with "[$HK] []").
+      iIntros (v') "(%m & %v'' & %σ'' & %Hstep & H)".
+      destruct m as [m m'].
+      iModIntro.
+      iExists ((Nat.add 1 m), (Nat.add 1 m')), v'', σ''. iFrame "H".
+      iPureIntro.
+      eapply (prim_steps_app (1, 1) (m, m')); eauto.
+      term_simpl.
+      eapply prim_step_steps.
+      eapply Ectx_step; [reflexivity | reflexivity |].
+      constructor.
+      assumption.
+  Qed.
+
   (* Lemma compat_output {S} Γ (e: expr S) α : *)
   (*   ⊢ logrel_valid Γ e α Tnat -∗ *)
   (*     logrel_valid Γ (Output e) (interp_output rs α) Tnat. *)
@@ -473,66 +530,331 @@ Section logrel.
   (*   iExists 0. eauto. *)
   (* Qed. *)
 
-  (* Lemma compat_natop {S} (Γ : tyctx S) e1 e2 α1 α2 op : *)
-  (*   ⊢ logrel_valid Γ e1 α1 Tnat -∗ *)
-  (*     logrel_valid Γ e2 α2 Tnat -∗ *)
-  (*     logrel_valid Γ (NatOp op e1 e2) (interp_natop rs op α1 α2) Tnat. *)
-  (* Proof. *)
-  (*   iIntros "H1 H2".  iIntros (ss) "#Hss". *)
-  (*   iSpecialize ("H1" with "Hss"). *)
-  (*   iSpecialize ("H2" with "Hss"). *)
-  (*   pose (s := (subs_of_subs2 ss)). fold s. *)
-  (*   pose (env := its_of_subs2 ss). fold env. *)
-  (*   simp subst_expr. simpl. *)
-  (*   iApply (logrel_bind (NatOpRSCtx (do_natop op) (α1 env)) [NatOpRCtx op (subst_expr e1 s)] with "H2"). *)
-  (*   iIntros (v2 β2) "H2". iSimpl. *)
-  (*   iApply (logrel_bind (NatOpLSCtx (do_natop op) (IT_of_V β2)) [NatOpLCtx op v2] with "H1"). *)
-  (*   iIntros (v1 β1) "H1". simpl. *)
-  (*   iDestruct "H1" as (n1) "[Hn1 ->]". *)
-  (*   iDestruct "H2" as (n2) "[Hn2 ->]". *)
-  (*   unfold NatOpLSCtx. *)
-  (*   iAssert ((NATOP (do_natop op) (IT_of_V β1) (IT_of_V β2)) ≡ Ret (do_natop op n1 n2))%I with "[Hn1 Hn2]" as "Hr". *)
-  (*   { iRewrite "Hn1". simpl. *)
-  (*     iRewrite "Hn2". simpl. *)
-  (*     iPureIntro. *)
-  (*     by rewrite NATOP_Ret. } *)
-  (*   iApply (logrel_step_pure (Val (Lit (do_natop op n1 n2)))). *)
-  (*   { intro. apply (Ectx_step' []). constructor. *)
-  (*     destruct op; simpl; eauto. } *)
-  (*   iRewrite "Hr". *)
-  (*   iApply (logrel_of_val (RetV $ do_natop op n1 n2)). *)
-  (*   iExists _. iSplit; eauto. *)
-  (* Qed. *)
+  Program Definition NatOpLSCtx_HOM {S : Set} (op : nat_op)
+    (α : @interp_scope F natO _ S -n> IT) (env : @interp_scope F natO _ S)
+    : HOM := exist _ (interp_natoplk rs op α (λne env, idfun) env) _.
+  Next Obligation.
+    intros; simpl.
+    apply _.
+  Qed.
 
-  (* TODO: boring cases + callcc + throw *)
+  Program Definition NatOpRSCtx_HOM {S : Set} (op : nat_op)
+    (α : IT) (env : @interp_scope F natO _ S)
+    (Hv : AsVal α)
+    : HOM := exist _ (interp_natoprk rs op (λne env, idfun) (constO α) env) _.
+  Next Obligation.
+    intros; simpl.
+    apply _.
+  Qed.
+
+  Lemma compat_natop {S : Set} (Γ : S -> ty) e1 e2 α1 α2 op :
+    ⊢ logrel_valid Γ e1 α1 Tnat -∗
+      logrel_valid Γ e2 α2 Tnat -∗
+      logrel_valid Γ (NatOp op e1 e2) (interp_natop rs op α1 α2) Tnat.
+  Proof.
+    iIntros "#H1 #H2".  iIntros (ss γ). iModIntro. iIntros "#Hss".
+    iSpecialize ("H1" with "Hss").
+    iSpecialize ("H2" with "Hss").
+    term_simpl.
+    pose (κ' := (NatOpLSCtx_HOM op α1 ss)).
+    assert ((NATOP (do_natop op) (α1 ss) (α2 ss)) = ((`κ') (α2 ss))) as ->.
+    { reflexivity. }
+    iIntros (κ K) "#HK".
+    assert ((`κ) ((`κ') (α2 ss)) = ((`κ) ◎ (`κ')) (α2 ss)) as ->.
+    { reflexivity. }
+    pose (sss := (HOM_compose κ κ')).
+    assert ((`κ ◎ `κ') = (`sss)) as ->.
+    { reflexivity. }
+    assert (fill K (NatOp op (bind γ e1) (bind γ e2))%syn = fill (ectx_compose K (NatOpLK op (bind γ e1) EmptyK)) (bind γ e2)) as ->.
+    { rewrite -fill_comp.
+      reflexivity.
+    }
+    iApply (logrel_bind with "[H1] [H2]").
+    - by iApply "H2".
+    - iIntros (βv v). iModIntro. iIntros "(%n1 & #HV & ->)".
+      term_simpl.
+      subst κ' sss.
+      unfold NatOpRSCtx.
+      rewrite -fill_comp.
+      simpl.
+      pose (κ' := (NatOpRSCtx_HOM op (IT_of_V βv) ss _)).
+      assert ((NATOP (do_natop op) (α1 ss) (IT_of_V βv)) = ((`κ') (α1 ss))) as ->.
+      { reflexivity. }
+      assert ((`κ) ((`κ') (α1 ss)) = ((`κ) ◎ (`κ')) (α1 ss)) as ->.
+      { reflexivity. }
+      pose (sss := (HOM_compose κ κ')).
+      assert ((`κ ◎ `κ') = (`sss)) as ->.
+      { reflexivity. }
+      assert (fill K (NatOp op (bind γ e1) (LitV n1))%syn = fill (ectx_compose K (NatOpRK op EmptyK (LitV n1))) (bind γ e1)) as ->.
+      { rewrite -fill_comp.
+        reflexivity.
+      }
+      iApply (logrel_bind with "[H1] [H2]").
+      + by iApply "H1".
+      + subst sss κ'.
+        term_simpl.
+        iIntros (t r). iModIntro. iIntros "(%n2 & #H & ->)".
+        simpl.
+        iAssert ((NATOP (do_natop op) (IT_of_V t) (IT_of_V βv)) ≡ Ret (do_natop op n2 n1))%I with "[HV H]" as "Hr".
+        { iRewrite "HV". simpl.
+          iRewrite "H". simpl.
+          iPureIntro.
+          by rewrite NATOP_Ret.
+        }
+        iRewrite "Hr".
+        rewrite -fill_comp.
+        simpl.
+        rewrite -IT_of_V_Ret.
+        iSpecialize ("HK" $! (RetV (do_natop op n2 n1)) (LitV (do_natop op n2 n1)) with "[]").
+        {
+          unfold logrel_nat.
+          by iExists (do_natop op n2 n1).
+        }
+        iIntros (σ) "Hs".
+        iSpecialize ("HK" $! σ with "Hs").
+        iApply (wp_wand with "[$HK] []").
+        simpl.
+        iIntros (v') "(%m & %v'' & %σ'' & %Hstep & H' & G)".
+        destruct m as [m m'].
+        iModIntro.
+        iExists (m, m'), v'', σ''. iFrame "H' G".
+        iPureIntro.
+        eapply (prim_steps_app (0, 0) (m, m')); eauto.
+        term_simpl.
+        eapply prim_step_steps.
+        eapply Ectx_step; [reflexivity | reflexivity |].
+        constructor.
+        simpl.
+        reflexivity.
+  Qed.
+
+  Program Definition ThrowLSCtx_HOM {S : Set}
+    (α : @interp_scope F natO _ S -n> IT)
+    (env : @interp_scope F natO _ S)
+    : HOM := exist _ ((interp_throwlk rs (λne env, idfun) α env)) _.
+  Next Obligation.
+    intros; simpl.
+    apply _.
+  Qed.
+
+  Program Definition ThrowRSCtx_HOM
+    (βv : ITV)
+    : HOM := exist _ (λne x, (get_fun (λne f : laterO (IT -n> IT), THROW (IT_of_V βv) f) x)) _.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    intros; simpl.
+    simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - rewrite get_fun_tick.
+      f_equiv.
+    - rewrite get_fun_vis.
+      repeat f_equiv.
+      intro; simpl.
+      repeat f_equiv.
+    - rewrite get_fun_err.
+      reflexivity.
+  Qed.
+
+  Lemma compat_throw {S : Set} (Γ : S -> ty) τ τ' α β e e' :
+    ⊢ logrel_valid Γ e α τ -∗
+      logrel_valid Γ e' β (Tcont τ) -∗
+      logrel_valid Γ (Throw e e') (interp_throw _ α β) τ'.
+  Proof.
+    iIntros "#H1 #H2".
+    iIntros (ss γ). iModIntro. iIntros "#Hss".
+    iIntros (κ K) "#HK".
+    Opaque interp_throw.
+    term_simpl.
+    pose (κ' := ThrowLSCtx_HOM β ss).
+    assert ((interp_throw rs α β ss) = ((`κ') (α ss))) as ->.
+    { reflexivity. }
+    assert ((`κ) ((`κ') (α ss)) = ((`κ) ◎ (`κ')) (α ss)) as ->.
+    { reflexivity. }
+    pose (sss := (HOM_compose κ κ')).
+    assert ((`κ ◎ `κ') = (`sss)) as ->.
+    { reflexivity. }
+    assert (fill K (Throw (bind γ e) (bind γ e'))%syn = fill (ectx_compose K (ThrowLK  EmptyK (bind γ e'))) (bind γ e)) as ->.
+    { rewrite -fill_comp.
+      reflexivity.
+    }
+    iApply logrel_bind; first by iApply "H1".
+    iIntros (βv v). iModIntro. iIntros "#Hv".
+    Transparent interp_throw.
+    simpl.
+    rewrite get_val_ITV'.
+    simpl.
+    rewrite -!fill_comp.
+    simpl.
+    pose (κ'' := ThrowRSCtx_HOM βv).
+    assert ((get_fun (λne f : laterO (IT -n> IT), THROW (IT_of_V βv) f) (β ss)) = ((`κ'') (β ss))) as ->.
+    { simpl.
+      cbn.
+      reflexivity.
+      admit.
+    }
+    assert ((`κ) ((`κ'') (β ss)) = ((`κ) ◎ (`κ'')) (β ss)) as ->.
+    { reflexivity. }
+    pose (sss' := (HOM_compose κ κ'')).
+    assert ((`κ ◎ `κ'') = (`sss')) as ->.
+    { reflexivity. }
+    assert (fill K (Throw v (bind γ e'))%syn = fill (ectx_compose K (ThrowRK v EmptyK)) (bind γ e')) as ->.
+    { rewrite -fill_comp.
+      reflexivity.
+    }
+    iApply logrel_bind; first by iApply "H2".
+    iIntros (βv' v'). iModIntro. iIntros "#Hv'".
+    Transparent interp_throw.
+    simpl.
+    unfold logrel_cont.
+    simpl.
+    iDestruct "Hv'" as "(%f & %F & HEQ & %H & #H)".
+    iRewrite "HEQ".
+    rewrite get_fun_fun.
+    simpl.
+    rewrite hom_vis.
+    iIntros (σ) "Hs".
+    iApply (wp_subreify with "Hs").
+    - simpl.
+      rewrite later_map_Next.
+      reflexivity.
+    - reflexivity.
+    - iNext.
+      iIntros "Hlc Hs".
+      rewrite -!fill_comp H.
+      simpl.
+      rewrite -Tick_eq.
+      iApply wp_tick.
+      iNext.
+      iSpecialize ("H" $! βv v with "[]"); first done.
+      iSpecialize ("H" $! σ with "Hs").
+      iApply (wp_wand with "[$H] []").
+      iIntros (w) "(%m & %v'' & %σ'' & %Hstep & H)".
+      destruct m as [m m'].
+      iModIntro.
+      iExists ((Nat.add 2 m), m'), v'', σ''. iFrame "H".
+      iPureIntro.
+      eapply (prim_steps_app (2, 0) (m, m')); eauto.
+      term_simpl.
+      eapply prim_step_steps.
+      eapply Throw_step; reflexivity.
+  Admitted.
+
+  Lemma compat_callcc {S : Set} (Γ : S -> ty) τ α e :
+    ⊢ logrel_valid (Γ ▹ Tcont τ) e α τ -∗
+      logrel_valid Γ (Callcc e) (interp_callcc _ α) τ.
+  Proof.
+    iIntros "#H".
+    iIntros (ss γ). iModIntro. iIntros "#Hss".
+    iIntros (κ K) "#HK".
+    unfold interp_callcc.
+    Opaque extend_scope.
+    term_simpl.
+    iIntros (σ) "Hs".
+    rewrite hom_vis.
+    iApply (wp_subreify _ _ _ _ _ _ _ (Next ((`κ) (α (extend_scope ss (λit x : IT, Tick ((`κ) x)))))) with "Hs").
+    - simpl.
+      rewrite ofe_iso_21.
+      rewrite later_map_Next.
+      do 2 f_equiv; last reflexivity.
+      do 5 f_equiv.
+      apply bi.siProp.internal_eq_soundness.
+      iApply later_equivI_2.
+      iNext.
+      simpl.
+      iApply internal_eq_pointwise.
+      iIntros (x).
+      simpl.
+      rewrite Tick_eq.
+      iApply f_equivI.
+      rewrite ofe_iso_21.
+      done.
+    - reflexivity.
+    - iNext.
+      iIntros "Hlc Hs".
+      pose (ss' := (extend_scope ss (λit x : IT, Tick ((`κ) x)))).
+      pose (γ' := ((mk_subst (Val (ContV K)%syn)) ∘ (γ ↑)%bind)%bind : inc S [⇒] ∅).
+      iSpecialize ("H" $! ss' γ' with "[HK]").
+      {
+        iIntros (x).
+        iModIntro.
+        destruct x as [| x]; term_simpl.
+        - Transparent extend_scope.
+          subst ss'; simpl.
+          pose proof (asval_fun (Next (λne x, Tau (laterO_map (`κ) (Next x))))).
+          destruct H as [f H].
+          rewrite -H.
+          iIntros (t r) "#H".
+          simpl.
+          iApply "H".
+          unfold logrel_cont.
+          iExists _, K.
+          iSplit.
+          + rewrite H.
+            done.
+          + iSplit; first done.
+            iModIntro.
+            iApply "HK".
+        - simpl.
+          iApply "Hss".
+      }
+      iSpecialize ("H" $! κ K with "HK").
+      Opaque extend_scope.
+      term_simpl.
+      iSpecialize ("H" $! σ with "Hs").
+      subst ss' γ'.
+      iApply (wp_wand with "[$H] []").
+      iIntros (v') "(%m & %v'' & %σ'' & %Hstep & H)".
+      destruct m as [m m'].
+      rewrite -bind_bind_comp' in Hstep.
+      iModIntro.
+      iExists ((Nat.add 1 m), (Nat.add 1 m')), v'', σ''. iFrame "H".
+      iPureIntro.
+      eapply (prim_steps_app (1, 1) (m, m')); eauto.
+      eapply prim_step_steps.
+      eapply Ectx_step; [reflexivity | reflexivity |].
+      term_simpl.
+      constructor.
+  Qed.
+
+  (* TODO: boring cases + finish throw + refactor *)
   Lemma fundamental {S : Set} (Γ : S -> ty) τ e :
     typed Γ e τ → ⊢ logrel_valid Γ e (interp_expr rs e) τ
   with fundamental_val {S : Set} (Γ : S -> ty) τ v :
     typed_val Γ v τ → ⊢ logrel_valid Γ (Val v) (interp_val rs v) τ.
   Proof.
+    - induction 1; simpl.
+      + by apply fundamental_val.
+      + rewrite -H.
+        by apply compat_var.
+      + admit.
+      + admit.
+      + iApply compat_if.
+        ++ iApply IHtyped1.
+        ++ iApply IHtyped2.
+        ++ iApply IHtyped3.
+      + iApply compat_input.
+      + admit.
+      + iApply compat_throw.
+        ++ iApply IHtyped1.
+        ++ iApply IHtyped2.
+      + iApply compat_callcc.
+        iApply IHtyped.
+    - induction 1; simpl.
+      + iIntros (ss γ). iModIntro. iIntros "#Hss".
+        term_simpl.
+        iIntros (κ K) "#HK".
+        iSpecialize ("HK" $! (RetV n) (LitV n)).
+        rewrite IT_of_V_Ret.
+        iApply "HK".
+        simpl.
+        unfold logrel_nat.
+        iExists n; eauto.
+      + iApply compat_recV. by iApply fundamental.
   Admitted.
-  (* - induction 1; simpl. *)
-  (*   + by apply fundamental_val. *)
-  (*   + by apply compat_var. *)
-  (*   + iApply compat_rec. iApply IHtyped. *)
-  (*   + iApply compat_app. *)
-  (*     ++ iApply IHtyped1. *)
-  (*     ++ iApply IHtyped2. *)
-  (*   + iApply compat_natop. *)
-  (*     ++ iApply IHtyped1. *)
-  (*     ++ iApply IHtyped2. *)
-  (*   + iApply compat_if. *)
-  (*     ++ iApply IHtyped1. *)
-  (*     ++ iApply IHtyped2. *)
-  (*     ++ iApply IHtyped3. *)
-  (*   + iApply compat_input. *)
-  (*   + iApply compat_output. *)
-  (*     iApply IHtyped. *)
-  (* - induction 1; simpl. *)
-  (*   + iIntros (ss) "Hss". simp subst_expr. simpl. *)
-  (*     iApply (logrel_of_val (RetV n)). iExists n. eauto. *)
-  (*   + iApply compat_recV. by iApply fundamental. *)
-  (* Qed. *)
 
 End logrel.
 

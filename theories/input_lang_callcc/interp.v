@@ -185,20 +185,6 @@ Section weakestpre.
     iModIntro. done.
   Qed.
 
-  Lemma clwp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ s :
-    update_input σ = (n, σ') →
-    has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ' -∗ CLWP@{rs} (k n) @ s {{ Φ }}) -∗
-    CLWP@{rs} (INPUT k) @ s {{ Φ }}.
-  Proof.
-    intros Hs. iIntros "Hs Ha".
-    rewrite clwp_eq.
-    iIntros (K HK Ψ) "Hf".
-    rewrite hom_vis.
-    unfold ccompose, compose.
-    simpl.
-  Admitted.
-
   Lemma wp_output (σ σ' : stateO) (n : nat) Φ s :
     update_output n σ = σ' →
     has_substate σ -∗
@@ -236,27 +222,30 @@ Section weakestpre.
 
   Lemma wp_callcc (σ : stateO) (f : (laterO IT -n> laterO IT) -n> laterO IT) (k : IT -n> IT) {Hk : IT_hom k} Φ s :
     has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k (Tau (f (laterO_map k))) @ s {{ Φ }}) -∗
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k (later_car (f (laterO_map k))) @ s {{ Φ }}) -∗
     WP@{rs} (k (CALLCC f)) @ s {{ Φ }}.
   Proof.
     iIntros "Hs Ha".
     unfold CALLCC. simpl.
     rewrite hom_vis.
-    iApply (wp_subreify with "Hs").
+    iApply (wp_subreify _ _ _ _ _ _ _ ((later_map k ((f (laterO_map k))))) with "Hs").
     {
       simpl.
-      do 2 f_equiv; reflexivity.
+      repeat f_equiv.
+      - rewrite ofe_iso_21.
+        f_equiv.
+        intro; simpl.
+        f_equiv.
+        apply ofe_iso_21.
+      - reflexivity.
     }
     {
-      simpl.
+      rewrite later_map_Next.
       reflexivity.
-    }    
+    }
     iModIntro.
-    iIntros "HC HS".
-    simpl.
-    unfold ccompose, compose.
-    simpl.
-  Admitted.
+    iApply "Ha".
+  Qed.
 
 End weakestpre.
 
@@ -932,7 +921,7 @@ Section interp.
         pose proof (@subReifier_reify sz reify_io rs subR IT _ (inl ()) () (Next (interp_ectx K env (Ret n0))) (NextO ◎ (interp_ectx K env ◎ Ret)) σ σ' σr) as H.
         rewrite <-H; first last.
         - by rewrite //=H5.
-        - clear.          
+        - clear.
           admit.
       }
       repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
@@ -1009,7 +998,7 @@ Section interp.
         erewrite <-H; last first.
         - reflexivity.
         - simpl.
-          subst k k' fff σ'' fσ f.          
+          subst k k' fff σ'' fσ f.
           admit.
       }
       f_equiv.
@@ -1092,7 +1081,7 @@ Section interp.
       rewrite get_val_ITV.
       simpl.
       rewrite get_fun_fun.
-      simpl.      
+      simpl.
       change 2 with (Nat.add (Nat.add 1 1) 0).
       econstructor; last first.
       { apply ssteps_tick_n. }
@@ -1121,7 +1110,7 @@ Section interp.
         rewrite laterO_map_Next.
         reflexivity.
       }
-      
+
       (* holds (but with extra tick step) *)
       admit.
     }
