@@ -943,7 +943,7 @@ Section interp.
         simpl.
         erewrite <-H; last first.
         - rewrite H5. reflexivity.
-        - f_equiv.
+        - f_equiv;
           solve_proper.
       }
       repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
