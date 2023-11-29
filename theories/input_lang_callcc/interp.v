@@ -281,7 +281,6 @@ Section interp.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
-  (* Context {subEff0 : subEff ioE F}. *)
   (** Interpreting individual operators *)
   Program Definition interp_input {A} : A -n> IT :=
     λne env, INPUT Ret.
@@ -938,8 +937,8 @@ Section interp.
         simpl.
         erewrite <-H; last first.
         - rewrite H5. reflexivity.
-        - f_equiv; last done.
-          intros ???. by rewrite /prod_map H0.
+        - f_equiv.
+          solve_proper.
       }
       repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.
@@ -1094,19 +1093,24 @@ Section interp.
         destruct ((subEff_outs ^-1) x).
       }
       rewrite reify_vis_eq; first (rewrite Tick_eq; reflexivity).
-      assert (laterO_ap (Next f') (Next (interp_val v env))
-                ≡
-                (Next (Tau (Next ((interp_ectx K' env) (interp_val v env)))))).
-      {
-        simpl.
-        rewrite laterO_map_Next.
-        reflexivity.
-      }
-
-      (* holds (but with extra tick step) *)
-      admit.
+      simpl.
+      match goal with
+      | |- context G [(_, _, ?a)] => set (κ := a)
+      end.
+      epose proof (@subReifier_reify sz reify_io rs subR IT _
+                     (inr (inr (inr (inl ())))) (Next (interp_val v env), Next f')
+                     (Next (Tau (Next ((interp_ectx K' env) (interp_val v env)))))
+                     (Empty_setO_rec _) σ2 σ2 σr) as H'.
+      subst κ.
+      simpl in H'.
+      erewrite <-H'; last reflexivity.
+      rewrite /prod_map.
+      f_equiv; first solve_proper.
+      do 2 f_equiv; first reflexivity.
+      intro; simpl.
+      f_equiv.
     }
-  Admitted.
+  Qed.
 
 End interp.
 #[global] Opaque INPUT OUTPUT_ CALLCC THROW.
