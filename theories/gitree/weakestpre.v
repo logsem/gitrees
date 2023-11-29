@@ -882,22 +882,22 @@ Section weakestpre.
     iApply "H". iIntros (w) "Hw". iApply "HK"; by iApply HΦ.
   Qed.
 
-  Lemma clwp_value s E (Φ : ITV -n> iProp) e v `{!IntoVal e v} :
-    Φ v ⊢ CLWP e @ s ; E {{ Φ }}.
-  Proof.
-    iIntros "H".
-    assert (e = IT_of_V v) as ->.
-    { admit. }
-    by iApply clwp_value'.
-  Admitted.
+  (* Lemma clwp_value s E (Φ : ITV -n> iProp) e v `{!IntoVal e v} : *)
+  (*   Φ v ⊢ CLWP e @ s ; E {{ Φ }}. *)
+  (* Proof. *)
+  (*   iIntros "H". *)
+  (*   assert (e = IT_of_V v) as ->. *)
+  (*   { admit. } *)
+  (*   by iApply clwp_value'. *)
+  (* Admitted. *)
 
   Lemma clwp_value_fupd' s E (Φ : ITV -n> iProp) v :
     (|={E}=> Φ v) ⊢ CLWP (IT_of_V v) @ s ; E {{ Φ }}.
   Proof. intros. by rewrite -clwp_fupd -clwp_value'. Qed.
 
-  Lemma clwp_value_fupd s E (Φ : ITV -n> iProp) e v `{!IntoVal e v} :
-    (|={E}=> Φ v) ⊢ CLWP e @ s ; E {{ Φ }}.
-  Proof. intros. rewrite -clwp_fupd -clwp_value //. Qed.
+  (* Lemma clwp_value_fupd s E (Φ : ITV -n> iProp) e v `{!IntoVal e v} : *)
+  (*   (|={E}=> Φ v) ⊢ CLWP e @ s ; E {{ Φ }}. *)
+  (* Proof. intros. rewrite -clwp_fupd -clwp_value //. Qed. *)
 
   Global Instance upd_ast_l {X : ofe} R (Φ : X -n> iProp) :
     NonExpansive (λ (a : X), (R ∗ Φ a)%I).

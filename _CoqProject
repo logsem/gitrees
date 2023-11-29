@@ -32,10 +32,10 @@ theories/input_lang_callcc/lang.v
 theories/input_lang_callcc/interp.v
 theories/input_lang_callcc/logrel.v
 
-theories/input_lang/lang.v
-theories/input_lang/interp.v
-theories/input_lang/logpred.v
-theories/input_lang/logrel.v
+# theories/input_lang/lang.v
+# theories/input_lang/interp.v
+# theories/input_lang/logpred.v
+# theories/input_lang/logrel.v
 
 # theories/affine_lang/lang.v
 # theories/affine_lang/logrel1.v

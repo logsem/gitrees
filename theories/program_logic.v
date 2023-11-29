@@ -22,30 +22,30 @@ Section program_logic.
     by iApply wp_tick.
   Qed.
   
-  Lemma clwp_seq α β s (Φ : ITV -n> iProp) :
-    CLWP@{rs} α @ s {{ (constO (CLWP@{rs} β @ s {{ Φ }})) }} ⊢ CLWP@{rs} SEQ α β @ s {{ Φ }}.
-  Proof.
-    iIntros "H".
-    iApply (clwp_bind _ (SEQCtx β)).
-    iApply (clwp_wand with "H").
-    iIntros (?) "Hb". unfold SEQCtx.
-    simpl.
-    match goal with
-    | |- context G [ofe_mor_car _ _ (get_val ?a) ?b] =>
-        idtac
-    end.
-    simpl.
-    (* rewrite SEQ_Val. *)
-  Admitted.
+  (* Lemma clwp_seq α β s (Φ : ITV -n> iProp) : *)
+  (*   CLWP@{rs} α @ s {{ (constO (CLWP@{rs} β @ s {{ Φ }})) }} ⊢ CLWP@{rs} SEQ α β @ s {{ Φ }}. *)
+  (* Proof. *)
+  (*   iIntros "H". *)
+  (*   iApply (clwp_bind _ (SEQCtx β)). *)
+  (*   iApply (clwp_wand with "H"). *)
+  (*   iIntros (?) "Hb". unfold SEQCtx. *)
+  (*   simpl. *)
+  (*   match goal with *)
+  (*   | |- context G [ofe_mor_car _ _ (get_val ?a) ?b] => *)
+  (*       idtac *)
+  (*   end. *)
+  (*   simpl. *)
+  (*   (* rewrite SEQ_Val. *) *)
+  (* Admitted. *)
 
-  Lemma clwp_let α (f : IT -n> IT) {Hf : IT_hom f} s (Φ : ITV -n> iProp) :
-    CLWP@{rs} α @ s {{ (λne αv, CLWP@{rs} f (IT_of_V αv) @ s {{ Φ }}) }} ⊢ CLWP@{rs} (LET α f) @ s {{ Φ }}.
-  Proof.
-    iIntros "H".
-    iApply (clwp_bind _ (LETCTX f)).
-    iApply (clwp_wand with "H").
-    iIntros (?) "Hb". simpl.
-    (* by rewrite LET_Val. *)
-  Admitted.
+  (* Lemma clwp_let α (f : IT -n> IT) {Hf : IT_hom f} s (Φ : ITV -n> iProp) : *)
+  (*   CLWP@{rs} α @ s {{ (λne αv, CLWP@{rs} f (IT_of_V αv) @ s {{ Φ }}) }} ⊢ CLWP@{rs} (LET α f) @ s {{ Φ }}. *)
+  (* Proof. *)
+  (*   iIntros "H". *)
+  (*   iApply (clwp_bind _ (LETCTX f)). *)
+  (*   iApply (clwp_wand with "H"). *)
+  (*   iIntros (?) "Hb". simpl. *)
+  (*   (* by rewrite LET_Val. *) *)
+  (* Admitted. *)
 
 End program_logic.
