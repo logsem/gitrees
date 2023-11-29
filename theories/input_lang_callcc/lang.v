@@ -30,8 +30,8 @@ with ectx {X : Set} :=
 | EmptyK : ectx
 | OutputK (K : ectx) : ectx
 | IfK (K : ectx) (e₁ : expr) (e₂ : expr) : ectx
-| AppLK (e : expr) (K : ectx) : ectx
-| AppRK (K : ectx) (v : val) : ectx
+| AppLK (K : ectx) (v : val) : ectx
+| AppRK (e : expr) (K : ectx) : ectx
 | NatOpLK (op : nat_op) (e : expr) (K : ectx) : ectx
 | NatOpRK (op : nat_op) (K : ectx) (v : val) : ectx
 | ThrowLK (K : ectx) (e : expr) : ectx
@@ -50,8 +50,8 @@ Delimit Scope ectx_scope with ectx.
 
 Coercion Val : val >-> expr.
 Coercion App : expr >-> Funclass.
-Coercion AppLK : expr >-> Funclass.
-Coercion AppRK : ectx >-> Funclass.
+Coercion AppLK : ectx >-> Funclass.
+Coercion AppRK : expr >-> Funclass.
 
 Notation "+" := (Add) : syn_scope.
 Notation "-" := (Sub) : syn_scope.
@@ -97,8 +97,8 @@ Fixpoint fill {X : Set} (K : ectx X) (e : expr X) : expr X :=
   | EmptyK => e
   | OutputK K => Output (fill K e)
   | IfK K e₁ e₂ => If (fill K e) e₁ e₂
-  | AppLK e' K => App e' (fill K e)
-  | AppRK K v => App (fill K e) (Val v)
+  | AppLK K v => App (fill K e) (Val v)
+  | AppRK e' K => App e' (fill K e)
   | NatOpLK op e' K => NatOp op e' (fill K e)
   | NatOpRK op K v => NatOp op (fill K e) (Val v)
   | ThrowLK K e' => Throw (fill K e) e'
@@ -132,8 +132,8 @@ with kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
        | EmptyK => EmptyK
        | OutputK K => OutputK (kmap f K)
        | IfK K e₁ e₂ => IfK (kmap f K) (emap f e₁) (emap f e₂)
-       | AppLK e K => AppLK (emap f e) (kmap f K)
-       | AppRK K v => AppRK (kmap f K) (vmap f v)
+       | AppLK K v => AppLK (kmap f K) (vmap f v)
+       | AppRK e K => AppRK (emap f e) (kmap f K) 
        | NatOpLK op e K => NatOpLK op (emap f e) (kmap f K)
        | NatOpRK op K v => NatOpRK op (kmap f K) (vmap f v)
        | ThrowLK K e => ThrowLK (kmap f K) (emap f e)
@@ -149,8 +149,8 @@ Proof.
   revert f.
   induction K as [| ?? IH
                  | ?? IH
-                 | ??? IH
                  | ?? IH
+                 | ??? IH
                  | ???? IH
                  | ??? IH
                  | ?? IH
@@ -183,8 +183,8 @@ with kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B :=
        | EmptyK => EmptyK
        | OutputK K => OutputK (kbind f K)
        | IfK K e₁ e₂ => IfK (kbind f K) (ebind f e₁) (ebind f e₂)
-       | AppLK e K => AppLK (ebind f e) (kbind f K)
-       | AppRK K v => AppRK (kbind f K) (vbind f v)
+       | AppLK K v => AppLK (kbind f K) (vbind f v)
+       | AppRK e K => AppRK (ebind f e) (kbind f K)
        | NatOpLK op e K => NatOpLK op (ebind f e) (kbind f K)
        | NatOpRK op K v => NatOpRK op (kbind f K) (vbind f v)
        | ThrowLK K e => ThrowLK (kbind f K) (ebind f e)
@@ -405,8 +405,8 @@ Fixpoint ectx_compose {S} (K1 K2 : ectx S) : ectx S
      | EmptyK => K2
      | OutputK K => OutputK (ectx_compose K K2)
      | IfK K e₁ e₂ => IfK (ectx_compose K K2) e₁ e₂
-     | AppLK e K => AppLK e (ectx_compose K K2)
-     | AppRK K v => AppRK (ectx_compose K K2) v
+     | AppLK K v => AppLK (ectx_compose K K2) v
+     | AppRK e K => AppRK e (ectx_compose K K2)
      | NatOpLK op e K => NatOpLK op e (ectx_compose K K2)
      | NatOpRK op K v => NatOpRK op (ectx_compose K K2) v
      | ThrowLK K e => ThrowLK (ectx_compose K K2) e
@@ -419,8 +419,8 @@ Proof.
   revert e.
   induction K1 as [| ?? IH
                   | ?? IH
-                  | ??? IH
                   | ?? IH
+                  | ??? IH
                   | ???? IH
                   | ??? IH
                   | ?? IH
@@ -433,8 +433,8 @@ Proof.
   intros S K.
   induction K as [| ?? IH
                  | ?? IH
-                 | ??? IH
                  | ?? IH
+                 | ??? IH
                  | ???? IH
                  | ??? IH
                  | ?? IH
@@ -456,8 +456,8 @@ Global Instance fill_inj {S} (K : ectx S) : Inj (=) (=) (fill K).
 Proof.
   induction K as [| ?? IH
                  | ?? IH
-                 | ??? IH
                  | ?? IH
+                 | ??? IH
                  | ???? IH
                  | ??? IH
                  | ?? IH
