@@ -1,4 +1,3 @@
-- Backward compatibility (affine lang, examples)
-- Reification for callcc
-- Denotation for input lang + callcc
-- Rules for context-dependent effects
+- last adequacy subgoal for throw
+- clwp
+- backward compatibility (input lang, affine lang, examples)
