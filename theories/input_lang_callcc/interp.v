@@ -422,22 +422,28 @@ Section interp.
     by repeat f_equiv.
   Qed.
 
-  Program Definition interp_applk {A} (q : A -n> IT)
-    (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) :=
-    λne env t, interp_app q (λne env, K env t) env.
-  Solve All Obligations with solve_proper.
-
-  Program Definition interp_apprk {A} (K : A -n> (IT -n> IT))
-    (q : A -n> IT) : A -n> (IT -n> IT) :=
+  Program Definition interp_applk {A}
+    (K : A -n> (IT -n> IT))
+    (q : A -n> IT)    
+    : A -n> (IT -n> IT) :=
     λne env t, interp_app (λne env, K env t) q env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_natoplk {A} (op : nat_op) (q : A -n> IT)
+  Program Definition interp_apprk {A}
+    (q : A -n> IT)
+    (K : A -n> (IT -n> IT))    
+    : A -n> (IT -n> IT) :=
+    λne env t, interp_app q (λne env, K env t) env.
+  Solve All Obligations with solve_proper.
+
+  Program Definition interp_natoprk {A} (op : nat_op)
+    (q : A -n> IT)
     (K : A -n> (IT -n> IT)) : A -n> (IT -n> IT) :=
     λne env t, interp_natop op q (λne env, K env t) env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_natoprk {A} (op : nat_op) (K : A -n> (IT -n> IT))
+  Program Definition interp_natoplk {A} (op : nat_op)
+    (K : A -n> (IT -n> IT))
     (q : A -n> IT) : A -n> (IT -n> IT) :=
     λne env t, interp_natop op (λne env, K env t) q env.
   Solve All Obligations with solve_proper.
@@ -484,10 +490,10 @@ Section interp.
   with interp_ectx {S} (K : ectx S) : interp_scope S -n> (IT -n> IT) :=
          match K with
          | EmptyK => λne env, idfun
-         | AppLK e1 K => interp_applk (interp_expr e1) (interp_ectx K)
-         | AppRK K v2 => interp_apprk (interp_ectx K) (interp_val v2)
-         | NatOpLK op e1 K => interp_natoplk op (interp_expr e1) (interp_ectx K)
-         | NatOpRK op K v2 => interp_natoprk op (interp_ectx K) (interp_val v2)
+         | AppRK e1 K => interp_apprk (interp_expr e1) (interp_ectx K)
+         | AppLK K v2 => interp_applk (interp_ectx K) (interp_val v2)
+         | NatOpRK op e1 K => interp_natoprk op (interp_expr e1) (interp_ectx K)
+         | NatOpLK op K v2 => interp_natoplk op (interp_ectx K) (interp_val v2)
          | IfK K e1 e2 => interp_ifk (interp_ectx K) (interp_expr e1) (interp_expr e2)
          | OutputK K => interp_outputk (interp_ectx K)
          | ThrowLK K e => interp_throwlk (interp_ectx K) (interp_expr e)
@@ -582,8 +588,8 @@ Section interp.
       + reflexivity.
       + repeat f_equiv; by apply interp_ectx_ren.
       + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_expr_ren | by apply interp_expr_ren].
-      + repeat f_equiv; [by apply interp_expr_ren | by apply interp_ectx_ren].
       + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_val_ren].
+      + repeat f_equiv; [by apply interp_expr_ren | by apply interp_ectx_ren].
       + repeat f_equiv; [by apply interp_expr_ren | by apply interp_ectx_ren].
       + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_val_ren].
       + repeat f_equiv; last by apply interp_ectx_ren.
@@ -684,9 +690,9 @@ Section interp.
     - destruct e; simpl; intros ?; simpl.
       + reflexivity.
       + repeat f_equiv; by apply interp_ectx_subst.
-      + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_expr_subst | by apply interp_expr_subst].
-      + repeat f_equiv; [by apply interp_expr_subst | by apply interp_ectx_subst].
+      + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_expr_subst | by apply interp_expr_subst].      
       + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_val_subst].
+      + repeat f_equiv; [by apply interp_expr_subst | by apply interp_ectx_subst].
       + repeat f_equiv; [by apply interp_expr_subst | by apply interp_ectx_subst].
       + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_val_subst].
       + repeat f_equiv; last by apply interp_ectx_subst.
@@ -737,10 +743,10 @@ Section interp.
       apply IF_Err.
   Qed.
 
-  #[global] Instance interp_ectx_hom_appl {S} (K : ectx S)
+  #[global] Instance interp_ectx_hom_appr {S} (K : ectx S)
     (e : expr S) env :
     IT_hom (interp_ectx K env) ->
-    IT_hom (interp_ectx (AppLK e K) env).
+    IT_hom (interp_ectx (AppRK e K) env).
   Proof.
     intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - by rewrite !hom_tick.
@@ -749,10 +755,10 @@ Section interp.
     - by rewrite !hom_err.
   Qed.
 
-  #[global] Instance interp_ectx_hom_appr {S} (K : ectx S)
+  #[global] Instance interp_ectx_hom_appl {S} (K : ectx S)
     (v : val S) (env : interp_scope S) :
     IT_hom (interp_ectx K env) ->
-    IT_hom (interp_ectx (AppRK K v) env).
+    IT_hom (interp_ectx (AppLK K v) env).
   Proof.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - rewrite -APP'_Tick_l. do 2 f_equiv. apply hom_tick.
@@ -766,10 +772,10 @@ Section interp.
       apply APP'_Err_l, interp_val_asval.
   Qed.
 
-  #[global] Instance interp_ectx_hom_natopl {S} (K : ectx S)
+  #[global] Instance interp_ectx_hom_natopr {S} (K : ectx S)
     (e : expr S) op env :
     IT_hom (interp_ectx K env) ->
-    IT_hom (interp_ectx (NatOpLK op e K) env).
+    IT_hom (interp_ectx (NatOpRK op e K) env).
   Proof.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - by rewrite !hom_tick.
@@ -778,10 +784,10 @@ Section interp.
     - by rewrite !hom_err.
   Qed.
 
-  #[global] Instance interp_ectx_hom_natopr {S} (K : ectx S)
+  #[global] Instance interp_ectx_hom_natopl {S} (K : ectx S)
     (v : val S) op (env : interp_scope S) :
     IT_hom (interp_ectx K env) ->
-    IT_hom (interp_ectx (NatOpRK op K v) env).
+    IT_hom (interp_ectx (NatOpLK op K v) env).
   Proof.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - rewrite -NATOP_ITV_Tick_l. do 2 f_equiv. apply hom_tick.
