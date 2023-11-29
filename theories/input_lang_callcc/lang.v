@@ -32,8 +32,8 @@ with ectx {X : Set} :=
 | IfK (K : ectx) (e₁ : expr) (e₂ : expr) : ectx
 | AppLK (K : ectx) (v : val) : ectx
 | AppRK (e : expr) (K : ectx) : ectx
-| NatOpLK (op : nat_op) (e : expr) (K : ectx) : ectx
-| NatOpRK (op : nat_op) (K : ectx) (v : val) : ectx
+| NatOpRK (op : nat_op) (e : expr) (K : ectx) : ectx
+| NatOpLK (op : nat_op) (K : ectx) (v : val) : ectx
 | ThrowLK (K : ectx) (e : expr) : ectx
 | ThrowRK (v : val) (K : ectx) : ectx.
 
@@ -66,8 +66,8 @@ Notation "'throw' e₁ e₂" := (Throw e₁ e₂) (at level 60) : syn_scope.
 Notation "'cont' K" := (ContV K) (at level 60) : syn_scope.
 
 Notation "□" := (EmptyK) : ectx_scope.
-Notation "'⟨' e₁ op K '⟩ᵣ'" := (NatOpLK op e₁ K) (at level 45, right associativity) : ectx_scope.
-Notation "'⟨' K op v₂ '⟩ₗ'" := (NatOpRK op K v₂) (at level 45, right associativity) : ectx_scope.
+Notation "'⟨' e₁ op K '⟩ᵣ'" := (NatOpRK op e₁ K) (at level 45, right associativity) : ectx_scope.
+Notation "'⟨' K op v₂ '⟩ₗ'" := (NatOpLK op K v₂) (at level 45, right associativity) : ectx_scope.
 Notation "'if' K 'then' e₂ 'else' e₃" := (IfK K e₂ e₃) : ectx_scope.
 Notation "'output' K" := (OutputK K) (at level 60) : ectx_scope.
 Notation "'throwₗ' K e₂" := (ThrowLK K e₂) (at level 60) : ectx_scope.
@@ -99,8 +99,8 @@ Fixpoint fill {X : Set} (K : ectx X) (e : expr X) : expr X :=
   | IfK K e₁ e₂ => If (fill K e) e₁ e₂
   | AppLK K v => App (fill K e) (Val v)
   | AppRK e' K => App e' (fill K e)
-  | NatOpLK op e' K => NatOp op e' (fill K e)
-  | NatOpRK op K v => NatOp op (fill K e) (Val v)
+  | NatOpRK op e' K => NatOp op e' (fill K e)
+  | NatOpLK op K v => NatOp op (fill K e) (Val v)
   | ThrowLK K e' => Throw (fill K e) e'
   | ThrowRK v K => Throw (Val v) (fill K e)
   end.
@@ -134,8 +134,8 @@ with kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
        | IfK K e₁ e₂ => IfK (kmap f K) (emap f e₁) (emap f e₂)
        | AppLK K v => AppLK (kmap f K) (vmap f v)
        | AppRK e K => AppRK (emap f e) (kmap f K) 
-       | NatOpLK op e K => NatOpLK op (emap f e) (kmap f K)
-       | NatOpRK op K v => NatOpRK op (kmap f K) (vmap f v)
+       | NatOpRK op e K => NatOpRK op (emap f e) (kmap f K)
+       | NatOpLK op K v => NatOpLK op (kmap f K) (vmap f v)
        | ThrowLK K e => ThrowLK (kmap f K) (emap f e)
        | ThrowRK v K => ThrowRK (vmap f v) (kmap f K)
        end.
@@ -185,8 +185,8 @@ with kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B :=
        | IfK K e₁ e₂ => IfK (kbind f K) (ebind f e₁) (ebind f e₂)
        | AppLK K v => AppLK (kbind f K) (vbind f v)
        | AppRK e K => AppRK (ebind f e) (kbind f K)
-       | NatOpLK op e K => NatOpLK op (ebind f e) (kbind f K)
-       | NatOpRK op K v => NatOpRK op (kbind f K) (vbind f v)
+       | NatOpRK op e K => NatOpRK op (ebind f e) (kbind f K)
+       | NatOpLK op K v => NatOpLK op (kbind f K) (vbind f v)
        | ThrowLK K e => ThrowLK (kbind f K) (ebind f e)
        | ThrowRK v K => ThrowRK (vbind f v) (kbind f K)
        end.
@@ -407,8 +407,8 @@ Fixpoint ectx_compose {S} (K1 K2 : ectx S) : ectx S
      | IfK K e₁ e₂ => IfK (ectx_compose K K2) e₁ e₂
      | AppLK K v => AppLK (ectx_compose K K2) v
      | AppRK e K => AppRK e (ectx_compose K K2)
-     | NatOpLK op e K => NatOpLK op e (ectx_compose K K2)
-     | NatOpRK op K v => NatOpRK op (ectx_compose K K2) v
+     | NatOpRK op e K => NatOpRK op e (ectx_compose K K2)
+     | NatOpLK op K v => NatOpLK op (ectx_compose K K2) v
      | ThrowLK K e => ThrowLK (ectx_compose K K2) e
      | ThrowRK v K => ThrowRK v (ectx_compose K K2)
      end.
