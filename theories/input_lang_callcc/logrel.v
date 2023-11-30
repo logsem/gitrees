@@ -757,7 +757,7 @@ Section logrel.
     intros; simpl.
     apply _.
   Qed.
-  
+
   Lemma compat_output {S} Γ (e: expr S) α :
     ⊢ logrel_valid Γ e α Tnat -∗
       logrel_valid Γ (Output e) (interp_output rs α) Tnat.
@@ -809,13 +809,13 @@ Section logrel.
       constructor.
       reflexivity.
   Qed.
-  
+
   Program Definition AppRSCtx_HOM {S : Set}
     (α : @interp_scope F natO _ S -n> IT)
     (env : @interp_scope F natO _ S)
     : HOM := exist _ (interp_apprk rs α (λne env, idfun) env) _.
   Next Obligation.
-    intros; simpl.    
+    intros; simpl.
     apply _.
   Qed.
 
@@ -856,7 +856,7 @@ Section logrel.
     rewrite fill_comp.
     iApply logrel_bind; first by iApply "H2".
     subst sss κ'.
-    iIntros (βv v). iModIntro. iIntros "#HV".      
+    iIntros (βv v). iModIntro. iIntros "#HV".
     unfold AppRSCtx_HOM; simpl; unfold AppRSCtx.
     rewrite -fill_comp.
     simpl.
@@ -864,12 +864,12 @@ Section logrel.
     { reflexivity. }
     pose (κ'' := (AppLSCtx_HOM (IT_of_V βv) ss _)).
     assert (((`κ) (α1 ss ⊙ (IT_of_V βv))) = (((`κ) ◎ (`κ'')) (α1 ss))) as ->.
-    { reflexivity. }      
+    { reflexivity. }
     pose (sss := (HOM_compose κ κ'')).
     assert ((`κ ◎ `κ'') = (`sss)) as ->.
     { reflexivity. }
     rewrite fill_comp.
-    iApply logrel_bind; first by iApply "H1".      
+    iApply logrel_bind; first by iApply "H1".
     iIntros (βv' v'). iModIntro. iIntros "#HV'".
     subst sss κ''.
     rewrite -fill_comp.
@@ -880,7 +880,7 @@ Section logrel.
     iSpecialize ("HV'" $! βv v with "HV").
     iApply "HV'"; iApply "HK".
   Qed.
-  
+
   (* TODO: finish throw + refactor *)
   Lemma fundamental {S : Set} (Γ : S -> ty) τ e :
     typed Γ e τ → ⊢ logrel_valid Γ e (interp_expr rs e) τ

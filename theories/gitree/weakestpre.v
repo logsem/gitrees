@@ -766,7 +766,7 @@ Section weakestpre.
     iIntros "H". rewrite unfold_clwp.
     unshelve iSpecialize ("H" $! idfun _ Φ with "[]").
     - apply _.
-    - iIntros (w) "Hw". simpl. 
+    - iIntros (w) "Hw". simpl.
       iApply wp_val; rewrite /IntoVal /=.
       done.
     - by simpl.
@@ -791,7 +791,7 @@ Section weakestpre.
     iIntros "HΦ"; rewrite unfold_clwp.
     iIntros (K HK Ψ) "HK". iApply ("HK" with "HΦ").
   Qed.
-  
+
   Lemma clwp_value_inv s E (Φ : ITV -n> iProp) v :
     CLWP (IT_of_V v) @ s ; E {{ Φ }} ={E}=∗ Φ v.
   Proof.
