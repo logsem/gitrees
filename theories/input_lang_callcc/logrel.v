@@ -5,6 +5,8 @@ From gitrees.input_lang_callcc Require Import lang interp.
 Require Import gitrees.lang_generic_sem.
 Require Import Binding.Lib Binding.Set Binding.Env.
 
+Open Scope stdpp_scope.
+
 Section logrel.
   Context {sz : nat}.
   Variable (rs : gReifiers sz).
@@ -232,7 +234,7 @@ Section logrel.
   Definition ssubst2_valid {S : Set}
     (Γ : S -> ty)
     (ss : @interp_scope F natO _ S)
-    (γ : S [⇒] ∅)
+    (γ : S [⇒] Empty_set)
     : iProp :=
     (∀ x, □ logrel (Γ x) (ss x) (γ x))%I.
 
@@ -242,7 +244,7 @@ Section logrel.
     (α : @interp_scope F natO _ S -n> IT)
     (τ : ty) : iProp :=
     (□ ∀ (ss : @interp_scope F natO _ S)
-       (γ : S [⇒] ∅),
+       (γ : S [⇒] Empty_set),
        ssubst2_valid Γ ss γ → logrel τ (α ss) (bind γ e))%I.
 
   Lemma compat_var {S : Set} (Γ : S -> ty) (x : S) :
@@ -287,7 +289,7 @@ Section logrel.
     Opaque IT_of_V.
     simpl.
     pose (ss' := (extend_scope (extend_scope env (interp_rec rs α env)) (IT_of_V αv))).
-    pose (γ' := ((mk_subst (Val (rec bind ((γ ↑) ↑)%bind e)%syn)) ∘ ((mk_subst (shift (Val v))) ∘ ((γ ↑) ↑)%bind))%bind : inc (inc S) [⇒] ∅).
+    pose (γ' := ((mk_subst (Val (rec bind ((γ ↑) ↑)%bind e)%syn)) ∘ ((mk_subst (shift (Val v))) ∘ ((γ ↑) ↑)%bind))%bind : inc (inc S) [⇒] Empty_set).
     iSpecialize ("H" $! ss' γ' with "[]"); last first.
     - iSpecialize ("H" $! κ K with "HK").
       unfold ss'.
@@ -582,7 +584,8 @@ Section logrel.
       rewrite get_fun_err.
       reflexivity.
   Qed.
-  
+
+
   Lemma compat_throw {S : Set} (Γ : S -> ty) τ τ' α β e e' :
     ⊢ logrel_valid Γ e α τ -∗
       logrel_valid Γ e' β (Tcont τ) -∗
@@ -615,9 +618,10 @@ Section logrel.
     simpl.
     pose (κ'' := @ThrowRSCtx_HOM S (IT_of_V βv) ss _).
     (* TODO: some typeclasses bs *)
-    assert ((get_fun (λne f : laterO (IT -n> IT), THROW (IT_of_V βv) f) (β ss)) = ((`κ'') (β ss))) as ->.
-    { 
-      admit.
+    assert ((get_fun (λne f : laterO (IT -n> IT), THROW (IT_of_V βv) f) (β ss)) ≡
+              ((`κ'') (β ss))) as ->.
+    {
+      subst κ''. simpl. by rewrite get_val_ITV. 
     }
     assert ((`κ) ((`κ'') (β ss)) = ((`κ) ◎ (`κ'')) (β ss)) as ->.
     { reflexivity. }
@@ -666,7 +670,8 @@ Section logrel.
       term_simpl.
       eapply prim_step_steps.
       eapply Throw_step; reflexivity.
-  Admitted.
+  Qed.
+
 
   Lemma compat_callcc {S : Set} (Γ : S -> ty) τ α e :
     ⊢ logrel_valid (Γ ▹ Tcont τ) e α τ -∗
