@@ -125,35 +125,42 @@ Section logrel.
   Qed.
 
   #[export] Instance logrel_expr_proper {S} (V : ITV → val S → iProp) :
-    Proper ((≡) ==> (≡) ==> (≡)) V → Proper ((≡) ==> (≡) ==> (≡)) (logrel_expr V).
+    Proper ((≡) ==> (≡) ==> (≡)) V →
+    Proper ((≡) ==> (≡) ==> (≡)) (logrel_expr V).
   Proof.
     solve_proper.
   Qed.
 
-  #[export] Instance logrel_nat_proper {S} : Proper ((≡) ==> (≡) ==> (≡)) (@logrel_nat S).
+  #[export] Instance logrel_nat_proper {S} :
+    Proper ((≡) ==> (≡) ==> (≡)) (@logrel_nat S).
   Proof.
     solve_proper.
   Qed.
 
-  #[export] Instance logrel_val_proper {S} (τ : ty) : Proper ((≡) ==> (≡) ==> (≡)) (@logrel_val S τ).
+  #[export] Instance logrel_val_proper {S} (τ : ty) :
+    Proper ((≡) ==> (≡) ==> (≡)) (@logrel_val S τ).
   Proof.
     induction τ; simpl; solve_proper.
   Qed.
 
   #[export] Instance logrel_ectx_proper {S} (V : ITV → val S → iProp) :
-    Proper ((≡) ==> (≡) ==> (≡)) V → Proper ((≡) ==> (≡) ==> (≡)) (logrel_ectx V).
+    Proper ((≡) ==> (≡) ==> (≡)) V →
+    Proper ((≡) ==> (≡) ==> (≡)) (logrel_ectx V).
   Proof.
     solve_proper.
   Qed.
 
   #[export] Instance logrel_arr_proper {S} (V1 V2 : ITV → val S → iProp) :
-    Proper ((≡) ==> (≡) ==> (≡)) V1 -> Proper ((≡) ==> (≡) ==> (≡)) V2 → Proper ((≡) ==> (≡) ==> (≡)) (logrel_arr V1 V2).
+    Proper ((≡) ==> (≡) ==> (≡)) V1 ->
+    Proper ((≡) ==> (≡) ==> (≡)) V2 →
+    Proper ((≡) ==> (≡) ==> (≡)) (logrel_arr V1 V2).
   Proof.
     solve_proper.
   Qed.
 
   #[export] Instance logrel_cont_proper {S} (V : ITV → val S → iProp) :
-    Proper ((≡) ==> (≡) ==> (≡)) V -> Proper ((≡) ==> (≡) ==> (≡)) (logrel_cont V).
+    Proper ((≡) ==> (≡) ==> (≡)) V ->
+    Proper ((≡) ==> (≡) ==> (≡)) (logrel_cont V).
   Proof.
     solve_proper.
   Qed.
@@ -181,9 +188,9 @@ Section logrel.
     by iApply ("HK" $! αv v with "[$H1] [$Hs]").
   Qed.
 
-  Lemma logrel_head_step_pure_ectx {S} n K (κ : HOM) (e' e : expr S) α V :
+  Lemma logrel_head_step_pure_ectx {S} n K (e' e : expr S) α V :
     (∀ σ K, head_step e σ e' σ K (n, 0)) →
-    ⊢ logrel_expr V (`κ α) (fill K e') -∗ logrel_expr V (`κ α) (fill K e).
+    ⊢ logrel_expr V α (fill K e') -∗ logrel_expr V α (fill K e).
   Proof.
     intros Hpure.
     iIntros "H".
@@ -250,35 +257,26 @@ Section logrel.
   Lemma compat_var {S : Set} (Γ : S -> ty) (x : S) :
     ⊢ logrel_valid Γ (Var x) (interp_var x) (Γ x).
   Proof.
-    iModIntro.
-    iIntros (ss γ) "Hss".
-    iApply "Hss".
+    iModIntro. iIntros (ss γ) "Hss". iApply "Hss".
   Qed.
 
   Lemma compat_recV {S : Set} (Γ : S -> ty) (e : expr (inc (inc S))) τ1 τ2 α :
     ⊢ □ logrel_valid ((Γ ▹ (Tarr τ1 τ2) ▹ τ1)) e α τ2 -∗
       logrel_valid Γ (Val $ RecV e) (interp_rec rs α) (Tarr τ1 τ2).
   Proof.
-    iIntros "#H".
-    iModIntro.
-    iIntros (ss γ) "#Hss".
-    pose (env := ss). fold env.
-    pose (f := (ir_unf rs α env)).
+    iIntros "#H !> %env %γ #Henv".
+    set (f := (ir_unf rs α env)).
     iAssert (interp_rec rs α env ≡ IT_of_V $ FunV (Next f))%I as "Hf".
     { iPureIntro. apply interp_rec_unfold. }
     iRewrite "Hf".
     Opaque IT_of_V.
     iApply logrel_of_val; term_simpl.
-    iExists _. simpl.
-    iSplit.
+    iExists _. iSplit.
     { Transparent IT_of_V. done. }
     iModIntro.
-    iLöb as "IH". iSimpl.
+    iLöb as "IH".
     iIntros (αv v) "#Hw".
-    rewrite APP_APP'_ITV.
-    rewrite APP_Fun.
-    rewrite laterO_map_Next.
-    rewrite -Tick_eq.
+    rewrite APP_APP'_ITV APP_Fun laterO_map_Next -Tick_eq.
     iIntros (κ K) "#HK".
     iIntros (σ) "Hs".
     rewrite hom_tick.
@@ -289,7 +287,9 @@ Section logrel.
     Opaque IT_of_V.
     simpl.
     pose (ss' := (extend_scope (extend_scope env (interp_rec rs α env)) (IT_of_V αv))).
-    pose (γ' := ((mk_subst (Val (rec bind ((γ ↑) ↑)%bind e)%syn)) ∘ ((mk_subst (shift (Val v))) ∘ ((γ ↑) ↑)%bind))%bind : inc (inc S) [⇒] Empty_set).
+    pose (γ' := ((mk_subst (Val (rec bind ((γ ↑) ↑)%bind e)%syn))
+                   ∘ ((mk_subst (shift (Val v))) ∘ ((γ ↑) ↑)))%bind :
+            inc (inc S) [⇒] Empty_set).
     iSpecialize ("H" $! ss' γ' with "[]"); last first.
     - iSpecialize ("H" $! κ K with "HK").
       unfold ss'.
@@ -326,7 +326,7 @@ Section logrel.
       + iModIntro.
         subst γ'.
         term_simpl.
-        iApply "Hss".
+        iApply "Henv".
   Qed.
 
   Program Definition IFSCtx_HOM α β : HOM := exist _ (λne x, IFSCtx α β x) _.
@@ -346,66 +346,43 @@ Section logrel.
     iIntros (ss γ) "#Hss".
     simpl.
     pose (κ' := (IFSCtx_HOM (α1 ss) (α2 ss))).
-    assert ((IF (α0 ss) (α1 ss) (α2 ss)) = ((`κ') (α0 ss))) as ->.
-    { reflexivity. }
+    assert ((IF (α0 ss) (α1 ss) (α2 ss)) = ((`κ') (α0 ss))) as -> by reflexivity.
     term_simpl.
     iIntros (κ K) "#HK".
-    assert ((`κ) ((IFSCtx (α1 ss) (α2 ss)) (α0 ss)) = ((`κ) ◎ (`κ')) (α0 ss)) as ->.
-    { reflexivity. }
+    assert ((`κ) ((IFSCtx (α1 ss) (α2 ss)) (α0 ss)) = ((`κ) ◎ (`κ')) (α0 ss))
+      as -> by reflexivity.
     pose (sss := (HOM_compose κ κ')).
-    assert ((`κ ◎ `κ') = (`sss)) as ->.
-    { reflexivity. }
-    assert (fill K (if bind γ e0 then bind γ e1 else bind γ e2)%syn = fill (ectx_compose K (IfK EmptyK (bind γ e1) (bind γ e2))) (bind γ e0)) as ->.
-    { rewrite -fill_comp.
-      reflexivity.
-    }
-    iApply (logrel_bind with "[H0] [H1 H2]").
-    - by iApply "H0".
-    - iIntros (βv v). iModIntro. iIntros "#HV".
-      term_simpl.
-      unfold logrel_nat.
-      iDestruct "HV" as "(%n & #Hn & ->)".
-      iRewrite "Hn".
-      destruct (decide (0 < n)).
-      + rewrite -fill_comp.
-        simpl.
-        unfold IFSCtx.
-        rewrite IF_True//.
-        iSpecialize ("H1" with "Hss").
-        term_simpl.
-        iSpecialize ("H1" $! κ K with "HK").
-        iIntros (σ) "Hσ".
-        iSpecialize ("H1" $! σ with "Hσ").
-        iApply (wp_wand with "[$H1] []").
-        iIntros (v) "(%m & %w & %σ' & %Hstep & H & G)".
-        iModIntro.
-        destruct m as [m m'].
-        iExists (m, m'), w, σ'. iFrame "H G".
-        iPureIntro.
-        eapply (prim_steps_app (0, 0) (m, m')); eauto.
-        eapply prim_step_steps.
-        eapply Ectx_step; [reflexivity | reflexivity |].
-        apply IfTrueS; done.
-      + rewrite -fill_comp.
-        simpl.
-        unfold IFSCtx.
-        rewrite IF_False//; last lia.
-        iSpecialize ("H2" with "Hss").
-        term_simpl.
-        iSpecialize ("H2" $! κ K with "HK").
-        iIntros (σ) "Hσ".
-        iSpecialize ("H2" $! σ with "Hσ").
-        iApply (wp_wand with "[$H2] []").
-        iIntros (v) "(%m & %w & %σ' & %Hstep & H & G)".
-        iModIntro.
-        destruct m as [m m'].
-        iExists (m, m'), w, σ'. iFrame "H G".
-        iPureIntro.
-        eapply (prim_steps_app (0, 0) (m, m')); eauto.
-        eapply prim_step_steps.
-        eapply Ectx_step; [reflexivity | reflexivity |].
-        apply IfFalseS.
-        lia.
+    assert ((`κ ◎ `κ') = (`sss)) as -> by reflexivity.
+    assert (fill K (if bind γ e0 then bind γ e1 else bind γ e2)%syn =
+            fill (ectx_compose K (IfK EmptyK (bind γ e1) (bind γ e2))) (bind γ e0)) as ->.
+    { rewrite -fill_comp. reflexivity. }
+    iApply (logrel_bind with "[H0] [H1 H2]"); first by iApply "H0".
+    iIntros (βv v). iModIntro. iIntros "#HV".
+    term_simpl.
+    unfold logrel_nat.
+    iDestruct "HV" as "(%n & #Hn & ->)".
+    iRewrite "Hn".
+    unfold IFSCtx.
+    destruct (decide (0 < n)) as [H|H].
+    - rewrite -fill_comp.
+      simpl.
+      rewrite IF_True//.
+      iSpecialize ("H1" with "Hss").
+      term_simpl. rewrite /logrel.
+      iPoseProof (logrel_head_step_pure_ectx _ EmptyK
+                    (bind γ e1)%syn _ (α1 ss) (logrel_val τ) with "H1")
+        as "Hrel"; last iApply  ("Hrel" $! κ K with "HK").
+      intros σ K0. by apply IfTrueS.
+    - rewrite -fill_comp.
+      simpl.
+      unfold IFSCtx.
+      rewrite IF_False//; last lia.
+      iSpecialize ("H2" with "Hss").
+      term_simpl. rewrite /logrel.
+      iPoseProof (logrel_head_step_pure_ectx _ EmptyK
+                    (bind γ e2)%syn _ (α2 ss) (logrel_val τ) with "H2")
+        as "Hrel"; last iApply ("Hrel" $! κ K with "HK").
+      intros σ K0. apply IfFalseS. lia.
   Qed.
 
   Lemma compat_input {S} Γ :
@@ -555,7 +532,7 @@ Section logrel.
     (Hv : AsVal β)
     : HOM := exist _ (interp_throwrk rs (constO β) (λne env, idfun) env) _.
   Next Obligation.
-    intros; simpl. 
+    intros; simpl.
     simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - solve_proper_prepare.
       destruct Hv as [? <-].
@@ -621,7 +598,7 @@ Section logrel.
     assert ((get_fun (λne f : laterO (IT -n> IT), THROW (IT_of_V βv) f) (β ss)) ≡
               ((`κ'') (β ss))) as ->.
     {
-      subst κ''. simpl. by rewrite get_val_ITV. 
+      subst κ''. simpl. by rewrite get_val_ITV.
     }
     assert ((`κ) ((`κ'') (β ss)) = ((`κ) ◎ (`κ'')) (β ss)) as ->.
     { reflexivity. }
