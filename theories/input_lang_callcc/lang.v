@@ -6,6 +6,52 @@ Import ListNotations.
 
 Require Import Binding.Lib Binding.Set Binding.Auto Binding.Env.
 
+Module IncDec.
+  Global Instance empty_EqDec : EqDec ∅.
+  Proof.
+    intros [].
+  Qed.
+
+  Global Instance inc_EqDec (X : Set) `(EqDec X) : EqDec (inc X).
+  Proof.
+    intros [| x] [| y]; [by left | by right | by right |].
+    destruct (H x y) as [-> | H2]; [left; reflexivity | right].
+    inversion 1; by subst.
+  Qed.
+
+  Global Instance nth_inc_dec (X : Set) `(EqDec X) (n : nat) : EqDec (Init.Nat.iter n inc X).
+  Proof.
+    induction n; apply _.
+  Qed.
+End IncDec.
+
+Section ResolutionDeBruijn.
+  Number Notation fin Nat.of_num_uint Nat.to_num_uint (via nat
+  mapping [[Fin.F1] => O, [Fin.FS] => S]) : fin_scope.
+
+  Class Resolver (D : Set) (n : nat) := { resolve : fin n -> D }.
+
+  Global Instance ResolverEmpty : Resolver ∅ 0.
+  Proof.
+    constructor.
+    apply fin_0_inv.
+  Defined.
+
+  Global Instance ResolverInc {D : Set} (n : nat) `{Resolver D n} : Resolver (inc D) (S n).
+  Proof.
+    constructor.
+    apply fin_S_inv.
+    - apply VZ.
+    - intros x; apply VS, resolve, x.
+  Defined.
+
+  Global Instance ResolverIncNEmpty {n : nat} : Resolver (Init.Nat.iter n inc ∅) n.
+  Proof.
+    induction n; apply _.
+  Defined.
+
+End ResolutionDeBruijn.
+
 Inductive nat_op := Add | Sub | Mult.
 
 Inductive expr {X : Set} :=
@@ -62,6 +108,7 @@ Notation "'#' n" := (LitV n) (at level 60) : syn_scope.
 Notation "'input'" := (Input) : syn_scope.
 Notation "'output' e" := (Output e) (at level 60) : syn_scope.
 Notation "'rec' e" := (RecV e) (at level 60) : syn_scope.
+Notation "'callcc' e" := (Callcc e) (at level 60) : syn_scope.
 Notation "'throw' e₁ e₂" := (Throw e₁ e₂) (at level 60) : syn_scope.
 Notation "'cont' K" := (ContV K) (at level 60) : syn_scope.
 
@@ -72,6 +119,12 @@ Notation "'if' K 'then' e₂ 'else' e₃" := (IfK K e₂ e₃) : ectx_scope.
 Notation "'output' K" := (OutputK K) (at level 60) : ectx_scope.
 Notation "'throwₗ' K e₂" := (ThrowLK K e₂) (at level 60) : ectx_scope.
 Notation "'throwᵣ' e₁ K" := (ThrowRK e₁ K) (at level 60) : ectx_scope.
+Definition var_smart {D} {n} `{Resolver D n} (fn : fin n) : expr D := (@Var D (resolve fn)).
+Notation "'$' fn" := (@var_smart _ _ _ fn) (at level 60) : syn_scope.
+
+Example test1 : expr (inc ∅) := ($ 0)%syn.
+Example test2 : val ∅ := (rec (($ 1) : expr (inc (inc ∅))))%syn.
+Example test3 : expr ∅ := (callcc (($ 0) : expr (inc ∅)))%syn.
 
 Definition to_val {S} (e : expr S) : option (val S) :=
   match e with
@@ -133,7 +186,7 @@ with kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
        | OutputK K => OutputK (kmap f K)
        | IfK K e₁ e₂ => IfK (kmap f K) (emap f e₁) (emap f e₂)
        | AppLK K v => AppLK (kmap f K) (vmap f v)
-       | AppRK e K => AppRK (emap f e) (kmap f K) 
+       | AppRK e K => AppRK (emap f e) (kmap f K)
        | NatOpRK op e K => NatOpRK op (emap f e) (kmap f K)
        | NatOpLK op K v => NatOpLK op (kmap f K) (vmap f v)
        | ThrowLK K e => ThrowLK (kmap f K) (emap f e)
