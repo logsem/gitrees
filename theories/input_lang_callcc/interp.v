@@ -193,19 +193,59 @@ Section weakestpre.
   Context `{!invGS Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
 
+  Lemma wp_input' (σ σ' : stateO) (n : nat) (k : natO -n> IT) (κ : IT -n> IT)
+    `{!IT_hom κ} Φ s :
+    update_input σ = (n, σ') ->
+    has_substate σ -∗
+    ▷ (£ 1 -∗ has_substate σ' -∗ WP@{rs} (κ ◎ k $ n) @ s {{ Φ }}) -∗
+    WP@{rs} κ (INPUT k) @ s {{ Φ }}.
+  Proof.
+    iIntros (Hσ) "Hs Ha".
+    rewrite hom_INPUT. simpl.
+    iApply (wp_subreify with "Hs").
+    + simpl. by rewrite Hσ.
+    + by rewrite ofe_iso_21.
+    + done.
+  Qed.
+
   Lemma wp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ s :
     update_input σ = (n, σ') →
     has_substate σ -∗
     ▷ (£ 1 -∗ has_substate σ' -∗ WP@{rs} (k n) @ s {{ Φ }}) -∗
     WP@{rs} (INPUT k) @ s {{ Φ }}.
   Proof.
-    intros Hs. iIntros "Hs Ha".
-    unfold INPUT. simpl.
-    iApply (wp_subreify with "Hs").
-    { simpl. by rewrite Hs. }
-    { simpl. by rewrite ofe_iso_21. }
-    iModIntro. done.
+    eapply (wp_input' σ σ' n k idfun).
   Qed.
+
+  (* Lemma wp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ s : *)
+  (*   update_input σ = (n, σ') → *)
+  (*   has_substate σ -∗ *)
+  (*   ▷ (£ 1 -∗ has_substate σ' -∗ WP@{rs} (k n) @ s {{ Φ }}) -∗ *)
+  (*   WP@{rs} (INPUT k) @ s {{ Φ }}. *)
+  (* Proof. *)
+  (*   intros Hs. iIntros "Hs Ha". *)
+  (*   unfold INPUT. simpl. *)
+  (*   iApply (wp_subreify with "Hs"). *)
+  (*   { simpl. by rewrite Hs. } *)
+  (*   { simpl. by rewrite ofe_iso_21. } *)
+  (*   iModIntro. done. *)
+  (* Qed. *)
+
+  Lemma wp_output' (σ σ' : stateO) (n : nat) (κ : IT -n> IT)
+    `{!IT_hom κ} Φ s :
+    update_output n σ = σ' →
+    has_substate σ -∗
+    ▷ (£ 1 -∗ has_substate σ' -∗ WP@{rs} (κ (Ret 0)) @ s {{ Φ }}) -∗
+    WP@{rs} κ (OUTPUT n) @ s {{ Φ }}.
+  Proof.
+    iIntros (Hσ) "Hs Ha".
+    rewrite /OUTPUT hom_OUTPUT_.
+    iApply (wp_subreify with "Hs").
+    + simpl. by rewrite Hσ.
+    + done.
+    + done.
+  Qed.
+  
 
   Lemma wp_output (σ σ' : stateO) (n : nat) Φ s :
     update_output n σ = σ' →
@@ -213,14 +253,21 @@ Section weakestpre.
     ▷ (£ 1 -∗ has_substate σ' -∗ Φ (RetV 0)) -∗
     WP@{rs} (OUTPUT n) @ s {{ Φ }}.
   Proof.
-    intros Hs. iIntros "Hs Ha".
-    unfold OUTPUT. simpl.
-    iApply (wp_subreify with "Hs").
-    { simpl. by rewrite Hs. }
-    { simpl. done. }
-    iModIntro. iIntros "H1 H2".
-    iApply wp_val. by iApply ("Ha" with "H1 H2").
+    iIntros (Hσ) "Hs Ha".
+    iApply (wp_output' _ _ _ idfun with "Hs [Ha]"); first done.
+    simpl. iNext. iIntros "Hcl Hs".
+    iApply wp_val. iApply ("Ha" with "Hcl Hs").
   Qed.
+
+  (* Proof. *)
+  (*   intros Hs. iIntros "Hs Ha". *)
+  (*   unfold OUTPUT. simpl. *)
+  (*   iApply (wp_subreify with "Hs"). *)
+  (*   { simpl. by rewrite Hs. } *)
+  (*   { simpl. done. } *)
+  (*   iModIntro. iIntros "H1 H2". *)
+  (*   iApply wp_val. by iApply ("Ha" with "H1 H2"). *)
+  (* Qed. *)
 
   Lemma wp_throw (σ : stateO) (f : laterO (IT -n> IT)) (x : IT) Φ s :
     has_substate σ -∗
