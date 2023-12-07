@@ -4,53 +4,7 @@ From Equations Require Import Equations.
 Require Import List.
 Import ListNotations.
 
-Require Import Binding.Lib Binding.Set Binding.Auto Binding.Env.
-
-Module IncDec.
-  Global Instance empty_EqDec : EqDec ∅.
-  Proof.
-    intros [].
-  Qed.
-
-  Global Instance inc_EqDec (X : Set) `(EqDec X) : EqDec (inc X).
-  Proof.
-    intros [| x] [| y]; [by left | by right | by right |].
-    destruct (H x y) as [-> | H2]; [left; reflexivity | right].
-    inversion 1; by subst.
-  Qed.
-
-  Global Instance nth_inc_dec (X : Set) `(EqDec X) (n : nat) : EqDec (Init.Nat.iter n inc X).
-  Proof.
-    induction n; apply _.
-  Qed.
-End IncDec.
-
-Section ResolutionDeBruijn.
-  Number Notation fin Nat.of_num_uint Nat.to_num_uint (via nat
-  mapping [[Fin.F1] => O, [Fin.FS] => S]) : fin_scope.
-
-  Class Resolver (D : Set) (n : nat) := { resolve : fin n -> D }.
-
-  Global Instance ResolverEmpty : Resolver ∅ 0.
-  Proof.
-    constructor.
-    apply fin_0_inv.
-  Defined.
-
-  Global Instance ResolverInc {D : Set} (n : nat) `{Resolver D n} : Resolver (inc D) (S n).
-  Proof.
-    constructor.
-    apply fin_S_inv.
-    - apply VZ.
-    - intros x; apply VS, resolve, x.
-  Defined.
-
-  Global Instance ResolverIncNEmpty {n : nat} : Resolver (Init.Nat.iter n inc ∅) n.
-  Proof.
-    induction n; apply _.
-  Defined.
-
-End ResolutionDeBruijn.
+Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
 
 Inductive nat_op := Add | Sub | Mult.
 
@@ -83,82 +37,9 @@ with ectx {X : Set} :=
 | ThrowLK (K : ectx) (e : expr) : ectx
 | ThrowRK (v : val) (K : ectx) : ectx.
 
-Notation of_val := Val (only parsing).
-
 Arguments val X%bind : clear implicits.
 Arguments expr X%bind : clear implicits.
 Arguments ectx X%bind : clear implicits.
-
-Declare Scope syn_scope.
-Declare Scope ectx_scope.
-Delimit Scope syn_scope with syn.
-Delimit Scope ectx_scope with ectx.
-
-Coercion Val : val >-> expr.
-Coercion App : expr >-> Funclass.
-Coercion AppLK : ectx >-> Funclass.
-Coercion AppRK : expr >-> Funclass.
-
-Notation "+" := (Add) : syn_scope.
-Notation "-" := (Sub) : syn_scope.
-Notation "×" := (Mult) : syn_scope.
-Notation "'⟨' e₁ op e₂ '⟩'" := (NatOp op e₁ e₂) (at level 45, right associativity) : syn_scope.
-Notation "'if' e₁ 'then' e₂ 'else' e₃" := (If e₁ e₂ e₃) : syn_scope.
-Notation "'#' n" := (LitV n) (at level 60) : syn_scope.
-Notation "'input'" := (Input) : syn_scope.
-Notation "'output' e" := (Output e) (at level 60) : syn_scope.
-Notation "'rec' e" := (RecV e) (at level 60) : syn_scope.
-Notation "'callcc' e" := (Callcc e) (at level 60) : syn_scope.
-Notation "'throw' e₁ e₂" := (Throw e₁ e₂) (at level 60) : syn_scope.
-Notation "'cont' K" := (ContV K) (at level 60) : syn_scope.
-
-Notation "□" := (EmptyK) : ectx_scope.
-Notation "'⟨' e₁ op K '⟩ᵣ'" := (NatOpRK op e₁ K) (at level 45, right associativity) : ectx_scope.
-Notation "'⟨' K op v₂ '⟩ₗ'" := (NatOpLK op K v₂) (at level 45, right associativity) : ectx_scope.
-Notation "'if' K 'then' e₂ 'else' e₃" := (IfK K e₂ e₃) : ectx_scope.
-Notation "'output' K" := (OutputK K) (at level 60) : ectx_scope.
-Notation "'throwₗ' K e₂" := (ThrowLK K e₂) (at level 60) : ectx_scope.
-Notation "'throwᵣ' e₁ K" := (ThrowRK e₁ K) (at level 60) : ectx_scope.
-Definition var_smart {D} {n} `{Resolver D n} (fn : fin n) : expr D := (@Var D (resolve fn)).
-Notation "'$' fn" := (@var_smart _ _ _ fn) (at level 60) : syn_scope.
-
-Example test1 : expr (inc ∅) := ($ 0)%syn.
-Example test2 : val ∅ := (rec (($ 1) : expr (inc (inc ∅))))%syn.
-Example test3 : expr ∅ := (callcc (($ 0) : expr (inc ∅)))%syn.
-
-Definition to_val {S} (e : expr S) : option (val S) :=
-  match e with
-  | Val v => Some v
-  | _ => None
-  end.
-
-Definition do_natop (op : nat_op) (x y : nat) : nat :=
-  match op with
-  | Add => plus x y
-  | Sub => minus x y
-  | Mult => mult x y
-  end.
-
-Definition nat_op_interp {S} (n : nat_op) (x y : val S) : option (val S) :=
-  match x, y with
-  | LitV x, LitV y => Some $ LitV $ do_natop n x y
-  | _,_ => None
-  end.
-
-Fixpoint fill {X : Set} (K : ectx X) (e : expr X) : expr X :=
-  match K with
-  | EmptyK => e
-  | OutputK K => Output (fill K e)
-  | IfK K e₁ e₂ => If (fill K e) e₁ e₂
-  | AppLK K v => App (fill K e) (Val v)
-  | AppRK e' K => App e' (fill K e)
-  | NatOpRK op e' K => NatOp op e' (fill K e)
-  | NatOpLK op K v => NatOp op (fill K e) (Val v)
-  | ThrowLK K e' => Throw (fill K e) e'
-  | ThrowRK v K => Throw (Val v) (fill K e)
-  end.
-
-Notation "K '[' e ']'" := (fill K e) (at level 60) : syn_scope.
 
 Local Open Scope bind_scope.
 
@@ -195,21 +76,6 @@ with kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
 #[export] Instance FMap_expr : FunctorCore expr := @emap.
 #[export] Instance FMap_val  : FunctorCore val := @vmap.
 #[export] Instance FMap_ectx  : FunctorCore ectx := @kmap.
-
-Lemma fill_emap {X Y : Set} (f : X [→] Y) (K : ectx X) (e : expr X)
-  : fmap f (fill K e) = fill (fmap f K) (fmap f e).
-Proof.
-  revert f.
-  induction K as [| ?? IH
-                 | ?? IH
-                 | ?? IH
-                 | ??? IH
-                 | ???? IH
-                 | ??? IH
-                 | ?? IH
-                 | ??? IH];
-    intros f; term_simpl; first done; rewrite IH; reflexivity.
-Qed.
 
 #[export] Instance SPC_expr : SetPureCore expr := @Var.
 
@@ -388,6 +254,92 @@ Qed.
 Proof.
   split; intros; [now apply kbind_id | now apply kbind_comp].
 Qed.
+
+Definition to_val {S} (e : expr S) : option (val S) :=
+  match e with
+  | Val v => Some v
+  | _ => None
+  end.
+
+Definition do_natop (op : nat_op) (x y : nat) : nat :=
+  match op with
+  | Add => plus x y
+  | Sub => minus x y
+  | Mult => mult x y
+  end.
+
+Definition nat_op_interp {S} (n : nat_op) (x y : val S) : option (val S) :=
+  match x, y with
+  | LitV x, LitV y => Some $ LitV $ do_natop n x y
+  | _,_ => None
+  end.
+
+Fixpoint fill {X : Set} (K : ectx X) (e : expr X) : expr X :=
+  match K with
+  | EmptyK => e
+  | OutputK K => Output (fill K e)
+  | IfK K e₁ e₂ => If (fill K e) e₁ e₂
+  | AppLK K v => App (fill K e) (Val v)
+  | AppRK e' K => App e' (fill K e)
+  | NatOpRK op e' K => NatOp op e' (fill K e)
+  | NatOpLK op K v => NatOp op (fill K e) (Val v)
+  | ThrowLK K e' => Throw (fill K e) e'
+  | ThrowRK v K => Throw (Val v) (fill K e)
+  end.
+
+Lemma fill_emap {X Y : Set} (f : X [→] Y) (K : ectx X) (e : expr X)
+  : fmap f (fill K e) = fill (fmap f K) (fmap f e).
+Proof.
+  revert f.
+  induction K as [| ?? IH
+                 | ?? IH
+                 | ?? IH
+                 | ??? IH
+                 | ???? IH
+                 | ??? IH
+                 | ?? IH
+                 | ??? IH];
+    intros f; term_simpl; first done; rewrite IH; reflexivity.
+Qed.
+
+Declare Scope syn_scope.
+Declare Scope ectx_scope.
+Delimit Scope syn_scope with syn.
+Delimit Scope ectx_scope with ectx.
+
+Coercion Val : val >-> expr.
+Coercion App : expr >-> Funclass.
+Coercion AppLK : ectx >-> Funclass.
+Coercion AppRK : expr >-> Funclass.
+
+Notation of_val := Val (only parsing).
+
+Notation "+" := (Add) : syn_scope.
+Notation "-" := (Sub) : syn_scope.
+Notation "×" := (Mult) : syn_scope.
+Notation "'⟨' e₁ op e₂ '⟩'" := (NatOp op e₁ e₂) (at level 45, right associativity) : syn_scope.
+Notation "'if' e₁ 'then' e₂ 'else' e₃" := (If e₁ e₂ e₃) : syn_scope.
+Notation "'#' n" := (LitV n) (at level 60) : syn_scope.
+Notation "'input'" := (Input) : syn_scope.
+Notation "'output' e" := (Output e) (at level 60) : syn_scope.
+Notation "'rec' e" := (RecV e) (at level 60) : syn_scope.
+Notation "'callcc' e" := (Callcc e) (at level 60) : syn_scope.
+Notation "'throw' e₁ e₂" := (Throw e₁ e₂) (at level 60) : syn_scope.
+Notation "'cont' K" := (ContV K) (at level 60) : syn_scope.
+
+Notation "□" := (EmptyK) : ectx_scope.
+Notation "'⟨' e₁ op K '⟩ᵣ'" := (NatOpRK op e₁ K) (at level 45, right associativity) : ectx_scope.
+Notation "'⟨' K op v₂ '⟩ₗ'" := (NatOpLK op K v₂) (at level 45, right associativity) : ectx_scope.
+Notation "'if' K 'then' e₂ 'else' e₃" := (IfK K e₂ e₃) : ectx_scope.
+Notation "'output' K" := (OutputK K) (at level 60) : ectx_scope.
+Notation "'throwₗ' K e₂" := (ThrowLK K e₂) (at level 60) : ectx_scope.
+Notation "'throwᵣ' e₁ K" := (ThrowRK e₁ K) (at level 60) : ectx_scope.
+Notation "'$' fn" := (set_pure_resolver fn) (at level 60) : syn_scope.
+Notation "K '[' e ']'" := (fill K e) (at level 60) : syn_scope.
+
+Example test1 : expr (inc ∅) := ($ 0)%syn.
+Example test2 : val ∅ := (rec ($ 1))%syn.
+Example test3 : expr ∅ := (callcc ($ 0))%syn.
 
 (*** Operational semantics *)
 

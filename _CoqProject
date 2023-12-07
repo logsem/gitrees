@@ -12,6 +12,7 @@ vendor/Binding/Intrinsic.v
 vendor/Binding/TermSimpl.v
 vendor/Binding/Product.v
 vendor/Binding/Env.v
+vendor/Binding/Resolver.v
 
 theories/prelude.v
 theories/lang_generic.v
