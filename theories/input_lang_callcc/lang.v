@@ -492,6 +492,16 @@ Proof.
   apply prim_step_steps, H.
 Qed.
 
+Lemma head_step_prim_step {S} (e1 e2 : expr S) σ1 σ2 nm :
+  head_step e1 σ1 e2 σ2 EmptyK nm -> prim_step e1 σ1 e2 σ2 nm.
+Proof.
+  assert (e1 = fill EmptyK e1) as Heq1; first done.
+  rewrite ->Heq1 at 2.
+  assert (e2 = fill EmptyK e2) as Heq2; first done.
+  rewrite ->Heq2 at 2.
+  apply Ectx_step'.
+Qed.
+
 (*** Type system *)
 
 Inductive ty :=
