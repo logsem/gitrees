@@ -302,45 +302,6 @@ Proof.
     intros f; term_simpl; first done; rewrite IH; reflexivity.
 Qed.
 
-Declare Scope syn_scope.
-Declare Scope ectx_scope.
-Delimit Scope syn_scope with syn.
-Delimit Scope ectx_scope with ectx.
-
-Coercion Val : val >-> expr.
-Coercion App : expr >-> Funclass.
-Coercion AppLK : ectx >-> Funclass.
-Coercion AppRK : expr >-> Funclass.
-
-Notation of_val := Val (only parsing).
-
-Notation "+" := (Add) : syn_scope.
-Notation "-" := (Sub) : syn_scope.
-Notation "×" := (Mult) : syn_scope.
-Notation "'⟨' e₁ op e₂ '⟩'" := (NatOp op e₁ e₂) (at level 45, right associativity) : syn_scope.
-Notation "'if' e₁ 'then' e₂ 'else' e₃" := (If e₁ e₂ e₃) : syn_scope.
-Notation "'#' n" := (LitV n) (at level 60) : syn_scope.
-Notation "'input'" := (Input) : syn_scope.
-Notation "'output' e" := (Output e) (at level 60) : syn_scope.
-Notation "'rec' e" := (RecV e) (at level 60) : syn_scope.
-Notation "'callcc' e" := (Callcc e) (at level 60) : syn_scope.
-Notation "'throw' e₁ e₂" := (Throw e₁ e₂) (at level 60) : syn_scope.
-Notation "'cont' K" := (ContV K) (at level 60) : syn_scope.
-
-Notation "□" := (EmptyK) : ectx_scope.
-Notation "'⟨' e₁ op K '⟩ᵣ'" := (NatOpRK op e₁ K) (at level 45, right associativity) : ectx_scope.
-Notation "'⟨' K op v₂ '⟩ₗ'" := (NatOpLK op K v₂) (at level 45, right associativity) : ectx_scope.
-Notation "'if' K 'then' e₂ 'else' e₃" := (IfK K e₂ e₃) : ectx_scope.
-Notation "'output' K" := (OutputK K) (at level 60) : ectx_scope.
-Notation "'throwₗ' K e₂" := (ThrowLK K e₂) (at level 60) : ectx_scope.
-Notation "'throwᵣ' e₁ K" := (ThrowRK e₁ K) (at level 60) : ectx_scope.
-Notation "'$' fn" := (set_pure_resolver fn) (at level 60) : syn_scope.
-Notation "K '[' e ']'" := (fill K e) (at level 60) : syn_scope.
-
-Example test1 : expr (inc ∅) := ($ 0)%syn.
-Example test2 : val ∅ := (rec ($ 1))%syn.
-Example test3 : expr ∅ := (callcc ($ 0))%syn.
-
 (*** Operational semantics *)
 
 Record state := State {
@@ -476,8 +437,8 @@ Inductive prim_step {S} : ∀ (e1 : expr S) (σ1 : state)
   e1 = fill K e1' → e2 = fill K e2' →
   head_step e1' σ1 e2' σ2 K n → prim_step e1 σ1 e2 σ2 n
 | Throw_step e1 σ e2 (K : ectx S) v K' :
-  e1 = (fill K (Throw (of_val v) (ContV K'))) ->
-  e2 = (fill K' v) ->
+  e1 = (fill K (Throw (Val v) (Val (ContV K')))) ->
+  e2 = (fill K' (Val v)) ->
   prim_step e1 σ e2 σ (2, 0).
 
 Lemma prim_step_pure {S} (e1 e2 : expr S) σ1 σ2 n :
@@ -520,6 +481,15 @@ Proof.
   rewrite -(Nat.add_0_r m).
   econstructor; eauto.
   by constructor.
+Qed.
+
+Lemma prim_step_steps_steps {S} (e1 e2 e3 : expr S) σ1 σ2 σ3 nm1 nm2 nm3 :
+  nm3 = (plus nm1.1 nm2.1, plus nm1.2 nm2.2) ->
+  prim_step e1 σ1 e2 σ2 nm1 → prim_steps e2 σ2 e3 σ3 nm2 -> prim_steps e1 σ1 e3 σ3 nm3.
+Proof.
+  intros -> H G.
+  eapply prim_steps_app; last apply G.
+  apply prim_step_steps, H.
 Qed.
 
 (*** Type system *)
@@ -566,3 +536,229 @@ with typed_val {S : Set} (Γ : S -> ty) : val S → ty → Prop :=
   typed (Γ ▹ (Tarr τ1 τ2) ▹ τ1) e τ2 →
   typed_val Γ (RecV e) (Tarr τ1 τ2)
 .
+
+Declare Scope syn_scope.
+Delimit Scope syn_scope with syn.
+
+Coercion Val : val >-> expr.
+
+Coercion App : expr >-> Funclass.
+Coercion AppLK : ectx >-> Funclass.
+Coercion AppRK : expr >-> Funclass.
+
+Class AsSynExpr (F : Set -> Type) := { __asSynExpr : ∀ S, F S -> expr S }.
+
+Arguments __asSynExpr {_} {_} {_}.
+
+Global Instance AsSynExprValue : AsSynExpr val := {
+    __asSynExpr _ v := Val v
+  }.
+Global Instance AsSynExprExpr : AsSynExpr expr := {
+    __asSynExpr _ e := e
+  }.
+
+Class OpNotation (A B C D : Type) := { __op : A -> B -> C -> D }.
+
+Global Instance OpNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : OpNotation (F S) nat_op (G S) (expr S) := {
+  __op e₁ op e₂ := NatOp op (__asSynExpr e₁) (__asSynExpr e₂)
+  }.
+
+Global Instance OpNotationLK {S : Set} : OpNotation (ectx S) (nat_op) (val S) (ectx S) := {
+  __op K op v := NatOpLK op K v
+  }.
+
+Global Instance OpNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : OpNotation (F S) (nat_op) (ectx S) (ectx S) := {
+  __op e op K := NatOpRK op (__asSynExpr e) K
+  }.
+
+Class IfNotation (A B C D : Type) := { __if : A -> B -> C -> D }.
+
+Global Instance IfNotationExpr {S : Set} {F G H : Set -> Type} `{AsSynExpr F, AsSynExpr G, AsSynExpr H} : IfNotation (F S) (G S) (H S) (expr S) := {
+  __if e₁ e₂ e₃ := If (__asSynExpr e₁) (__asSynExpr e₂) (__asSynExpr e₃)
+  }.
+
+Global Instance IfNotationK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : IfNotation (ectx S) (F S) (G S) (ectx S) := {
+  __if K e₂ e₃ := IfK K (__asSynExpr e₂) (__asSynExpr e₃)
+  }.
+
+Class OutputNotation (A B : Type) := { __output : A -> B }.
+
+Global Instance OutputNotationExpr {S : Set} {F : Set -> Type} `{AsSynExpr F} : OutputNotation (F S) (expr S) := {
+  __output e := Output (__asSynExpr e)
+  }.
+
+Global Instance OutputNotationK {S : Set} : OutputNotation (ectx S) (ectx S) := {
+  __output K := OutputK K
+  }.
+
+Class ThrowNotation (A B C : Type) := { __throw : A -> B -> C }.
+
+Global Instance ThrowNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : ThrowNotation (F S) (G S) (expr S) := {
+  __throw e₁ e₂ := Throw (__asSynExpr e₁) (__asSynExpr e₂)
+  }.
+
+Global Instance ThrowNotationLK {S : Set} {F : Set -> Type} `{AsSynExpr F} : ThrowNotation (ectx S) (F S) (ectx S) := {
+  __throw K e₂ := ThrowLK K (__asSynExpr e₂)
+  }.
+
+Global Instance ThrowNotationRK {S : Set} : ThrowNotation (val S) (ectx S) (ectx S) := {
+  __throw v K := ThrowRK v K
+  }.
+
+Class AppNotation (A B C : Type) := { __app : A -> B -> C }.
+
+Global Instance AppNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : AppNotation (F S) (G S) (expr S) := {
+  __app e₁ e₂ := App (__asSynExpr e₁) (__asSynExpr e₂)
+  }.
+
+Global Instance AppNotationLK {S : Set} : AppNotation (ectx S) (val S) (ectx S) := {
+  __app K v := AppLK K v
+  }.
+
+Global Instance AppNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppNotation (F S) (ectx S) (ectx S) := {
+  __app e K := AppRK (__asSynExpr e) K
+  }.
+
+Notation of_val := Val (only parsing).
+
+Notation "x '⋆' y" := (__app x%syn y%syn) (at level 40, y at next level, left associativity) : syn_scope.
+Notation "x '+' y" := (__op x%syn Add y%syn) : syn_scope.
+Notation "x '-' y" := (__op x%syn Sub y%syn) : syn_scope.
+Notation "x '*' y" := (__op x%syn Mult y%syn) : syn_scope.
+Notation "'if' x 'then' y 'else' z" := (__if x%syn y%syn z%syn) : syn_scope.
+Notation "'output' x" := (__output x%syn) (at level 60) : syn_scope.
+Notation "'throw' e₁ e₂" := (__throw e₁%syn e₂%syn) (at level 60) : syn_scope.
+Notation "'#' n" := (LitV n) (at level 60) : syn_scope.
+Notation "'input'" := (Input) : syn_scope.
+Notation "'rec' e" := (RecV e%syn) (at level 60) : syn_scope.
+Notation "'callcc' e" := (Callcc e%syn) (at level 60) : syn_scope.
+Notation "'cont' K" := (ContV K%syn) (at level 60) : syn_scope.
+Notation "'$' fn" := (set_pure_resolver fn) (at level 60) : syn_scope.
+Notation "□" := (EmptyK) : syn_scope.
+Notation "K '⟪' e '⟫'" := (fill K%syn e%syn) (at level 60) : syn_scope.
+
+Definition LamV {S : Set} (e : expr (inc S)) : val S :=
+  RecV (shift e).
+
+Notation "'λ' . e" := (LamV e%syn) (at level 60) : syn_scope.
+
+Definition LetE {S : Set} (e : expr S) (e' : expr (inc S)) : expr S :=
+  App (LamV e') (e).
+
+Notation "'let_' e₁ 'in' e₂" := (LetE e₁%syn e₂%syn) (at level 60, right associativity) : syn_scope.
+
+Definition SeqE {S : Set} (e e' : expr S) : expr S :=
+  App (LamV (shift e)) e'.
+
+Notation "e₁ ';;' e₂" := (SeqE e₁%syn e₂%syn) : syn_scope.
+
+Declare Scope typ_scope.
+Delimit Scope typ_scope with typ.
+
+Notation "'ℕ'" := (Tnat) (at level 1) : typ_scope.
+Notation "A →ₜ B" := (Tarr A%typ B%typ)
+                       (right associativity, at level 60) : typ_scope.
+Notation "A 'cont'" := (Tcont A%typ)
+                         (at level 60) : typ_scope.
+
+Declare Scope typing_scope.
+Delimit Scope typing_scope with typing.
+
+Class TypingNotation (A B C : Type) := { __typing : A -> B -> C -> Prop }.
+
+Notation "Γ ⊢ e : τ" := (__typing Γ e%syn τ%typ) (at level 70, e at level 60) : typing_scope.
+
+Global Instance TypingNotationExpr {S : Set} {F : Set -> Type} `{AsSynExpr F} : TypingNotation (S -> ty) (F S) ty := {
+    __typing Γ e τ := typed Γ (__asSynExpr e) τ
+  }.
+
+Global Instance TypingNotationVal {S : Set} : TypingNotation (S -> ty) (val S) ty := {
+    __typing Γ e τ := typed_val Γ e τ
+  }.
+
+Module SynExamples.
+
+  Open Scope syn_scope.
+
+  Example test1 : expr (inc ∅) := ($ 0).
+  Example test2 : val ∅ := (rec (if ($ 1) then # 1 else # 0)).
+  Example test3 : expr ∅ := (callcc ($ 0)).
+  Example test4 : expr ∅ := ((# 1) + (# 0)).
+  Example test5 : val ∅ := (rec (if ($ 1) then # 1 else (($ 0) ⋆ (($ 1) - (# 1))))).
+  Example test6 : expr (inc (inc ∅)) := ($ 0) ⋆ ($ 1).
+  Example test7 : expr ∅ := (let_ ((rec (if ($ 1) then # 1 else (($ 0) ⋆ (($ 1) - (# 1))))) ⋆ (# 5)) in (output ($ 0))).
+
+  Open Scope typing_scope.
+
+  Example test8 : Prop := (empty_env ⊢ (# 0) : ℕ).
+End SynExamples.
+
+Definition compute_head_step {S} (e : expr S) (σ : state) (K : ectx S) : option (expr S * state * (nat * nat)) :=
+  match e with
+  | (App (Val (RecV e1)) (Val v2)) => Some ((subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1) (Val (shift (Inc := inc) v2))) (Val (RecV e1))), σ, (1,0))
+  | Input =>
+      let '(n, σ') := update_input σ in
+      Some ((Val (LitV n)), σ', (1, 1))
+  | Output (Val (LitV n)) =>
+      let σ' := update_output n σ in
+      Some ((Val (LitV 0)), σ', (1, 1))
+  | (NatOp op (Val v1) (Val v2)) =>
+      let res := nat_op_interp op v1 v2 in
+      option_rect (fun _ => option _) (fun v3 => Some ((Val v3), σ, (0, 0))) None res
+  | (If (Val (LitV n)) e1 e2) =>
+      if (decide (0 < n))
+      then Some (e1, σ, (0, 0))
+      else
+        if (decide (n = 0))
+        then Some (e2, σ, (0, 0))
+        else None
+  | (Callcc e) => Some ((subst (Inc := inc) e (Val (ContV K))), σ, (1, 1))
+  | _ => None
+  end.
+
+Lemma head_step_reflect {S : Set} (e : expr S) (σ : state) (K : ectx S)
+  : option_reflect (fun '(e', σ', nm) => head_step e σ e' σ' K nm)
+      True
+      (compute_head_step e σ K).
+Proof.
+  destruct e; try (by constructor).
+  - destruct e1; try (by constructor).
+    destruct v; try (by constructor).
+    destruct e2; try (by constructor).
+    constructor.
+    constructor.
+  - destruct e1; try (by constructor).
+    destruct e2; try (by constructor).
+    destruct (nat_op_interp op v v0) eqn:Heqn.
+    + simpl; rewrite Heqn.
+      simpl.
+      constructor.
+      by constructor.
+    + simpl; rewrite Heqn.
+      simpl.
+      constructor.
+      constructor.
+  - destruct e1; try (by constructor).
+    destruct v; try (by constructor).
+    simpl.
+    case_match; simpl.
+    + constructor.
+      constructor.
+      assumption.
+    + case_match; simpl.
+      * constructor.
+        constructor.
+        assumption.
+      * constructor.
+        constructor.
+  - simpl.
+    destruct (update_input σ) eqn:Heqn.
+    by do 2 constructor.
+  - simpl.
+    destruct e; try (by constructor).
+    destruct v; try (by constructor).
+    destruct (update_output n σ) eqn:Heqn.
+    by do 2 constructor.
+  - simpl.
+    do 2 constructor.
+Qed.

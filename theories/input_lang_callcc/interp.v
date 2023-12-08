@@ -104,7 +104,6 @@ Section constructors.
   Notation IT := (IT E A).
   Notation ITV := (ITV E A).
 
-
   Program Definition INPUT : (nat -n> IT) -n> IT :=
     λne k, Vis (E:=E) (subEff_opid (inl ()))
              (subEff_ins (F:=ioE) (op:=(inl ())) ())
@@ -142,15 +141,9 @@ Section constructors.
              (k ◎ (subEff_outs (F:=ioE) (op:=(inr (inr (inl ())))))^-1).
   Solve All Obligations with solve_proper.
 
-  (* Program Definition CALLCC : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT := *)
-  (*   λne f, Vis (E:=E) (subEff_opid (inr (inr (inl ())))) *)
-  (*            (subEff_ins (F:=ioE) (op:=(inr (inr (inl ())))) f) *)
-  (*            (λne o, (subEff_outs (F:=ioE) (op:=(inr (inr (inl ())))))^-1 o). *)
-  (* Solve All Obligations with solve_proper. *)
   Program Definition CALLCC : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT :=
     λne f, CALLCC_ f (idfun).
   Solve Obligations with solve_proper.
-
 
   Lemma hom_CALLCC_ k e f `{!IT_hom f} :
     f (CALLCC_ e k) ≡ CALLCC_ e (laterO_map (OfeMor f) ◎ k).
@@ -159,7 +152,6 @@ Section constructors.
     rewrite hom_vis/=.
     f_equiv. by intro.
   Qed.
-
 
   Program Definition THROW : IT -n> (laterO (IT -n> IT)) -n> IT :=
     λne e k, Vis (E:=E) (subEff_opid (inr (inr (inr (inl ())))))
@@ -413,25 +405,18 @@ Section interp.
 
   Program Definition interp_cont {A} (K : A -n> (IT -n> IT)) : A -n> IT :=
     λne env, (Fun (Next (λne x, Tau (laterO_map (K env) (Next x))))).
-  Solve All Obligations with solve_proper.
-  Next Obligation.
-    intros.
-    solve_proper_prepare.
-    repeat f_equiv.
-    intro; simpl.
-    by repeat f_equiv.
-  Qed.
+  Solve All Obligations with solve_proper_please.
 
   Program Definition interp_applk {A}
     (K : A -n> (IT -n> IT))
-    (q : A -n> IT)    
+    (q : A -n> IT)
     : A -n> (IT -n> IT) :=
     λne env t, interp_app (λne env, K env t) q env.
   Solve All Obligations with solve_proper.
 
   Program Definition interp_apprk {A}
     (q : A -n> IT)
-    (K : A -n> (IT -n> IT))    
+    (K : A -n> (IT -n> IT))
     : A -n> (IT -n> IT) :=
     λne env t, interp_app q (λne env, K env t) env.
   Solve All Obligations with solve_proper.
@@ -503,11 +488,11 @@ Section interp.
 
   (* Open Scope syn_scope. *)
 
-  (* Example callcc_ex : expr Empty_set := *)
-  (*   NatOp + (# 1) (Callcc (NatOp + (# 1) (Throw (# 2) (Var VZ)))). *)
+  (* Example callcc_ex : expr ∅ := *)
+  (*   NatOp + (# 1) (Callcc (NatOp + (# 1) (Throw (# 2) ($ 0)))). *)
   (* Eval cbn in callcc_ex. *)
   (* Eval cbn in interp_expr callcc_ex *)
-  (*               (λne (x : leibnizO Empty_set), match x with end). *)
+  (*               (λne (x : leibnizO ∅), match x with end). *)
 
   Global Instance interp_val_asval {S} {D : interp_scope S} (v : val S)
     : AsVal (interp_val v D).
@@ -690,7 +675,7 @@ Section interp.
     - destruct e; simpl; intros ?; simpl.
       + reflexivity.
       + repeat f_equiv; by apply interp_ectx_subst.
-      + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_expr_subst | by apply interp_expr_subst].      
+      + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_expr_subst | by apply interp_expr_subst].
       + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_val_subst].
       + repeat f_equiv; [by apply interp_expr_subst | by apply interp_ectx_subst].
       + repeat f_equiv; [by apply interp_expr_subst | by apply interp_ectx_subst].
@@ -811,7 +796,7 @@ Section interp.
   #[global] Instance interp_ectx_hom_throwr {S}
     (K : ectx S) (v : val S) env :
     IT_hom (interp_ectx K env) ->
-    IT_hom (interp_ectx (ThrowRK v K)%ectx env).
+    IT_hom (interp_ectx (ThrowRK v K) env).
   Proof.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - pose proof (interp_val_asval v (D := env)).
@@ -852,7 +837,7 @@ Section interp.
   #[global] Instance interp_ectx_hom_throwl {S}
     (K : ectx S) (e : expr S) env :
     IT_hom (interp_ectx K env) ->
-    IT_hom (interp_ectx (ThrowLK K e)%ectx env).
+    IT_hom (interp_ectx (ThrowLK K e) env).
   Proof.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl; [by rewrite !hom_tick| | by rewrite !hom_err].
     rewrite !hom_vis.
