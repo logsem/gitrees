@@ -270,49 +270,29 @@ Section logrel.
     Opaque IT_of_V.
     iApply logrel_of_val; term_simpl.
     iExists _. iSplit.
-    { Transparent IT_of_V. done. }
+    { iPureIntro. apply into_val. }
     iModIntro.
     iLöb as "IH".
     iIntros (αv v) "#Hw".
     rewrite APP_APP'_ITV APP_Fun laterO_map_Next -Tick_eq.
-    iIntros (κ K) "#HK".
-    iIntros (σ) "Hs".
-    rewrite hom_tick.
-    iApply wp_tick.
-    iNext.
-    unfold f.
-    Opaque extend_scope.
-    Opaque IT_of_V.
-    simpl.
     pose (ss' := (extend_scope (extend_scope env (interp_rec rs α env)) (IT_of_V αv))).
-    pose (γ' := ((mk_subst (Val (rec bind ((γ ↑) ↑)%bind e)%syn))
-                   ∘ ((mk_subst (shift (Val v))) ∘ ((γ ↑) ↑)))%bind :
-            inc (inc S) [⇒] Empty_set).
-    iSpecialize ("H" $! ss' γ' with "[]"); last first.
-    - iSpecialize ("H" $! κ K with "HK").
-      unfold ss'.
-      iSpecialize ("H" $! σ with "Hs").
-      iApply (wp_wand with "[$H] []").
-      iIntros (v') "(%m & %v'' & %σ'' & %Hstep & H)".
-      destruct m as [m m'].
-      iModIntro.
-      iExists ((Nat.add 1 m), m'), v'', σ''. iFrame "H".
-      iPureIntro.
-      eapply (prim_steps_app (1, 0) (m, m')); eauto.
-      term_simpl.
-      eapply prim_step_steps.
-      eapply Ectx_step; [reflexivity | reflexivity |].
-      subst γ'.
-      rewrite -!bind_bind_comp'.
-      econstructor.
-    - Transparent extend_scope.
-      iIntros (x'); destruct x' as [| [| x']].
-      + term_simpl.
-        iModIntro.
-        by iApply logrel_of_val.
-      + term_simpl.
-        iModIntro.
-        iRewrite "Hf".
+    set (γ' := ((mk_subst (Val (rec bind ((γ ↑) ↑)%bind e)%syn))
+                   ∘ ((mk_subst (shift (Val v))) ∘ ((γ ↑) ↑)))%bind).
+    rewrite /logrel.
+    iSpecialize ("H" $! ss' γ').
+    set (γ1 := ((γ ↑) ↑)%bind).
+    iApply (logrel_head_step_pure_ectx _ EmptyK _
+              ((rec bind γ1 e)%syn v)
+              (Tick (later_car (Next f) (IT_of_V αv)))
+           (logrel_val τ2) with "[]"); last first.
+    + rewrite {2}/ss'. rewrite /f.
+      iIntros (κ K) "#HK". iIntros (σ) "Hs".
+      rewrite hom_tick. iApply wp_tick. iNext.
+      iApply "H"; eauto.
+      rewrite /ss' /γ'.
+      iIntros (x'); destruct x' as [| [| x']]; term_simpl; iModIntro.
+      * by iApply logrel_of_val.
+      * iRewrite "Hf".
         iIntros (κ' K') "#HK'".
         iApply "HK'".
         simpl.
@@ -321,10 +301,10 @@ Section logrel.
         iSplit; first done.
         iModIntro.
         iApply "IH".
-      + iModIntro.
-        subst γ'.
-        term_simpl.
-        iApply "Henv".
+      * iApply "Henv".
+    + term_simpl. intros. subst γ1 γ'.
+      rewrite -!bind_bind_comp'.
+      apply BetaS.
   Qed.
 
   Program Definition IFSCtx_HOM α β : HOM := exist _ (λne x, IFSCtx α β x) _.
