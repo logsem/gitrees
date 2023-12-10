@@ -1,9 +1,11 @@
 # Now
 - cleanup code
   + especially implicit arguments, inserted by typeclasses
-  + resolve variable names
   + lemmas for logrel
-- backward compatibility (input lang, affine lang, examples)
+  + update opam ci
+- backward compatibility
+  + instances of CtxIndep from individual effects, from sreifiers to greifiers
+  + last admits
 - write summary
   + reifiers changes
   + non-cps vs cps

@@ -413,6 +413,50 @@ Proof.
 Qed.
 Definition rs : gReifiers 1 := gReifiers_cons reify_io gReifiers_nil.
 
+Local Instance CtxIndepInputLang R `{!Cofe R} (o : opid (sReifier_ops (gReifiers_sReifier rs))) :
+  CtxIndep (gReifiers_sReifier rs)
+    (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o.
+Proof.
+  destruct o as [x o].
+  inv_fin x.
+  - simpl. intros [[]| [[]| []]].
+    + constructor.
+      unshelve eexists (λne '(_, (a, b)), SomeO (_, (_, b))).
+      * simpl in *.
+        apply ((update_input a).1).
+      * simpl in *.
+        apply ((update_input a).2).
+      * solve_proper_prepare.
+        destruct x as [? [? ?]]; destruct y as [? [? ?]].
+        simpl in *.
+        do 2 f_equiv.
+        -- do 2 f_equiv.
+           apply H.
+        -- f_equiv; last apply H.
+           do 2 f_equiv.
+           apply H.
+      * intros.
+        simpl.
+        destruct σ.
+        simpl.
+        reflexivity.
+    + constructor.
+      unshelve eexists (λne '(x, y), SomeO ((), _)).
+      * simpl in *.
+        apply ((update_output x (fstO y)), ()).
+      * solve_proper_prepare.
+        destruct x as [? [? ?]]; destruct y as [? [? ?]].
+        simpl in *.
+        do 4 f_equiv.
+        -- apply H.
+        -- apply H.
+      * intros.
+        simpl.
+        destruct σ as [σ1 []]; simpl in *.
+        reflexivity.
+  - intros i; by apply fin_0_inv.
+Qed.
+
 Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs natO Σ} {S} (α : IT (gReifiers_ops rs) natO) (e : expr S) n σ σ' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs natO Σ},
       (True ⊢ logrel rs Tnat α e)%I) →
@@ -468,11 +512,7 @@ Proof.
   iExists l. iSplit; eauto.
 Qed.
 
-
-Theorem adequacy (e : expr []) (k : nat) σ σ' n
-  (HCi : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-     CtxIndep (gReifiers_sReifier rs) (IT (sReifier_ops (gReifiers_sReifier rs)) natO) o)
-  :
+Theorem adequacy (e : expr []) (k : nat) σ σ' n :
   typed empC e Tnat →
   ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) (σ,()) (Ret k : IT _ natO) σ' n →
   ∃ mm σ', prim_steps e σ (Val $ Lit k) σ' mm.

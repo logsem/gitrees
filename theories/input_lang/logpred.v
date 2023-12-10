@@ -14,9 +14,9 @@ Section io_lang.
   Notation ITV := (ITV F R).
   Context `{!invGS Σ, !stateG rs R Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
-  Context {CtxI : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-    CtxIndep (gReifiers_sReifier rs)
-      (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}.
+  Context {HCI : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
+             CtxIndep (gReifiers_sReifier rs)
+               (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}.
 
   Variable s : stuckness.
   Context {A:ofe}.
@@ -79,12 +79,13 @@ Section io_lang.
       iDestruct "Has" as "[_ H]".
       by iApply ("IH" with "Hs H").
   Qed.
+
   Lemma compat_if {S} (Γ : tyctx S) τ α β1 β2 :
     ⊢ valid1 Γ α Tnat -∗
       valid1 Γ β1 τ -∗
       valid1 Γ β2 τ -∗
       valid1 Γ (interp_if rs α β1 β2) τ.
-  Proof using CtxI.
+  Proof using HCI.
     iIntros "H0 H1 H2".
     iIntros (σ ss) "Hs #Has".
     iSpecialize ("H0" with "Hs Has").
@@ -115,7 +116,7 @@ Section io_lang.
 
   Lemma compat_output {S} (Γ : tyctx S) α :
     ⊢ valid1 Γ α Tnat → valid1 Γ (interp_output rs α) Tnat.
-  Proof using CtxI.
+  Proof using HCI.
     iIntros "H".
     iIntros (σ ss) "Hs #Has".
     iSpecialize ("H" with "Hs Has").
@@ -137,7 +138,7 @@ Section io_lang.
     ⊢ valid1 Γ α (Tarr τ1 τ2) -∗
       valid1 Γ β τ1 -∗
       valid1 Γ (interp_app rs α β) τ2.
-  Proof using CtxI.
+  Proof using HCI.
     iIntros "H1 H2".
     iIntros (σ ss) "Hs #Has". simpl.
     iSpecialize ("H2" with "Hs Has").
@@ -188,7 +189,7 @@ Section io_lang.
     ⊢ valid1 Γ α Tnat -∗
       valid1 Γ β Tnat -∗
       valid1 Γ (interp_natop _ op α β) Tnat.
-  Proof using CtxI.
+  Proof using HCI.
     iIntros "H1 H2".
     iIntros (σ ss) "Hs #Has". simpl.
     iSpecialize ("H2" with "Hs Has").
@@ -213,7 +214,7 @@ Section io_lang.
     typed Γ e τ → ⊢ valid1 Γ (interp_expr rs e) τ
   with fundamental_val {S} (Γ : tyctx S) v τ :
     typed_val Γ v τ → ⊢ valid1 Γ (interp_val rs v) τ.
-  Proof using CtxI.
+  Proof using HCI.
     - destruct 1.
       + by iApply fundamental_val.
       + by iApply compat_var.
@@ -230,7 +231,7 @@ Section io_lang.
   Lemma fundmanetal_closed (e : expr []) (τ : ty) :
     typed empC e τ →
     ⊢ valid1 empC (interp_expr rs e) τ.
-  Proof using CtxI. apply fundamental. Qed.
+  Proof using HCI. apply fundamental. Qed.
 
 End io_lang.
 
@@ -239,11 +240,53 @@ Arguments interp_tarr {_ _ _ _ _ _ _ _ _ _ _} Φ1 Φ2.
 
 Local Definition rs : gReifiers _ := gReifiers_cons reify_io gReifiers_nil.
 
+Local Instance CtxIndepInputLang R `{!Cofe R} (o : opid (sReifier_ops (gReifiers_sReifier rs))) :
+  CtxIndep (gReifiers_sReifier rs)
+    (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o.
+Proof.
+  destruct o as [x o].
+  inv_fin x.
+  - simpl. intros [[]| [[]| []]].
+    + constructor.
+      unshelve eexists (λne '(_, (a, b)), SomeO (_, (_, b))).
+      * simpl in *.
+        apply ((update_input a).1).
+      * simpl in *.
+        apply ((update_input a).2).
+      * solve_proper_prepare.
+        destruct x as [? [? ?]]; destruct y as [? [? ?]].
+        simpl in *.
+        do 2 f_equiv.
+        -- do 2 f_equiv.
+           apply H.
+        -- f_equiv; last apply H.
+           do 2 f_equiv.
+           apply H.
+      * intros.
+        simpl.
+        destruct σ.
+        simpl.
+        reflexivity.
+    + constructor.
+      unshelve eexists (λne '(x, y), SomeO ((), _)).
+      * simpl in *.
+        apply ((update_output x (fstO y)), ()).
+      * solve_proper_prepare.
+        destruct x as [? [? ?]]; destruct y as [? [? ?]].
+        simpl in *.
+        do 4 f_equiv.
+        -- apply H.
+        -- apply H.
+      * intros.
+        simpl.
+        destruct σ as [σ1 []]; simpl in *.
+        reflexivity.
+  - intros i; by apply fin_0_inv.
+Qed.
+
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
 Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}`{!invGpreS Σ}`{!statePreG rs R Σ} τ (α : unitO -n> IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k
-  (HCi : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-    CtxIndep (gReifiers_sReifier rs) (IT (sReifier_ops (gReifiers_sReifier rs)) R) o)
   :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ},
       (£ cr ⊢ valid1 rs notStuck (λ _:unitO, True)%I empC α τ)%I) →
@@ -290,9 +333,7 @@ Proof.
   done.
 Qed.
 
-Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k
-  (HCi : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-     CtxIndep (gReifiers_sReifier rs) (IT (sReifier_ops (gReifiers_sReifier rs)) natO) o) :
+Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k :
   typed empC e τ →
   ssteps (gReifiers_sReifier rs) (interp_expr _ e ()) (σ,()) β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)

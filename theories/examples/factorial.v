@@ -12,6 +12,10 @@ Section fact.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
+  Context {HCI : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
+             CtxIndep (gReifiers_sReifier rs)
+               (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}.
+
   Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
   Notation iProp := (iProp Σ).
 
@@ -36,7 +40,7 @@ Section fact.
     heap_ctx -∗
     pointsto acc (Ret m) -∗ pointsto ℓ (Ret n) -∗
     WP@{rs} fact_imp_body acc ℓ {{ _, pointsto acc (Ret (m * fact n)) }}.
-  Proof.
+  Proof using HCI.
     iIntros "#Hctx Hacc Hl".
     iLöb as "IH" forall (n m).
     unfold fact_imp_body.
@@ -96,7 +100,7 @@ Section fact.
 
   Lemma wp_fact_imp (n : nat) :
     heap_ctx ⊢ WP@{rs} fact_imp ⊙ (Ret n) {{  βv, βv ≡ RetV (fact n)  }}.
-  Proof.
+  Proof using HCI.
     iIntros "#Hctx".
     iApply wp_lam. iNext.
     simpl. rewrite get_ret_ret.
@@ -124,7 +128,7 @@ Section fact.
   Lemma wp_fact_io (n : nat) :
     heap_ctx ∗ has_substate (State [n] [])
     ⊢ WP@{rs} get_ret OUTPUT fact_io  {{ _, has_substate (State [] [fact n]) }}.
-  Proof.
+  Proof using HCI.
     iIntros "[#Hctx Htape]".
     unfold fact_io.
     iApply (wp_bind _ (get_ret _)).
@@ -141,4 +145,3 @@ Section fact.
   Qed.
 
 End fact.
-

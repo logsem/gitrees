@@ -69,6 +69,10 @@ Section glue.
   Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
 
+  Context {HCI : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
+             CtxIndep (gReifiers_sReifier rs)
+               (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}.
+
   Definition s : stuckness := λ e, e = OtherError.
   Variable p : na_inv_pool_name.
 
@@ -82,7 +86,7 @@ Section glue.
   Lemma compat_glue_to_affine_bool {S} (Ω : tyctx S) α :
     io_valid empC α Tnat ⊢
      valid2 Ω (constO (glue2_bool _ (α ()))) tBool.
-  Proof.
+  Proof using HCI.
     iIntros "H".
     iIntros (ss) "#Hctx Has". simpl.
     iIntros (σ) "[Hs Hp]".
@@ -178,7 +182,7 @@ Section glue.
       io_valid empC
          (constO (glue_from_affine_fun _ glue_from_affine glue_to_affine α))
          (Tarr (Tarr Tnat τ1') τ2').
-  Proof.
+  Proof using HCI.
     intros G1 G2.
     iIntros "H #Hctx". iIntros (σ ss) "Hs _ _ Hp".
     simpl. clear ss.
@@ -285,7 +289,7 @@ Section glue.
       ⊢ valid2 Ω
       (constO (glue_to_affine_fun _ glue_from_affine glue_to_affine (α ())))
       (tArr τ1 τ2).
-  Proof.
+  Proof using HCI.
     intros G1 G2.
     iIntros "H".
     iIntros (αs) "#Hctx Has".
@@ -414,7 +418,7 @@ Section glue.
   with glue_from_affine_compatibility (τ1 : ty) (τ1' : io_lang.ty)
     (Hconv : ty_conv τ1 τ1') (α : IT) :
     valid2 empC (constO α) τ1 ⊢ heap_ctx -∗ io_valid empC (constO (glue_from_affine _ Hconv α)) τ1'.
-  Proof.
+  Proof using HCI.
     - destruct Hconv.
       + by iApply compat_glue_to_affine_bool.
       + by iApply compat_glue_to_affine_nat.
@@ -435,7 +439,7 @@ Section glue.
   Lemma fundamental_affine_glued {S} (Ω : tyctx S) (e : expr S) τ :
     typed_glued Ω e τ →
     ⊢ valid2 Ω (interp_expr _ e) τ.
-  Proof.
+  Proof using HCI.
     intros typed. induction typed; simpl.
     - iApply glue_to_affine_compatibility.
       by iApply fundamental.
@@ -455,6 +459,133 @@ Section glue.
 End glue.
 
 Local Definition rs : gReifiers 2 := gReifiers_cons reify_store (gReifiers_cons input_lang.interp.reify_io gReifiers_nil).
+
+Require Import iris.algebra.gmap.
+
+Local Instance CtxIndepInputLang R `{!Cofe R} (o : opid (sReifier_ops (gReifiers_sReifier rs))) :
+  CtxIndep (gReifiers_sReifier rs)
+    (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o.
+Proof.
+  destruct o as [x o].
+  inv_fin x.
+  - simpl. intros [[]| [[]| [[] | [| []]]]].
+    + constructor.
+      unshelve eexists (λne '(l,(σ, σ')), x ← σ !! l;
+                        Some (x, (σ, σ'))).
+      * apply _.
+      * apply _.
+      * solve_proper_prepare.
+        destruct x as [? [? ?]]; destruct y as [? [? ?]]; simpl in *.
+        apply (option_mbind_ne _ (λ n, Some (n, _)) (λ n, Some (n, _))).
+        -- intros ? ? ?; repeat f_equiv; [done | |]; apply H.
+        -- rewrite lookup_ne; last apply H.
+           simpl.
+           f_equiv.
+           apply H.
+      * intros.
+        simpl.
+        destruct σ as [? [? ?]].
+        simpl.
+        admit.
+    + constructor.
+      unshelve eexists (λne '((l,n),(s, s'')), let s' := <[l:=n]>s
+                                               in Some ((), (s', s''))).
+      * apply _.
+      * solve_proper_prepare.
+        destruct x as [[? ?] [? ?]]; destruct y as [[? ?] [? ?]]; simpl in *.
+        do 3 f_equiv; last apply H.
+        rewrite insert_ne; [| apply H | apply H].
+        simpl.
+        f_equiv.
+        apply H.
+      * intros.
+        simpl.
+        destruct i as [? ?].
+        destruct σ as [? [? ?]].
+        simpl.
+        reflexivity.
+    + constructor.
+      unshelve eexists (λne '(n,(s, s'')), let l := Loc.fresh (dom s) in
+                                      let s' := <[l:=n]>s in
+                                      Some (l, (s', s''))).
+      * apply _.
+      * apply _.
+      * solve_proper_prepare.
+        destruct x as [? [? ?]]; destruct y as [? [? ?]]; simpl in *.
+        do 2 f_equiv.
+        -- f_equiv.
+           destruct H as [_ [H _]]; simpl in H.
+           apply gmap_dom_ne in H.
+           apply H.
+        -- f_equiv; last apply H.
+           rewrite insert_ne; [| apply H | apply H].
+           simpl.
+           f_equiv.
+           destruct H as [_ [H _]]; simpl in H.
+           apply gmap_dom_ne in H.
+           by rewrite H.
+      * intros.
+        simpl.
+        destruct i as [? ?].
+        destruct σ as [? [? ?]].
+        simpl.
+        reflexivity.
+    + constructor.
+      simpl.
+      unshelve eexists (λne '(l,(σ, σ')), Some ((), (delete l σ, σ'))).
+      * apply _.
+      * solve_proper_prepare.
+        destruct x as [? [? ?]]; destruct y as [? [? ?]]; simpl in *.
+        do 2 f_equiv.
+        f_equiv; last apply H.
+        rewrite delete_ne; last apply H.
+        simpl.
+        f_equiv.
+        apply H.
+      * intros.
+        simpl.
+        destruct σ as [? [? ?]].
+        simpl.
+        reflexivity.
+  - intros x; inv_fin x.
+    + simpl. intros [[]| [[]| []]].
+      * constructor.
+        unshelve eexists (λne '(_, (a, (b, c))), SomeO (_, (_, (_, c)))).
+        -- simpl in *.
+           apply ((input_lang.lang.update_input b).1).
+        -- apply a.
+        -- apply ((input_lang.lang.update_input b).2).
+        -- solve_proper_prepare.
+           destruct x as [? [? [? ?]]]; destruct y as [? [? [? ?]]].
+           simpl in *.
+           do 2 f_equiv.
+           ++ do 2 f_equiv.
+              apply H.
+           ++ f_equiv; first apply H.
+              f_equiv; last apply H.
+              do 2 f_equiv; apply H.
+        -- intros.
+           simpl.
+           destruct σ as [? [? ?]].
+           simpl.
+           reflexivity.
+      * constructor.
+        unshelve eexists (λne '(x, (y, z)), SomeO ((), _)).
+        -- simpl in *.
+           apply (y, ((input_lang.lang.update_output x (fstO z)), ())).
+        -- solve_proper_prepare.
+           destruct x as [? [? [? ?]]]; destruct y as [? [? [? ?]]].
+           simpl in *.
+           do 2 f_equiv.
+           apply pair_ne.
+           ++ apply H.
+           ++ do 2 f_equiv; apply H.
+        -- intros.
+           simpl.
+           destruct σ as [σ1 [? []]]; simpl in *.
+           reflexivity.
+    + intros i; by apply fin_0_inv.
+Admitted.
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
@@ -530,5 +661,3 @@ Proof.
   iIntros (? ? ? ?) "_".
   by iApply fundamental_affine_glued.
 Qed.
-
-
