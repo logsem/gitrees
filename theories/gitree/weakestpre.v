@@ -490,12 +490,11 @@ Section weakestpre.
 
   Lemma wp_subreify' E1 E2 s Φ sR `{!subReifier sR rs}
     (op : opid (sReifier_ops sR)) (x : Ins (sReifier_ops sR op) ♯ IT)
-    (k : Outs (sReifier_ops sR op) ♯ IT -n> laterO IT) :
+    (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT) :
     (|={E1,E2}=> ∃ σ y σ' β, has_substate σ ∗
-                              sReifier_re sR op (x, σ, k) ≡ Some (y, σ') ∗
-                              y  ≡ Next β ∗
+                              sReifier_re sR op (x, σ, (k ◎ subEff_outs)) ≡ Some (y, σ') ∗ y ≡ Next β ∗
                               ▷ (£ 1 -∗ has_substate σ' ={E2,E1}=∗ WP β @ s;E1 {{ Φ }}))
-    -∗ WP (Vis (subEff_opid op) (subEff_ins x) (k ◎ (subEff_outs)^-1)) @ s;E1 {{ Φ }}.
+    -∗ WP (Vis (subEff_opid op) (subEff_ins x) k) @ s;E1 {{ Φ }}.
   Proof.
     iIntros "H".
     iApply wp_reify_idx'.
@@ -505,9 +504,12 @@ Section weakestpre.
     simpl.
     iFrame "Hlst H".
     rewrite subReifier_reify_idxI.
-    iRewrite "Hreify".
-    simpl.
-    by iFrame "Hk".
+    iFrame "Hk".
+    iRewrite - "Hreify".
+    iPureIntro.
+    do 2 f_equiv.
+    intros ?; simpl.
+    by rewrite ofe_iso_12.
   Qed.
 
   Lemma wp_subreify E1 s Φ sR `{!subReifier sR rs}
@@ -731,7 +733,7 @@ Section weakestpre.
   Notation "'CLWP' α @ s ; E {{ v , Q } }" :=
     (clwp α s E (λne v, Q))
       (at level 20, α, s, Q at level 200,
-        format "'[hv' 'CLWP'  α  '/' @  s  ;  E  '/' {{  '[' v ,  '/' Q  ']' } } ']'") : bi_scope.  
+        format "'[hv' 'CLWP'  α  '/' @  s  ;  E  '/' {{  '[' v ,  '/' Q  ']' } } ']'") : bi_scope.
 
   Notation "'CLWP' α @ s {{ β , Φ } }" :=
     (clwp α s ⊤ (λne β, Φ))
@@ -751,7 +753,7 @@ Section weakestpre.
     rewrite clwp_eq /clwp_def. iIntros "H". iIntros (?).
     iApply "H".
   Qed.
-  
+
   Lemma unfold_clwp (s : stuckness) (E : coPset) (e : IT) (Φ : ITV -n> iProp) :
     CLWP e @ s ; E {{Φ}} ⊣⊢
     (∀ (K : IT -n> IT) {HK : IT_hom K} (Ψ : ITV -n> iProp), (∀ v, Φ v -∗ WP (K (IT_of_V v)) @ s ; E {{ Ψ }})
@@ -849,7 +851,7 @@ Section weakestpre.
   Proof.
     solve_proper.
   Qed.
-  
+
   Lemma clwp_fupd s E e (Φ : ITV -n> iProp) :
     CLWP e @ s ; E {{ v , |={E}=> Φ v }} ⊢ CLWP e @ s ; E {{ Φ }}.
   Proof.
@@ -857,13 +859,13 @@ Section weakestpre.
     iIntros (K HK Ψ) "HK".
     iApply "H". iIntros (w) ">Hw"; by iApply "HK".
   Qed.
-  
+
   Lemma clwp_bind (K : IT -n> IT) {HK : IT_hom K} s E e (Φ : ITV -n> iProp) :
     CLWP e @ s ; E {{ v , CLWP (K (IT_of_V v)) @ s ; E {{ Φ }} }}
     ⊢ CLWP (K e) @ s ; E {{ Φ }}.
   Proof.
     iIntros "H"; rewrite !unfold_clwp. iIntros (K' HK' Ψ) "HK'".
-    assert (K' (K e) = (K' ◎ K) e) as ->; first done.    
+    assert (K' (K e) = (K' ◎ K) e) as ->; first done.
     iApply "H".
     - iPureIntro.
       apply _.
@@ -874,7 +876,7 @@ Section weakestpre.
       iIntros (w) "Hw".
       by iApply "HK'".
   Qed.
-  
+
   Lemma clwp_mono E e (Φ Ψ : ITV -n> iProp) : (∀ v, Φ v ⊢ Ψ v) →
     CLWP e @ E {{ Φ }} ⊢ CLWP e @ E {{ Ψ }}.
   Proof.
@@ -904,7 +906,7 @@ Section weakestpre.
   Proof.
     solve_proper.
   Qed.
-  
+
   Lemma clwp_frame_l s E e (Φ : ITV -n> iProp) R :
     R ∗ CLWP e @ s ; E {{ Φ }} ⊢ CLWP e @ s ; E {{ v, R ∗ Φ v }}.
   Proof.
@@ -917,7 +919,7 @@ Section weakestpre.
   Proof.
     solve_proper.
   Qed.
-  
+
   Lemma clwp_frame_r s E e (Φ : ITV -n> iProp) R :
     CLWP e @ s ; E {{ Φ }} ∗ R ⊢ CLWP e @ s ; E {{ v, Φ v ∗ R }}.
   Proof.
@@ -932,15 +934,15 @@ Section weakestpre.
     iIntros (K HK χ) "HK".
     iApply "Hwp". iIntros (?) "?"; iApply "HK"; by iApply "H".
   Qed.
-  
+
   Lemma clwp_wand_l s E e (Φ Ψ : ITV -n> iProp) :
     (∀ v, Φ v -∗ Ψ v) ∗ CLWP e @ s ; E {{ Φ }} ⊢ CLWP e @ s ; E {{ Ψ }}.
   Proof. iIntros "[H Hwp]". iApply (clwp_wand with "Hwp H"). Qed.
-  
+
   Lemma clwp_wand_r s E e (Φ Ψ : ITV -n> iProp) :
     CLWP e @ s ; E {{ Φ }} ∗ (∀ v, Φ v -∗ Ψ v) ⊢ CLWP e @ s ; E {{ Ψ }}.
   Proof. iIntros "[Hwp H]". iApply (clwp_wand with "Hwp H"). Qed.
-  
+
   Lemma clwp_tick α s E1 Φ :
     ▷ CLWP α @ s;E1 {{ Φ }} ⊢ CLWP (Tick α) @ s;E1 {{ Φ }}.
   Proof.
@@ -964,7 +966,7 @@ Section weakestpre.
     intros op Hr.
     iIntros "Hlst H".
     rewrite clwp_eq /clwp_def.
-    iIntros (K HK Ψ) "G".    
+    iIntros (K HK Ψ) "G".
     rewrite hom_vis.
     unshelve iApply (@wp_reify _ _ _ _ _ _ _ σ σ' (K β) with "[$Hlst] [-]").
     - intros.
@@ -978,7 +980,7 @@ Section weakestpre.
       simpl.
       by iApply "H".
   Qed.
-  
+
   Lemma clwp_subreify E1 s Φ sR `{!subReifier sR rs}
     (op : opid (sReifier_ops sR))
     (x : Ins (sReifier_ops sR op) ♯ IT) (y : laterO IT)
@@ -1013,6 +1015,62 @@ Section weakestpre.
     }
     clear H.
     by apply HSR.
+  Qed.
+
+  Lemma wp_bind (f : IT → IT) `{!IT_hom f} (α : IT) s Φ `{!NonExpansive Φ} E1 {G : ∀ o : opid F, CtxIndep rG IT o} :
+    WP α @ s;E1 {{ βv, WP (f (IT_of_V βv)) @ s;E1 {{ βv, Φ βv }} }} ⊢ WP (f α) @ s;E1 {{ Φ }}.
+  Proof.
+    assert (NonExpansive (λ βv0, WP f (IT_of_V βv0) @ s;E1 {{ βv1, Φ βv1 }})%I).
+    { solve_proper. }
+    iIntros "H". iLöb as "IH" forall (α).
+    rewrite (wp_unfold (f _)).
+    destruct (IT_to_V (f α)) as [βv|] eqn:Hfa.
+    - iLeft. iExists βv. iSplit; first done.
+      assert (is_Some (IT_to_V α)) as [αv Ha].
+      { apply (IT_hom_val_inv _ f). rewrite Hfa.
+        done. }
+      assert (IntoVal α αv).
+      { apply IT_of_to_V'. by rewrite Ha. }
+      rewrite wp_val_inv.
+      iApply wp_val_inv.
+      rewrite IT_of_to_V'; last by rewrite -Ha.
+      rewrite IT_of_to_V'; last by rewrite -Hfa.
+      by iApply fupd_wp.
+    - iRight. iSplit; eauto.
+      iIntros (σ) "Hs".
+      rewrite wp_unfold.
+      iDestruct "H" as "[H | H]".
+      + iDestruct "H" as (αv) "[Hav H]".
+        iPoseProof (IT_of_to_V with "Hav") as "Hav".
+        iMod "H" as "H". rewrite wp_unfold.
+        iDestruct "H" as "[H|H]".
+        { iExFalso. iDestruct "H" as (βv) "[H _]".
+          iRewrite "Hav" in "H". rewrite Hfa.
+          iApply (option_equivI with "H"). }
+        iDestruct "H" as "[_ H]".
+        iMod ("H" with "Hs") as "H". iModIntro.
+        iRewrite "Hav" in "H". done.
+      + iDestruct "H" as "[Hav H]".
+        iMod ("H" with "Hs") as "[Hsafe H]". iModIntro.
+        iSplit.
+        { (* safety *)
+          iDestruct "Hsafe" as "[Hsafe|Herr]".
+          - iDestruct "Hsafe" as (α' σ') "Hsafe". iLeft.
+            iExists (f α'), σ'. iApply (istep_hom with "Hsafe").
+          - iDestruct "Herr" as (e) "[Herr %]".
+            iRight. iExists e. iSplit; last done.
+            iRewrite "Herr". rewrite hom_err//. }
+        iIntros (σ' β) "Hst".
+        rewrite {1}istep_hom_inv. iDestruct "Hst" as "[%Ha | [_ Hst]]".
+        { destruct Ha as [αv Ha]. rewrite Ha.
+          iExFalso.
+          iApply (option_equivI with "Hav"). }
+        iDestruct "Hst" as (α') "[Hst Hb]".
+        iIntros "Hlc".
+        iMod ("H" with "Hst Hlc") as "H". iModIntro.
+        iNext. iMod "H" as "H". iModIntro.
+        iMod "H" as "[$ H]".
+        iModIntro. iRewrite "Hb". by iApply "IH".
   Qed.
 
 End weakestpre.

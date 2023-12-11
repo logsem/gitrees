@@ -33,14 +33,27 @@
             fi
           '';
         };
-    in {
-      devShell = pkgs.mkShell {
-        buildInputs = with pkgs; [
-          coq
-          stdpp-dev
-          iris-dev
-          coqPkgs.equations
-        ];
-      };
-    });
+      in {
+        packages = {
+          coq-artifact = coqPkgs.mkCoqDerivation {
+            pname = "coq-artifact";
+            version = "main";
+            src = ./.;
+            buildPhase = "make";
+            propagatedBuildInputs = [
+              stdpp-dev
+              iris-dev
+              coqPkgs.equations
+            ];
+          };
+        };
+        devShell = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            coq
+            stdpp-dev
+            iris-dev
+            coqPkgs.equations
+          ];
+        };
+      });
 }

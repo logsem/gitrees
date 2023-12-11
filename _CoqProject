@@ -12,6 +12,7 @@ vendor/Binding/Intrinsic.v
 vendor/Binding/TermSimpl.v
 vendor/Binding/Product.v
 vendor/Binding/Env.v
+vendor/Binding/Resolver.v
 
 theories/prelude.v
 theories/lang_generic.v
@@ -32,16 +33,16 @@ theories/input_lang_callcc/lang.v
 theories/input_lang_callcc/interp.v
 theories/input_lang_callcc/logrel.v
 
-# theories/input_lang/lang.v
-# theories/input_lang/interp.v
-# theories/input_lang/logpred.v
-# theories/input_lang/logrel.v
+theories/input_lang/lang.v
+theories/input_lang/interp.v
+theories/input_lang/logpred.v
+theories/input_lang/logrel.v
 
-# theories/affine_lang/lang.v
-# theories/affine_lang/logrel1.v
-# theories/affine_lang/logrel2.v
+theories/affine_lang/lang.v
+theories/affine_lang/logrel1.v
+theories/affine_lang/logrel2.v
 
-# theories/examples/store.v
-# theories/examples/pairs.v
-# theories/examples/while.v
-# theories/examples/factorial.v
+theories/examples/store.v
+theories/examples/pairs.v
+theories/examples/while.v
+theories/examples/factorial.v

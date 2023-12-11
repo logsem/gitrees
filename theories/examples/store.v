@@ -17,47 +17,47 @@ Proof. apply _. Qed.
 #[local] Instance state_cofe X `{!Cofe X} : Cofe (stateF ♯ X).
 Proof. apply _. Qed.
 
-Definition state_read X `{!Cofe X} : loc * (stateF ♯ X) → option (laterO X * (stateF ♯ X))
-  := λ '(l,σ), x ← σ !! l;
-               Some (x, σ).
+Definition state_read X `{!Cofe X} : loc * (stateF ♯ X) * (laterO X -n> laterO X) → option (laterO X * (stateF ♯ X))
+  := λ '(l,σ,κ), x ← σ !! l;
+               Some (κ x, σ).
 #[export] Instance state_read_ne X `{!Cofe X} :
-  NonExpansive (state_read X : prodO locO (stateF ♯ X) → optionO (prodO (laterO X) (stateF ♯ X))).
+  NonExpansive (state_read X : prodO (prodO locO (stateF ♯ X)) (laterO X -n> laterO X) → optionO (prodO (laterO X) (stateF ♯ X))).
 Proof.
-  intros n [l1 s1] [l2 s2]. simpl. intros [-> Hs].
-  apply (option_mbind_ne _ (λ n, Some (n, s1)) (λ n, Some (n, s2)));
+  intros n [[l1 s1] κ1] [[l2 s2] κ2]. simpl. intros [[-> Hs'] Hs].
+  apply (option_mbind_ne _ (λ n, Some (κ1 n, s1)) (λ n, Some (κ2 n, s2)));
     solve_proper.
 Qed.
 
-Definition state_dealloc X `{!Cofe X} : loc * (stateF ♯ X) → option (unitO * (stateF ♯ X))
-  := λ '(l,σ), Some ((), delete l σ).
+Definition state_dealloc X `{!Cofe X} : loc * (stateF ♯ X) * (unitO -n> laterO X) → option (laterO X * (stateF ♯ X))
+  := λ '(l,σ,κ), Some (κ (), delete l σ).
 #[export] Instance state_dealloc_ne X `{!Cofe X} :
-  NonExpansive (state_dealloc X : prodO locO (stateF ♯ X) → optionO (prodO unitO (stateF ♯ X))).
+  NonExpansive (state_dealloc X : prodO (prodO locO (stateF ♯ X)) (unitO -n> laterO X) → optionO (prodO (laterO X) (stateF ♯ X))).
 Proof.
-  intros n [l1 s1] [l2 s2]. simpl. intros [-> Hs].
+  intros n [[l1 s1] κ1] [[l2 s2] κ2]. simpl. intros [[-> Hs'] Hs].
   solve_proper.
 Qed.
 
 Definition state_write X `{!Cofe X} :
-  (loc * (laterO X)) * (stateF ♯ X) → option (unit * (stateF ♯ X))
-  := λ '((l,n),s), let s' := <[l:=n]>s
-                   in Some ((), s').
+  (loc * (laterO X)) * (stateF ♯ X) * (unitO -n> laterO X) → option (laterO X * (stateF ♯ X))
+  := λ '((l,n),s,κ), let s' := <[l:=n]>s
+                   in Some (κ (), s').
 #[export] Instance state_write_ne X `{!Cofe X} :
-  NonExpansive (state_write X : prodO (prodO locO _) (stateF ♯ _) → optionO (prodO unitO (stateF ♯ X))).
+  NonExpansive (state_write X : prodO (prodO (prodO locO _) (stateF ♯ _)) (unitO -n> laterO X) → optionO (prodO (laterO X) (stateF ♯ X))).
 Proof.
-  intros n [[l1 m1] s1] [[l2 m2] s2]. simpl.
-  intros [[Hl%leibnizO_leibniz Hm] Hs]. simpl in Hl.
+  intros n [[[l1 m1] s1] κ1] [[[l2 m2] s2] κ2]. simpl.
+  intros [[[Hl%leibnizO_leibniz Hm] Hs] Hκ]. simpl in Hl.
   rewrite Hl. solve_proper.
 Qed.
 
-Definition state_alloc X `{!Cofe X} : (laterO X) * (stateF ♯ X) → option (loc * (stateF ♯ X))
-  := λ '(n,s), let l := Loc.fresh (dom s) in
+Definition state_alloc X `{!Cofe X} : (laterO X) * (stateF ♯ X) * (loc -n> laterO X) → option ((laterO X) * (stateF ♯ X))
+  := λ '(n,s,κ), let l := Loc.fresh (dom s) in
                let s' := <[l:=n]>s in
-               Some (l, s').
+               Some (κ l, s').
 #[export] Instance state_alloc_ne X `{!Cofe X} :
-  NonExpansive (state_alloc X : prodO _ (stateF ♯ X) → optionO (prodO locO (stateF ♯ X))).
+  NonExpansive (state_alloc X : prodO (prodO _ (stateF ♯ X)) (locO -n> laterO X) → optionO (prodO (laterO X) (stateF ♯ X))).
 Proof.
-  intros n [m1 s1] [m2 s2]. simpl.
-  intros [Hm Hs]. simpl in *.
+  intros n [[m1 s1] κ1] [[m2 s2] κ2]. simpl.
+  intros [[Hm Hs] Hκ]. simpl in *.
   set (l1 := Loc.fresh (dom s1)).
   set (l2 := Loc.fresh (dom s2)).
   assert (l1 = l2) as ->.
@@ -226,6 +226,9 @@ Section wp.
   Proof.
     iIntros (Hee) "#Hcxt H".
     unfold READ. simpl.
+    match goal with
+    | |- context G [Vis ?a ?b ?c] => assert (c ≡ idfun ◎ (subEff_outs ^-1)) as ->
+    end; first solve_proper.
     iApply wp_subreify'.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
@@ -247,14 +250,21 @@ Section wp.
     iExists σ,(Next β'),σ,β'.
     iFrame "Hs".
     repeat iSplit.
-    - iAssert ((option_bind _ _ (λ x, Some (x, σ)) (σ !! l)) ≡
-                 (option_bind _ _ (λ x, Some (x, σ)) (Some (Next β'))))%I as "H".
-      + iApply (f_equivI with "[]").
-        { intros k x1 y1 Hxy.
-          apply option_mbind_ne; solve_proper. }
-        iPureIntro. rewrite Hx Hb'//.
-      + unfold mbind. iSimpl in "H". iRewrite "H". done.
-    - iPureIntro. apply ofe_iso_21.
+    - assert ((option_bind _ _ (λ x, Some (x, σ)) (σ !! l)) ≡
+                 (option_bind _ _ (λ x, Some (x, σ)) (Some (Next β')))) as H.
+      + f_equiv.
+        * solve_proper.
+        * by rewrite Hx Hb'.
+      + simpl in H.
+        rewrite <-H.
+        unfold mbind.
+        simpl.
+        iPureIntro.
+        f_equiv; last done.
+        intros ???.
+        do 2 f_equiv.
+        by rewrite ofe_iso_21.
+    - done.
     - iNext. iIntros "Hlc Hs".
       iMod ("Hback" with "Hp") as "Hback".
       iMod "Hwk" .
@@ -299,7 +309,7 @@ Section wp.
     destruct (Next_uninj x) as [α' Ha'].
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
-    iExists σ,(),(<[l:=Next β]>σ),(Ret ()).
+    iExists σ,(Next (Ret ())),(<[l:=Next β]>σ),(Ret ()).
     iFrame "Hs".
     iSimpl. repeat iSplit; [ done | done | ].
     iNext. iIntros "Hlc".
@@ -337,12 +347,17 @@ Section wp.
     iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
     set (l:=Loc.fresh (dom σ)).
-    iExists σ,l,_,(k l).
+    iExists σ,(Next (k l)),_,(k l).
     iFrame "Hs".
     simpl. change (Loc.fresh (dom σ)) with l.
-    iSplit; first done.
     iSplit.
-    { simpl. rewrite ofe_iso_21. done. }
+    {
+      iPureIntro.
+      do 2 f_equiv; last reflexivity.
+      f_equiv.
+      by rewrite ofe_iso_21.
+    }
+    iSplit; first done.
     iNext. iIntros "Hlc Hs".
     iMod (istate_alloc α l with "Hh") as "[Hh Hl]".
     { apply (not_elem_of_dom_1 (M:=gmap loc)).
@@ -373,7 +388,7 @@ Section wp.
     { iApply (istate_loc_dom with "Hh Hp"). }
     destruct Hdom as [x Hx].
     destruct (Next_uninj x) as [β' Hb'].
-    iExists σ,(),(delete l σ),(Ret ()).
+    iExists σ,(Next (Ret ())),(delete l σ),(Ret ()).
     iFrame "Hs".
     repeat iSplit; simpl; eauto.
     iNext. iIntros "Hlc Hs".

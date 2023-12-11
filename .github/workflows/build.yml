@@ -4,6 +4,15 @@ name: Docker CI
 on: [push, pull_request]
 
 jobs:
+  build_nix:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v24
+      with:
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+    - run: nix build .#coq-artifact
+
   build:
     runs-on: ubuntu-latest
     strategy:

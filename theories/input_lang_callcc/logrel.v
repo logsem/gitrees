@@ -225,7 +225,7 @@ Section logrel.
     `f ◎ `g = `h.
   Proof. intros ->. done. Qed.
 
-  Lemma logrel_bind {S} (f : HOM) (K : ectx S) e α τ1 :
+  Lemma obs_ref_bind {S} (f : HOM) (K : ectx S) e α τ1 :
     ⊢ logrel τ1 α e -∗
       logrel_ectx (logrel_val τ1) f K -∗
       obs_ref (`f α) (fill K e).
@@ -335,10 +335,10 @@ Section logrel.
     assert ((`κ) ((IFSCtx (α1 ss) (α2 ss)) (α0 ss)) = ((`κ) ◎ (`κ')) (α0 ss))
       as -> by reflexivity.
     pose (sss := (HOM_compose κ κ')). rewrite (HOM_compose_ccompose κ κ' sss)//.
-    assert (fill K (if bind γ e0 then bind γ e1 else bind γ e2)%syn =
+    assert (fill K (If (bind γ e0) (bind γ e1) (bind γ e2))%syn =
             fill (ectx_compose K (IfK EmptyK (bind γ e1) (bind γ e2))) (bind γ e0)) as ->.
     { rewrite -fill_comp. reflexivity. }
-    iApply (logrel_bind with "[H0] [H1 H2]"); first by iApply "H0".
+    iApply (obs_ref_bind with "[H0] [H1 H2]"); first by iApply "H0".
     iIntros (βv v). iModIntro. iIntros "#HV".
     term_simpl.
     unfold logrel_nat.
@@ -428,7 +428,7 @@ Section logrel.
     assert (fill K (NatOp op (bind γ e1) (bind γ e2))%syn =
             fill (ectx_compose K (NatOpRK op (bind γ e1) EmptyK)) (bind γ e2)) as ->.
     { rewrite -fill_comp. reflexivity. }
-    iApply (logrel_bind with "H2").
+    iApply (obs_ref_bind with "H2").
     iIntros (βv v). iModIntro. iIntros "(%n2 & #HV & ->)".
     term_simpl. clear κ' sss.
     rewrite -fill_comp. simpl.
@@ -439,7 +439,7 @@ Section logrel.
     assert (fill K (NatOp op (bind γ e1) (LitV n2))%syn =
             fill (ectx_compose K (NatOpLK op EmptyK (LitV n2))) (bind γ e1)) as ->.
     { rewrite -fill_comp. reflexivity. }
-    iApply (logrel_bind with "H1").
+    iApply (obs_ref_bind with "H1").
     subst sss κ'.
     term_simpl.
     iIntros (t r). iModIntro. iIntros "(%n1 & #H & ->)".
@@ -516,7 +516,7 @@ Section logrel.
     { rewrite -fill_comp.
       reflexivity.
     }
-    iApply logrel_bind; first by iApply "H1".
+    iApply obs_ref_bind; first by iApply "H1".
     iIntros (βv v). iModIntro. iIntros "#Hv".
     Transparent interp_throw.
     simpl.
@@ -540,7 +540,7 @@ Section logrel.
     { rewrite -fill_comp.
       reflexivity.
     }
-    iApply logrel_bind; first by iApply "H2".
+    iApply obs_ref_bind; first by iApply "H2".
     iIntros (βv' v'). iModIntro. iIntros "#Hv'".
     Transparent interp_throw.
     simpl.
@@ -682,7 +682,7 @@ Section logrel.
     assert (fill K (Output (bind γ e))%syn =
             fill (ectx_compose K (OutputK EmptyK)) (bind γ e)) as ->.
     { rewrite -fill_comp. reflexivity. }
-    iApply logrel_bind; first by iApply "H".
+    iApply obs_ref_bind; first by iApply "H".
     iIntros (βv v). iModIntro. iIntros "#Hv".
     iDestruct "Hv" as (n) "[Hb ->]".
     iRewrite "Hb". simpl.
@@ -750,7 +750,7 @@ Section logrel.
     assert ((`κ ◎ `κ') = (`sss)) as ->.
     { reflexivity. }
     rewrite fill_comp.
-    iApply logrel_bind; first by iApply "H2".
+    iApply obs_ref_bind; first by iApply "H2".
     subst sss κ'.
     iIntros (βv v). iModIntro. iIntros "#HV".
     unfold AppRSCtx_HOM; simpl; unfold AppRSCtx.
@@ -765,7 +765,7 @@ Section logrel.
     assert ((`κ ◎ `κ'') = (`sss)) as ->.
     { reflexivity. }
     rewrite fill_comp.
-    iApply logrel_bind; first by iApply "H1".
+    iApply obs_ref_bind; first by iApply "H1".
     iIntros (βv' v'). iModIntro. iIntros "#HV'".
     subst sss κ''.
     rewrite -fill_comp.
@@ -836,7 +836,7 @@ Require Import gitrees.gitree.greifiers.
 Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ} `{!statePreG rs natO Σ} {S}
   (α : IT (gReifiers_ops rs) natO)
   (e : expr S) n σ σ' k :
-  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs natO Σ}, (True ⊢ logrel rs Tnat α e)%I) →
+  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs natO Σ}, (⊢ logrel rs Tnat α e)%I) →
   ssteps (gReifiers_sReifier rs) α (σ, ()) (Ret n) σ' k →
   ∃ m σ', prim_steps e σ (Val $ LitV n) σ' m.
 Proof.
@@ -872,7 +872,7 @@ Proof.
     iPureIntro. rewrite Hfoo. unfold ϕ.
     eauto.
   - iIntros "[_ Hs]".
-    iPoseProof (Hlog with "[//]") as "Hlog".
+    iPoseProof (Hlog) as "Hlog".
     iAssert (has_substate σ) with "[Hs]" as "Hs".
     {
       unfold has_substate, has_full_state.
@@ -926,7 +926,6 @@ Proof.
   iPoseProof (fundamental rs) as "H".
   { apply Hty. }
   unfold logrel_valid.
-  iIntros "_".
   unshelve iSpecialize ("H" $! ı_scope _ with "[]").
   { apply ı%bind. }
   { iIntros (x); destruct x. }

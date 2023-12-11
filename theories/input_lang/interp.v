@@ -129,8 +129,6 @@ Section weakestpre.
     { simpl. done. }
     iModIntro. iIntros "H1 H2".
     iApply wp_val. by iApply ("Ha" with "H1 H2").
-    Unshelve.
-    constructor.
   Qed.
 
 End weakestpre.
@@ -225,8 +223,6 @@ Section interp.
   Next Obligation.
     solve_proper.
   Qed.
-
-  (* Axiom falso : False. *)
 
   (** Interpretation for all the syntactic categories: values, expressions, contexts *)
   Fixpoint interp_val {S} (v : val S) : interp_scope S -n> IT :=
@@ -564,7 +560,6 @@ Section interp.
       rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_ectx_fill.
       simpl.
-      rewrite ofe_iso_21.
       rewrite H4; simpl.
       done.
     - trans (reify (gReifiers_sReifier rs) (interp_ectx K env (OUTPUT n0)) (gState_recomp σr (sR_state σ))).
@@ -576,9 +571,10 @@ Section interp.
       rewrite reify_vis_eq //; last first.
       {
         simpl.
-        pose proof (@subReifier_reify sz reify_io rs subR IT _ ((inr (inl ()))) n0 ()) as H.
+        pose proof (@subReifier_reify sz reify_io rs subR IT _ ((inr (inl ()))) n0) as H.
         simpl in H.
-        specialize (H (λne _, Next (interp_ectx K env (Ret 0))) σ (update_output n0 σ) σr).
+        specialize (H (Next (interp_ectx K env (Ret 0))) (λne _, Next (interp_ectx K env (Ret 0))) σ (update_output n0 σ) σr).
+        simpl in H.
         rewrite <-H; last done.
         f_equiv.
         - intros [? ?] [? ?] [? ?]; simpl in *.
