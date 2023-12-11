@@ -220,6 +220,11 @@ Section logrel.
     apply _.
   Qed.
 
+  Lemma HOM_compose_ccompose (f g h : HOM) :
+    h = HOM_compose f g ->
+    `f ◎ `g = `h.
+  Proof. intros ->. done. Qed.
+
   Lemma logrel_bind {S} (f : HOM) (K : ectx S) e α τ1 :
     ⊢ logrel τ1 α e -∗
       logrel_ectx (logrel_val τ1) f K -∗
@@ -329,8 +334,7 @@ Section logrel.
     iIntros (κ K) "#HK".
     assert ((`κ) ((IFSCtx (α1 ss) (α2 ss)) (α0 ss)) = ((`κ) ◎ (`κ')) (α0 ss))
       as -> by reflexivity.
-    pose (sss := (HOM_compose κ κ')).
-    assert ((`κ ◎ `κ') = (`sss)) as -> by reflexivity.
+    pose (sss := (HOM_compose κ κ')). rewrite (HOM_compose_ccompose κ κ' sss)//.
     assert (fill K (if bind γ e0 then bind γ e1 else bind γ e2)%syn =
             fill (ectx_compose K (IfK EmptyK (bind γ e1) (bind γ e2))) (bind γ e0)) as ->.
     { rewrite -fill_comp. reflexivity. }
@@ -416,76 +420,42 @@ Section logrel.
     iSpecialize ("H1" with "Hss").
     iSpecialize ("H2" with "Hss").
     term_simpl.
-    pose (κ' := (NatOpRSCtx_HOM op α1 ss)).
-    assert ((NATOP (do_natop op) (α1 ss) (α2 ss)) = ((`κ') (α2 ss))) as ->.
-    { reflexivity. }
     iIntros (κ K) "#HK".
-    assert ((`κ) ((`κ') (α2 ss)) = ((`κ) ◎ (`κ')) (α2 ss)) as ->.
-    { reflexivity. }
-    pose (sss := (HOM_compose κ κ')).
-    assert ((`κ ◎ `κ') = (`sss)) as ->.
-    { reflexivity. }
-    assert (fill K (NatOp op (bind γ e1) (bind γ e2))%syn = fill (ectx_compose K (NatOpRK op (bind γ e1) EmptyK)) (bind γ e2)) as ->.
-    { rewrite -fill_comp.
-      reflexivity.
+    set (κ' := (NatOpRSCtx_HOM op α1 ss)).
+    assert ((NATOP (do_natop op) (α1 ss) (α2 ss)) = ((`κ') (α2 ss))) as -> by done.
+    rewrite HOM_ccompose.
+    pose (sss := (HOM_compose κ κ')). rewrite (HOM_compose_ccompose κ κ' sss)//.
+    assert (fill K (NatOp op (bind γ e1) (bind γ e2))%syn =
+            fill (ectx_compose K (NatOpRK op (bind γ e1) EmptyK)) (bind γ e2)) as ->.
+    { rewrite -fill_comp. reflexivity. }
+    iApply (logrel_bind with "H2").
+    iIntros (βv v). iModIntro. iIntros "(%n2 & #HV & ->)".
+    term_simpl. clear κ' sss.
+    rewrite -fill_comp. simpl.
+    pose (κ' := (NatOpLSCtx_HOM op (IT_of_V βv) ss _)).
+    assert ((NATOP (do_natop op) (α1 ss) (IT_of_V βv)) = ((`κ') (α1 ss))) as -> by done.
+    rewrite HOM_ccompose.
+    pose (sss := (HOM_compose κ κ')). rewrite (HOM_compose_ccompose κ κ' sss)//.
+    assert (fill K (NatOp op (bind γ e1) (LitV n2))%syn =
+            fill (ectx_compose K (NatOpLK op EmptyK (LitV n2))) (bind γ e1)) as ->.
+    { rewrite -fill_comp. reflexivity. }
+    iApply (logrel_bind with "H1").
+    subst sss κ'.
+    term_simpl.
+    iIntros (t r). iModIntro. iIntros "(%n1 & #H & ->)".
+    simpl.
+    iAssert ((NATOP (do_natop op) (IT_of_V t) (IT_of_V βv)) ≡ Ret (do_natop op n1 n2))%I with "[HV H]" as "Hr".
+    { iRewrite "HV". simpl.
+      iRewrite "H". simpl.
+      iPureIntro.
+      by rewrite NATOP_Ret.
     }
-    iApply (logrel_bind with "[H1] [H2]").
-    - by iApply "H2".
-    - iIntros (βv v). iModIntro. iIntros "(%n1 & #HV & ->)".
-      term_simpl.
-      subst κ' sss.
-      unfold NatOpLSCtx.
-      rewrite -fill_comp.
-      simpl.
-      pose (κ' := (NatOpLSCtx_HOM op (IT_of_V βv) ss _)).
-      assert ((NATOP (do_natop op) (α1 ss) (IT_of_V βv)) = ((`κ') (α1 ss))) as ->.
-      { reflexivity. }
-      assert ((`κ) ((`κ') (α1 ss)) = ((`κ) ◎ (`κ')) (α1 ss)) as ->.
-      { reflexivity. }
-      pose (sss := (HOM_compose κ κ')).
-      assert ((`κ ◎ `κ') = (`sss)) as ->.
-      { reflexivity. }
-      assert (fill K (NatOp op (bind γ e1) (LitV n1))%syn = fill (ectx_compose K (NatOpLK op EmptyK (LitV n1))) (bind γ e1)) as ->.
-      { rewrite -fill_comp.
-        reflexivity.
-      }
-      iApply (logrel_bind with "[H1] [H2]").
-      + by iApply "H1".
-      + subst sss κ'.
-        term_simpl.
-        iIntros (t r). iModIntro. iIntros "(%n2 & #H & ->)".
-        simpl.
-        iAssert ((NATOP (do_natop op) (IT_of_V t) (IT_of_V βv)) ≡ Ret (do_natop op n2 n1))%I with "[HV H]" as "Hr".
-        { iRewrite "HV". simpl.
-          iRewrite "H". simpl.
-          iPureIntro.
-          by rewrite NATOP_Ret.
-        }
-        iRewrite "Hr".
-        rewrite -fill_comp.
-        simpl.
-        rewrite -IT_of_V_Ret.
-        iSpecialize ("HK" $! (RetV (do_natop op n2 n1)) (LitV (do_natop op n2 n1)) with "[]").
-        {
-          unfold logrel_nat.
-          by iExists (do_natop op n2 n1).
-        }
-        iIntros (σ) "Hs".
-        iSpecialize ("HK" $! σ with "Hs").
-        iApply (wp_wand with "[$HK] []").
-        simpl.
-        iIntros (v') "(%m & %v'' & %σ'' & %Hstep & H' & G)".
-        destruct m as [m m'].
-        iModIntro.
-        iExists (m, m'), v'', σ''. iFrame "H' G".
-        iPureIntro.
-        eapply (prim_steps_app (0, 0) (m, m')); eauto.
-        term_simpl.
-        eapply prim_step_steps.
-        eapply Ectx_step; [reflexivity | reflexivity |].
-        constructor.
-        simpl.
-        reflexivity.
+    rewrite -fill_comp. simpl.
+    iApply (logrel_head_step_pure_ectx _ EmptyK (Val (LitV (do_natop op n1 n2))) with "[]");
+      last done; last first.
+    + simpl. iRewrite "Hr". iApply (logrel_of_val Tnat (RetV (do_natop op n1 n2))). term_simpl.
+      iExists _. iSplit; eauto.
+    + intros. by constructor.
   Qed.
 
   Program Definition ThrowLSCtx_HOM {S : Set}
@@ -504,16 +474,10 @@ Section logrel.
   Next Obligation.
     intros; simpl.
     simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - solve_proper_prepare.
-      destruct Hv as [? <-].
-      rewrite ->2 get_val_ITV.
-      simpl.
-      by f_equiv.
+    - solve_proper_please.
     - destruct Hv as [? <-].
       rewrite ->2 get_val_ITV.
-      simpl.
-      rewrite get_fun_tick.
-      f_equiv.
+      simpl. by rewrite get_fun_tick.
     - destruct Hv as [x Hv].
       rewrite <- Hv.
       rewrite -> get_val_ITV.
@@ -522,14 +486,11 @@ Section logrel.
       repeat f_equiv.
       intro; simpl.
       rewrite <- Hv.
-      rewrite -> get_val_ITV.
-      simpl.
-      f_equiv.
+      by rewrite -> get_val_ITV.
     - destruct Hv as [? <-].
       rewrite get_val_ITV.
       simpl.
-      rewrite get_fun_err.
-      reflexivity.
+      by rewrite get_fun_err.
   Qed.
 
 
