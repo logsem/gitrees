@@ -447,7 +447,16 @@ Proof.
         simpl.
         destruct σ as [? [? ?]].
         simpl.
-        admit.
+        match goal with
+        | |- context G [@mbind option option_bind _ _ ?a ?b] => set (x := b)
+        end.
+        symmetry.
+        match goal with
+        | |- context G [@mbind option option_bind _ _ ?a ?b] => set (y := b)
+        end.
+        assert (y = x) as ->.
+        { reflexivity. }
+        destruct x as [x |]; reflexivity.
     + constructor.
       unshelve eexists (λne '((l,n),(s, s'')), let s' := <[l:=n]>s
                                                in Some ((), (s', s''))).
@@ -546,7 +555,7 @@ Proof.
            destruct σ as [σ1 [? []]]; simpl in *.
            reflexivity.
     + intros i; by apply fin_0_inv.
-Admitted.
+Qed.
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 

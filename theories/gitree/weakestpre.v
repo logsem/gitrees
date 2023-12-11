@@ -718,188 +718,11 @@ Section weakestpre.
       iExFalso. iApply (option_equivI with "Hb").
   Qed.
 
-  Definition clwp_def (e : IT) (s : stuckness) E (Φ : ITV -n> iProp) : iProp :=
-    (∀ (K : IT -n> IT) {HK : IT_hom K} (Ψ : ITV -n> iProp), (∀ v, Φ v -∗ wp (K (IT_of_V v)) s E Ψ)
-            -∗ wp (K e) s E Ψ).
-  Definition clwp_aux : seal (@clwp_def). by eexists. Qed.
-  Definition clwp := unseal clwp_aux.
-  Definition clwp_eq : @clwp = @clwp_def := seal_eq clwp_aux.
-
-  Notation "'CLWP' e @ s ; E {{ Φ } }" :=
-    (clwp e s E Φ)
-      (at level 20, e, s, Φ at level 200,
-        format "'CLWP' e @ s ; E {{  Φ  } }") : bi_scope.
-
-  Notation "'CLWP' α @ s ; E {{ v , Q } }" :=
-    (clwp α s E (λne v, Q))
-      (at level 20, α, s, Q at level 200,
-        format "'[hv' 'CLWP'  α  '/' @  s  ;  E  '/' {{  '[' v ,  '/' Q  ']' } } ']'") : bi_scope.
-
-  Notation "'CLWP' α @ s {{ β , Φ } }" :=
-    (clwp α s ⊤ (λne β, Φ))
-      (at level 20, α, Φ at level 200,
-        format "'CLWP'  α  @  s  {{  β ,  Φ  } }") : bi_scope.
-
-  Notation "'CLWP' α @ s {{ Φ } }" :=
-    (clwp α s ⊤ Φ)
-      (at level 20, α, Φ at level 200,
-        format "'CLWP' α @ s {{ Φ } }") : bi_scope.
-
-  Lemma clwp_cl {s E e} {Φ : ITV -n> iProp} (K : IT -n> IT) {HK : IT_hom K} :
-    CLWP e @ s ; E {{ Φ }} -∗
-                              (∀ (Ψ : ITV -n> iProp), (∀ v, Φ v -∗ WP (K (IT_of_V v)) @ s ; E {{ Ψ }})
-                                    -∗ WP (K e) @ s ; E {{ Ψ }})%I.
-  Proof.
-    rewrite clwp_eq /clwp_def. iIntros "H". iIntros (?).
-    iApply "H".
-  Qed.
-
-  Lemma unfold_clwp (s : stuckness) (E : coPset) (e : IT) (Φ : ITV -n> iProp) :
-    CLWP e @ s ; E {{Φ}} ⊣⊢
-    (∀ (K : IT -n> IT) {HK : IT_hom K} (Ψ : ITV -n> iProp), (∀ v, Φ v -∗ WP (K (IT_of_V v)) @ s ; E {{ Ψ }})
-    -∗ WP (K e) @ s ; E {{ Ψ }})%I.
-  Proof.
-    by rewrite clwp_eq /clwp_def.
-  Qed.
-
-  Lemma clwp_wp s (E : coPset) (e : IT) (Φ : ITV -n> iProp) :
-    CLWP e @ s ; E {{ Φ }} ⊢ WP e @ s ; E {{ Φ }}.
-  Proof.
-    iIntros "H". rewrite unfold_clwp.
-    unshelve iSpecialize ("H" $! idfun _ Φ with "[]").
-    - apply _.
-    - iIntros (w) "Hw". simpl.
-      iApply wp_val; rewrite /IntoVal /=.
-      done.
-    - by simpl.
-  Qed.
-
-  Global Instance clwp_ne s E e m :
-    Proper ((dist m) ==> dist m) (clwp e s E).
-  Proof.
-    repeat intros?; rewrite !unfold_clwp.
-    solve_proper.
-  Qed.
-
-  Global Instance clwp_proper s E e :
-    Proper ((≡) ==> (≡)) (clwp e s E).
-  Proof.
-    by intros Φ Φ' ?; apply equiv_dist=>m; apply clwp_ne=>v; apply equiv_dist.
-  Qed.
-
-  Lemma clwp_value' s E (Φ : ITV -n> iProp) v :
-    Φ v ⊢ CLWP (IT_of_V v) @ s ; E {{ Φ }}.
-  Proof.
-    iIntros "HΦ"; rewrite unfold_clwp.
-    iIntros (K HK Ψ) "HK". iApply ("HK" with "HΦ").
-  Qed.
-
-  Lemma clwp_value_inv s E (Φ : ITV -n> iProp) v :
-    CLWP (IT_of_V v) @ s ; E {{ Φ }} ={E}=∗ Φ v.
-  Proof.
-    iIntros "H"; iApply wp_val_inv'; last by iApply clwp_wp.
-    iPureIntro. by apply IT_to_of_V.
-  Qed.
-
-  Lemma fupd_clwp s E e (Φ : ITV -n> iProp) :
-    (|={E}=> CLWP e @ s ; E {{ Φ }}) ⊢ CLWP e @ s ; E {{ Φ }}.
-  Proof.
-    iIntros "H"; rewrite !unfold_clwp.
-    iIntros (K HK Ψ) "HK".
-    iMod "H"; by iApply "H".
-  Qed.
-
-  Global Instance clwp_ne' s E (Φ : ITV -n> iProp) m :
-    Proper ((dist m) ==> dist m) (fun x => clwp x s E Φ).
-  Proof.
-    repeat intros?; rewrite !unfold_clwp.
-    solve_proper.
-  Qed.
-
-  Global Instance clwp_proper' s E (Φ : ITV -n> iProp) :
-    Proper ((≡) ==> (≡)) (fun x => clwp x s E Φ).
-  Proof.
-    intros e e' ?.
-    rewrite !unfold_clwp.
-    solve_proper.
-  Qed.
-
-  Global Instance clwp_ne'' s E (Φ : ITV -n> iProp) m :
-    Proper ((dist m) ==> dist m) (fun (x : ITVO) => clwp (IT_of_V x) s E Φ).
-  Proof.
-    repeat intros?; rewrite !unfold_clwp.
-    solve_proper.
-  Qed.
-
-  Global Instance clwp_proper'' s E (Φ : ITV -n> iProp) :
-    Proper ((≡) ==> (≡)) (fun (x : ITVO) => clwp (IT_of_V x) s E Φ).
-  Proof.
-    intros e e' ?.
-    rewrite !unfold_clwp.
-    solve_proper.
-  Qed.
-
-  Global Instance clwp_ne''' s E (Φ : ITV -n> iProp) (K : IT -n> IT) {HK : IT_hom K} :
-    NonExpansive (λ v : ITVO, (CLWP (K (IT_of_V v)) @ s ; E{{ Φ }})%I).
-  Proof.
-    repeat intros?; rewrite !unfold_clwp.
-    solve_proper.
-  Qed.
-
   Global Instance upd_ne {X : ofe} E (Φ : X -n> iProp) :
     NonExpansive (λ (a : X), (|={E}=> Φ a)%I).
   Proof.
     solve_proper.
   Qed.
-
-  Lemma clwp_fupd s E e (Φ : ITV -n> iProp) :
-    CLWP e @ s ; E {{ v , |={E}=> Φ v }} ⊢ CLWP e @ s ; E {{ Φ }}.
-  Proof.
-    iIntros "H"; rewrite !unfold_clwp.
-    iIntros (K HK Ψ) "HK".
-    iApply "H". iIntros (w) ">Hw"; by iApply "HK".
-  Qed.
-
-  Lemma clwp_bind (K : IT -n> IT) {HK : IT_hom K} s E e (Φ : ITV -n> iProp) :
-    CLWP e @ s ; E {{ v , CLWP (K (IT_of_V v)) @ s ; E {{ Φ }} }}
-    ⊢ CLWP (K e) @ s ; E {{ Φ }}.
-  Proof.
-    iIntros "H"; rewrite !unfold_clwp. iIntros (K' HK' Ψ) "HK'".
-    assert (K' (K e) = (K' ◎ K) e) as ->; first done.
-    iApply "H".
-    - iPureIntro.
-      apply _.
-    - iIntros (v) "Hv".
-      simpl.
-      rewrite !unfold_clwp.
-      iApply "Hv".
-      iIntros (w) "Hw".
-      by iApply "HK'".
-  Qed.
-
-  Lemma clwp_mono E e (Φ Ψ : ITV -n> iProp) : (∀ v, Φ v ⊢ Ψ v) →
-    CLWP e @ E {{ Φ }} ⊢ CLWP e @ E {{ Ψ }}.
-  Proof.
-    iIntros (HΦ) "H"; rewrite !unfold_clwp. iIntros (K HK χ) "HK".
-    iApply "H". iIntros (w) "Hw". iApply "HK"; by iApply HΦ.
-  Qed.
-
-  (* Lemma clwp_value s E (Φ : ITV -n> iProp) e v `{!IntoVal e v} : *)
-  (*   Φ v ⊢ CLWP e @ s ; E {{ Φ }}. *)
-  (* Proof. *)
-  (*   iIntros "H". *)
-  (*   assert (e = IT_of_V v) as ->. *)
-  (*   { admit. } *)
-  (*   by iApply clwp_value'. *)
-  (* Admitted. *)
-
-  Lemma clwp_value_fupd' s E (Φ : ITV -n> iProp) v :
-    (|={E}=> Φ v) ⊢ CLWP (IT_of_V v) @ s ; E {{ Φ }}.
-  Proof. intros. by rewrite -clwp_fupd -clwp_value'. Qed.
-
-  (* Lemma clwp_value_fupd s E (Φ : ITV -n> iProp) e v `{!IntoVal e v} : *)
-  (*   (|={E}=> Φ v) ⊢ CLWP e @ s ; E {{ Φ }}. *)
-  (* Proof. intros. rewrite -clwp_fupd -clwp_value //. Qed. *)
 
   Global Instance upd_ast_l {X : ofe} R (Φ : X -n> iProp) :
     NonExpansive (λ (a : X), (R ∗ Φ a)%I).
@@ -907,114 +730,10 @@ Section weakestpre.
     solve_proper.
   Qed.
 
-  Lemma clwp_frame_l s E e (Φ : ITV -n> iProp) R :
-    R ∗ CLWP e @ s ; E {{ Φ }} ⊢ CLWP e @ s ; E {{ v, R ∗ Φ v }}.
-  Proof.
-    iIntros "[HR H]"; rewrite !unfold_clwp. iIntros (K HK Ψ) "HK".
-    iApply "H". iIntros (v) "Hv". iApply "HK"; iFrame.
-  Qed.
-
   Global Instance upd_ast_r {X : ofe} R (Φ : X -n> iProp) :
     NonExpansive (λ (a : X), (Φ a ∗ R)%I).
   Proof.
     solve_proper.
-  Qed.
-
-  Lemma clwp_frame_r s E e (Φ : ITV -n> iProp) R :
-    CLWP e @ s ; E {{ Φ }} ∗ R ⊢ CLWP e @ s ; E {{ v, Φ v ∗ R }}.
-  Proof.
-    iIntros "[H HR]"; rewrite !unfold_clwp. iIntros (K HK Ψ) "HK".
-    iApply "H". iIntros (v) "Hv". iApply "HK"; iFrame.
-  Qed.
-
-  Lemma clwp_wand s E e (Φ Ψ : ITV -n> iProp) :
-    CLWP e @ s ; E {{ Φ }} -∗ (∀ v, Φ v -∗ Ψ v) -∗ CLWP e @ s ; E {{ Ψ }}.
-  Proof.
-    iIntros "Hwp H". rewrite !unfold_clwp.
-    iIntros (K HK χ) "HK".
-    iApply "Hwp". iIntros (?) "?"; iApply "HK"; by iApply "H".
-  Qed.
-
-  Lemma clwp_wand_l s E e (Φ Ψ : ITV -n> iProp) :
-    (∀ v, Φ v -∗ Ψ v) ∗ CLWP e @ s ; E {{ Φ }} ⊢ CLWP e @ s ; E {{ Ψ }}.
-  Proof. iIntros "[H Hwp]". iApply (clwp_wand with "Hwp H"). Qed.
-
-  Lemma clwp_wand_r s E e (Φ Ψ : ITV -n> iProp) :
-    CLWP e @ s ; E {{ Φ }} ∗ (∀ v, Φ v -∗ Ψ v) ⊢ CLWP e @ s ; E {{ Ψ }}.
-  Proof. iIntros "[Hwp H]". iApply (clwp_wand with "Hwp H"). Qed.
-
-  Lemma clwp_tick α s E1 Φ :
-    ▷ CLWP α @ s;E1 {{ Φ }} ⊢ CLWP (Tick α) @ s;E1 {{ Φ }}.
-  Proof.
-    iIntros "H".
-    rewrite clwp_eq /clwp_def.
-    iIntros (K HK Ψ) "G".
-    rewrite hom_tick.
-    iApply wp_tick.
-    iNext.
-    by iApply "H".
-  Qed.
-
-  Lemma clwp_reify  E1 s Φ i (lop : opid (sReifier_ops (rs !!! i)))
-    x k σ σ' β :
-    let op : opid F := (existT i lop) in
-    (∀ (k' : IT -n> IT) (HK : IT_hom k') rest, reify (Vis op x (laterO_map k' ◎ k)) (gState_recomp rest σ) ≡ (gState_recomp rest σ', Tick (k' β))) →
-    has_state_idx i σ -∗
-    ▷ (£ 1 -∗ has_state_idx i σ' -∗ CLWP β @ s;E1 {{ Φ }})
-    -∗ CLWP (Vis op x k) @ s;E1 {{ Φ }}.
-  Proof.
-    intros op Hr.
-    iIntros "Hlst H".
-    rewrite clwp_eq /clwp_def.
-    iIntros (K HK Ψ) "G".
-    rewrite hom_vis.
-    unshelve iApply (@wp_reify _ _ _ _ _ _ _ σ σ' (K β) with "[$Hlst] [-]").
-    - intros.
-      rewrite -Hr.
-      do 3 f_equiv.
-      by intro; simpl.
-    - iNext.
-      iIntros "HC HS".
-      iSpecialize ("H" with "HC HS").
-      unshelve iSpecialize ("H" $! K _); first apply _.
-      simpl.
-      by iApply "H".
-  Qed.
-
-  Lemma clwp_subreify E1 s Φ sR `{!subReifier sR rs}
-    (op : opid (sReifier_ops sR))
-    (x : Ins (sReifier_ops sR op) ♯ IT) (y : laterO IT)
-    (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT)
-    (σ σ' : sReifier_state sR ♯ IT) β :
-    (∀ (k' : IT -n> IT) {Hk : IT_hom k'}, sReifier_re sR op (x, σ, (laterO_map k' ◎ k ◎ subEff_outs)) ≡ Some (Next (k' β), σ')) →
-    has_substate σ -∗
-                      ▷ (£ 1 -∗ has_substate σ' -∗ CLWP β @ s;E1 {{ Φ }})
-    -∗
-       CLWP (Vis (subEff_opid op) (subEff_ins x) k) @ s;E1 {{ Φ }}.
-  Proof.
-    intros HSR.
-    iIntros "Hlst H".
-    iApply (clwp_reify with "Hlst H").
-    intros k' ? rest.
-    rewrite reify_vis_eq //.
-    {
-      f_equiv.
-      symmetry.
-      apply Tick_eq.
-    }
-    pose proof (@subReifier_reify n sR rs _ IT _ op x (Next (k' β)) ((laterO_map k' ◎ k) ◎ subEff_outs) σ σ' rest) as H.
-    simpl in H.
-    simpl.
-    rewrite <-H.
-    {
-      repeat f_equiv.
-      - solve_proper.
-      - intro; simpl.
-        rewrite ofe_iso_12.
-        reflexivity.
-    }
-    clear H.
-    by apply HSR.
   Qed.
 
   Lemma wp_bind (f : IT → IT) `{!IT_hom f} (α : IT) s Φ `{!NonExpansive Φ} E1 {G : ∀ o : opid F, CtxIndep rG IT o} :
@@ -1076,7 +795,6 @@ Section weakestpre.
 End weakestpre.
 
 Arguments wp {_} rs {_ _ _ _ _} α s E Φ.
-Arguments clwp {_} rs {_ _ _ _ _} e s E Φ.
 Arguments has_full_state {n _ _ _ _ _} σ.
 Arguments has_state_idx {n _ _ _ _ _} i σ.
 Arguments has_substate {n _ _ _ _ _ _ _} σ.
@@ -1108,29 +826,6 @@ Definition notStuck : stuckness := λ e, False.
   Notation "'WP@{' re } α {{ Φ } }" := (wp re α notStuck ⊤ Φ)
     (at level 20, α, Φ at level 200,
       format "'WP@{' re }  α  {{  Φ  } }") : bi_scope.
-
-  Notation "'CLWP@{' re } α @ s ; E {{ Φ } }" := (clwp re α s E Φ)
-    (at level 20, α, s, Φ at level 200, only parsing) : bi_scope.
-
-  Notation "'CLWP@{' re } α @ s ; E {{ v , Q } }" := (clwp re α s E (λ v, Q))
-    (at level 20, α, s, Q at level 200,
-       format "'[hv' 'CLWP@{' re }  α  '/' @  s  ;  E  '/' {{  '[' v ,  '/' Q  ']' } } ']'") : bi_scope.
-
-  Notation "'CLWP@{' re } α @  s {{ β , Φ } }" := (clwp re α s ⊤ (λ β, Φ))
-    (at level 20, α, Φ at level 200,
-     format "'CLWP@{' re }  α  @  s  {{  β ,  Φ  } }") : bi_scope.
-
-  Notation "'CLWP@{' re } α  @  s {{ Φ } }" := (clwp re α s ⊤ Φ)
-    (at level 20, α, Φ at level 200,
-     format "'CLWP@{' re }  α  @  s  {{  Φ  } }") : bi_scope.
-
-  Notation "'CLWP@{' re } α {{ β , Φ } }" := (clwp re α notStuck ⊤ (λ β, Φ))
-    (at level 20, α, Φ at level 200,
-     format "'CLWP@{' re }  α  {{  β ,  Φ  } }") : bi_scope.
-
-  Notation "'CLWP@{' re } α {{ Φ } }" := (clwp re α notStuck ⊤ Φ)
-    (at level 20, α, Φ at level 200,
-     format "'CLWP@{' re }  α  {{  Φ  } }") : bi_scope.
 
   Lemma wp_adequacy cr Σ `{!invGpreS Σ} n (rs : gReifiers n)
     {A} `{!Cofe A} `{!statePreG rs A Σ}

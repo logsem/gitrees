@@ -2,10 +2,8 @@
 - cleanup code
   + especially implicit arguments, inserted by typeclasses
   + lemmas for logrel
-  + update opam ci
 - backward compatibility
   + instances of CtxIndep from individual effects, from sreifiers to greifiers
-  + last admits
 - write summary
   + reifiers changes
   + non-cps vs cps
