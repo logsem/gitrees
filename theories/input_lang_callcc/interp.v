@@ -261,24 +261,24 @@ Section weakestpre.
   (*   iApply wp_val. by iApply ("Ha" with "H1 H2"). *)
   (* Qed. *)
 
+  Lemma wp_throw' (σ : stateO) (f : laterO (IT -n> IT)) (x : IT)
+    (κ : IT -n> IT) `{!IT_hom κ} Φ s :
+    has_substate σ -∗
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} (later_car f) x @ s {{ Φ }}) -∗
+    WP@{rs} κ (THROW x f) @ s {{ Φ }}.
+  Proof.
+    iIntros "Hs Ha". rewrite /THROW. simpl.
+    rewrite hom_vis.
+    iApply (wp_subreify with "Hs"); simpl; done.
+  Qed.
+
+
   Lemma wp_throw (σ : stateO) (f : laterO (IT -n> IT)) (x : IT) Φ s :
     has_substate σ -∗
     ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} later_car f x @ s {{ Φ }}) -∗
     WP@{rs} (THROW x f) @ s {{ Φ }}.
   Proof.
-    iIntros "Hs Ha".
-    unfold THROW. simpl.
-    iApply (wp_subreify with "Hs").
-    {
-      simpl.
-      do 2 f_equiv; reflexivity.
-    }
-    {
-      simpl.
-      reflexivity.
-    }
-    iModIntro.
-    iApply "Ha".
+    iApply (wp_throw' _ _ _ idfun).
   Qed.
 
   Lemma wp_callcc (σ : stateO) (f : (laterO IT -n> laterO IT) -n> laterO IT) (k : IT -n> IT) {Hk : IT_hom k} Φ s :

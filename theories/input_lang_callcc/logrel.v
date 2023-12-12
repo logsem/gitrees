@@ -505,24 +505,17 @@ Section logrel.
     Opaque interp_throw.
     term_simpl.
     pose (κ' := ThrowLSCtx_HOM β ss).
-    assert ((interp_throw rs α β ss) = ((`κ') (α ss))) as ->.
-    { reflexivity. }
-    assert ((`κ) ((`κ') (α ss)) = ((`κ) ◎ (`κ')) (α ss)) as ->.
-    { reflexivity. }
-    pose (sss := (HOM_compose κ κ')).
-    assert ((`κ ◎ `κ') = (`sss)) as ->.
-    { reflexivity. }
-    assert (fill K (Throw (bind γ e) (bind γ e'))%syn = fill (ectx_compose K (ThrowLK  EmptyK (bind γ e'))) (bind γ e)) as ->.
-    { rewrite -fill_comp.
-      reflexivity.
-    }
+    assert ((interp_throw rs α β ss) = ((`κ') (α ss))) as -> by done.
+    rewrite HOM_ccompose.
+    pose (sss := (HOM_compose κ κ')). rewrite (HOM_compose_ccompose κ κ' sss)//.
+    assert (fill K (Throw (bind γ e) (bind γ e'))%syn =
+            fill (ectx_compose K (ThrowLK  EmptyK (bind γ e'))) (bind γ e))
+      as -> by by rewrite -fill_comp.
     iApply obs_ref_bind; first by iApply "H1".
     iIntros (βv v). iModIntro. iIntros "#Hv".
     Transparent interp_throw.
     simpl.
-    rewrite get_val_ITV'.
-    simpl.
-    rewrite -!fill_comp.
+    rewrite get_val_ITV' -!fill_comp.
     simpl.
     pose (κ'' := @ThrowRSCtx_HOM S (IT_of_V βv) ss _).
     (* TODO: some typeclasses bs *)
@@ -531,53 +524,39 @@ Section logrel.
     {
       subst κ''. simpl. by rewrite get_val_ITV.
     }
-    assert ((`κ) ((`κ'') (β ss)) = ((`κ) ◎ (`κ'')) (β ss)) as ->.
-    { reflexivity. }
-    pose (sss' := (HOM_compose κ κ'')).
-    assert ((`κ ◎ `κ'') = (`sss')) as ->.
-    { reflexivity. }
-    assert (fill K (Throw v (bind γ e'))%syn = fill (ectx_compose K (ThrowRK v EmptyK)) (bind γ e')) as ->.
-    { rewrite -fill_comp.
-      reflexivity.
-    }
+    rewrite HOM_ccompose.
+    pose (sss' := (HOM_compose κ κ'')). rewrite (HOM_compose_ccompose κ κ'' sss')//.
+    assert (fill K (Throw v (bind γ e'))%syn =
+            fill (ectx_compose K (ThrowRK v EmptyK)) (bind γ e'))
+      as -> by by rewrite -fill_comp.
     iApply obs_ref_bind; first by iApply "H2".
     iIntros (βv' v'). iModIntro. iIntros "#Hv'".
     Transparent interp_throw.
     simpl.
     unfold logrel_cont.
-    simpl.
     iDestruct "Hv'" as "(%f & %F & HEQ & %H & #H)".
     rewrite get_val_ITV.
     simpl.
     iRewrite "HEQ".
     rewrite get_fun_fun.
     simpl.
-    rewrite hom_vis.
     iIntros (σ) "Hs".
-    iApply (wp_subreify with "Hs").
-    - simpl.
-      rewrite later_map_Next.
-      reflexivity.
-    - reflexivity.
-    - iNext.
-      iIntros "Hlc Hs".
-      rewrite -!fill_comp H.
-      simpl.
-      rewrite -Tick_eq.
-      iApply wp_tick.
-      iNext.
-      iSpecialize ("H" $! βv v with "[]"); first done.
-      iSpecialize ("H" $! σ with "Hs").
-      iApply (wp_wand with "[$H] []").
-      iIntros (w) "(%m & %v'' & %σ'' & %Hstep & H)".
-      destruct m as [m m'].
-      iModIntro.
-      iExists ((Nat.add 2 m), m'), v'', σ''. iFrame "H".
-      iPureIntro.
-      eapply (prim_steps_app (2, 0) (m, m')); eauto.
-      term_simpl.
-      eapply prim_step_steps.
-      eapply Throw_step; reflexivity.
+    iApply (wp_throw' with "Hs []").
+    iNext. iIntros "Hcl Hs". term_simpl.
+    rewrite later_map_Next. iApply wp_tick. iNext.
+    iSpecialize ("H" $! βv v with "[]"); first done.
+    iSpecialize ("H" $! σ with "Hs").
+    iApply (wp_wand with "[$H] []").
+    iIntros (w) "(%m & %v'' & %σ'' & %Hstep & H)".
+    destruct m as [m m'].
+    iModIntro.
+    iExists ((Nat.add 2 m), m'), v'', σ''. iFrame "H".
+    iPureIntro.
+    eapply (prim_steps_app (2, 0) (m, m')); eauto.
+    term_simpl.
+    eapply prim_step_steps.
+    eapply Throw_step; last done.
+    rewrite H. by rewrite -!fill_comp. 
   Qed.
 
 
