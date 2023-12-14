@@ -50,11 +50,6 @@ Section logrel.
     (∃ f, IT_of_V βv ≡ Fun f ∧ □ ∀ αv v, V1 αv v -∗
       logrel_expr V2 (APP' (Fun f) (IT_of_V αv)) (App (Val vf) (Val v)))%I.
 
-  Global Instance denot_cont_ne (κ : IT -n> IT) :
-    NonExpansive (λ x : IT, Tau (laterO_map κ (Next x))).
-  Proof.
-    solve_proper.
-  Qed.
 
   Definition logrel_cont {S} V (βv : ITV) (v : val S) : iProp :=
     (∃ (κ : HOM) K, (IT_of_V βv) ≡ (Fun (Next (λne x, Tau (laterO_map (`κ) (Next x)))))
@@ -496,40 +491,32 @@ Section logrel.
     match goal with
     | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ extend_scope ss )?f] => set (fff := f)
     end.
-    assert (ff ≡ fff) as Hf.
-    { subst ff fff.  f_equiv.
-      apply bi.siProp.internal_eq_soundness.
-      iApply (later_equivI).
-      iNext. iApply (internal_eq_pointwise). iIntros.
-      simpl. by rewrite later_map_Next.
+    assert (ff ≡ fff) as <-.
+    {
+      subst ff fff. do 1 f_equiv.
+      epose proof (contractive_proper Next).
+      rewrite H; first reflexivity.
+      rewrite ofe_mor_ext. intro. simpl.
+      by rewrite later_map_Next.
     }
-    rewrite -Hf.
     pose (ss' := (extend_scope ss ff)).
     pose (γ' := ((mk_subst (Val (ContV K)%syn)) ∘ (γ ↑)%bind)%bind : inc S [⇒] ∅).
     iSpecialize ("H" $! ss' γ' with "[HK]").
     {
-      iIntros (x).
+      iIntros (x). iModIntro.
+      destruct x as [| x]; term_simpl; last iApply "Hss".
+      Transparent extend_scope.
+      subst ss'; simpl.
+      pose proof (asval_fun (Next (λne x, Tau (laterO_map (`κ) (Next x))))).
+      subst ff. destruct H as [f H].
+      iIntros (t r) "#H".
+      simpl. rewrite -H. iApply "H".
+      unfold logrel_cont.
+      iExists κ, K.
+      iSplit; first done.
+      iSplit; first done.
       iModIntro.
-      destruct x as [| x]; term_simpl.
-      - Transparent extend_scope.
-        subst ss'; simpl.
-        pose proof (asval_fun (Next (λne x, Tau (laterO_map (`κ) (Next x))))).
-        destruct H as [f H].
-        subst ff.
-        rewrite -H.
-        iIntros (t r) "#H".
-        simpl.
-        iApply "H".
-        unfold logrel_cont.
-        iExists _, K.
-        iSplit.
-        + rewrite H.
-          done.
-        + iSplit; first done.
-          iModIntro.
-          iApply "HK".
-      - simpl.
-        iApply "Hss".
+      iApply "HK".
     }
     iSpecialize ("H" $! κ K with "HK").
     Opaque extend_scope.
