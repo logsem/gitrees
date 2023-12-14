@@ -320,6 +320,12 @@ Section interp.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
+  Global Instance denot_cont_ne (κ : IT -n> IT) :
+    NonExpansive (λ x : IT, Tau (laterO_map κ (Next x))).
+  Proof.
+    solve_proper.
+  Qed.
+
   (** Interpreting individual operators *)
   Program Definition interp_input {A} : A -n> IT :=
     λne env, INPUT Ret.
