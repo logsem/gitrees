@@ -571,70 +571,66 @@ Section logrel.
     Opaque extend_scope.
     term_simpl.
     iIntros (σ) "Hs".
-    rewrite hom_vis.
-    iApply (wp_subreify _ _ _ _ _ _ _ (Next ((`κ) (α (extend_scope ss (λit x : IT, Tick ((`κ) x)))))) with "Hs").
-    - simpl.
-      rewrite ofe_iso_21.
-      rewrite later_map_Next.
-      do 2 f_equiv; last reflexivity.
-      do 5 f_equiv.
+
+    iApply (wp_callcc with "Hs []").
+    iNext. iIntros "Hcl Hs". term_simpl.
+
+    pose (ff := (λit x : IT, Tick ((`κ) x))).
+    match goal with
+    | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ extend_scope ss )?f] => set (fff := f)
+    end.
+    assert (ff ≡ fff) as Hf.
+    { subst ff fff.  f_equiv.
       apply bi.siProp.internal_eq_soundness.
-      iApply later_equivI_2.
-      iNext.
-      simpl.
-      iApply internal_eq_pointwise.
+      iApply (later_equivI).
+      iNext. iApply (internal_eq_pointwise). iIntros.
+      simpl. by rewrite later_map_Next.
+    }
+    rewrite -Hf.
+    pose (ss' := (extend_scope ss ff)).
+    pose (γ' := ((mk_subst (Val (ContV K)%syn)) ∘ (γ ↑)%bind)%bind : inc S [⇒] ∅).
+    iSpecialize ("H" $! ss' γ' with "[HK]").
+    {
       iIntros (x).
-      simpl.
-      rewrite Tick_eq.
-      iApply f_equivI.
-      rewrite ofe_iso_21.
-      done.
-    - reflexivity.
-    - iNext.
-      iIntros "Hlc Hs".
-      pose (ss' := (extend_scope ss (λit x : IT, Tick ((`κ) x)))).
-      pose (γ' := ((mk_subst (Val (ContV K)%syn)) ∘ (γ ↑)%bind)%bind : inc S [⇒] ∅).
-      iSpecialize ("H" $! ss' γ' with "[HK]").
-      {
-        iIntros (x).
-        iModIntro.
-        destruct x as [| x]; term_simpl.
-        - Transparent extend_scope.
-          subst ss'; simpl.
-          pose proof (asval_fun (Next (λne x, Tau (laterO_map (`κ) (Next x))))).
-          destruct H as [f H].
-          rewrite -H.
-          iIntros (t r) "#H".
-          simpl.
-          iApply "H".
-          unfold logrel_cont.
-          iExists _, K.
-          iSplit.
-          + rewrite H.
-            done.
-          + iSplit; first done.
-            iModIntro.
-            iApply "HK".
-        - simpl.
-          iApply "Hss".
-      }
-      iSpecialize ("H" $! κ K with "HK").
-      Opaque extend_scope.
-      term_simpl.
-      iSpecialize ("H" $! σ with "Hs").
-      subst ss' γ'.
-      iApply (wp_wand with "[$H] []").
-      iIntros (v') "(%m & %v'' & %σ'' & %Hstep & H)".
-      destruct m as [m m'].
-      rewrite -bind_bind_comp' in Hstep.
       iModIntro.
-      iExists ((Nat.add 1 m), (Nat.add 1 m')), v'', σ''. iFrame "H".
-      iPureIntro.
-      eapply (prim_steps_app (1, 1) (m, m')); eauto.
-      eapply prim_step_steps.
-      eapply Ectx_step; [reflexivity | reflexivity |].
-      term_simpl.
-      constructor.
+      destruct x as [| x]; term_simpl.
+      - Transparent extend_scope.
+        subst ss'; simpl.
+        pose proof (asval_fun (Next (λne x, Tau (laterO_map (`κ) (Next x))))).
+        destruct H as [f H].
+        subst ff.
+        rewrite -H.
+        iIntros (t r) "#H".
+        simpl.
+        iApply "H".
+        unfold logrel_cont.
+        iExists _, K.
+        iSplit.
+        + rewrite H.
+          done.
+        + iSplit; first done.
+          iModIntro.
+          iApply "HK".
+      - simpl.
+        iApply "Hss".
+    }
+    iSpecialize ("H" $! κ K with "HK").
+    Opaque extend_scope.
+    term_simpl.
+    iSpecialize ("H" $! σ with "Hs").
+    subst ss' γ'.
+    iApply (wp_wand with "[$H] []").
+    iIntros (v') "(%m & %v'' & %σ'' & %Hstep & H)".
+    destruct m as [m m'].
+    rewrite -bind_bind_comp' in Hstep.
+    iModIntro.
+    iExists ((Nat.add 1 m), (Nat.add 1 m')), v'', σ''. iFrame "H".
+    iPureIntro.
+    eapply (prim_steps_app (1, 1) (m, m')); eauto.
+    eapply prim_step_steps.
+    eapply Ectx_step; [reflexivity | reflexivity |].
+    term_simpl.
+    constructor.
   Qed.
 
   Program Definition OutputSCtx_HOM {S : Set}
