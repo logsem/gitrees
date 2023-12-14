@@ -4,7 +4,6 @@ Require Import List.
 Import ListNotations.
 
 Require Import Binding.Lib Binding.Set.
-From Equations Require Import Equations.
 
 Section interp.
   Local Open Scope type.
@@ -23,6 +22,9 @@ Section interp.
 
   Program Definition interp_var {S : Set} (v : S) : interp_scope S -n> IT :=
     λne (f : interp_scope S), f v.
+  Next Obligation.
+    solve_proper.
+  Qed.
 
   Global Instance interp_var_proper {S : Set} (v : S) : Proper ((≡) ==> (≡)) (interp_var v).
   Proof. apply ne_proper. apply _. Qed.
@@ -34,16 +36,15 @@ Section interp.
                   | VS x'' => γ x''
                   end.
   Next Obligation.
-    match goal with
-    | H : context G [(inc S)] |- _ => revert H
-    end.
-    intros [| a]; simpl; solve_proper.
+    intros ???? [| x] [| y]; term_simpl; [solve_proper | inversion 1 | inversion 1 | inversion 1; by subst].
   Qed.
   Next Obligation.
-    match goal with
-    | H : context G [(inc S)] |- _ => revert H
-    end.
-    intros [| a]; simpl; solve_proper.
+    intros ??????.
+    intros [| a]; term_simpl; solve_proper.
+  Qed.
+  Next Obligation.
+    intros ??????.
+    intros [| a]; term_simpl; solve_proper.
   Qed.
 
   Program Definition ren_scope {S S'} (δ : S [→] S') (env : interp_scope S')
@@ -78,19 +79,6 @@ Section kripke_logrel.
     solve_proper.
   Qed.
 
-  (* #[export] Instance expr_pred_ne : NonExpansive2 expr_pred. *)
-  (* Proof. *)
-  (*   solve_proper_prepare. *)
-  (*   f_equiv. *)
-  (*   intro; simpl. *)
-  (*   f_equiv. *)
-  (*   rewrite clwp_eq. *)
-    
-  (*   apply clwp_ne'''. *)
-  (* Qed. *)
-  (* #[export] Instance expr_pred_proper : Proper ((≡) ==> (≡) ==> (≡)) expr_pred . *)
-  (* Proof. solve_proper. Qed. *)
-
   Lemma expr_pred_ret α αv Φ `{!IntoVal α αv} :
     Φ αv ⊢ expr_pred α Φ.
   Proof.
@@ -98,23 +86,8 @@ Section kripke_logrel.
     iIntros (x) "Hx". iApply wp_val.
     simpl.
     iExists x.
-    by iFrame.    
+    by iFrame.
   Qed.
-
-  (* Lemma expr_pred_bind (f : IT -n> IT) {Hf : IT_hom f} α (Φ Ψ : ITV -n> iProp) : *)
-  (*   expr_pred α Ψ ⊢ *)
-  (*   (∀ αv, Ψ αv -∗ expr_pred (f (IT_of_V αv)) Φ) -∗ *)
-  (*   expr_pred (f α) Φ. *)
-  (* Proof. *)
-  (*   iIntros "H1 H2". *)
-  (*   iIntros (x) "Hx". *)
-  (*   unshelve iApply clwp_bind; first done. *)
-  (*   iSpecialize ("H1" with "Hx"). *)
-  (*   iApply (clwp_wand with "H1"). *)
-  (*   iIntros (βv). iDestruct 1 as (y) "[Hb Hy]". *)
-  (*   simpl. *)
-  (*   iApply ("H2" with "Hb Hy"). *)
-  (* Qed. *)
 
   Lemma expr_pred_frame α Φ :
     WP@{rs} α @ s {{ Φ }} ⊢ expr_pred α Φ.
@@ -129,5 +102,3 @@ Section kripke_logrel.
   Qed.
 
 End kripke_logrel.
-
-(* Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_}. *)

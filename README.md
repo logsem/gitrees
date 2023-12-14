@@ -9,7 +9,6 @@ The dependencies can be easily installed using [Opam](https://opam.ocaml.org/) w
 
 ```
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
 opam update
 opam install . --deps-only
 ```
@@ -26,9 +25,11 @@ to the code structure.
 
 - `gitree/` -- contains the core definitions related to guarded interaction trees
 - `input_lang/` -- formalization of the language with io, the soundness and adequacy
+- `input_lang_callcc/` -- formalization of the language with io, throw and call/cc, the soundness and adequacy
 - `affine_lang/` -- formalization of the affine language, type safety of the language interoperability
-- `examples/` -- some other smaller examples 
+- `examples/` -- some other smaller examples
 - `lang_generic.v` -- generic facts about languages with binders and their interpretations, shared by `input_lang` and `affine_lang`
+- `lang_generic_sem.v` -- generic facts about languages with a different representation of binders and their interpretations, used for `input_lang_callcc`
 - `prelude.v` -- some stuff that is missing from Iris
 
 ### References from the paper to the code
@@ -42,7 +43,7 @@ to the code structure.
   + The factorial example is in `examples/factorial.v`, and
     the pairs example is in `examples/pairs.v`
 - **Section 4**
-  + The definition of reifiers and the reify function are in `gitree/reify.v`
+  + The definition of context-dependent versions of reifiers and the reify function are in `gitree/reify.v`
   + The reduction relation is in `gitree/reductions.v`
   + The specific reifiers for IO and state are in `examples/store.v`
     and `input_lang/interp.v`
@@ -70,11 +71,14 @@ to the code structure.
 
 ## Notes
 
-### Representations of binders
+### Representations of binders 1
 For the representation of languages with binders, we follow the
 approach of (Benton, Hur, Kennedy, McBride, JAR 2012) with well-scoped
-terms and substitutions/renamings. 
+terms and substitutions/renamings. (`input_lang`, `affine_lang`)
 
+### Representations of binders 2
+For `input_lang_callcc` we use a binder library, implemented by Filip
+Sieczkowski and Piotr Polesiuk.
 
 ### Disjunction property
 Some results in the formalization make use of the disjunction property
