@@ -642,7 +642,20 @@ Section logrel.
     iApply "HV'"; iApply "HK".
   Qed.
 
-  (* TODO: finish throw + refactor *)
+  Lemma compat_nat {S : Set} (Γ : S -> ty) n :
+    ⊢ logrel_valid Γ (# n)%syn (interp_val rs (# n)%syn) ℕ%typ.
+  Proof.
+    iIntros (ss γ). iModIntro. iIntros "#Hss".
+    term_simpl.
+    iIntros (κ K) "#HK".
+    iSpecialize ("HK" $! (RetV n) (LitV n)).
+    rewrite IT_of_V_Ret.
+    iApply "HK".
+    simpl.
+    unfold logrel_nat.
+    iExists n; eauto.
+  Qed.
+
   Lemma fundamental {S : Set} (Γ : S -> ty) τ e :
     typed Γ e τ → ⊢ logrel_valid Γ e (interp_expr rs e) τ
   with fundamental_val {S : Set} (Γ : S -> ty) τ v :
@@ -671,15 +684,7 @@ Section logrel.
       + iApply compat_callcc.
         iApply IHtyped.
     - induction 1; simpl.
-      + iIntros (ss γ). iModIntro. iIntros "#Hss".
-        term_simpl.
-        iIntros (κ K) "#HK".
-        iSpecialize ("HK" $! (RetV n) (LitV n)).
-        rewrite IT_of_V_Ret.
-        iApply "HK".
-        simpl.
-        unfold logrel_nat.
-        iExists n; eauto.
+      + iApply compat_nat.
       + iApply compat_recV. by iApply fundamental.
   Qed.
 
