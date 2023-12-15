@@ -430,7 +430,6 @@ Section logrel.
     rewrite get_val_ITV' -!fill_comp.
     simpl.
     pose (κ'' := ThrowRSCtx_HOM (IT_of_V βv) ss _).
-    (* TODO: some typeclasses bs *)
     assert ((get_fun (λne f : laterO (IT -n> IT), THROW (IT_of_V βv) f) (β ss)) ≡
               ((`κ'') (β ss))) as ->.
     {

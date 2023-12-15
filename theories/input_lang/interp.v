@@ -4,16 +4,75 @@ From gitrees.input_lang Require Import lang.
 
 Notation stateO := (leibnizO state).
 
-Program Definition inputE : opInterp := {|
-                                         Ins := unitO;
-                                         Outs := natO;
-                                       |}.
-Program Definition outputE : opInterp := {|
-  Ins := natO;
-  Outs := unitO;
-|}.
+Program Definition inputE : opInterp :=
+  {|
+    Ins := unitO;
+    Outs := natO;
+  |}.
+
+Program Definition outputE : opInterp :=
+  {|
+    Ins := natO;
+    Outs := unitO;
+  |}.
 
 Definition ioE := @[inputE;outputE].
+
+Definition wrap_reifier X `{Cofe X} (A B : ofe) :
+  (A * stateO -n> option (B * stateO))%type ->
+  (A * stateO * (B -n> laterO X) → option (laterO X * stateO))%type :=
+  λ f,
+    λ x, let '(i, σ, k)  := x in
+         fmap (prodO_map k idfun) (f (i, σ)).
+#[export] Instance wrap_reifier_ne X `{Cofe X} (A B : ofe) f :
+  NonExpansive (wrap_reifier X A B f).
+Proof.
+  intros n [[a1 σ1] k1] [[a2 σ2] k2] [[Ha Hσ] Hk]. simpl.
+  solve_proper.
+Qed.
+
+(* INPUT *)
+Definition reify_input' X `{Cofe X} : unitO * stateO →
+                                      option (natO * stateO) :=
+    λ '(o, σ), Some (update_input σ : prodO natO stateO).
+#[export] Instance reify_input'_ne X `{Cofe X} :
+  NonExpansive (reify_input' X).
+Proof. intros ????. solve_proper. Qed.
+
+Definition reify_input X `{Cofe X} : unitO * stateO * (natO -n> laterO X) →
+                                     option (laterO X * stateO) :=
+  λ '(o, σ, k), fmap (prodO_map k idfun) (reify_input' X (o, σ)).
+#[export] Instance reify_input_ne X `{Cofe X} :
+  NonExpansive (reify_input X : prodO (prodO unitO stateO)
+                                  (natO -n> laterO X) →
+                                  optionO (prodO (laterO X) stateO)).
+Proof.
+  intros n [[? σ1] k1] [[? σ2] k2]. simpl.
+  intros [[_ ->] Hk]. simpl in *.
+  repeat f_equiv. assumption.
+Qed.
+
+(* OUTPUT *)
+Definition reify_output' X `{Cofe X} : (natO * stateO) →
+                                       option (unitO * stateO) :=
+  λ '(n, σ), Some((), update_output n σ : stateO).
+#[export] Instance reify_output'_ne X `{Cofe X} :
+  NonExpansive (reify_output' X).
+Proof. intros ????. solve_proper. Qed.
+
+Definition reify_output X `{Cofe X} : (natO * stateO * (unitO -n> laterO X)) →
+                                      optionO (prodO (laterO X) stateO) :=
+  λ '(n, σ, k), fmap (prodO_map k idfun)
+                     (reify_output' X (n, σ)).
+#[export] Instance reify_output_ne X `{Cofe X} :
+  NonExpansive (reify_output X : prodO (prodO natO stateO)
+                                   (unitO -n> laterO X) →
+                                 optionO (prodO (laterO X) stateO)).
+Proof.
+  intros ? [[]] [[]] []; simpl in *.
+  repeat f_equiv; first assumption; apply H0.
+Qed.
+
 Canonical Structure reify_io : sReifier.
 Proof.
   simple refine {| sReifier_ops := ioE;
@@ -21,19 +80,8 @@ Proof.
                 |}.
   intros X HX op.
   destruct op as [[] | [ | []]]; simpl.
-  - simple refine (λne (us : (unitO * stateO * (natO -n> laterO X))%type),
-                     let out : (natO * stateO)%type := (update_input (sndO (fstO us))) in
-                     Some $ (us.2 out.1, out.2) :
-                     optionO (laterO X * stateO)%type).
-    intros n [[? σ1] k1] [[? σ2] k2] [[_ HR1] HR2]. cbn in HR1, HR2 |- *.
-    rewrite HR1. by repeat f_equiv.
-  - simple refine (λne (us : (natO * stateO * (unitO -n> laterO X))%type ),
-                     Some $ (us.2 (() : unitO), update_output us.1.1 us.1.2) :
-                       optionO (prodO (laterO X) stateO)).
-    intros n [[n1 σ1] k1] [[n2 σ2] k2] [[HRn HRσ] HR].
-    cbn in HRn, HRσ, HR |-*.
-    rewrite HRn HRσ. apply (@Some_ne (prodO (laterO X) stateO)).
-    apply pair_dist_inj; solve_proper.
+  - simple refine (OfeMor (reify_input X)).
+  - simple refine (OfeMor (reify_output X)).
 Defined.
 
 Section constructors.
@@ -47,19 +95,9 @@ Section constructors.
     ∀ (o : opid ioE), CtxIndep reify_io IT o.
   Proof.
     intros op.
-    destruct op as [[] | [ | []]]; simpl.
-    - constructor.
-      unshelve eexists (λne (x : prodO (Ins (sReifier_ops reify_io (inl ())) ♯ IT) (sReifier_state reify_io ♯ IT)), Some ((update_input (sndO x)).1, (update_input (sndO x)).2) : optionO (prodO (Outs (sReifier_ops reify_io (inl ())) ♯ IT) (sReifier_state reify_io ♯ IT))).
-      + intros ? [? ?] [? ?] [? ?]; simpl in *; solve_proper.
-      + intros i σ κ.
-        simpl in *.
-        reflexivity.
-    - constructor.
-      unshelve eexists (λne (x : prodO (Ins (sReifier_ops reify_io (inr (inl o))) ♯ IT) (sReifier_state reify_io ♯ IT)), Some ((), update_output (fstO x) (sndO x)) : optionO (prodO (Outs (sReifier_ops reify_io (inr (inl o))) ♯ IT) (sReifier_state reify_io ♯ IT))).
-      + intros ? [? ?] [? ?] [? ?]; simpl in *; solve_proper.
-      + intros i σ κ.
-        simpl.
-        reflexivity.
+    destruct op as [[] | [ | []]].
+    - constructor. by exists (OfeMor (reify_input' IT)).
+    - constructor. by exists (OfeMor (reify_output' IT)).
   Qed.
 
   Program Definition INPUT : (nat -n> IT) -n> IT := λne k, Vis (E:=E) (subEff_opid (inl ()))
