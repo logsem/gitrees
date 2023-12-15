@@ -37,7 +37,10 @@ Definition reify_input' X `{Cofe X} : unitO * stateO →
     λ '(o, σ), Some (update_input σ : prodO natO stateO).
 #[export] Instance reify_input'_ne X `{Cofe X} :
   NonExpansive (reify_input' X).
-Proof. intros ????. solve_proper. Qed.
+Proof.
+  intros ?[[]][[]][_?]. simpl in *. f_equiv.
+  repeat f_equiv. done.
+Qed.
 
 Definition reify_input X `{Cofe X} : unitO * stateO * (natO -n> laterO X) →
                                      option (laterO X * stateO) :=
@@ -58,7 +61,11 @@ Definition reify_output' X `{Cofe X} : (natO * stateO) →
   λ '(n, σ), Some((), update_output n σ : stateO).
 #[export] Instance reify_output'_ne X `{Cofe X} :
   NonExpansive (reify_output' X).
-Proof. intros ????. solve_proper. Qed.
+Proof.
+  intros ?[][][]. simpl in *.
+  repeat f_equiv; done.
+Qed.
+
 
 Definition reify_output X `{Cofe X} : (natO * stateO * (unitO -n> laterO X)) →
                                       optionO (prodO (laterO X) stateO) :=
