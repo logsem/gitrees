@@ -9,8 +9,8 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
-        coq = pkgs.coq_8_18;
-        coqPkgs = pkgs.coqPackages_8_18;
+        coq = pkgs.coq_8_17;
+        coqPkgs = pkgs.coqPackages_8_17;
       in {
         packages = {
           coq-artifact = coqPkgs.mkCoqDerivation {
