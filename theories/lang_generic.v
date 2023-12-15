@@ -196,8 +196,7 @@ Section kripke_logrel.
 
   Lemma expr_pred_bind f `{!IT_hom f} α Φ Ψ `{!NonExpansive Φ}
     {G : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-       CtxIndep (gReifiers_sReifier rs)
-         (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o} :
+       CtxIndep (gReifiers_sReifier rs) IT o} :
     expr_pred α Ψ ⊢
     (∀ αv, Ψ αv -∗ expr_pred (f (IT_of_V αv)) Φ) -∗
     expr_pred (f α) Φ.

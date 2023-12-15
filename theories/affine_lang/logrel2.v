@@ -4,6 +4,7 @@ From gitrees Require Export lang_generic gitree program_logic.
 From gitrees.input_lang Require Import lang interp logpred.
 From gitrees.affine_lang Require Import lang logrel1.
 From gitrees.examples Require Import store pairs.
+Require Import iris.algebra.gmap.
 
 Local Notation tyctx := (tyctx ty).
 
@@ -69,9 +70,9 @@ Section glue.
   Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
 
-  Context {HCI : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-             CtxIndep (gReifiers_sReifier rs)
-               (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}.
+  Context {HCI :
+      ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
+             CtxIndep (gReifiers_sReifier rs) IT o}.
 
   Definition s : stuckness := λ e, e = OtherError.
   Variable p : na_inv_pool_name.
@@ -460,11 +461,9 @@ End glue.
 
 Local Definition rs : gReifiers 2 := gReifiers_cons reify_store (gReifiers_cons input_lang.interp.reify_io gReifiers_nil).
 
-Require Import iris.algebra.gmap.
-
 Local Instance CtxIndepInputLang R `{!Cofe R} (o : opid (sReifier_ops (gReifiers_sReifier rs))) :
   CtxIndep (gReifiers_sReifier rs)
-    (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o.
+    (IT (sReifier_ops (gReifiers_sReifier rs)) R) o.
 Proof.
   destruct o as [x o].
   inv_fin x.

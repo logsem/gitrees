@@ -3,6 +3,7 @@ From Equations Require Import Equations.
 From gitrees Require Export lang_generic gitree program_logic.
 From gitrees.affine_lang Require Import lang.
 From gitrees.examples Require Import store pairs.
+Require Import iris.algebra.gmap.
 
 Local Notation tyctx := (tyctx ty).
 
@@ -69,9 +70,9 @@ Section logrel.
   Variable (P : A → iProp).
   Context `{!NonExpansive P}.
   Local Notation expr_pred := (expr_pred s rs P).
-  Context {HCI : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-             CtxIndep (gReifiers_sReifier rs)
-               (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}.
+  Context {HCI :
+      ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
+             CtxIndep (gReifiers_sReifier rs) IT o}.
 
   (* interpreting tys *)
   Program Definition protected (Φ : ITV -n> iProp) : ITV -n> iProp := λne αv,
@@ -421,11 +422,8 @@ Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _ _ _ _ _} τ.
 
 Local Definition rs : gReifiers 2 := gReifiers_cons reify_store (gReifiers_cons input_lang.interp.reify_io gReifiers_nil).
 
-Require Import iris.algebra.gmap.
-
 Local Instance CtxIndepInputLang R `{!Cofe R} (o : opid (sReifier_ops (gReifiers_sReifier rs))) :
-  CtxIndep (gReifiers_sReifier rs)
-    (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o.
+  CtxIndep (gReifiers_sReifier rs) (IT (gReifiers_ops rs) R) o.
 Proof.
   destruct o as [x o].
   inv_fin x.
@@ -616,6 +614,7 @@ Proof.
 Qed.
 
 Definition R := sumO locO (sumO unitO natO).
+
 Lemma logrel1_safety e τ (β : IT (gReifiers_ops rs) R) st st' k :
   typed empC e τ →
   ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) st β st' k →

@@ -168,21 +168,9 @@ Section greifiers.
         (k : (Outs (sReifier_ops r op) ♯ X -n> laterO X)) :
       sReifier_re r op (x, s1, k) ≡{m}≡ Some (y, s2) →
       sReifier_re (rs !!! sR_idx) (subEff_opid op)
-        (subEff_ins x, sR_state s1, ccompose k (subEff_outs ^-1)) ≡{m}≡
+        (subEff_ins x, sR_state s1, k ◎ (subEff_outs ^-1)) ≡{m}≡
         Some (y, sR_state s2)
     }.
-
-  Lemma ccompose_id_l {A B : ofe} (f : A -n> B) :
-    cid ◎ f ≡ f.
-  Proof.
-    intros x; reflexivity.
-  Qed.
-
-  Lemma ccompose_id_r {A B : ofe} (f : A -n> B) :
-    f ◎ cid ≡ f.
-  Proof.
-    intros x; reflexivity.
-  Qed.
 
   #[global] Instance subReifier_here {n} (r : sReifier) (rs : gReifiers n) :
     subReifier r (gReifiers_cons r rs).
@@ -233,7 +221,7 @@ Section greifiers.
     (s1 s2 : sReifier_state r ♯ X) :
     sReifier_re r op (x, s1, k) ≡ Some (y, s2) →
       sReifier_re (rs !!! sR_idx) (subEff_opid op)
-        (subEff_ins x, sR_state s1, ccompose k (subEff_outs ^-1)) ≡
+        (subEff_ins x, sR_state s1, k ◎ (subEff_outs ^-1)) ≡
         Some (y, sR_state s2).
   Proof.
     intros Hx. apply equiv_dist=>m.
@@ -248,7 +236,7 @@ Section greifiers.
     (σ σ' : sReifier_state r ♯ X) (rest : gState_rest sR_idx rs ♯ X) :
     sReifier_re r op (x, σ, k) ≡ Some (y, σ') →
     gReifiers_re rs (subEff_opid op)
-      (subEff_ins x, gState_recomp rest (sR_state σ), ccompose k (subEff_outs ^-1))
+      (subEff_ins x, gState_recomp rest (sR_state σ), k ◎ (subEff_outs ^-1))
       ≡ Some (y, gState_recomp rest (sR_state σ')).
   Proof.
     intros Hre.
@@ -280,7 +268,7 @@ Section greifiers.
     (s1 s2 : sReifier_state r ♯ X) :
         sReifier_re r op (x, s1, k) ≡ Some (y, s2) ⊢@{iProp}
         sReifier_re (rs !!! sR_idx) (subEff_opid op)
-          (subEff_ins x, sR_state s1, ccompose k (subEff_outs ^-1)) ≡
+          (subEff_ins x, sR_state s1, k ◎ (subEff_outs ^-1)) ≡
           Some (y, sR_state s2).
   Proof.
     apply uPred.internal_eq_entails=>m.
@@ -299,7 +287,7 @@ Section greifiers.
     (σ σ' : sReifier_state r ♯ X) (rest : gState_rest sR_idx rs ♯ X) :
     sReifier_re r op (x,σ, k) ≡ Some (y, σ') ⊢@{iProp}
     gReifiers_re rs (subEff_opid op)
-      (subEff_ins x, gState_recomp rest (sR_state σ), ccompose k (subEff_outs ^-1))
+      (subEff_ins x, gState_recomp rest (sR_state σ), k ◎ (subEff_outs ^-1))
       ≡ Some (y, gState_recomp rest (sR_state σ')).
   Proof.
     apply uPred.internal_eq_entails=>m.

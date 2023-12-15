@@ -237,7 +237,7 @@ Section weakestpre.
     + done.
     + done.
   Qed.
-  
+
 
   Lemma wp_output (σ σ' : stateO) (n : nat) Φ s :
     update_output n σ = σ' →
@@ -251,16 +251,6 @@ Section weakestpre.
     iApply wp_val. iApply ("Ha" with "Hcl Hs").
   Qed.
 
-  (* Proof. *)
-  (*   intros Hs. iIntros "Hs Ha". *)
-  (*   unfold OUTPUT. simpl. *)
-  (*   iApply (wp_subreify with "Hs"). *)
-  (*   { simpl. by rewrite Hs. } *)
-  (*   { simpl. done. } *)
-  (*   iModIntro. iIntros "H1 H2". *)
-  (*   iApply wp_val. by iApply ("Ha" with "H1 H2"). *)
-  (* Qed. *)
-
   Lemma wp_throw' (σ : stateO) (f : laterO (IT -n> IT)) (x : IT)
     (κ : IT -n> IT) `{!IT_hom κ} Φ s :
     has_substate σ -∗
@@ -271,7 +261,6 @@ Section weakestpre.
     rewrite hom_vis.
     iApply (wp_subreify with "Hs"); simpl; done.
   Qed.
-
 
   Lemma wp_throw (σ : stateO) (f : laterO (IT -n> IT)) (x : IT) Φ s :
     has_substate σ -∗

@@ -169,7 +169,7 @@ Section weakestpre.
   Proof.
     intros Hs. iIntros "Hs Ha".
     unfold OUTPUT. simpl.
-    iApply (wp_subreify rs _ _ _ _ _ _ _ with "Hs").
+    iApply (wp_subreify rs with "Hs").
     { simpl. by rewrite Hs. }
     { simpl. done. }
     iModIntro. iIntros "H1 H2".
