@@ -30,7 +30,6 @@ jobs:
           install: |
             startGroup "Install dependencies"
               sudo apt-get update -y -q
-              opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
               opam pin add -n -y -k path $PACKAGE $WORKDIR
               opam update -y
               opam install --confirm-level=unsafe-yes -j 2 $PACKAGE --deps-only
