@@ -149,7 +149,7 @@ Section weakestpre.
     intros Hs. iIntros "Hs Ha".
     unfold INPUT. simpl.
     iApply (wp_subreify with "Hs").
-    { simpl. by rewrite Hs. }
+    { simpl. rewrite Hs//=. }
     { simpl. by rewrite ofe_iso_21. }
     iModIntro. done.
   Qed.
@@ -591,14 +591,11 @@ Section interp.
       { repeat f_equiv; eauto.
         rewrite hom_INPUT. f_equiv. by intro. }
       rewrite reify_vis_eq //; last first.
-      { rewrite subReifier_reify/=//.
-         }
-         repeat f_equiv.
-      { simpl. f_equiv. by rewrite H4. }
+      { rewrite subReifier_reify//= H4//=. }
+      repeat f_equiv.
       rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_ectx_fill.
       simpl.
-      rewrite H4; simpl.
       done.
     - trans (reify (gReifiers_sReifier rs) (interp_ectx K env (OUTPUT n0)) (gState_recomp σr (sR_state σ))).
       { do 3 f_equiv; eauto.
