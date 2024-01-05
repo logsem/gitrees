@@ -6,7 +6,10 @@ Import ListNotations.
 
 Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
 
-Inductive nat_op := Add | Sub | Mult.
+Require Import FunctionalExtensionality.
+
+
+Variant nat_op := Add | Sub | Mult.
 
 Inductive expr {X : Set} :=
 (* Values *)
@@ -24,20 +27,25 @@ Inductive expr {X : Set} :=
 | Reset (e : expr) : expr
 with val {X : Set} :=
 | LitV (n : nat) : val
-| RecV (e : @expr (inc (inc X))) : val
-| ContV (K : ectx) : val
-with ectx {X : Set} :=
-| EmptyK : ectx
-| OutputK (K : ectx) : ectx
-| IfK (K : ectx) (e₁ : expr) (e₂ : expr) : ectx
-| AppLK (K : ectx) (v : val) : ectx
-| AppRK (e : expr) (K : ectx) : ectx
-| NatOpRK (op : nat_op) (e : expr) (K : ectx) : ectx
-| NatOpLK (op : nat_op) (K : ectx) (v : val) : ectx
-| ResetK (K : ectx) : ectx.
+| RecV (e : @expr (inc (inc X))) : val.
+
+Variant ectx_el {X : Set} :=
+  | OutputK : ectx_el
+  | IfCondK (e1 : @expr X) (e2 : @expr X) : ectx_el
+  | IfTrueK (b : @expr X) (e2 : @expr X) : ectx_el
+  | IfFalseK (b : @expr X) (e1 : @expr X) : ectx_el
+  | AppLK (er : @expr X) : ectx_el (* ◻ er *)
+  | AppRK (el : @expr X) : ectx_el (* el ◻ *)
+  | NatOpLK (op : nat_op) (er : @expr X) : ectx_el (* ◻ + er *)
+  | NatOpRK (op : nat_op) (el : @expr X) : ectx_el (* el + square *)
+  | ResetK : ectx_el.
+
+
+Definition ectx {X : Set} := list (@ectx_el X).
 
 Arguments val X%bind : clear implicits.
 Arguments expr X%bind : clear implicits.
+Arguments ectx_el X%bind : clear implicits.
 Arguments ectx X%bind : clear implicits.
 
 Local Open Scope bind_scope.
@@ -54,25 +62,30 @@ Fixpoint emap {A B : Set} (f : A [→] B) (e : expr A) : expr B :=
   | Shift e => Shift (emap (f ↑) e)
   | Reset e => Reset (emap f e)
   end
-with vmap {A B : Set} (f : A [→] B) (v : val A) : val B :=
-       match v with
-       | LitV n => LitV n
-       | RecV e => RecV (emap ((f ↑) ↑) e)
-       | ContV K => ContV (kmap f K)
-       end
-with kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
-       match K with
-       | EmptyK => EmptyK
-       | OutputK K => OutputK (kmap f K)
-       | IfK K e₁ e₂ => IfK (kmap f K) (emap f e₁) (emap f e₂)
-       | AppLK K v => AppLK (kmap f K) (vmap f v)
-       | AppRK e K => AppRK (emap f e) (kmap f K)
-       | NatOpRK op e K => NatOpRK op (emap f e) (kmap f K)
-       | NatOpLK op K v => NatOpLK op (kmap f K) (vmap f v)
-       | ResetK K => ResetK (kmap f K)
-       end.
+with
+vmap {A B : Set} (f : A [→] B) (v : val A) : val B :=
+  match v with
+  | LitV n => LitV n
+  | RecV e => RecV (emap ((f ↑) ↑) e)
+(* | ContV K => ContV (kmap f K) *)
+  end.
+
 #[export] Instance FMap_expr : FunctorCore expr := @emap.
 #[export] Instance FMap_val  : FunctorCore val := @vmap.
+
+Definition kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
+  map (fun x => match x with
+              | OutputK => OutputK
+              | IfCondK e1 e2 => IfCondK (fmap f e1) (fmap f e2)
+              | IfTrueK b e2 => IfTrueK (fmap f b) (fmap f e2)
+              | IfFalseK b e1 => IfFalseK (fmap f b) (fmap f e1)
+              | AppLK er => AppLK (fmap f er)
+              | AppRK el => AppRK (fmap f el)
+              | NatOpLK op er => NatOpLK op (fmap f er)
+              | NatOpRK op el => NatOpRK op (fmap f el)
+              | ResetK => ResetK
+              end) K.
+
 #[export] Instance FMap_ectx  : FunctorCore ectx := @kmap.
 
 #[export] Instance SPC_expr : SetPureCore expr := @Var.
@@ -89,26 +102,42 @@ Fixpoint ebind {A B : Set} (f : A [⇒] B) (e : expr A) : expr B :=
   | Shift e => Shift (ebind (f ↑) e)
   | Reset e => Reset (ebind f e)
   end
-with vbind {A B : Set} (f : A [⇒] B) (v : val A) : val B :=
-       match v with
-       | LitV n => LitV n
-       | RecV e => RecV (ebind ((f ↑) ↑) e)
-       | ContV K => ContV (kbind f K)
-       end
-with kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B :=
-       match K with
-       | EmptyK => EmptyK
-       | OutputK K => OutputK (kbind f K)
-       | IfK K e₁ e₂ => IfK (kbind f K) (ebind f e₁) (ebind f e₂)
-       | AppLK K v => AppLK (kbind f K) (vbind f v)
-       | AppRK e K => AppRK (ebind f e) (kbind f K)
-       | NatOpRK op e K => NatOpRK op (ebind f e) (kbind f K)
-       | NatOpLK op K v => NatOpLK op (kbind f K) (vbind f v)
-       | ResetK K => ResetK (kbind f K)
-       end.
+with
+vbind {A B : Set} (f : A [⇒] B) (v : val A) : val B :=
+  match v with
+  | LitV n => LitV n
+  | RecV e => RecV (ebind ((f ↑) ↑) e)
+  (* | ContV K => ContV (kbind f K) *)
+  end.
 
 #[export] Instance BindCore_expr : BindCore expr := @ebind.
 #[export] Instance BindCore_val  : BindCore val := @vbind.
+
+Definition kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B :=
+  map (fun x => match x with
+              | OutputK => OutputK
+              | IfCondK e1 e2 => IfCondK (bind f e1) (bind f e2)
+              | IfTrueK b e2 => IfTrueK (bind f b) (bind f e2)
+              | IfFalseK b e1 => IfFalseK (bind f b) (bind f e1)
+              | AppLK er => AppLK (bind f er)
+              | AppRK el => AppRK (bind f el)
+              | NatOpLK op er => NatOpLK op (bind f er)
+              | NatOpRK op el => NatOpRK op (bind f el)
+              | ResetK => ResetK
+              end) K.
+
+(* with kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B := *)
+(*        match K with *)
+(*        | EmptyK => EmptyK *)
+(*        | OutputK K => OutputK (kbind f K) *)
+(*        | IfK K e₁ e₂ => IfK (kbind f K) (ebind f e₁) (ebind f e₂) *)
+(*        | AppLK K v => AppLK (kbind f K) (vbind f v) *)
+(*        | AppRK e K => AppRK (ebind f e) (kbind f K) *)
+(*        | NatOpRK op e K => NatOpRK op (ebind f e) (kbind f K) *)
+(*        | NatOpLK op K v => NatOpLK op (kbind f K) (vbind f v) *)
+(*        | ResetK K => ResetK (kbind f K) *)
+(*        end. *)
+
 #[export] Instance BindCore_ectx  : BindCore ectx := @kbind.
 
 #[export] Instance IP_typ : SetPure expr.
@@ -117,25 +146,41 @@ Proof.
 Qed.
 
 Fixpoint vmap_id X (δ : X [→] X) (v : val X) : δ ≡ ı → fmap δ v = v
-with emap_id X (δ : X [→] X) (e : expr X) : δ ≡ ı → fmap δ e = e
-with kmap_id X (δ : X [→] X) (e : ectx X) : δ ≡ ı → fmap δ e = e.
+with emap_id X (δ : X [→] X) (e : expr X) : δ ≡ ı → fmap δ e = e.
+(* with kmap_id X (δ : X [→] X) (e : ectx X) : δ ≡ ı → fmap δ e = e. *)
 Proof.
-  - auto_map_id.
   - auto_map_id.
   - auto_map_id.
 Qed.
 
+Definition kmap_id X (δ : X [→] X) (k : ectx X) : δ ≡ ı -> fmap δ k = k.
+Proof.
+  rewrite  /fmap /FMap_ectx /kmap => H.
+  rewrite <-List.map_id. do 2 f_equal.
+  extensionality x. case: x => // >; rewrite !emap_id//.
+Qed.
+
+
 Fixpoint vmap_comp (A B C : Set) (f : B [→] C) (g : A [→] B) h (v : val A) :
   f ∘ g ≡ h → fmap f (fmap g v) = fmap h v
 with emap_comp (A B C : Set) (f : B [→] C) (g : A [→] B) h (e : expr A) :
-  f ∘ g ≡ h → fmap f (fmap g e) = fmap h e
-with kmap_comp (A B C : Set) (f : B [→] C) (g : A [→] B) h (e : ectx A) :
   f ∘ g ≡ h → fmap f (fmap g e) = fmap h e.
 Proof.
   - auto_map_comp.
   - auto_map_comp.
-  - auto_map_comp.
 Qed.
+
+
+Definition kmap_comp (A B C : Set) (f : B [→] C) (g : A [→] B) h (e : ectx A) :
+  f ∘ g ≡ h → fmap f (fmap g e) = fmap h e.
+Proof.
+  rewrite  /fmap /FMap_ectx => H.
+  rewrite /kmap map_map. do 2 f_equal.
+  extensionality x.
+  case : x => // >; rewrite !(emap_comp _ _ _ f g h)//.
+Qed.
+
+
 
 #[export] Instance Functor_val : Functor val.
 Proof.
@@ -153,8 +198,6 @@ Qed.
 Fixpoint vmap_vbind_pure (A B : Set) (f : A [→] B) (g : A [⇒] B) (v : val A) :
   f ̂ ≡ g → fmap f v = bind g v
 with emap_ebind_pure (A B : Set) (f : A [→] B) (g : A [⇒] B) (e : expr A) :
-  f ̂ ≡ g → fmap f e = bind g e
-with kmap_kbind_pure (A B : Set) (f : A [→] B) (g : A [⇒] B) (e : ectx A) :
   f ̂ ≡ g → fmap f e = bind g e.
 Proof.
   - auto_map_bind_pure.
@@ -162,7 +205,6 @@ Proof.
     intros [| [| x]]; term_simpl; [reflexivity | reflexivity |].
     rewrite <-(EQ x).
     reflexivity.
-  - auto_map_bind_pure.
   - auto_map_bind_pure.
 Qed.
 
@@ -174,6 +216,16 @@ Qed.
 Proof.
   split; intros; now apply emap_ebind_pure.
 Qed.
+
+Definition kmap_kbind_pure (A B : Set) (f : A [→] B) (g : A [⇒] B) (e : ectx A) :
+  f ̂ ≡ g → fmap f e = bind g e.
+Proof.
+  rewrite /fmap /FMap_ectx /bind /BindCore_ectx /kmap /kbind => H.
+  do 2 f_equal. extensionality x.
+  case: x => [] > //; rewrite !(emap_ebind_pure _ _ _ g)//.
+Qed.
+
+
 #[export] Instance BindMapPure_ectx : BindMapPure ectx.
 Proof.
   split; intros; now apply kmap_kbind_pure.
@@ -184,9 +236,6 @@ Fixpoint vmap_vbind_comm (A B₁ B₂ C : Set) (f₁ : B₁ [→] C) (f₂ : A [
   g₂ ∘ f₂ ̂ ≡ f₁ ̂ ∘ g₁ → bind g₂ (fmap f₂ v) = fmap f₁ (bind g₁ v)
 with emap_ebind_comm (A B₁ B₂ C : Set) (f₁ : B₁ [→] C) (f₂ : A [→] B₂)
        (g₁ : A [⇒] B₁) (g₂ : B₂ [⇒] C) (e : expr A) :
-  g₂ ∘ f₂ ̂ ≡ f₁ ̂ ∘ g₁ → bind g₂ (fmap f₂ e) = fmap f₁ (bind g₁ e)
-with kmap_kbind_comm (A B₁ B₂ C : Set) (f₁ : B₁ [→] C) (f₂ : A [→] B₂)
-       (g₁ : A [⇒] B₁) (g₂ : B₂ [⇒] C) (e : ectx A) :
   g₂ ∘ f₂ ̂ ≡ f₁ ̂ ∘ g₁ → bind g₂ (fmap f₂ e) = fmap f₁ (bind g₁ e).
 Proof.
   - auto_map_bind_comm.
@@ -194,8 +243,17 @@ Proof.
     erewrite lift_comm; [reflexivity |].
     erewrite lift_comm; [reflexivity | assumption].
   - auto_map_bind_comm.
-  - auto_map_bind_comm.
 Qed.
+
+Definition kmap_kbind_comm (A B₁ B₂ C : Set) (f₁ : B₁ [→] C) (f₂ : A [→] B₂)
+       (g₁ : A [⇒] B₁) (g₂ : B₂ [⇒] C) (e : ectx A) :
+  g₂ ∘ f₂ ̂ ≡ f₁ ̂ ∘ g₁ → bind g₂ (fmap f₂ e) = fmap f₁ (bind g₁ e).
+Proof.
+  rewrite /fmap /FMap_ectx /bind /BindCore_ectx /kmap /kbind => H.
+  rewrite !map_map. do 2 f_equal. extensionality x.
+  case : x => // >; rewrite !(emap_ebind_comm _ B₁ _ _ f₁ _ g₁)//.
+Qed.
+
 
 #[export] Instance BindMapComm_val : BindMapComm val.
 Proof.
@@ -213,22 +271,27 @@ Qed.
 Fixpoint vbind_id (A : Set) (f : A [⇒] A) (v : val A) :
   f ≡ ı → bind f v = v
 with ebind_id  (A : Set) (f : A [⇒] A) (e : expr A) :
-  f ≡ ı → bind f e = e
-with kbind_id  (A : Set) (f : A [⇒] A) (e : ectx A) :
   f ≡ ı → bind f e = e.
 Proof.
   - auto_bind_id.
     rewrite ebind_id; [reflexivity |].
     apply lift_id, lift_id; assumption.
   - auto_bind_id.
-  - auto_bind_id.
 Qed.
+
+Definition kbind_id  (A : Set) (f : A [⇒] A) (e : ectx A) :
+  f ≡ ı → bind f e = e.
+Proof.
+  rewrite /bind /BindCore_ectx /kbind => H.
+  rewrite <-List.map_id. do 2 f_equal.
+  extensionality x. case : x => // >; rewrite !ebind_id//.
+Qed.
+
+
 
 Fixpoint vbind_comp (A B C : Set) (f : B [⇒] C) (g : A [⇒] B) h (v : val A) :
   f ∘ g ≡ h → bind f (bind g v) = bind h v
 with ebind_comp (A B C : Set) (f : B [⇒] C) (g : A [⇒] B) h (e : expr A) :
-  f ∘ g ≡ h → bind f (bind g e) = bind h e
-with kbind_comp (A B C : Set) (f : B [⇒] C) (g : A [⇒] B) h (e : ectx A) :
   f ∘ g ≡ h → bind f (bind g e) = bind h e.
 Proof.
   - auto_bind_comp.
@@ -236,8 +299,16 @@ Proof.
     erewrite lift_comp; [reflexivity |].
     erewrite lift_comp; [reflexivity | assumption].
   - auto_bind_comp.
-  - auto_bind_comp.
 Qed.
+
+Definition kbind_comp (A B C : Set) (f : B [⇒] C) (g : A [⇒] B) h (e : ectx A) :
+  f ∘ g ≡ h → bind f (bind g e) = bind h e.
+Proof.
+  rewrite /bind/BindCore_ectx/kbind => H.
+  rewrite map_map. do 2 f_equal. extensionality x.
+  case : x => // >; rewrite !(ebind_comp _ _ _ _ _ h)//.
+Qed.
+
 
 #[export] Instance Bind_val : Bind val.
 Proof.
@@ -271,27 +342,28 @@ Definition nat_op_interp {S} (n : nat_op) (x y : val S) : option (val S) :=
   | _,_ => None
   end.
 
-Fixpoint fill {X : Set} (K : ectx X) (e : expr X) : expr X :=
+Definition fill {X : Set} (K : ectx_el X) (e : expr X) : expr X :=
   match K with
-  | EmptyK => e
-  | OutputK K => Output (fill K e)
-  | IfK K e₁ e₂ => If (fill K e) e₁ e₂
-  | AppLK K v => App (fill K e) (Val v)
-  | AppRK e' K => App e' (fill K e)
-  | NatOpRK op e' K => NatOp op e' (fill K e)
-  | NatOpLK op K v => NatOp op (fill K e) (Val v)
-  | ResetK K => Reset (fill K e)
+  | OutputK => Output e
+  | IfCondK e1 e2 => If e e1 e2
+  | IfTrueK b e2 => If b e e2
+  | IfFalseK b e1 => If b e1 e
+  | AppLK er => App e er
+  | AppRK el => App el e
+  | NatOpLK op er => NatOp op e er
+  | NatOpRK op el => NatOp op el e
+  | ResetK => Reset e
   end.
 
-Lemma fill_emap {X Y : Set} (f : X [→] Y) (K : ectx X) (e : expr X)
-  : fmap f (fill K e) = fill (fmap f K) (fmap f e).
-Proof.
-  revert f.
-  induction K as
-    [ | ?? IH | ?? IH | ?? IH | ??? IH | ???? IH
-    | ??? IH | ?? IH ];
-    intros f; term_simpl; first done; rewrite IH; reflexivity.
-Qed.
+(* Lemma fill_emap {X Y : Set} (f : X [→] Y) (K : ectx X) (e : expr X) *)
+(*   : fmap f (fill K e) = fill (fmap f K) (fmap f e). *)
+(* Proof. *)
+(*   revert f. *)
+(*   induction K as *)
+(*     [ | ?? IH | ?? IH | ?? IH | ??? IH | ???? IH *)
+(*     | ??? IH | ?? IH ]; *)
+(*     intros f; term_simpl; first done; rewrite IH; reflexivity. *)
+(* Qed. *)
 
 (*** Operational semantics *)
 
