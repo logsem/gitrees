@@ -29,6 +29,12 @@ theories/gitree.v
 
 theories/program_logic.v
 
+
+theories/input_lang_delim/lang.v
+theories/input_lang_delim/interp.v
+theories/input_lang_delim/hom.v
+theories/input_lang_delim/logrel.v
+
 theories/input_lang_callcc/lang.v
 theories/input_lang_callcc/interp.v
 theories/input_lang_callcc/hom.v
