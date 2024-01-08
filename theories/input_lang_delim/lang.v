@@ -29,6 +29,8 @@ with val {X : Set} :=
 | LitV (n : nat) : val
 | RecV (e : @expr (inc (inc X))) : val.
 
+
+
 Variant ectx_el {X : Set} :=
   | OutputK : ectx_el
   | IfCondK (e1 : @expr X) (e2 : @expr X) : ectx_el
@@ -48,7 +50,11 @@ Arguments expr X%bind : clear implicits.
 Arguments ectx_el X%bind : clear implicits.
 Arguments ectx X%bind : clear implicits.
 
+
+
+
 Local Open Scope bind_scope.
+
 
 Fixpoint emap {A B : Set} (f : A [→] B) (e : expr A) : expr B :=
   match e with
@@ -342,9 +348,10 @@ Definition nat_op_interp {S} (n : nat_op) (x y : val S) : option (val S) :=
   | _,_ => None
   end.
 
-Definition fill {X : Set} (K : ectx_el X) (e : expr X) : expr X :=
+
+Definition ctx_el_to_expr {X : Set} (K : ectx_el X) (e : expr X) : expr X :=
   match K with
-  | OutputK => Output e
+  | OutputK => Output $ e
   | IfCondK e1 e2 => If e e1 e2
   | IfTrueK b e2 => If b e e2
   | IfFalseK b e1 => If b e1 e
@@ -352,8 +359,40 @@ Definition fill {X : Set} (K : ectx_el X) (e : expr X) : expr X :=
   | AppRK el => App el e
   | NatOpLK op er => NatOp op e er
   | NatOpRK op el => NatOp op el e
-  | ResetK => Reset e
+  | ResetK => e
   end.
+
+Definition fill {X : Set} (K : ectx X) (e : expr X) : expr X :=
+  fold_left (fun e c => ctx_el_to_expr c e) K e.
+
+
+Fixpoint trim_to_first_reset {X : Set} (K : ectx X) (acc : ectx X) : (ectx X * ectx X) :=
+  match K with
+  | OutputK :: K => trim_to_first_reset K (OutputK :: acc)
+  | (IfCondK e1 e2) :: K => trim_to_first_reset K ((IfCondK e1 e2) :: acc)
+  | (IfTrueK b e2) :: K => trim_to_first_reset K ((IfTrueK b e2) :: acc)
+  | (IfFalseK b e1) :: K => trim_to_first_reset K ((IfFalseK b e1) :: acc)
+  | (AppLK er) :: K => trim_to_first_reset K ((AppLK er) :: acc)
+  | (AppRK el) :: K => trim_to_first_reset K ((AppRK el) :: acc)
+  | (NatOpLK op er) :: K => trim_to_first_reset K ((NatOpLK op er) :: acc)
+  | (NatOpRK op el) :: K => trim_to_first_reset K ((NatOpRK op el) :: acc)
+  | (ResetK) :: K => (acc, ResetK :: K)
+  | [] => (acc, [])
+  end.
+
+(* Separate continuation [K] on innermost [reset] *)
+Definition shift_context {X : Set} (K : ectx X) : (ectx X * ectx X) :=
+  let (Ki, Ko) := trim_to_first_reset K [] in
+  (List.rev Ki, Ko).
+
+
+Definition LamV {S : Set} (e : expr (inc S)) : val S :=
+  RecV (shift e).
+
+(* Only if no reset in K *)
+Definition cont_to_rec {X : Set} (K : ectx X) : (val X) :=
+  LamV (fill (shift K) (Var VZ)).
+
 
 (* Lemma fill_emap {X Y : Set} (f : X [→] Y) (K : ectx X) (e : expr X) *)
 (*   : fmap f (fill K e) = fill (fmap f K) (fmap f e). *)
@@ -383,58 +422,74 @@ Definition update_output (n:nat) (s : state) : state :=
   {| inputs := s.(inputs); outputs := n::s.(outputs) |}.
 
 
-(** [head_step e σ e' σ' K (n, m)] : step from [(e, σ)] to [(e', σ')] under context K
+(** [head_step e σ K e' σ' K' (n, m)] : step from [(e, σ, K)] to [(e', σ', K')] 
     in [n] ticks with [m] i/o accesses *)
-Inductive head_step {S} : expr S → state → expr S → state → ectx S → nat * nat → Prop :=
-| BetaS e1 v2 σ K :
-  head_step (App (Val $ RecV e1) (Val v2)) σ
-    (subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1)
-                           (Val (shift (Inc := inc) v2)))
-       (Val (RecV e1))) σ K (1,0)
-| InputS σ n σ' K :
-  update_input σ = (n, σ') →
-  head_step Input σ (Val (LitV n)) σ' K (1, 1)
-| OutputS σ n σ' K :
-  update_output n σ = σ' →
-  head_step (Output (Val (LitV n))) σ (Val (LitV 0)) σ' K (1, 1)
-| NatOpS op v1 v2 v3 σ K :
-  nat_op_interp op v1 v2 = Some v3 →
-  head_step (NatOp op (Val v1) (Val v2)) σ
-            (Val v3) σ K (0, 0)
-| IfTrueS n e1 e2 σ K :
-  n > 0 →
-  head_step (If (Val (LitV n)) e1 e2) σ
-            e1 σ K (0, 0)
-| IfFalseS n e1 e2 σ K :
-  n = 0 →
-  head_step (If (Val (LitV n)) e1 e2) σ
-    e2 σ K (0, 0)
-(* | ShiftS e σ K : *)
-(*   head_step (Shift e) σ (subst (Inc := inc) e (Val (ContV K))) σ K (1, 1) *)
-| ResetValS v σ K:
-  head_step (Reset (Val v)) σ (Val v) σ K (1,0)
-| ResetShiftS e σ K E:
-  head_step
-    (Reset (fill E (Shift e))) σ
-    (Reset (subst (Inc := inc) e (Val $ ContV $ ResetK E))) σ K (1,0).
+Variant head_step {S} : expr S → state -> ectx S →
+                        expr S → state → ectx S →
+                        nat * nat → Prop :=
+  | BetaS e1 v2 σ K :
+    head_step (App (Val $ RecV e1) (Val v2)) σ K
+      (subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1)
+                             (Val (shift (Inc := inc) v2)))
+         (Val (RecV e1))) σ K (1,0)
+  | InputS σ n σ' K :
+    update_input σ = (n, σ') →
+    head_step Input σ K (Val (LitV n)) σ' K (1, 1)
+  | OutputS σ n σ' K :
+    update_output n σ = σ' →
+    head_step (Output (Val (LitV n))) σ K (Val (LitV 0)) σ' K (1, 1)
+  | NatOpS op v1 v2 v3 σ K :
+    nat_op_interp op v1 v2 = Some v3 →
+    head_step (NatOp op (Val v1) (Val v2)) σ K
+      (Val v3) σ K (0, 0)
+  | IfTrueS n e1 e2 σ K :
+    n > 0 →
+    head_step (If (Val (LitV n)) e1 e2) σ K
+      e1 σ K (0, 0)
+  | IfFalseS n e1 e2 σ K :
+    n = 0 →
+    head_step (If (Val (LitV n)) e1 e2) σ K
+      e2 σ K (0, 0)
+  | ValueS v σ K C:
+    head_step (Val v) σ (C::K) (ctx_el_to_expr C (Val v)) σ K (0, 0)
 
-Lemma head_step_io_01 {S} (e1 e2 : expr S) σ1 σ2 K n m :
-  head_step e1 σ1 e2 σ2 K (n,m) → m = 0 ∨ m = 1.
+  | ShiftS e σ K Ki Ko f:
+    ((Ki, Ko) = shift_context K) ->
+    f = cont_to_rec Ki ->
+    head_step (Shift e) σ K (subst (Inc := inc) e (Val f)) σ Ko (1, 0).
+
+  (* | ResetShiftS e σ K E: *)
+  (*   head_step *)
+  (*     (Reset (fill E (Shift e))) σ *)
+  (*     (Reset (subst (Inc := inc) e (Val $ ContV $ ResetK E))) σ K (1,0). *)
+
+Lemma head_step_io_01 {S} (e1 e2 : expr S) σ1 σ2 K K' n m :
+  head_step e1 σ1 K e2 σ2 K' (n,m) → m = 0 ∨ m = 1.
 Proof.  inversion 1; eauto. Qed.
-Lemma head_step_unfold_01 {S} (e1 e2 : expr S) σ1 σ2 K n m :
-  head_step e1 σ1 e2 σ2 K (n,m) → n = 0 ∨ n = 1.
+Lemma head_step_unfold_01 {S} (e1 e2 : expr S) σ1 σ2 K K' n m :
+  head_step e1 σ1 K e2 σ2 K' (n,m) → n = 0 ∨ n = 1.
 Proof.  inversion 1; eauto. Qed.
-Lemma head_step_no_io {S} (e1 e2 : expr S) σ1 σ2 K n :
-  head_step e1 σ1 e2 σ2 K (n,0) → σ1 = σ2.
+Lemma head_step_no_io {S} (e1 e2 : expr S) σ1 σ2 K K' n :
+  head_step e1 σ1 K e2 σ2 K' (n,0) → σ1 = σ2.
 Proof.  inversion 1; eauto. Qed.
 
 (** Carbonara from heap lang *)
-Global Instance fill_item_inj {S} (Ki : ectx S) : Inj (=) (=) (fill Ki).
+
+Global Instance ctx_el_to_expr_inj {S} (C : ectx_el S) : Inj (=) (=) (ctx_el_to_expr C).
+Proof. case: C => [] >; simpl in*; congruence. Qed.
+
+Global Instance fill_inj {S} (Ki : ectx S) : Inj (=) (=) (fill Ki).
 Proof. induction Ki; intros ???; simplify_eq/=; auto with f_equal. Qed.
 
-Lemma fill_item_val {S} Ki (e : expr S) :
+Lemma ctx_el_to_expr_val {S} C (e : expr S) :
+  is_Some (to_val (ctx_el_to_expr C e)) → is_Some (to_val e).
+Proof. case : C => [] > H; simpl in H; try by apply is_Some_None in H. done. Qed.
+
+Lemma fill_val {S} Ki (e : expr S) :
   is_Some (to_val (fill Ki e)) → is_Some (to_val e).
-Proof. intros [v ?]. induction Ki; simplify_option_eq; eauto. Qed.
+Proof. elim: Ki e; simpl in *; first done. intros.
+       apply (ctx_el_to_expr_val a e). apply H. apply H0.
+Qed.
 
 Lemma val_head_stuck {S} (e1 : expr S) σ1 e2 σ2 K m : head_step e1 σ1 e2 σ2 K m → to_val e1 = None.
 Proof. destruct 1; naive_solver. Qed.
