@@ -329,6 +329,12 @@ Proof.
   split; intros; [now apply kbind_id | now apply kbind_comp].
 Qed.
 
+
+
+Definition LamV {S : Set} (e : expr (inc S)) : val S :=
+  RecV (shift e).
+
+
 Definition to_val {S} (e : expr S) : option (val S) :=
   match e with
   | Val v => Some v
@@ -385,9 +391,6 @@ Definition shift_context {X : Set} (K : ectx X) : (ectx X * ectx X) :=
   let (Ki, Ko) := trim_to_first_reset K [] in
   (List.rev Ki, Ko).
 
-
-Definition LamV {S : Set} (e : expr (inc S)) : val S :=
-  RecV (shift e).
 
 (* Only if no reset in K *)
 Definition cont_to_rec {X : Set} (K : ectx X) : (val X) :=
@@ -491,37 +494,22 @@ Proof. elim: Ki e; simpl in *; first done. intros.
        apply (ctx_el_to_expr_val a e). apply H. apply H0.
 Qed.
 
-Lemma val_head_stuck {S} (e1 : expr S) σ1 e2 σ2 K m : head_step e1 σ1 e2 σ2 K m → to_val e1 = None.
-Proof. destruct 1; naive_solver. Qed.
+(* CHECK *)
+(* Lemma val_head_stuck {S} (e1 : expr S) σ1 e2 σ2 K m : *)
+(*   head_step e1 σ1 e2 σ2 K m → to_val e1 = None. *)
+(* Proof. destruct 1; naive_solver. Qed. *)
 
-Fixpoint ectx_compose {S} (K1 K2 : ectx S) : ectx S
-  := match K1 with
-     | EmptyK => K2
-     | OutputK K => OutputK (ectx_compose K K2)
-     | IfK K e₁ e₂ => IfK (ectx_compose K K2) e₁ e₂
-     | AppLK K v => AppLK (ectx_compose K K2) v
-     | AppRK e K => AppRK e (ectx_compose K K2)
-     | NatOpRK op e K => NatOpRK op e (ectx_compose K K2)
-     | NatOpLK op K v => NatOpLK op (ectx_compose K K2) v
-     | ResetK K => ResetK (ectx_compose K K2)
-     end.
+
+(* K1 ∘ K2 *)
+Definition ectx_compose {S} (K1 K2 : ectx S) : ectx S :=
+  K2 ++ K1.
 
 Lemma fill_app {S} (K1 K2 : ectx S) e : fill (ectx_compose K1 K2) e = fill K1 (fill K2 e).
 Proof.
-  revert K2.
-  revert e.
-  induction K1 as
-    [ | ?? IH | ?? IH | ?? IH | ??? IH | ???? IH | ??? IH | ?? IH ];
-    simpl; first done; intros e' K2; rewrite IH; reflexivity.
+  elim: K2 K1 e =>>; eauto.
+  intros H K1 e. simpl. by rewrite H.
 Qed.
 
-Lemma fill_val : ∀ {S} K (e : expr S), is_Some (to_val (fill K e)) → is_Some (to_val e).
-Proof.
-  intros S K.
-  induction K as [ | ?? IH | ?? IH | ?? IH | ??? IH | ???? IH | ??? IH | ?? IH ]
-            => e' //=;
-                 inversion 1 as [? HH]; inversion HH.
-Qed.
 
 Lemma fill_not_val : ∀ {S} K (e : expr S), to_val e = None → to_val (fill K e) = None.
 Proof.
@@ -529,34 +517,28 @@ Proof.
   eauto using fill_val.
 Qed.
 
-Lemma fill_empty {S} (e : expr S) : fill EmptyK e = e.
-Proof. reflexivity. Qed.
+
 Lemma fill_comp {S} K1 K2 (e : expr S) : fill K2 (fill K1 e) = fill (ectx_compose K2 K1) e.
 Proof. by rewrite fill_app. Qed.
-Global Instance fill_inj {S} (K : ectx S) : Inj (=) (=) (fill K).
-Proof.
-  induction K as [ | ?? IH | ?? IH | ?? IH | ??? IH | ???? IH | ??? IH | ?? IH ];
-    rewrite /Inj; naive_solver.
-Qed.
+
 
 (* FIXME maybe *)
 Inductive prim_step {S} : ∀ (e1 : expr S) (σ1 : state)
           (e2 : expr S) (σ2 : state) (n : nat * nat), Prop :=
-| Ectx_step e1 σ1 e2 σ2 n (K : ectx S) e1' e2' :
-  e1 = fill K e1' → e2 = fill K e2' →
-  head_step e1' σ1 e2' σ2 K n → prim_step e1 σ1 e2 σ2 n
-| App_cont_step e1 σ e2 (K : ectx S) v K' :
-  e1 = (fill K (App (Val $ ContV K') (Val v))) ->
-  e2 = (fill K' (Val v)) ->
-  prim_step e1 σ e2 σ (2, 0).
+| Ectx_step e1 σ1 e2 σ2 n (K1 K2 : ectx S) e1' e2' :
+  e1 = fill K1 e1' → e2 = fill K2 e2' →
+  head_step e1' σ1 K1 e2' σ2 K2 n → prim_step e1 σ1 e2 σ2 n.
+(* | App_cont_step e1 σ e2 (K : ectx S) v K' : *)
+(*   e1 = (fill K (App (Val $ ContV K') (Val v))) -> *)
+(*   e2 = (fill K' (Val v)) -> *)
+(*   prim_step e1 σ e2 σ (2, 0). *)
 (* CHECK *)
 
 Lemma prim_step_pure {S} (e1 e2 : expr S) σ1 σ2 n :
   prim_step e1 σ1 e2 σ2 (n,0) → σ1 = σ2.
 Proof.
   inversion 1; simplify_eq/=.
-  - by inversion H2.
-  - by inversion H.
+  by inversion H2.
 Qed.
 
 Inductive prim_steps {S} : expr S → state → expr S → state → nat * nat → Prop :=
@@ -568,8 +550,8 @@ Inductive prim_steps {S} : expr S → state → expr S → state → nat * nat �
   prim_steps e1 σ1 e3 σ3 (plus n1 n2, plus m1 m2)
 .
 
-Lemma Ectx_step' {S} (K : ectx S) e1 σ1 e2 σ2 efs :
-  head_step e1 σ1 e2 σ2 K efs → prim_step (fill K e1) σ1 (fill K e2) σ2 efs.
+Lemma Ectx_step' {S} (K1 K2 : ectx S) e1 σ1 e2 σ2 efs :
+  head_step e1 σ1 K1 e2 σ2 K2 efs → prim_step (fill K1 e1) σ1 (fill K2 e2) σ2 efs.
 Proof. econstructor; eauto. Qed.
 
 Lemma prim_steps_app {S} nm1 nm2 (e1 e2 e3 : expr S) σ1 σ2 σ3 :
@@ -603,12 +585,8 @@ Proof.
 Qed.
 
 Lemma head_step_prim_step {S} (e1 e2 : expr S) σ1 σ2 nm :
-  head_step e1 σ1 e2 σ2 EmptyK nm -> prim_step e1 σ1 e2 σ2 nm.
+  head_step e1 σ1 [] e2 σ2 [] nm -> prim_step e1 σ1 e2 σ2 nm.
 Proof.
-  assert (e1 = fill EmptyK e1) as Heq1; first done.
-  rewrite ->Heq1 at 2.
-  assert (e2 = fill EmptyK e2) as Heq2; first done.
-  rewrite ->Heq2 at 2.
   apply Ectx_step'.
 Qed.
 
@@ -646,9 +624,13 @@ Inductive typed {S : Set} (Γ : S -> ty) : expr S → ty → Prop :=
 (*   typed Γ e1 τ -> *)
 (*   typed Γ e2 (Tcont τ) -> *)
 (*   typed Γ (Throw e1 e2) τ' *)
-| typed_Callcc e τ :
+| typed_Shift e τ :
   typed (Γ ▹ Tcont τ) e τ ->
   typed Γ (Shift e) τ
+| typed_App_Cont (τ τ' : ty) e1 e2 :
+  typed Γ e1 (Tcont τ) ->
+  typed Γ e2 τ ->
+  typed Γ (App e1 e2) τ'
 | type_Reset e τ :
   typed Γ e τ ->
   typed Γ (Reset e) τ
@@ -667,8 +649,8 @@ Delimit Scope syn_scope with syn.
 Coercion Val : val >-> expr.
 
 Coercion App : expr >-> Funclass.
-Coercion AppLK : ectx >-> Funclass.
-Coercion AppRK : expr >-> Funclass.
+(* Coercion AppLK : expr >-> Funclass. *)
+(* Coercion AppRK : expr >-> Funclass. *)
 
 Class AsSynExpr (F : Set -> Type) := { __asSynExpr : ∀ S, F S -> expr S }.
 
@@ -688,11 +670,11 @@ Global Instance OpNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSy
   }.
 
 Global Instance OpNotationLK {S : Set} : OpNotation (ectx S) (nat_op) (val S) (ectx S) := {
-  __op K op v := NatOpLK op K v
+  __op K op v := K ++ [NatOpLK op v]
   }.
 
 Global Instance OpNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : OpNotation (F S) (nat_op) (ectx S) (ectx S) := {
-  __op e op K := NatOpRK op (__asSynExpr e) K
+  __op e op K := K ++ [NatOpRK op (__asSynExpr e)]
   }.
 
 Class IfNotation (A B C D : Type) := { __if : A -> B -> C -> D }.
@@ -701,8 +683,19 @@ Global Instance IfNotationExpr {S : Set} {F G H : Set -> Type} `{AsSynExpr F, As
   __if e₁ e₂ e₃ := If (__asSynExpr e₁) (__asSynExpr e₂) (__asSynExpr e₃)
   }.
 
-Global Instance IfNotationK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : IfNotation (ectx S) (F S) (G S) (ectx S) := {
-  __if K e₂ e₃ := IfK K (__asSynExpr e₂) (__asSynExpr e₃)
+Global Instance IfNotationCondK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} :
+  IfNotation (ectx S) (F S) (G S) (ectx S) := {
+  __if K e₂ e₃ := K ++ [IfCondK (__asSynExpr e₂) (__asSynExpr e₃)]
+  }.
+
+Global Instance IfNotationTrueK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} :
+  IfNotation (F S) (ectx S) (G S) (ectx S) := {
+  __if b K e₃ := K ++ [IfCondK (__asSynExpr b) (__asSynExpr e₃)]
+  }.
+
+Global Instance IfNotationFalseK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} :
+  IfNotation (F S) (G S) (ectx S) (ectx S) := {
+  __if b e2 K := K ++ [IfCondK (__asSynExpr b) (__asSynExpr e2)]
   }.
 
 Class OutputNotation (A B : Type) := { __output : A -> B }.
@@ -712,7 +705,7 @@ Global Instance OutputNotationExpr {S : Set} {F : Set -> Type} `{AsSynExpr F} : 
   }.
 
 Global Instance OutputNotationK {S : Set} : OutputNotation (ectx S) (ectx S) := {
-  __output K := OutputK K
+  __output K := K ++ [OutputK]
   }.
 
 Class ResetNotation (A B : Type) := { __reset : A -> B }.
@@ -721,7 +714,7 @@ Global Instance ResetNotationExpr {S : Set} {F : Set -> Type} `{AsSynExpr F} :
   ResetNotation (F S) (expr S) := { __reset e := Reset (__asSynExpr e) }.
 
 Global Instance ResetNotationK {S : Set} : ResetNotation (ectx S) (ectx S) :=
-  { __reset K := ResetK K }.
+  { __reset K := K ++ [ResetK] }.
 
 (* Class ThrowNotation (A B C : Type) := { __throw : A -> B -> C }. *)
 
@@ -743,12 +736,12 @@ Global Instance AppNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsS
   __app e₁ e₂ := App (__asSynExpr e₁) (__asSynExpr e₂)
   }.
 
-Global Instance AppNotationLK {S : Set} : AppNotation (ectx S) (val S) (ectx S) := {
-  __app K v := AppLK K v
+Global Instance AppNotationLK {S : Set} : AppNotation (ectx S) (expr S) (ectx S) := {
+  __app K e := K ++ [AppLK e]
   }.
 
 Global Instance AppNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppNotation (F S) (ectx S) (ectx S) := {
-  __app e K := AppRK (__asSynExpr e) K
+  __app e K := K ++ [AppRK (__asSynExpr e)]
   }.
 
 Notation of_val := Val (only parsing).
@@ -765,15 +758,13 @@ Notation "'input'" := (Input) : syn_scope.
 Notation "'rec' e" := (RecV e%syn) (at level 60) : syn_scope.
 Notation "'shift/cc' e" := (Shift e%syn) (at level 60) : syn_scope.
 Notation "'reset' e" := (Reset e%syn) (at level 60) : syn_scope.
-Notation "'cont' K" := (ContV K%syn) (at level 60) : syn_scope.
+(* Notation "'cont' K" := (ContV K%syn) (at level 60) : syn_scope. *)
 Notation "'$' fn" := (set_pure_resolver fn) (at level 60) : syn_scope.
-Notation "□" := (EmptyK) : syn_scope.
+(* Notation "□" := (EmptyK) : syn_scope. *)
 Notation "K '⟪' e '⟫'" := (fill K%syn e%syn) (at level 60) : syn_scope.
 
-Definition LamV {S : Set} (e : expr (inc S)) : val S :=
-  RecV (shift e).
 
-Notation "'λ' . e" := (LamV e%syn) (at level 60) : syn_scope.
+Notation "'lam' e" := (LamV e%syn) (at level 60) : syn_scope.
 
 Definition LetE {S : Set} (e : expr S) (e' : expr (inc S)) : expr S :=
   App (LamV e') (e).
@@ -815,6 +806,7 @@ Module SynExamples.
 
   Example test1 : expr (inc ∅) := ($ 0).
   Example test2 : val ∅ := (rec (if ($ 1) then # 1 else # 0)).
+  Example test21 : val ∅ := (lam (if ($ 0) then # 1 else #0)).
   Example test3 : expr ∅ := (shift/cc ($ 0)).
   Example test4 : expr ∅ := ((# 1) + (# 0)).
   Example test5 : val ∅ := (rec (if ($ 1) then # 1 else (($ 0) ⋆ (($ 1) - (# 1))))).
@@ -826,34 +818,42 @@ Module SynExamples.
   Example test8 : Prop := (empty_env ⊢ (# 0) : ℕ).
 End SynExamples.
 
-Definition compute_head_step {S} (e : expr S) (σ : state) (K : ectx S) : option (expr S * state * (nat * nat)) :=
+Definition compute_head_step {S}
+  (e : expr S) (σ : state) (K : ectx S) :
+  option (expr S * state * ectx S * (nat * nat)) :=
   match e with
-  | (App (Val (RecV e1)) (Val v2)) => Some ((subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1) (Val (shift (Inc := inc) v2))) (Val (RecV e1))), σ, (1,0))
+  | (App (Val (RecV e1)) (Val v2)) =>
+      Some ((subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1)
+                                   (Val (shift (Inc := inc) v2)))
+               (Val (RecV e1))), σ, K, (1,0))
   | Input =>
       let '(n, σ') := update_input σ in
-      Some ((Val (LitV n)), σ', (1, 1))
+      Some ((Val (LitV n)), σ', K, (1, 1))
   | Output (Val (LitV n)) =>
       let σ' := update_output n σ in
-      Some ((Val (LitV 0)), σ', (1, 1))
+      Some ((Val (LitV 0)), σ', K, (1, 1))
   | (NatOp op (Val v1) (Val v2)) =>
       let res := nat_op_interp op v1 v2 in
-      option_rect (fun _ => option _) (fun v3 => Some ((Val v3), σ, (0, 0))) None res
+      option_rect (fun _ => option _) (fun v3 => Some ((Val v3), σ, K, (0, 0))) None res
   | (If (Val (LitV n)) e1 e2) =>
       if (decide (0 < n))
-      then Some (e1, σ, (0, 0))
+      then Some (e1, σ, K, (0, 0))
       else
         if (decide (n = 0))
-        then Some (e2, σ, (0, 0))
+        then Some (e2, σ, K, (0, 0))
         else None
-  (* | (Shift e) => Some ((subst (Inc := inc) e (Val (ContV K))), σ, (1, 1)) *)
-  | (Reset (Val v)) => Some (Val v, σ, (1, 0))
+  | (Shift e) =>
+      let (Ki, Ko) := shift_context K in
+      let f := cont_to_rec Ki in
+      Some ((subst (Inc := inc) e (Val f)), σ, Ko, (1, 0))
+  (* | (Reset (Val v)) => Some (Val v, σ, (1, 0)) *)
   (* | (Reset (fill E (Shift e))) => None *)
   | _ => None
   end.
 (* CHECK *)
 
 Lemma head_step_reflect {S : Set} (e : expr S) (σ : state) (K : ectx S)
-  : option_reflect (fun '(e', σ', nm) => head_step e σ e' σ' K nm)
+  : option_reflect (fun '(e', σ', K', nm) => head_step e σ K e' σ' K' nm)
       True
       (compute_head_step e σ K).
 Proof.
@@ -895,7 +895,7 @@ Proof.
     destruct v; try (by constructor).
     destruct (update_output n σ) eqn:Heqn.
     by do 2 constructor.
-  - simpl.
-    destruct e; try (by constructor).
-    do 2 constructor.
+  - simpl. 
+    destruct (shift_context K) as [Ki Ko] eqn:HK.
+    constructor. apply ShiftS with Ki =>//=.
 Qed.
