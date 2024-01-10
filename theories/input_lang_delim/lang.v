@@ -365,7 +365,7 @@ Definition ctx_el_to_expr {X : Set} (K : ectx_el X) (e : expr X) : expr X :=
   | AppRK el => App el e
   | NatOpLK op er => NatOp op e er
   | NatOpRK op el => NatOp op el e
-  | ResetK => e
+  | ResetK => Reset e
   end.
 
 Definition fill {X : Set} (K : ectx X) (e : expr X) : expr X :=
@@ -426,7 +426,7 @@ Definition update_output (n:nat) (s : state) : state :=
 
 
 (** [head_step e σ K e' σ' K' (n, m)] : step from [(e, σ, K)] to [(e', σ', K')] 
-    in [n] ticks with [m] i/o accesses *)
+    in [n] ticks with [m] effects encountered *)
 Variant head_step {S} : expr S → state -> ectx S →
                         expr S → state → ectx S →
                         nat * nat → Prop :=
@@ -453,13 +453,18 @@ Variant head_step {S} : expr S → state -> ectx S →
     n = 0 →
     head_step (If (Val (LitV n)) e1 e2) σ K
       e2 σ K (0, 0)
-  | ValueS v σ K C:
-    head_step (Val v) σ (C::K) (ctx_el_to_expr C (Val v)) σ K (0, 0)
 
   | ShiftS e σ K Ki Ko f:
     ((Ki, Ko) = shift_context K) ->
     f = cont_to_rec Ki ->
-    head_step (Shift e) σ K (subst (Inc := inc) e (Val f)) σ Ko (1, 0).
+    head_step (Shift e) σ K (subst (Inc := inc) e (Val f)) σ Ko (1, 1)
+
+  | ResetS v σ K :
+    head_step (Reset (Val v)) σ K (Val v) σ K (1, 1).
+
+
+  (* | ValueS v σ K C: *)
+  (*   head_step (Val v) σ (C::K) (ctx_el_to_expr C (Val v)) σ K (0, 0) *)
 
   (* | ResetShiftS e σ K E: *)
   (*   head_step *)
@@ -486,7 +491,7 @@ Proof. induction Ki; intros ???; simplify_eq/=; auto with f_equal. Qed.
 
 Lemma ctx_el_to_expr_val {S} C (e : expr S) :
   is_Some (to_val (ctx_el_to_expr C e)) → is_Some (to_val e).
-Proof. case : C => [] > H; simpl in H; try by apply is_Some_None in H. done. Qed.
+Proof. case : C => [] > H; simpl in H; try by apply is_Some_None in H. Qed.
 
 Lemma fill_val {S} Ki (e : expr S) :
   is_Some (to_val (fill Ki e)) → is_Some (to_val e).
@@ -845,8 +850,8 @@ Definition compute_head_step {S}
   | (Shift e) =>
       let (Ki, Ko) := shift_context K in
       let f := cont_to_rec Ki in
-      Some ((subst (Inc := inc) e (Val f)), σ, Ko, (1, 0))
-  (* | (Reset (Val v)) => Some (Val v, σ, (1, 0)) *)
+      Some ((subst (Inc := inc) e (Val f)), σ, Ko, (1, 1))
+  | (Reset (Val v)) => Some (Val v, σ, K, (1, 1))
   (* | (Reset (fill E (Shift e))) => None *)
   | _ => None
   end.
@@ -898,4 +903,7 @@ Proof.
   - simpl. 
     destruct (shift_context K) as [Ki Ko] eqn:HK.
     constructor. apply ShiftS with Ki =>//=.
+  -  simpl.
+     destruct e; try (by constructor).
+     do 2 constructor.
 Qed.
