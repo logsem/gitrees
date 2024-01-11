@@ -555,7 +555,7 @@ Section interp.
   λne e1 env, interp_if b e1 e2 env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_iffalsek {A} (e1 b : A -n> IT) :
+  Program Definition interp_iffalsek {A} (b e1 : A -n> IT) :
     (A -n> IT) -n> A -n> IT :=
   λne e2 env, interp_if b e1 e2 env.
   Solve All Obligations with solve_proper.
@@ -579,19 +579,21 @@ Section interp.
     end.
 
 
-  Fixpoint interp_ectx {S} (K : ectx S) :
+  Fixpoint interp_ectx' {S} (K : ectx S) :
     interp_scope S → IT → IT :=
     match K with
     | [] => λ env, idfun
     | C :: K => λ (env : interp_scope S) (t : IT),
-                  (interp_ectx K env) (interp_ectx_el C (λne env, t) env)
+                  (interp_ectx' K env) (interp_ectx_el C (λne env, t) env)
     end.
   #[export] Instance interp_ectx_1_ne {S} (K : ectx S) (env : interp_scope S) :
-    NonExpansive (interp_ectx K env : IT → IT).
-  Proof. solve_proper_prepare.
-         induction K; eauto. 
+    NonExpansive (interp_ectx' K env : IT → IT).
+  Proof. induction K; solve_proper_please. Qed.
 
+  Definition interp_ectx {S} (K : ectx S) : interp_scope S → (IT -n> IT) :=
+    λ env, OfeMor (interp_ectx' K env).
 
+  (* Example test_ectx : ectx ∅ := [OutputK ; AppRK (LamV (Var VZ))]. *)
   (* Definition interp_ectx {S} (K : ectx S) : interp_scope S -n> IT -n> IT := *)
   (*   λne env e, *)
   (*     (fold_left (λ k c, λne (e : interp_scope S -n> IT), *)
@@ -678,22 +680,13 @@ Section interp.
     (*     intros ?; simpl; repeat f_equiv; first by apply interp_ectx_ren. *)
   Qed.
 
-  (* Lemma interp_comp {S} (e : expr S) (env : interp_scope S) (K : ectx S): *)
-  (*   interp_expr (fill K e) env ≡ (interp_ectx K) env ((interp_expr e) env). *)
-  (* Proof. *)
-  (*   revert env. *)
-  (*   induction K; simpl; intros env; first reflexivity; try (by rewrite IHK). *)
-  (*   - repeat f_equiv. *)
-  (*     by rewrite IHK. *)
-  (*   - repeat f_equiv. *)
-  (*     by rewrite IHK. *)
-  (*   - repeat f_equiv. *)
-  (*     by rewrite IHK. *)
-  (*   - repeat f_equiv. *)
-  (*     intros ?; simpl. *)
-  (*     repeat f_equiv. *)
-  (*     by rewrite IHK. *)
-  (* Qed. *)
+  Lemma interp_comp {S} (e : expr S) (env : interp_scope S) (K : ectx S):
+    interp_expr (fill K e) env ≡ (interp_ectx K) env ((interp_expr e) env).
+  Proof.
+    revert env e.
+    induction K; eauto.
+    induction a; simpl; intros env e; by eapply IHK.
+  Qed.
 
   Program Definition sub_scope {S S'} (δ : S [⇒] S') (env : interp_scope S')
     : interp_scope S := λne x, interp_expr (δ x) env.
@@ -753,21 +746,25 @@ Section interp.
           iApply internal_eq_pointwise.
           iIntros (z).
           done.
-    (*   + repeat f_equiv; intro; simpl; repeat f_equiv. *)
-    (*     by apply interp_ectx_subst. *)
-    (* - destruct e; simpl; intros ?; simpl. *)
-    (*   + reflexivity. *)
-    (*   + repeat f_equiv; by apply interp_ectx_subst. *)
-    (*   + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_expr_subst | by apply interp_expr_subst]. *)
-    (*   + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_val_subst]. *)
-    (*   + repeat f_equiv; [by apply interp_expr_subst | by apply interp_ectx_subst]. *)
-    (*   + repeat f_equiv; [by apply interp_expr_subst | by apply interp_ectx_subst]. *)
-    (*   + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_val_subst]. *)
-    (*   + repeat f_equiv; last by apply interp_ectx_subst. *)
-    (*     intros ?; simpl; repeat f_equiv; first by apply interp_expr_subst. *)
-    (*   + repeat f_equiv; last by apply interp_val_subst. *)
-    (*     intros ?; simpl; repeat f_equiv; first by apply interp_ectx_subst. *)
   Qed.
+
+
+  Lemma interp_ectx_subst {S S'} (env : interp_scope S') (δ : S [⇒] S') K :
+    interp_ectx (bind δ K) env ≡ interp_ectx K (sub_scope δ env).
+  Proof.
+    induction K; simpl; intros ?; simpl; eauto.
+    destruct a; simpl; try by eapply IHK.
+    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
+    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
+    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
+    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
+    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
+    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
+    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
+  Qed.
+  (* FIXME this is aweful. *)
+
+
 
   (** ** Interpretation is a homomorphism (for some constructors) *)
 
