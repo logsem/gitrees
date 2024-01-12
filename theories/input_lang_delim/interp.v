@@ -323,6 +323,8 @@ Section interp.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
+  Context `{!invGS Σ, !stateG rs R Σ}.
+  Notation iProp := (iProp Σ).
 
   Global Instance denot_cont_ne (κ : IT -n> IT) :
     NonExpansive (λ x : IT, Tau (laterO_map κ (Next x))).
@@ -484,10 +486,10 @@ Section interp.
   (*   λne env t, interp_natop op (λne env, K env t) q env. *)
   (* Solve All Obligations with solve_proper. *)
 
-  Program Definition interp_ifk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT)
-    (p : A -n> IT) : A -n> (IT -n> IT) :=
-    λne env t, interp_if (λne env, K env t) q p env.
-  Solve All Obligations with solve_proper.
+  (* Program Definition interp_ifk {A} (K : A -n> (IT -n> IT)) (q : A -n> IT) *)
+  (*   (p : A -n> IT) : A -n> (IT -n> IT) := *)
+  (*   λne env t, interp_if (λne env, K env t) q p env. *)
+  (* Solve All Obligations with solve_proper. *)
 
 
   (* Program Definition interp_throwlk {A} (K : A -n> (IT -n> IT)) (k : A -n> IT) : *)
@@ -545,20 +547,20 @@ Section interp.
     λne t env, interp_natop op t q env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_ifcondk {A} (e1 e2 : A -n> IT) :
+  Program Definition interp_ifk {A} (e1 e2 : A -n> IT) :
     (A -n> IT) -n> A -n> IT :=
   λne b env, interp_if b e1 e2 env.
   Solve All Obligations with solve_proper.
 
-  Program Definition interp_iftruek {A} (b e2 : A -n> IT) :
-    (A -n> IT) -n> A -n> IT :=
-  λne e1 env, interp_if b e1 e2 env.
-  Solve All Obligations with solve_proper.
+  (* Program Definition interp_iftruek {A} (b e2 : A -n> IT) : *)
+  (*   (A -n> IT) -n> A -n> IT := *)
+  (* λne e1 env, interp_if b e1 e2 env. *)
+  (* Solve All Obligations with solve_proper. *)
 
-  Program Definition interp_iffalsek {A} (b e1 : A -n> IT) :
-    (A -n> IT) -n> A -n> IT :=
-  λne e2 env, interp_if b e1 e2 env.
-  Solve All Obligations with solve_proper.
+  (* Program Definition interp_iffalsek {A} (b e1 : A -n> IT) : *)
+  (*   (A -n> IT) -n> A -n> IT := *)
+  (* λne e2 env, interp_if b e1 e2 env. *)
+  (* Solve All Obligations with solve_proper. *)
 
   Program Definition interp_resetk {A} : (A -n> IT) -n> A -n> IT :=
     λne t env, interp_reset t env.
@@ -572,9 +574,9 @@ Section interp.
     | AppLK e2 => interp_applk (interp_expr e2)
     | NatOpRK op e1 => interp_natoprk op (interp_expr e1)
     | NatOpLK op e2 => interp_natoplk op (interp_expr e2)
-    | IfCondK e1 e2 => interp_ifcondk (interp_expr e1) (interp_expr e2)
-    | IfTrueK b e2 => interp_iftruek (interp_expr b) (interp_expr e2)
-    | IfFalseK b e1 => interp_iffalsek (interp_expr b) (interp_expr e1)
+    | IfK e1 e2 => interp_ifk (interp_expr e1) (interp_expr e2)
+    (* | IfTrueK b e2 => interp_iftruek (interp_expr b) (interp_expr e2) *)
+    (* | IfFalseK b e1 => interp_iffalsek (interp_expr b) (interp_expr e1) *)
     | ResetK => interp_resetk
     end.
 
@@ -685,7 +687,7 @@ Section interp.
   Proof.
     revert env e.
     induction K; eauto.
-    induction a; simpl; intros env e; by eapply IHK.
+    destruct a; simpl; intros env e'; by eapply IHK.
   Qed.
 
   Program Definition sub_scope {S S'} (δ : S [⇒] S') (env : interp_scope S')
@@ -755,11 +757,9 @@ Section interp.
     induction K; simpl; intros ?; simpl; eauto.
     destruct a; simpl; try by eapply IHK.
     - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
+    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_val_subst.
     - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
-    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
-    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
-    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
-    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
+    - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_val_subst.
     - etrans; first by eapply IHK. repeat f_equiv; by eapply interp_expr_subst.
   Qed.
   (* FIXME this is aweful. *)
@@ -791,10 +791,10 @@ Section interp.
   #[global] Instance interp_ectx_hom_if {S}
     (K : ectx S) (e1 e2 : expr S) env :
     IT_hom (interp_ectx K env) ->
-    IT_hom (interp_ectx (IfCondK e1 e2 :: K) env).
+    IT_hom (interp_ectx (IfK e1 e2 :: K) env).
   Proof.
     intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - by rewrite -hom_tick -IF_Tick. 
+    - by rewrite -hom_tick -IF_Tick.
     - trans (Vis op i (laterO_map (λne y,
         (λne t : IT, interp_ectx' K env (IF t (interp_expr e1 env) (interp_expr e2 env)))
           y) ◎ ko));
@@ -863,6 +863,23 @@ Section interp.
       + apply hom_err.
   Qed.
 
+  (* ResetK is not a homomorphism *)
+  Lemma interp_ectx_reset_not_hom {S} env :
+    IT_hom (interp_ectx ([ResetK] : ectx S) env) -> False.
+  Proof.
+    intros [ _ Hi _ _ ]. simpl in Hi.
+    specialize (Hi (Ret 0)). 
+    rewrite -hom_tick in Hi.
+    rewrite get_val_tick get_val_vis in Hi.
+    apply bi.siProp.pure_soundness.
+    iApply IT_tick_vis_ne.
+    iPureIntro.
+    symmetry.
+    eapply Hi.
+    Unshelve. apply bi.siProp_internal_eq.
+  Qed.
+
+
   Lemma get_fun_ret' E A `{Cofe A} n : (∀ f, @get_fun E A _ f (core.Ret n) ≡ Err RuntimeErr).
   Proof.
     intros.
@@ -870,13 +887,16 @@ Section interp.
   Qed.
 
 
-  (* #[global] Instance interp_ectx_hom {S} *)
-  (*   (K : ectx S) env : *)
-  (*   IT_hom (interp_ectx K env). *)
-  (* Proof. *)
-  (*   induction K; simpl; first apply IT_hom_idfun. *)
-  (*   destruct a; try apply _. *)
-  (* Qed. *)
+  #[global] Instance interp_ectx_hom {S}
+    (K : ectx S) env :
+    ResetK ∉ K ->
+    IT_hom (interp_ectx K env).
+  Proof.
+    intro.
+    induction K; simpl; first apply IT_hom_idfun.
+    apply not_elem_of_cons in H. destruct H as [H1 ?]. specialize (IHK H).
+    destruct a; try apply _. contradiction.
+  Qed.
 
   (** ** Finally, preservation of reductions *)
   Lemma interp_expr_head_step {S : Set} (env : interp_scope S) (e : expr S) e' σ σ' K n :

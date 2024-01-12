@@ -33,13 +33,11 @@ with val {X : Set} :=
 
 Variant ectx_el {X : Set} :=
   | OutputK : ectx_el
-  | IfCondK (e1 : @expr X) (e2 : @expr X) : ectx_el
-  | IfTrueK (b : @expr X) (e2 : @expr X) : ectx_el
-  | IfFalseK (b : @expr X) (e1 : @expr X) : ectx_el
-  | AppLK (er : @expr X) : ectx_el (* ◻ er *)
-  | AppRK (el : @expr X) : ectx_el (* el ◻ *)
-  | NatOpLK (op : nat_op) (er : @expr X) : ectx_el (* ◻ + er *)
-  | NatOpRK (op : nat_op) (el : @expr X) : ectx_el (* el + square *)
+  | IfK (e1 : @expr X) (e2 : @expr X) : ectx_el
+  | AppLK (v : @val X) : ectx_el (* ◻ v *)
+  | AppRK (e : @expr X) : ectx_el (* e ◻ *)
+  | NatOpLK (op : nat_op) (v : @val X) : ectx_el (* ◻ + v *)
+  | NatOpRK (op : nat_op) (e : @expr X) : ectx_el (* e + ◻ *)
   | ResetK : ectx_el.
 
 
@@ -82,13 +80,11 @@ vmap {A B : Set} (f : A [→] B) (v : val A) : val B :=
 Definition kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
   map (fun x => match x with
               | OutputK => OutputK
-              | IfCondK e1 e2 => IfCondK (fmap f e1) (fmap f e2)
-              | IfTrueK b e2 => IfTrueK (fmap f b) (fmap f e2)
-              | IfFalseK b e1 => IfFalseK (fmap f b) (fmap f e1)
-              | AppLK er => AppLK (fmap f er)
-              | AppRK el => AppRK (fmap f el)
-              | NatOpLK op er => NatOpLK op (fmap f er)
-              | NatOpRK op el => NatOpRK op (fmap f el)
+              | IfK e1 e2 => IfK (fmap f e1) (fmap f e2)
+              | AppLK v => AppLK (fmap f v)
+              | AppRK e => AppRK (fmap f e)
+              | NatOpLK op v => NatOpLK op (fmap f v)
+              | NatOpRK op e => NatOpRK op (fmap f e)
               | ResetK => ResetK
               end) K.
 
@@ -122,13 +118,11 @@ vbind {A B : Set} (f : A [⇒] B) (v : val A) : val B :=
 Definition kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B :=
   map (fun x => match x with
               | OutputK => OutputK
-              | IfCondK e1 e2 => IfCondK (bind f e1) (bind f e2)
-              | IfTrueK b e2 => IfTrueK (bind f b) (bind f e2)
-              | IfFalseK b e1 => IfFalseK (bind f b) (bind f e1)
-              | AppLK er => AppLK (bind f er)
-              | AppRK el => AppRK (bind f el)
-              | NatOpLK op er => NatOpLK op (bind f er)
-              | NatOpRK op el => NatOpRK op (bind f el)
+              | IfK e1 e2 => IfK (bind f e1) (bind f e2)
+              | AppLK v => AppLK (bind f v)
+              | AppRK e => AppRK (bind f e)
+              | NatOpLK op v => NatOpLK op (bind f v)
+              | NatOpRK op e => NatOpRK op (bind f e)
               | ResetK => ResetK
               end) K.
 
@@ -163,7 +157,7 @@ Definition kmap_id X (δ : X [→] X) (k : ectx X) : δ ≡ ı -> fmap δ k = k.
 Proof.
   rewrite  /fmap /FMap_ectx /kmap => H.
   rewrite <-List.map_id. do 2 f_equal.
-  extensionality x. case: x => // >; rewrite !emap_id//.
+  extensionality x. case: x => // >; rewrite !(emap_id, vmap_id)//.
 Qed.
 
 
@@ -183,7 +177,7 @@ Proof.
   rewrite  /fmap /FMap_ectx => H.
   rewrite /kmap map_map. do 2 f_equal.
   extensionality x.
-  case : x => // >; rewrite !(emap_comp _ _ _ f g h)//.
+  case : x => // >; rewrite !(emap_comp _ _ _ f g h, vmap_comp _ _ _ f g h)//.
 Qed.
 
 
@@ -228,7 +222,8 @@ Definition kmap_kbind_pure (A B : Set) (f : A [→] B) (g : A [⇒] B) (e : ectx
 Proof.
   rewrite /fmap /FMap_ectx /bind /BindCore_ectx /kmap /kbind => H.
   do 2 f_equal. extensionality x.
-  case: x => [] > //; rewrite !(emap_ebind_pure _ _ _ g)//.
+  case: x => [] > //; rewrite !(emap_ebind_pure _ _ _ g,
+                                  vmap_vbind_pure _ _ _ g)//.
 Qed.
 
 
@@ -257,7 +252,8 @@ Definition kmap_kbind_comm (A B₁ B₂ C : Set) (f₁ : B₁ [→] C) (f₂ : A
 Proof.
   rewrite /fmap /FMap_ectx /bind /BindCore_ectx /kmap /kbind => H.
   rewrite !map_map. do 2 f_equal. extensionality x.
-  case : x => // >; rewrite !(emap_ebind_comm _ B₁ _ _ f₁ _ g₁)//.
+  case : x => // >; rewrite !(emap_ebind_comm _ B₁ _ _ f₁ _ g₁,
+                vmap_vbind_comm _ B₁ _ _ f₁ _ g₁)//.
 Qed.
 
 
@@ -290,7 +286,7 @@ Definition kbind_id  (A : Set) (f : A [⇒] A) (e : ectx A) :
 Proof.
   rewrite /bind /BindCore_ectx /kbind => H.
   rewrite <-List.map_id. do 2 f_equal.
-  extensionality x. case : x => // >; rewrite !ebind_id//.
+  extensionality x. case : x => // >; rewrite !(ebind_id, vbind_id)//.
 Qed.
 
 
@@ -312,7 +308,8 @@ Definition kbind_comp (A B C : Set) (f : B [⇒] C) (g : A [⇒] B) h (e : ectx 
 Proof.
   rewrite /bind/BindCore_ectx/kbind => H.
   rewrite map_map. do 2 f_equal. extensionality x.
-  case : x => // >; rewrite !(ebind_comp _ _ _ _ _ h)//.
+  case : x => // >; rewrite !(ebind_comp _ _ _ _ _ h,
+                                vbind_comp _ _ _ _ _ h)//.
 Qed.
 
 
@@ -358,12 +355,10 @@ Definition nat_op_interp {S} (n : nat_op) (x y : val S) : option (val S) :=
 Definition ctx_el_to_expr {X : Set} (K : ectx_el X) (e : expr X) : expr X :=
   match K with
   | OutputK => Output $ e
-  | IfCondK e1 e2 => If e e1 e2
-  | IfTrueK b e2 => If b e e2
-  | IfFalseK b e1 => If b e1 e
-  | AppLK er => App e er
+  | IfK e1 e2 => If e e1 e2
+  | AppLK v => App e (Val v)
   | AppRK el => App el e
-  | NatOpLK op er => NatOp op e er
+  | NatOpLK op v => NatOp op e (Val v)
   | NatOpRK op el => NatOp op el e
   | ResetK => Reset e
   end.
@@ -374,22 +369,47 @@ Definition fill {X : Set} (K : ectx X) (e : expr X) : expr X :=
 
 Fixpoint trim_to_first_reset {X : Set} (K : ectx X) (acc : ectx X) : (ectx X * ectx X) :=
   match K with
-  | OutputK :: K => trim_to_first_reset K (OutputK :: acc)
-  | (IfCondK e1 e2) :: K => trim_to_first_reset K ((IfCondK e1 e2) :: acc)
-  | (IfTrueK b e2) :: K => trim_to_first_reset K ((IfTrueK b e2) :: acc)
-  | (IfFalseK b e1) :: K => trim_to_first_reset K ((IfFalseK b e1) :: acc)
-  | (AppLK er) :: K => trim_to_first_reset K ((AppLK er) :: acc)
-  | (AppRK el) :: K => trim_to_first_reset K ((AppRK el) :: acc)
-  | (NatOpLK op er) :: K => trim_to_first_reset K ((NatOpLK op er) :: acc)
-  | (NatOpRK op el) :: K => trim_to_first_reset K ((NatOpRK op el) :: acc)
+  (* | OutputK :: K => trim_to_first_reset K (OutputK :: acc) *)
+  (* | (IfK e1 e2) :: K => trim_to_first_reset K ((IfK e1 e2) :: acc) *)
+  (* | (AppLK v) :: K => trim_to_first_reset K ((AppLK v) :: acc) *)
+  (* | (AppRK el) :: K => trim_to_first_reset K ((AppRK el) :: acc) *)
+  (* | (NatOpLK op v) :: K => trim_to_first_reset K ((NatOpLK op v) :: acc) *)
+  (* | (NatOpRK op el) :: K => trim_to_first_reset K ((NatOpRK op el) :: acc) *)
   | (ResetK) :: K => (acc, ResetK :: K)
+  | C :: K => trim_to_first_reset K (C :: acc)
   | [] => (acc, [])
   end.
+
+
 
 (* Separate continuation [K] on innermost [reset] *)
 Definition shift_context {X : Set} (K : ectx X) : (ectx X * ectx X) :=
   let (Ki, Ko) := trim_to_first_reset K [] in
   (List.rev Ki, Ko).
+
+Lemma trim_to_first_reset_app {X : Set} (K Ki Ko acc : ectx X) :
+  (Ki, Ko) = trim_to_first_reset K acc ->
+  (List.rev Ki) ++ Ko = (List.rev acc) ++ K.
+Proof.
+  revert Ki Ko acc. induction K; simpl; intros.
+  - by inversion H.
+  - specialize (IHK Ki Ko (a :: acc)) as HI.
+    destruct a; try (specialize (HI H); rewrite HI; simpl;
+                  rewrite -app_assoc; symmetry; apply cons_middle).
+    by inversion H.
+Qed.
+
+
+
+Lemma shift_context_app {X : Set} (K Ki Ko : ectx X) :
+  (Ki, Ko) = shift_context K -> K = Ki ++ Ko.
+Proof.
+  unfold shift_context. intro.
+  destruct (trim_to_first_reset K ([])) as [Ki' Ko'] eqn:He.
+  inversion H. subst.
+  trans (rev [] ++ K); first auto. symmetry.
+  by apply trim_to_first_reset_app.
+Qed.
 
 
 (* Only if no reset in K *)
@@ -500,9 +520,9 @@ Proof. elim: Ki e; simpl in *; first done. intros.
 Qed.
 
 (* CHECK *)
-(* Lemma val_head_stuck {S} (e1 : expr S) σ1 e2 σ2 K m : *)
-(*   head_step e1 σ1 e2 σ2 K m → to_val e1 = None. *)
-(* Proof. destruct 1; naive_solver. Qed. *)
+Lemma val_head_stuck {S} (e1 : expr S) σ1 e2 σ2 K K' m :
+  head_step e1 σ1 K e2 σ2 K' m → to_val e1 = None.
+Proof. destruct 1; naive_solver. Qed.
 
 
 (* K1 ∘ K2 *)
@@ -688,20 +708,11 @@ Global Instance IfNotationExpr {S : Set} {F G H : Set -> Type} `{AsSynExpr F, As
   __if e₁ e₂ e₃ := If (__asSynExpr e₁) (__asSynExpr e₂) (__asSynExpr e₃)
   }.
 
-Global Instance IfNotationCondK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} :
+Global Instance IfNotationK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} :
   IfNotation (ectx S) (F S) (G S) (ectx S) := {
-  __if K e₂ e₃ := K ++ [IfCondK (__asSynExpr e₂) (__asSynExpr e₃)]
+  __if K e₂ e₃ := K ++ [IfK (__asSynExpr e₂) (__asSynExpr e₃)]
   }.
 
-Global Instance IfNotationTrueK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} :
-  IfNotation (F S) (ectx S) (G S) (ectx S) := {
-  __if b K e₃ := K ++ [IfCondK (__asSynExpr b) (__asSynExpr e₃)]
-  }.
-
-Global Instance IfNotationFalseK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} :
-  IfNotation (F S) (G S) (ectx S) (ectx S) := {
-  __if b e2 K := K ++ [IfCondK (__asSynExpr b) (__asSynExpr e2)]
-  }.
 
 Class OutputNotation (A B : Type) := { __output : A -> B }.
 
@@ -741,8 +752,8 @@ Global Instance AppNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsS
   __app e₁ e₂ := App (__asSynExpr e₁) (__asSynExpr e₂)
   }.
 
-Global Instance AppNotationLK {S : Set} : AppNotation (ectx S) (expr S) (ectx S) := {
-  __app K e := K ++ [AppLK e]
+Global Instance AppNotationLK {S : Set} : AppNotation (ectx S) (val S) (ectx S) := {
+  __app K v := K ++ [AppLK v]
   }.
 
 Global Instance AppNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppNotation (F S) (ectx S) (ectx S) := {
