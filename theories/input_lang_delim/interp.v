@@ -62,7 +62,7 @@ Qed.
 Definition reify_shift X `{Cofe X} : ((laterO X -n> laterO X) -n> laterO X) *
                                         stateO * (laterO X -n> laterO X) →
                                       option (laterO X * stateO) :=
-  λ '(f, σ, k), Some ((k (f k): laterO X), σ : stateO).
+  λ '(f, σ, k), Some ((f k): laterO X, σ : stateO).
 #[export] Instance reify_callcc_ne X `{Cofe X} :
   NonExpansive (reify_shift X :
     prodO (prodO ((laterO X -n> laterO X) -n> laterO X) stateO)
@@ -287,27 +287,22 @@ Section weakestpre.
   Lemma wp_shift (σ : stateO) (f : (laterO IT -n> laterO IT) -n> laterO IT)
     (k : IT -n> IT) {Hk : IT_hom k} Φ s :
     has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k (later_car (f (laterO_map k))) @ s {{ Φ }}) -∗
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} idfun (later_car (f (laterO_map k))) @ s {{ Φ }}) -∗
     WP@{rs} (k (SHIFT f)) @ s {{ Φ }}.
   Proof.
     iIntros "Hs Ha".
     unfold SHIFT. simpl.
     rewrite hom_vis.
-    iApply (wp_subreify _ _ _ _ _ _ _ ((later_map k ((f (laterO_map k))))) with "Hs").
+    iApply (wp_subreify _ _ _ _ _ _ _ ((later_map idfun ((f (laterO_map k))))) with "Hs").
     {
       simpl.
       repeat f_equiv.
-      - rewrite ofe_iso_21.
-        f_equiv.
-        intro; simpl.
-        f_equiv.
-        apply ofe_iso_21.
+      - rewrite ccompose_id_l later_map_id.
+        f_equiv. intro x. simpl.
+        by rewrite ofe_iso_21.
       - reflexivity.
     }
-    {
-      rewrite later_map_Next.
-      reflexivity.
-    }
+    { by rewrite later_map_Next. }
     iModIntro.
     iApply "Ha".
   Qed.
@@ -668,19 +663,25 @@ Section interp.
         iIntros (y').
         destruct y' as [| [| y]]; simpl; first done; last done.
         by iRewrite - "IH".
-    (* - destruct e; simpl; intros ?; simpl. *)
-    (*   + reflexivity. *)
-    (*   + repeat f_equiv; by apply interp_ectx_ren. *)
-    (*   + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_expr_ren | by apply interp_expr_ren]. *)
-    (*   + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_val_ren]. *)
-    (*   + repeat f_equiv; [by apply interp_expr_ren | by apply interp_ectx_ren]. *)
-    (*   + repeat f_equiv; [by apply interp_expr_ren | by apply interp_ectx_ren]. *)
-    (*   + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_val_ren]. *)
-    (*   + repeat f_equiv; last by apply interp_ectx_ren. *)
-    (*     intros ?; simpl; repeat f_equiv; by apply interp_expr_ren. *)
-    (*   + repeat f_equiv; last by apply interp_val_ren. *)
-    (*     intros ?; simpl; repeat f_equiv; first by apply interp_ectx_ren. *)
   Qed.
+
+
+  Lemma interp_ectx_ren {S S'} env (δ : S [→] S') (K : ectx S) :
+    interp_ectx (fmap δ K) env ≡ interp_ectx K (ren_scope δ env).
+  Proof.
+    (* unfold interp_ectx. intro. simpl. *)
+    (* generalize env x. *)
+    induction K; intros ?; simpl; eauto.
+    destruct a; simpl.
+    - etrans; first by apply IHK. repeat f_equiv. 
+    - etrans; first by apply IHK. repeat f_equiv; by apply interp_expr_ren.
+    - etrans; first by apply IHK. repeat f_equiv; by apply interp_val_ren.
+    - etrans; first by apply IHK. repeat f_equiv; by apply interp_expr_ren.
+    - etrans; first by apply IHK. repeat f_equiv; by apply interp_val_ren.
+    - etrans; first by apply IHK. repeat f_equiv; by apply interp_expr_ren.
+    - etrans; first by apply IHK. repeat f_equiv; by apply interp_expr_ren.
+  Qed.
+
 
   Lemma interp_comp {S} (e : expr S) (env : interp_scope S) (K : ectx S):
     interp_expr (fill K e) env ≡ (interp_ectx K) env ((interp_expr e) env).
@@ -1010,8 +1011,8 @@ Section interp.
       end.
       match goal with
       | |- context G [(?s, _)] => set (gσ := s) end.
-      Transparent SHIFT.
-      unfold SHIFT.
+      (* Transparent SHIFT. *)
+      (* unfold SHIFT. *)
       simpl.
       set (subEff1 := @subReifier_subEff sz reify_io rs subR).
       trans (reify (gReifiers_sReifier rs)
@@ -1019,13 +1020,13 @@ Section interp.
       {
         do 2 f_equiv.
         rewrite -(@hom_SHIFT_ F R CR subEff1 idfun f _).
-        by f_equiv. 
+        by f_equiv.
       }
       rewrite reify_vis_eq//; last first.
       {
         simpl.
         epose proof (@subReifier_reify sz reify_io rs subR IT _
-                       (inr (inr (inl ()))) f _
+                       op_shift f _
                        (laterO_map (interp_ectx K env)) σ' σ' σr) as H.
         simpl in H.
         erewrite <-H; last reflexivity.
@@ -1033,16 +1034,41 @@ Section interp.
         + intros ???. by rewrite /prod_map H2.
         + do 3f_equiv; try done. by intro.
       }
-      rewrite interp_comp.
+      (* simpl.  *)
+      (* rewrite interp_comp. *)
+      f_equiv.
+      rewrite -Tick_eq.
+      unfold cont_to_rec.
       rewrite interp_expr_subst.
-      f_equiv.
-      rewrite Tick_eq.
-      f_equiv.
-      rewrite laterO_map_Next.
-      f_equiv.
+      Disable Notation "λit".
+      simpl. f_equiv.
+      (* rewrite laterO_map_Next. *)
       Transparent extend_scope.
+      f_equiv.
+
       intros [| x]; term_simpl; last reflexivity.
-      do 2 f_equiv. by intro.
+      rewrite interp_rec_unfold.
+      do 2 f_equiv. intro.
+      Opaque extend_scope.
+      simpl.
+      rewrite laterO_map_Next -Tick_eq.
+      rewrite interp_comp.
+      symmetry. etrans; first by apply interp_ectx_ren.
+      etrans; first by apply interp_ectx_ren.
+      rewrite -hom_tick.
+      match goal with
+      | |- context G [(interp_ectx K ?e)] => set (env' := e)
+      end.
+      trans (interp_ectx K env' (Tick x)).
+      + f_equiv. Transparent extend_scope.
+        simpl. admit.
+      + admit.
+    - 
+      rewrite -(interp_comp).
+      f_equiv.
+      + f_equiv. 
+
+
   Qed.
 
   Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m (env : interp_scope S) :

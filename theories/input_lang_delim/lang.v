@@ -328,8 +328,8 @@ Qed.
 
 
 
-Definition LamV {S : Set} (e : expr (inc S)) : val S :=
-  RecV (shift e).
+(* Definition LamV {S : Set} (e : expr (inc S)) : val S := *)
+(*   RecV (shift e). *)
 
 
 Definition to_val {S} (e : expr S) : option (val S) :=
@@ -414,8 +414,9 @@ Qed.
 
 (* Only if no reset in K *)
 Definition cont_to_rec {X : Set} (K : ectx X) : (val X) :=
-  LamV (fill (shift K) (Var VZ)).
+  RecV (fill (shift (shift K)) (Var VZ)).
 
+Example test1 : val (inc ∅) := (cont_to_rec [OutputK; AppRK (Var VZ)]).
 
 (* Lemma fill_emap {X Y : Set} (f : X [→] Y) (K : ectx X) (e : expr X) *)
 (*   : fmap f (fill K e) = fill (fmap f K) (fmap f e). *)
@@ -474,10 +475,10 @@ Variant head_step {S} : expr S → state -> ectx S →
     head_step (If (Val (LitV n)) e1 e2) σ K
       e2 σ K (0, 0)
 
-  | ShiftS e σ K Ki Ko f:
-    ((Ki, Ko) = shift_context K) ->
-    f = cont_to_rec Ki ->
-    head_step (Shift e) σ K (subst (Inc := inc) e (Val f)) σ Ko (1, 1)
+  | ShiftS e σ K f:
+    ResetK ∉ K ->
+    f = cont_to_rec K ->
+    head_step (Shift e) σ K (subst (Inc := inc) e (Val f)) σ [] (1, 1)
 
   | ResetS v σ K :
     head_step (Reset (Val v)) σ K (Val v) σ K (1, 1).
@@ -494,9 +495,9 @@ Variant head_step {S} : expr S → state -> ectx S →
 Lemma head_step_io_01 {S} (e1 e2 : expr S) σ1 σ2 K K' n m :
   head_step e1 σ1 K e2 σ2 K' (n,m) → m = 0 ∨ m = 1.
 Proof.  inversion 1; eauto. Qed.
-Lemma head_step_unfold_01 {S} (e1 e2 : expr S) σ1 σ2 K K' n m :
-  head_step e1 σ1 K e2 σ2 K' (n,m) → n = 0 ∨ n = 1.
-Proof.  inversion 1; eauto. Qed.
+(* Lemma head_step_unfold_01 {S} (e1 e2 : expr S) σ1 σ2 K K' n m : *)
+(*   head_step e1 σ1 K e2 σ2 K' (n,m) → n = 0 ∨ n = 1. *)
+(* Proof.  inversion 1; eauto. Qed. *)
 Lemma head_step_no_io {S} (e1 e2 : expr S) σ1 σ2 K K' n :
   head_step e1 σ1 K e2 σ2 K' (n,0) → σ1 = σ2.
 Proof.  inversion 1; eauto. Qed.
@@ -549,10 +550,16 @@ Proof. by rewrite fill_app. Qed.
 
 (* FIXME maybe *)
 Inductive prim_step {S} : ∀ (e1 : expr S) (σ1 : state)
-          (e2 : expr S) (σ2 : state) (n : nat * nat), Prop :=
-| Ectx_step e1 σ1 e2 σ2 n (K1 K2 : ectx S) e1' e2' :
-  e1 = fill K1 e1' → e2 = fill K2 e2' →
-  head_step e1' σ1 K1 e2' σ2 K2 n → prim_step e1 σ1 e2 σ2 n.
+          (e2 : expr S) (σ2 : state) (nm : nat * nat), Prop :=
+| Ectx_step e1 σ1 e2 σ2 nm (K1 K2 : ectx S) e1' e2' :
+  e1 = fill K1 e1' ->
+  e2 = fill K2 e2' ->
+  head_step e1' σ1 K1 e2' σ2 K2 nm ->
+  prim_step e1 σ1 e2 σ2 nm
+| Shift_step e1 σ1 K Ki Ko e2 σ2 Ki' nm :
+  (Ki, Ko) = shift_context K ->
+  head_step e1 σ1 Ki e2 σ2 Ki' nm ->
+  prim_step (fill K e1) σ1 (fill (Ki' ++ Ko) e2) σ2 nm.
 (* | App_cont_step e1 σ e2 (K : ectx S) v K' : *)
 (*   e1 = (fill K (App (Val $ ContV K') (Val v))) -> *)
 (*   e2 = (fill K' (Val v)) -> *)
@@ -563,7 +570,8 @@ Lemma prim_step_pure {S} (e1 e2 : expr S) σ1 σ2 n :
   prim_step e1 σ1 e2 σ2 (n,0) → σ1 = σ2.
 Proof.
   inversion 1; simplify_eq/=.
-  by inversion H2.
+  + by inversion H2.
+  + by inversion H1.
 Qed.
 
 Inductive prim_steps {S} : expr S → state → expr S → state → nat * nat → Prop :=
@@ -780,17 +788,17 @@ Notation "'$' fn" := (set_pure_resolver fn) (at level 60) : syn_scope.
 Notation "K '⟪' e '⟫'" := (fill K%syn e%syn) (at level 60) : syn_scope.
 
 
-Notation "'lam' e" := (LamV e%syn) (at level 60) : syn_scope.
+(* Notation "'lam' e" := (LamV e%syn) (at level 60) : syn_scope. *)
 
-Definition LetE {S : Set} (e : expr S) (e' : expr (inc S)) : expr S :=
-  App (LamV e') (e).
+(* Definition LetE {S : Set} (e : expr S) (e' : expr (inc S)) : expr S := *)
+(*   App (LamV e') (e). *)
 
-Notation "'let_' e₁ 'in' e₂" := (LetE e₁%syn e₂%syn) (at level 60, right associativity) : syn_scope.
+(* Notation "'let_' e₁ 'in' e₂" := (LetE e₁%syn e₂%syn) (at level 60, right associativity) : syn_scope. *)
 
-Definition SeqE {S : Set} (e e' : expr S) : expr S :=
-  App (LamV (shift e)) e'.
+(* Definition SeqE {S : Set} (e e' : expr S) : expr S := *)
+(*   App (LamV (shift e)) e'. *)
 
-Notation "e₁ ';;' e₂" := (SeqE e₁%syn e₂%syn) : syn_scope.
+(* Notation "e₁ ';;' e₂" := (SeqE e₁%syn e₂%syn) : syn_scope. *)
 
 Declare Scope typ_scope.
 Delimit Scope typ_scope with typ.
@@ -822,12 +830,12 @@ Module SynExamples.
 
   Example test1 : expr (inc ∅) := ($ 0).
   Example test2 : val ∅ := (rec (if ($ 1) then # 1 else # 0)).
-  Example test21 : val ∅ := (lam (if ($ 0) then # 1 else #0)).
+  (* Example test21 : val ∅ := (lam (if ($ 0) then # 1 else #0)). *)
   Example test3 : expr ∅ := (shift/cc ($ 0)).
   Example test4 : expr ∅ := ((# 1) + (# 0)).
   Example test5 : val ∅ := (rec (if ($ 1) then # 1 else (($ 0) ⋆ (($ 1) - (# 1))))).
   Example test6 : expr (inc (inc ∅)) := ($ 0) ⋆ ($ 1).
-  Example test7 : expr ∅ := (let_ ((rec (if ($ 1) then # 1 else (($ 0) ⋆ (($ 1) - (# 1))))) ⋆ (# 5)) in (output ($ 0))).
+  (* Example test7 : expr ∅ := (let_ ((rec (if ($ 1) then # 1 else (($ 0) ⋆ (($ 1) - (# 1))))) ⋆ (# 5)) in (output ($ 0))). *)
 
   Open Scope typing_scope.
 
@@ -858,15 +866,23 @@ Definition compute_head_step {S}
         if (decide (n = 0))
         then Some (e2, σ, K, (0, 0))
         else None
-  | (Shift e) =>
-      let (Ki, Ko) := shift_context K in
-      let f := cont_to_rec Ki in
-      Some ((subst (Inc := inc) e (Val f)), σ, Ko, (1, 1))
+  (* | (Shift e) => *)
+  (*     let (Ki, Ko) := shift_context K in *)
+  (*     let f := cont_to_rec Ki in *)
+  (*     Some ((subst (Inc := inc) e (Val f)), σ, Ko, (1, 1)) *)
   | (Reset (Val v)) => Some (Val v, σ, K, (1, 1))
   (* | (Reset (fill E (Shift e))) => None *)
   | _ => None
   end.
 (* CHECK *)
+
+Example test21 : val ∅ := (rec (if ($ 0) then # 1 else #0))%syn.
+
+
+Example testc : option (expr (inc ∅) * state * ectx (inc ∅) * (nat * nat)) :=
+  (compute_head_step (App (Val test1) (Val $ LitV 5)) (State [] []) []).
+Eval compute in testc.
+
 
 Lemma head_step_reflect {S : Set} (e : expr S) (σ : state) (K : ectx S)
   : option_reflect (fun '(e', σ', K', nm) => head_step e σ K e' σ' K' nm)
@@ -911,9 +927,9 @@ Proof.
     destruct v; try (by constructor).
     destruct (update_output n σ) eqn:Heqn.
     by do 2 constructor.
-  - simpl. 
-    destruct (shift_context K) as [Ki Ko] eqn:HK.
-    constructor. apply ShiftS with Ki =>//=.
+  (* - simpl. *)
+  (*   destruct (shift_context K) as [Ki Ko] eqn:HK. *)
+  (*   constructor. apply ShiftS with Ki =>//=. *)
   -  simpl.
      destruct e; try (by constructor).
      do 2 constructor.
