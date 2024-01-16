@@ -154,11 +154,22 @@ Section constructors.
     λne f, SHIFT_ f (idfun).
   Solve Obligations with solve_proper.
 
+  (* Program Definition RESET : laterO IT -n> IT := *)
+  (*   λne e, Vis (E:=E) (subEff_opid op_reset) *)
+  (*              (subEff_ins (F := ioE) (op := op_reset) e) *)
+  (*              (subEff_outs (F := ioE) (op := op_reset)^-1). *)
+  (* Solve All Obligations with solve_proper. *)
+
+  Program Definition RESET_ : (laterO IT -n> laterO IT) -n>
+                                laterO IT -n>
+                                IT :=
+      λne k e, Vis (E:=E) (subEff_opid op_reset)
+                 (subEff_ins (F := ioE) (op := op_reset) e)
+                 (k ◎ subEff_outs (F := ioE) (op := op_reset)^-1).
+  Solve Obligations with solve_proper.
+
   Program Definition RESET : laterO IT -n> IT :=
-    λne e, Vis (E:=E) (subEff_opid op_reset)
-               (subEff_ins (F := ioE) (op := op_reset) e)
-               (subEff_outs (F := ioE) (op := op_reset)^-1).
-  Solve All Obligations with solve_proper.
+    RESET_ idfun.
 
 
   Lemma hom_INPUT k f `{!IT_hom f} : f (INPUT k) ≡ INPUT (OfeMor f ◎ k).
@@ -359,6 +370,10 @@ Section interp.
     intros [| a]; simpl; last solve_proper.
     repeat f_equiv.
   Qed.
+
+  (* Program Definition interp_reset {S} (e : S -n> IT) : S -n> IT := *)
+  (*   λne env, get_val idfun (RESET (Next (e env))). *)
+  (* Solve All Obligations with solve_proper_please. *)
 
   Program Definition interp_reset {S} (e : S -n> IT) : S -n> IT :=
     λne env, get_val idfun (RESET (Next (e env))).
@@ -590,7 +605,9 @@ Section interp.
   Definition interp_ectx {S} (K : ectx S) : interp_scope S → (IT -n> IT) :=
     λ env, OfeMor (interp_ectx' K env).
 
-  (* Example test_ectx : ectx ∅ := [OutputK ; AppRK (LamV (Var VZ))]. *)
+  Example test_ectx : ectx ∅ := [OutputK ; AppRK (RecV (Var VZ))].
+  (* Eval cbv[test_ectx interp_ectx interp_ectx' interp_ectx_el *)
+  (*            interp_apprk interp_outputk interp_output interp_app] in (interp_ectx test_ectx). *)
   (* Definition interp_ectx {S} (K : ectx S) : interp_scope S -n> IT -n> IT := *)
   (*   λne env e, *)
   (*     (fold_left (λ k c, λne (e : interp_scope S -n> IT), *)
@@ -869,9 +886,8 @@ Section interp.
     IT_hom (interp_ectx ([ResetK] : ectx S) env) -> False.
   Proof.
     intros [ _ Hi _ _ ]. simpl in Hi.
-    specialize (Hi (Ret 0)). 
-    rewrite -hom_tick in Hi.
-    rewrite get_val_tick get_val_vis in Hi.
+    specialize (Hi (Ret 0)).
+    rewrite hom_vis in Hi.
     apply bi.siProp.pure_soundness.
     iApply IT_tick_vis_ne.
     iPureIntro.
@@ -995,7 +1011,10 @@ Section interp.
       }
       rewrite reify_vis_eq //; last first.
       {
-        epose proof (@subReifier_reify sz reify_io rs _ IT _ (inr (inl ())) n0 (Next (interp_ectx K' env ((Ret 0)))) (constO (Next (interp_ectx K' env ((Ret 0))))) σ (update_output n0 σ) σr) as H.
+        epose proof (@subReifier_reify sz reify_io rs _ IT _ op_output
+                       n0 (Next (interp_ectx K' env ((Ret 0))))
+                       (constO (Next (interp_ectx K' env ((Ret 0)))))
+                       σ (update_output n0 σ) σr) as H.
         simpl in H.
         simpl.
         erewrite <-H; last reflexivity.
@@ -1063,12 +1082,34 @@ Section interp.
       + f_equiv. Transparent extend_scope.
         simpl. admit.
       + admit.
-    - 
-      rewrite -(interp_comp).
+    - Transparent RESET. unfold RESET.
+      trans (reify (gReifiers_sReifier rs)
+               (RESET_ (laterO_map (λne y, interp_ectx' K' env y) ◎
+                          (laterO_map (λne y, get_val idfun y)) ◎
+                          idfun)
+                  (Next (interp_val v env)))
+            (gState_recomp σr (sR_state σ'))).
+      {
+        do 2 f_equiv; last done.
+        rewrite !hom_vis. simpl. f_equiv.
+        by intro x.
+      }
+      rewrite reify_vis_eq//; last first.
+      {
+        simpl.
+        epose proof (@subReifier_reify sz reify_io rs subR IT _
+                       op_reset (Next (interp_val v env)) _
+                       (laterO_map (interp_ectx K' env) ◎
+                                   laterO_map (get_val idfun)) σ' σ' σr) as H.
+        simpl in H. erewrite <-H; last reflexivity.
+        f_equiv.
+        + intros ???. by rewrite /prod_map H0.
+        + do 2 f_equiv. by intro x.
+      }
       f_equiv.
-      + f_equiv. 
-
-
+      rewrite laterO_map_Next -Tick_eq. f_equiv.
+      rewrite interp_comp. f_equiv.
+      simpl. by rewrite get_val_ITV. 
   Qed.
 
   Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m (env : interp_scope S) :
