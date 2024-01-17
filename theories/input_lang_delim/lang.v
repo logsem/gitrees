@@ -23,7 +23,7 @@ Inductive expr {X : Set} :=
 (* The effects *)
 | Input : expr
 | Output (e : expr) : expr
-| Shift (e : @expr (inc X)) : expr
+| Shift (e : expr) : expr
 | Reset (e : expr) : expr
 with val {X : Set} :=
 | LitV (n : nat) : val
@@ -63,7 +63,7 @@ Fixpoint emap {A B : Set} (f : A [→] B) (e : expr A) : expr B :=
   | If e₁ e₂ e₃ => If (emap f e₁) (emap f e₂) (emap f e₃)
   | Input => Input
   | Output e => Output (emap f e)
-  | Shift e => Shift (emap (f ↑) e)
+  | Shift e => Shift (emap f e)
   | Reset e => Reset (emap f e)
   end
 with
@@ -101,7 +101,7 @@ Fixpoint ebind {A B : Set} (f : A [⇒] B) (e : expr A) : expr B :=
   | If e₁ e₂ e₃ => If (ebind f e₁) (ebind f e₂) (ebind f e₃)
   | Input => Input
   | Output e => Output (ebind f e)
-  | Shift e => Shift (ebind (f ↑) e)
+  | Shift e => Shift (ebind f e)
   | Reset e => Reset (ebind f e)
   end
 with
@@ -475,10 +475,11 @@ Variant head_step {S} : expr S → state -> ectx S →
     head_step (If (Val (LitV n)) e1 e2) σ K
       e2 σ K (0, 0)
 
-  | ShiftS e σ K f:
+  | ShiftS (e : expr (inc (inc S))) σ K f:
     ResetK ∉ K ->
     f = cont_to_rec K ->
-    head_step (Shift e) σ K (subst (Inc := inc) e (Val f)) σ [] (1, 1)
+    head_step (Shift  (Val $ RecV e)) σ K
+              (App (Val $ RecV e) (Val f)) σ [] (0, 1)
 
   | ResetS v σ K :
     head_step (Reset (Val v)) σ K (Val v) σ K (1, 1).
@@ -658,7 +659,7 @@ Inductive typed {S : Set} (Γ : S -> ty) : expr S → ty → Prop :=
 (*   typed Γ e2 (Tcont τ) -> *)
 (*   typed Γ (Throw e1 e2) τ' *)
 | typed_Shift e τ :
-  typed (Γ ▹ Tcont τ) e τ ->
+  typed Γ e (Tarr (Tcont τ) τ) ->
   typed Γ (Shift e) τ
 | typed_App_Cont (τ τ' : ty) e1 e2 :
   typed Γ e1 (Tcont τ) ->
@@ -831,7 +832,7 @@ Module SynExamples.
   Example test1 : expr (inc ∅) := ($ 0).
   Example test2 : val ∅ := (rec (if ($ 1) then # 1 else # 0)).
   (* Example test21 : val ∅ := (lam (if ($ 0) then # 1 else #0)). *)
-  Example test3 : expr ∅ := (shift/cc ($ 0)).
+  Example test3 : expr ∅ := (shift/cc (rec ($ 0))).
   Example test4 : expr ∅ := ((# 1) + (# 0)).
   Example test5 : val ∅ := (rec (if ($ 1) then # 1 else (($ 0) ⋆ (($ 1) - (# 1))))).
   Example test6 : expr (inc (inc ∅)) := ($ 0) ⋆ ($ 1).

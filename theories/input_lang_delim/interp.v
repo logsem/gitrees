@@ -63,7 +63,7 @@ Definition reify_shift X `{Cofe X} : ((laterO X -n> laterO X) -n> laterO X) *
                                         stateO * (laterO X -n> laterO X) →
                                       option (laterO X * stateO) :=
   λ '(f, σ, k), Some ((f k): laterO X, σ : stateO).
-#[export] Instance reify_callcc_ne X `{Cofe X} :
+#[export] Instance reify_shift_ne X `{Cofe X} :
   NonExpansive (reify_shift X :
     prodO (prodO ((laterO X -n> laterO X) -n> laterO X) stateO)
       (laterO X -n> laterO X) →
@@ -346,34 +346,48 @@ Section interp.
   Local Instance interp_ouput_ne {A} : NonExpansive2 (@interp_output A).
   Proof. solve_proper. Qed.
 
-  Program Definition interp_shift {S}
-    (e : @interp_scope F R _ (inc S) -n> IT) : interp_scope S -n> IT :=
-    λne env, SHIFT (λne (f : laterO IT -n> laterO IT),
-                       (Next (e (@extend_scope F R _ _ env
-                                   (Fun (Next (λne x, Tau (f (Next x))))))))).
-  Next Obligation.
-    solve_proper.
-  Qed.
-  Next Obligation.
-    solve_proper_prepare.
-    repeat f_equiv.
-    intros [| a]; simpl; last solve_proper.
-    repeat f_equiv.
-    intros ?; simpl.
-    by repeat f_equiv.
-  Qed.
-  Next Obligation.
-    solve_proper_prepare.
-    repeat f_equiv.
-    intros ?; simpl.
-    repeat f_equiv.
-    intros [| a]; simpl; last solve_proper.
-    repeat f_equiv.
-  Qed.
+  (* Program Definition interp_shift {S} *)
+  (*   (e : @interp_scope F R _ (inc S) -n> IT) : interp_scope S -n> IT := *)
+  (*   λne env, SHIFT (λne (k : laterO IT -n> laterO IT), *)
+  (*                      (Next (e (@extend_scope F R _ _ env *)
+  (*                                  (Fun (Next (λne x, Tau (k (Next x))))))))). *)
+  (* Next Obligation. *)
+  (*   solve_proper. *)
+  (* Qed. *)
+  (* Next Obligation. *)
+  (*   solve_proper_prepare. *)
+  (*   repeat f_equiv. *)
+  (*   intros [| a]; simpl; last solve_proper. *)
+  (*   repeat f_equiv. *)
+  (*   intros ?; simpl. *)
+  (*   by repeat f_equiv. *)
+  (* Qed. *)
+  (* Next Obligation. *)
+  (*   solve_proper_prepare. *)
+  (*   repeat f_equiv. *)
+  (*   intros ?; simpl. *)
+  (*   repeat f_equiv. *)
+  (*   intros [| a]; simpl; last solve_proper. *)
+  (*   repeat f_equiv. *)
+  (* Qed. *)
 
-  (* Program Definition interp_reset {S} (e : S -n> IT) : S -n> IT := *)
-  (*   λne env, get_val idfun (RESET (Next (e env))). *)
-  (* Solve All Obligations with solve_proper_please. *)
+  Program Definition interp_shift {S} (e : S -n> IT) : S -n> IT :=
+    λne env, get_fun (λne (f : laterO (IT -n> IT)),
+                        SHIFT (λne (k : laterO IT -n> laterO IT),
+                                  laterO_ap f (Next (λit x, Tau (k (Next x)))))) (e env).
+  Solve Obligations with solve_proper.
+  Next Obligation.
+    solve_proper_prepare. repeat f_equiv. intro. simpl. by repeat f_equiv.
+  Qed.
+  Next Obligation.
+    Opaque laterO_ap.
+    solve_proper_prepare. repeat f_equiv. intro. simpl.
+    by apply later_ap_ne.
+    Transparent laterO_ap.
+  Qed.
+  Next Obligation.
+    solve_proper_prepare. by repeat f_equiv.
+  Qed.
 
   Program Definition interp_reset {S} (e : S -n> IT) : S -n> IT :=
     λne env, get_val idfun (RESET (Next (e env))).
@@ -656,14 +670,14 @@ Section interp.
   (*   interp_ectx (fmap δ e) env ≡ interp_ectx e (ren_scope δ env). *)
   Proof.
     - destruct e; simpl; try by repeat f_equiv.
-      repeat f_equiv.
-      intros ?; simpl.
-      repeat f_equiv.
-      simpl; rewrite interp_expr_ren.
-      f_equiv.
-      intros [| y]; simpl.
-      + reflexivity.
-      + reflexivity.
+      (* repeat f_equiv. *)
+      (* intros ?; simpl. *)
+      (* repeat f_equiv. *)
+      (* simpl; rewrite interp_expr_ren. *)
+      (* f_equiv. *)
+      (* intros [| y]; simpl. *)
+      (* + reflexivity. *)
+      (* + reflexivity. *)
     - destruct e; simpl.
       + reflexivity.
       + clear -interp_expr_ren.
@@ -735,16 +749,16 @@ Section interp.
   (*   interp_ectx (bind δ e) env ≡ interp_ectx e (sub_scope δ env). *)
   Proof.
     - destruct e; simpl; try by repeat f_equiv.
-      repeat f_equiv.
-      intros ?; simpl.
-      repeat f_equiv.
-      rewrite interp_expr_subst.
-      f_equiv.
-      intros [| x']; simpl.
-      + reflexivity.
-      + rewrite interp_expr_ren.
-        f_equiv.
-        intros ?; reflexivity.
+      (* repeat f_equiv. *)
+      (* intros ?; simpl. *)
+      (* repeat f_equiv. *)
+      (* rewrite interp_expr_subst. *)
+      (* f_equiv. *)
+      (* intros [| x']; simpl. *)
+      (* + reflexivity. *)
+      (* + rewrite interp_expr_ren. *)
+      (*   f_equiv. *)
+      (*   intros ?; reflexivity. *)
     - destruct e; simpl.
       + reflexivity.
       + clear -interp_expr_subst.
@@ -1025,15 +1039,29 @@ Section interp.
       repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.
       reflexivity.
-    - match goal with
-      | |- context G [ofe_mor_car _ _ (SHIFT) ?g] => set (f := g)
+    - 
+      match goal with
+      | |- context G
+             [(ofe_mor_car _ _ (get_fun (?g))
+                 ?e)] => set (f := g)
       end.
       match goal with
       | |- context G [(?s, _)] => set (gσ := s) end.
       (* Transparent SHIFT. *)
       (* unfold SHIFT. *)
-      simpl.
       set (subEff1 := @subReifier_subEff sz reify_io rs subR).
+      trans (reify (gReifiers_sReifier rs)
+               (interp_ectx' K env
+                  (get_fun f (Fun (Next (ir_unf (interp_expr e0) env))))) gσ).
+      { repeat f_equiv. apply interp_rec_unfold. }
+      trans (reify (gReifiers_sReifier rs)
+               (interp_ectx' K env
+                  (f (Next (ir_unf (interp_expr e0) env)))) gσ).
+      { repeat f_equiv. apply get_fun_fun. }
+      subst f. simpl.
+      match goal with
+      | |- context G [(ofe_mor_car _ _ SHIFT ?g)] => set (f := g)
+      end.
       trans (reify (gReifiers_sReifier rs)
                (SHIFT_ f (laterO_map (λne y, interp_ectx K env y) ◎ idfun)) gσ).
       {
@@ -1053,35 +1081,35 @@ Section interp.
         + intros ???. by rewrite /prod_map H2.
         + do 3f_equiv; try done. by intro.
       }
-      (* simpl.  *)
-      (* rewrite interp_comp. *)
+      clear f.
       f_equiv.
-      rewrite -Tick_eq.
-      unfold cont_to_rec.
-      rewrite interp_expr_subst.
-      Disable Notation "λit".
-      simpl. f_equiv.
+      trans ((Fun $ Next $ ir_unf (interp_expr e0) env)
+               ⊙ (Fun $ Next $ ir_unf (interp_expr (shift (shift K) ⟪ Var VZ ⟫)%syn) env)
+            ); last first.
+      { repeat f_equiv; by rewrite interp_rec_unfold. }
+      rewrite APP'_Fun_r APP_Fun -!Tick_eq. simpl.
+      repeat f_equiv.
+      intro. simpl.
+      rewrite interp_comp. 
       (* rewrite laterO_map_Next. *)
-      Transparent extend_scope.
-      f_equiv.
-
-      intros [| x]; term_simpl; last reflexivity.
-      rewrite interp_rec_unfold.
-      do 2 f_equiv. intro.
-      Opaque extend_scope.
-      simpl.
-      rewrite laterO_map_Next -Tick_eq.
-      rewrite interp_comp.
+      (* Transparent extend_scope. *)
+      (* intros [| x]; term_simpl; last reflexivity. *)
+      (* rewrite interp_rec_unfold. *)
+      (* do 2 f_equiv. intro. *)
+      (* Opaque extend_scope. *)
+      (* rewrite laterO_map_Next -Tick_eq. *)
+      (* rewrite interp_comp. *)
       symmetry. etrans; first by apply interp_ectx_ren.
       etrans; first by apply interp_ectx_ren.
-      rewrite -hom_tick.
+      (* rewrite -hom_tick. *)
       match goal with
       | |- context G [(interp_ectx K ?e)] => set (env' := e)
       end.
+      rewrite laterO_map_Next -Tick_eq.
       trans (interp_ectx K env' (Tick x)).
       + f_equiv. Transparent extend_scope.
         simpl. admit.
-      + admit.
+      + simpl. admit.
     - Transparent RESET. unfold RESET.
       trans (reify (gReifiers_sReifier rs)
                (RESET_ (laterO_map (λne y, interp_ectx' K' env y) ◎
@@ -1109,7 +1137,7 @@ Section interp.
       f_equiv.
       rewrite laterO_map_Next -Tick_eq. f_equiv.
       rewrite interp_comp. f_equiv.
-      simpl. by rewrite get_val_ITV. 
+      simpl. by rewrite get_val_ITV.
   Qed.
 
   Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m (env : interp_scope S) :
