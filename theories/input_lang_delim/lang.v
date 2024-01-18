@@ -27,7 +27,8 @@ Inductive expr {X : Set} :=
 | Reset (e : expr) : expr
 with val {X : Set} :=
 | LitV (n : nat) : val
-| RecV (e : @expr (inc (inc X))) : val.
+| RecV (e : @expr (inc (inc X))) : val
+| ContV (e : @expr (inc X)) : val.
 
 
 
@@ -71,7 +72,7 @@ vmap {A B : Set} (f : A [→] B) (v : val A) : val B :=
   match v with
   | LitV n => LitV n
   | RecV e => RecV (emap ((f ↑) ↑) e)
-(* | ContV K => ContV (kmap f K) *)
+  | ContV e => ContV (emap (f ↑) e)
   end.
 
 #[export] Instance FMap_expr : FunctorCore expr := @emap.
@@ -109,7 +110,7 @@ vbind {A B : Set} (f : A [⇒] B) (v : val A) : val B :=
   match v with
   | LitV n => LitV n
   | RecV e => RecV (ebind ((f ↑) ↑) e)
-  (* | ContV K => ContV (kbind f K) *)
+  | ContV e => ContV (ebind (f ↑) e)
   end.
 
 #[export] Instance BindCore_expr : BindCore expr := @ebind.
@@ -414,7 +415,7 @@ Qed.
 
 (* Only if no reset in K *)
 Definition cont_to_rec {X : Set} (K : ectx X) : (val X) :=
-  RecV (fill (shift (shift K)) (Var VZ)).
+  ContV (fill (shift K) (Var VZ)).
 
 Example test1 : val (inc ∅) := (cont_to_rec [OutputK; AppRK (Var VZ)]).
 
@@ -456,6 +457,10 @@ Variant head_step {S} : expr S → state -> ectx S →
       (subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1)
                              (Val (shift (Inc := inc) v2)))
          (Val (RecV e1))) σ K (1,0)
+  | BetaContS e1 v2 σ K :
+    head_step (App (Val $ ContV e1) (Val v2)) σ K
+      (subst  (Inc := inc) e1 (Val  v2))
+      σ K (2,0)
   | InputS σ n σ' K :
     update_input σ = (n, σ') →
     head_step Input σ K (Val (LitV n)) σ' K (1, 1)
