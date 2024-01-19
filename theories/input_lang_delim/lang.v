@@ -413,6 +413,27 @@ Proof.
 Qed.
 
 
+Lemma trim_reset_no_reset {X : Set} (K Ki Ko acc : ectx X) :
+  (Ki, Ko) = trim_to_first_reset K acc ->
+  ResetK ∉ acc ->
+  ResetK ∉ Ki.
+Proof.
+  elim: K Ko acc Ki; simpl; intros.
+  - congruence.
+  - destruct a; try solve [eapply H; try eapply H0; try (apply not_elem_of_cons; done)].
+    congruence.
+Qed.
+
+
+Lemma shift_context_no_reset {X : Set} (K Ki Ko : ectx X) :
+  (Ki, Ko) = shift_context K -> ResetK ∉ Ki.
+Proof.
+  rewrite /shift_context//. destruct (trim_to_first_reset K []) eqn:Heq. symmetry in Heq.
+  intros. eapply trim_reset_no_reset in Heq; last apply not_elem_of_nil.
+  rewrite rev_alt in H. inversion H. subst. by rewrite elem_of_reverse.
+Qed.
+
+
 (* Only if no reset in K *)
 Definition cont_to_rec {X : Set} (K : ectx X) : (val X) :=
   ContV (fill (shift K) (Var VZ)).
@@ -483,8 +504,12 @@ Variant head_step {S} : expr S → state -> ectx S →
   | ShiftS (e : expr (inc (inc S))) σ K f:
     ResetK ∉ K ->
     f = cont_to_rec K ->
-    head_step (Shift  (Val $ RecV e)) σ K
-              (App (Val $ RecV e) (Val f)) σ [] (0, 1)
+    head_step (Shift (Val $ RecV e)) σ K
+      (subst (Inc := inc) ((subst (F := expr) (Inc := inc) e)
+                             (Val (shift (Inc := inc) f)))
+         (Val $ RecV e)) σ [] (1, 1)
+    (* head_step (Shift  (Val $ RecV e)) σ K *)
+    (*           (App (Val $ RecV e) (Val f)) σ [] (0, 1) *)
 
   | ResetS v σ K :
     head_step (Reset (Val v)) σ K (Val v) σ K (1, 1).
@@ -560,6 +585,7 @@ Inductive prim_step {S} : ∀ (e1 : expr S) (σ1 : state)
 | Ectx_step e1 σ1 e2 σ2 nm (K1 K2 : ectx S) e1' e2' :
   e1 = fill K1 e1' ->
   e2 = fill K2 e2' ->
+  ResetK ∉ K1 ->
   head_step e1' σ1 K1 e2' σ2 K2 nm ->
   prim_step e1 σ1 e2 σ2 nm
 | Shift_step e1 σ1 K Ki Ko e2 σ2 Ki' nm :
@@ -576,7 +602,7 @@ Lemma prim_step_pure {S} (e1 e2 : expr S) σ1 σ2 n :
   prim_step e1 σ1 e2 σ2 (n,0) → σ1 = σ2.
 Proof.
   inversion 1; simplify_eq/=.
-  + by inversion H2.
+  + by inversion H3.
   + by inversion H1.
 Qed.
 
@@ -590,7 +616,9 @@ Inductive prim_steps {S} : expr S → state → expr S → state → nat * nat �
 .
 
 Lemma Ectx_step' {S} (K1 K2 : ectx S) e1 σ1 e2 σ2 efs :
-  head_step e1 σ1 K1 e2 σ2 K2 efs → prim_step (fill K1 e1) σ1 (fill K2 e2) σ2 efs.
+  head_step e1 σ1 K1 e2 σ2 K2 efs →
+  ResetK ∉ K1 ->
+  prim_step (fill K1 e1) σ1 (fill K2 e2) σ2 efs.
 Proof. econstructor; eauto. Qed.
 
 Lemma prim_steps_app {S} nm1 nm2 (e1 e2 e3 : expr S) σ1 σ2 σ3 :
@@ -626,7 +654,7 @@ Qed.
 Lemma head_step_prim_step {S} (e1 e2 : expr S) σ1 σ2 nm :
   head_step e1 σ1 [] e2 σ2 [] nm -> prim_step e1 σ1 e2 σ2 nm.
 Proof.
-  apply Ectx_step'.
+  move => H; apply Ectx_step' in H => //=. apply not_elem_of_nil.
 Qed.
 
 (*** Type system *)
