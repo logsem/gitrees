@@ -2,9 +2,9 @@
 From gitrees Require Import gitree.
 
 Section program_logic.
-  Context {sz : nat}.
-  Variable rs : gReifiers sz.
-  Notation F := (gReifiers_ops rs).
+  Context {sz : nat} {a : is_ctx_dep}.
+  Variable rs : gReifiers a sz.
+  Notation F := (gReifiers_ops a rs).
   Context {R} `{!Cofe R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
@@ -26,21 +26,18 @@ End program_logic.
 
 Section program_logic_ctx_indep.
   Context {sz : nat}.
-  Variable rs : gReifiers sz.
-  Notation F := (gReifiers_ops rs).
+  Variable rs : gReifiers NotCtxDep sz.
+  Notation F := (gReifiers_ops NotCtxDep rs).
   Context {R} `{!Cofe R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
   Context `{!invGS Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
-  Context {HCI : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-             CtxIndep (gReifiers_sReifier rs)
-               (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}.
 
   Lemma wp_seq α β s Φ `{!NonExpansive Φ} :
     WP@{rs} α @ s {{ _, WP@{rs} β @ s {{ Φ }} }} ⊢ WP@{rs} SEQ α β @ s {{ Φ }}.
-  Proof using HCI.
+  Proof.
     iIntros "H".
     iApply (wp_bind _ (SEQCtx β)).
     iApply (wp_wand with "H").
@@ -50,7 +47,7 @@ Section program_logic_ctx_indep.
 
   Lemma wp_let α (f : IT -n> IT) s Φ `{!NonExpansive Φ} :
     WP@{rs} α @ s {{ αv, WP@{rs} f (IT_of_V αv) @ s {{ Φ }} }} ⊢ WP@{rs} (LET α f) @ s {{ Φ }}.
-  Proof using HCI.
+  Proof.
     iIntros "H".
     iApply (wp_bind _ (LETCTX f)).
     iApply (wp_wand with "H").

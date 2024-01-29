@@ -1,17 +1,16 @@
 (** Logical relation for adequacy for the IO lang *)
-From Equations Require Import Equations.
 From gitrees Require Import gitree.
 From gitrees.input_lang_callcc Require Import lang interp hom.
-Require Import gitrees.lang_generic_sem.
+Require Import gitrees.lang_generic.
 Require Import Binding.Lib Binding.Set Binding.Env.
 
 Open Scope stdpp_scope.
 
 Section logrel.
   Context {sz : nat}.
-  Variable (rs : gReifiers sz).
+  Variable (rs : gReifiers CtxDep sz).
   Context {subR : subReifier reify_io rs}.
-  Notation F := (gReifiers_ops rs).
+  Notation F := (gReifiers_ops CtxDep rs).
   Notation IT := (IT F natO).
   Notation ITV := (ITV F natO).
   Context `{!invGS Σ, !stateG rs natO Σ}.
@@ -273,7 +272,7 @@ Section logrel.
         iApply "HK'".
         simpl.
         unfold logrel_arr.
-        _iExists (Next (ir_unf rs α env)).
+        iExists (Next (ir_unf rs α env)).
         iSplit; first done.
         iModIntro.
         iApply "IH".
@@ -685,19 +684,19 @@ Lemma κ_Ret {S} {E} n : κ ((RetV n) : ITV E natO) = (LitV n : val S).
 Proof.
   Transparent RetV. unfold RetV. simpl. done. Opaque RetV.
 Qed.
-Definition rs : gReifiers 1 := gReifiers_cons reify_io gReifiers_nil.
+Definition rs : gReifiers CtxDep 1 := gReifiers_cons CtxDep reify_io (gReifiers_nil CtxDep).
 
 Require Import gitrees.gitree.greifiers.
 
 Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ} `{!statePreG rs natO Σ} {S}
-  (α : IT (gReifiers_ops rs) natO)
+  (α : IT (gReifiers_ops CtxDep rs) natO)
   (e : expr S) n σ σ' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs natO Σ}, (⊢ logrel rs Tnat α e)%I) →
-  ssteps (gReifiers_sReifier rs) α (σ, ()) (Ret n) σ' k →
+  ssteps (gReifiers_sReifier CtxDep rs) α (σ, ()) (Ret n) σ' k →
   ∃ m σ', prim_steps e σ (Val $ LitV n) σ' m.
 Proof.
   intros Hlog Hst.
-  pose (ϕ := λ (βv : ITV (gReifiers_ops rs) natO),
+  pose (ϕ := λ (βv : ITV (gReifiers_ops CtxDep rs) natO),
           ∃ m σ', prim_steps e σ (Val $ κ βv) σ' m).
   cut (ϕ (RetV n)).
   {
@@ -706,7 +705,7 @@ Proof.
   }
   eapply (wp_adequacy 0); eauto.
   intros Hinv1 Hst1.
-  pose (Φ := (λ (βv : ITV (gReifiers_ops rs) natO),
+  pose (Φ := (λ (βv : ITV (gReifiers_ops CtxDep rs) natO),
                 ∃ n, logrel_val rs Tnat (Σ:=Σ) (S:=S) βv (LitV n)
                      ∗ ⌜∃ m σ', prim_steps e σ (Val $ LitV n) σ' m⌝)%I).
   assert (NonExpansive Φ).
@@ -732,8 +731,8 @@ Proof.
     iAssert (has_substate σ) with "[Hs]" as "Hs".
     {
       unfold has_substate, has_full_state.
-      assert ((of_state rs (IT (sReifier_ops (gReifiers_sReifier rs)) natO) (σ, ())) ≡
-                (of_idx rs (IT (sReifier_ops (gReifiers_sReifier rs)) natO) sR_idx (sR_state σ)))
+      assert ((of_state CtxDep rs (IT (sReifier_ops CtxDep (gReifiers_sReifier CtxDep rs)) natO) (σ, ())) ≡
+                (of_idx CtxDep rs (IT (sReifier_ops CtxDep (gReifiers_sReifier CtxDep rs)) natO) sR_idx (sR_state σ)))
         as -> ; last done.
       intros j. unfold sR_idx. simpl.
       unfold of_state, of_idx.
@@ -766,11 +765,11 @@ Proof.
     iExists l. iSplit; eauto.
 Qed.
 
-Program Definition ı_scope : @interp_scope (gReifiers_ops rs) natO _ Empty_set := λne (x : ∅), match x with end.
+Program Definition ı_scope : @interp_scope (gReifiers_ops CtxDep rs) natO _ Empty_set := λne (x : ∅), match x with end.
 
 Theorem adequacy (e : expr ∅) (k : nat) σ σ' n :
   typed □ e Tnat →
-  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ, ()) (Ret k : IT _ natO) σ' n →
+  ssteps (gReifiers_sReifier CtxDep rs) (interp_expr rs e ı_scope) (σ, ()) (Ret k : IT _ natO) σ' n →
   ∃ mm σ', prim_steps e σ (Val $ LitV k) σ' mm.
 Proof.
   intros Hty Hst.

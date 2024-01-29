@@ -1,6 +1,6 @@
 (** Unary (Kripke) logical relation for the affine lang *)
 From Equations Require Import Equations.
-From gitrees Require Export lang_generic gitree program_logic.
+From gitrees Require Export lang_affine gitree program_logic.
 From gitrees.affine_lang Require Import lang.
 From gitrees.examples Require Import store pairs.
 Require Import iris.algebra.gmap.
@@ -51,10 +51,10 @@ Inductive typed : forall {S}, tyctx  S → expr S → ty → Prop :=
 
 Section logrel.
   Context {sz : nat}.
-  Variable rs : gReifiers sz.
+  Variable rs : gReifiers NotCtxDep sz.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier input_lang.interp.reify_io rs}.
-  Notation F := (gReifiers_ops rs).
+  Notation F := (gReifiers_ops NotCtxDep rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
   Context `{!SubOfe unitO R}.
@@ -67,12 +67,8 @@ Section logrel.
   (* parameters for the kripke logical relation *)
   Variable s : stuckness.
   Context `{A:ofe}.
-  Variable (P : A → iProp).
-  Context `{!NonExpansive P}.
+  Variable (P : A -n> iProp).
   Local Notation expr_pred := (expr_pred s rs P).
-  Context {HCI :
-      ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-             CtxIndep (gReifiers_sReifier rs) IT o}.
 
   (* interpreting tys *)
   Program Definition protected (Φ : ITV -n> iProp) : ITV -n> iProp := λne αv,
@@ -110,7 +106,7 @@ Section logrel.
     end.
 
   Definition ssubst_valid {S} (Ω : tyctx S) ss :=
-    lang_generic.ssubst_valid rs (λ τ, protected (interp_ty τ)) Ω ss.
+    lang_affine.ssubst_valid rs (λ τ, protected (interp_ty τ)) Ω ss.
 
   Definition valid1 {S} (Ω : tyctx S) (α : interp_scope S -n> IT) (τ : ty) : iProp :=
     ∀ ss, heap_ctx -∗ ssubst_valid Ω ss -∗ expr_pred (α (interp_ssubst ss)) (interp_ty τ).
@@ -119,7 +115,7 @@ Section logrel.
     ⊢ valid1 Ω1 α τ1 -∗
       valid1 Ω2 β τ2 -∗
       valid1 (tyctx_app Ω1 Ω2) (interp_pair α β ◎ interp_scope_split) (tPair τ1 τ2).
-  Proof using HCI.
+  Proof.
     Opaque pairITV.
     iIntros "H1 H2".
     iIntros (αs) "#Hctx Has".
@@ -144,7 +140,7 @@ Section logrel.
     ⊢ valid1 Ω1 α (tPair τ1 τ2) -∗
       valid1 (consC τ1 $ consC τ2 Ω2) β τ -∗
       valid1 (tyctx_app Ω1 Ω2) (interp_destruct α β ◎ interp_scope_split) τ.
-  Proof using HCI.
+  Proof.
     Opaque pairITV thunked thunkedV projIT1 projIT2.
     iIntros "H1 H2".
     iIntros (αs) "#Hctx Has".
@@ -211,7 +207,7 @@ Section logrel.
   Lemma compat_alloc {S} (Ω : tyctx S) α τ:
     ⊢ valid1 Ω α τ -∗
       valid1 Ω (interp_alloc α) (tRef τ).
-  Proof using HCI.
+  Proof.
     iIntros "H".
     iIntros (αs) "#Hctx Has".
     iSpecialize ("H" with "Hctx Has").
@@ -229,7 +225,7 @@ Section logrel.
     ⊢ valid1 Ω1 α (tRef τ) -∗
       valid1 Ω2 β τ' -∗
       valid1 (tyctx_app Ω1 Ω2) (interp_replace α β ◎ interp_scope_split) (tPair τ (tRef τ')).
-  Proof using HCI.
+  Proof.
     Opaque pairITV.
     iIntros "H1 H2".
     iIntros (αs) "#Hctx Has".
@@ -270,7 +266,7 @@ Section logrel.
   Lemma compat_dealloc {S} (Ω : tyctx S) α τ:
     ⊢ valid1 Ω α (tRef τ) -∗
       valid1 Ω (interp_dealloc α) tUnit.
-  Proof using HCI.
+  Proof.
     iIntros "H".
     iIntros (αs) "#Hctx Has".
     iSpecialize ("H" with "Hctx Has").
@@ -328,7 +324,7 @@ Section logrel.
     ⊢ valid1 Ω1 α (tArr τ1 τ2) -∗
       valid1 Ω2 β τ1 -∗
       valid1 (tyctx_app Ω1 Ω2) (interp_app α β ◎ interp_scope_split) τ2.
-  Proof using HCI.
+  Proof.
     iIntros "H1 H2".
     iIntros (αs) "#Hctx Has".
     iEval(cbn-[interp_app]).
@@ -352,7 +348,7 @@ Section logrel.
   Lemma compat_lam {S} (Ω : tyctx S) τ1 τ2 α :
     ⊢ valid1 (consC τ1 Ω) α τ2 -∗
       valid1 Ω (interp_lam α) (tArr τ1 τ2).
-  Proof using HCI.
+  Proof.
     iIntros "H".
     iIntros (αs) "#Hctx Has".
     iIntros (x) "Hx".
@@ -397,7 +393,7 @@ Section logrel.
   Lemma fundamental_affine {S} (Ω : tyctx S) (e : expr S) τ :
     typed Ω e τ →
     ⊢ valid1 Ω (interp_expr _ e) τ.
-  Proof using HCI.
+  Proof.
     induction 1; simpl.
     - by iApply compat_var.
     - by iApply compat_lam.
@@ -420,157 +416,25 @@ Arguments interp_tnat {_ _ _ _ _ _}.
 Arguments interp_tunit {_ _ _ _ _ _}.
 Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _ _ _ _ _} τ.
 
-Local Definition rs : gReifiers 2 := gReifiers_cons reify_store (gReifiers_cons input_lang.interp.reify_io gReifiers_nil).
-
-Local Instance CtxIndepInputLang R `{!Cofe R} (o : opid (sReifier_ops (gReifiers_sReifier rs))) :
-  CtxIndep (gReifiers_sReifier rs) (IT (gReifiers_ops rs) R) o.
-Proof.
-  destruct o as [x o].
-  inv_fin x.
-  - simpl. intros [[]| [[]| [[] | [| []]]]].
-    + constructor.
-      unshelve eexists (λne '(l,(σ, σ')), x ← σ !! l;
-                        Some (x, (σ, σ'))).
-      * apply _.
-      * apply _.
-      * solve_proper_prepare.
-        destruct x as [? [? ?]]; destruct y as [? [? ?]]; simpl in *.
-        apply (option_mbind_ne _ (λ n, Some (n, _)) (λ n, Some (n, _))).
-        -- intros ? ? ?; repeat f_equiv; [done | |]; apply H.
-        -- rewrite lookup_ne; last apply H.
-           simpl.
-           f_equiv.
-           apply H.
-      * intros.
-        simpl.
-        destruct σ as [? [? ?]].
-        simpl.
-        match goal with
-        | |- context G [@mbind option option_bind _ _ ?a ?b] => set (x := b)
-        end.
-        symmetry.
-        match goal with
-        | |- context G [@mbind option option_bind _ _ ?a ?b] => set (y := b)
-        end.
-        assert (y = x) as ->.
-        { reflexivity. }
-        destruct x as [x |]; reflexivity.
-    + constructor.
-      unshelve eexists (λne '((l,n),(s, s'')), let s' := <[l:=n]>s
-                                               in Some ((), (s', s''))).
-      * apply _.
-      * solve_proper_prepare.
-        destruct x as [[? ?] [? ?]]; destruct y as [[? ?] [? ?]]; simpl in *.
-        do 3 f_equiv; last apply H.
-        rewrite insert_ne; [| apply H | apply H].
-        simpl.
-        f_equiv.
-        apply H.
-      * intros.
-        simpl.
-        destruct i as [? ?].
-        destruct σ as [? [? ?]].
-        simpl.
-        reflexivity.
-    + constructor.
-      unshelve eexists (λne '(n,(s, s'')), let l := Loc.fresh (dom s) in
-                                      let s' := <[l:=n]>s in
-                                      Some (l, (s', s''))).
-      * apply _.
-      * apply _.
-      * solve_proper_prepare.
-        destruct x as [? [? ?]]; destruct y as [? [? ?]]; simpl in *.
-        do 2 f_equiv.
-        -- f_equiv.
-           destruct H as [_ [H _]]; simpl in H.
-           apply gmap_dom_ne in H.
-           apply H.
-        -- f_equiv; last apply H.
-           rewrite insert_ne; [| apply H | apply H].
-           simpl.
-           f_equiv.
-           destruct H as [_ [H _]]; simpl in H.
-           apply gmap_dom_ne in H.
-           by rewrite H.
-      * intros.
-        simpl.
-        destruct i as [? ?].
-        destruct σ as [? [? ?]].
-        simpl.
-        reflexivity.
-    + constructor.
-      simpl.
-      unshelve eexists (λne '(l,(σ, σ')), Some ((), (delete l σ, σ'))).
-      * apply _.
-      * solve_proper_prepare.
-        destruct x as [? [? ?]]; destruct y as [? [? ?]]; simpl in *.
-        do 2 f_equiv.
-        f_equiv; last apply H.
-        rewrite delete_ne; last apply H.
-        simpl.
-        f_equiv.
-        apply H.
-      * intros.
-        simpl.
-        destruct σ as [? [? ?]].
-        simpl.
-        reflexivity.
-  - intros x; inv_fin x.
-    + simpl. intros [[]| [[]| []]].
-      * constructor.
-        unshelve eexists (λne '(_, (a, (b, c))), SomeO (_, (_, (_, c)))).
-        -- simpl in *.
-           apply ((input_lang.lang.update_input b).1).
-        -- apply a.
-        -- apply ((input_lang.lang.update_input b).2).
-        -- solve_proper_prepare.
-           destruct x as [? [? [? ?]]]; destruct y as [? [? [? ?]]].
-           simpl in *.
-           do 2 f_equiv.
-           ++ do 2 f_equiv.
-              apply H.
-           ++ f_equiv; first apply H.
-              f_equiv; last apply H.
-              do 2 f_equiv; apply H.
-        -- intros.
-           simpl.
-           destruct σ as [? [? ?]].
-           simpl.
-           reflexivity.
-      * constructor.
-        unshelve eexists (λne '(x, (y, z)), SomeO ((), _)).
-        -- simpl in *.
-           apply (y, ((input_lang.lang.update_output x (fstO z)), ())).
-        -- solve_proper_prepare.
-           destruct x as [? [? [? ?]]]; destruct y as [? [? [? ?]]].
-           simpl in *.
-           do 2 f_equiv.
-           apply pair_ne.
-           ++ apply H.
-           ++ do 2 f_equiv; apply H.
-        -- intros.
-           simpl.
-           destruct σ as [σ1 [? []]]; simpl in *.
-           reflexivity.
-    + intros i; by apply fin_0_inv.
-Qed.
+Local Definition rs : gReifiers NotCtxDep 2 :=
+  gReifiers_cons NotCtxDep reify_store (gReifiers_cons NotCtxDep input_lang.interp.reify_io (gReifiers_nil NotCtxDep)).
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
 Lemma logrel1_adequacy cr Σ R `{!Cofe R, !SubOfe natO R, !SubOfe unitO R, !SubOfe locO R} `{!invGpreS Σ}
   `{!statePreG rs R Σ} `{!heapPreG rs R Σ} τ
-  (α : unitO -n>  IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k :
+  (α : unitO -n>  IT (gReifiers_ops NotCtxDep rs) R) (β : IT (gReifiers_ops NotCtxDep rs) R) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ} `{H3: !heapG rs R Σ},
-      (£ cr ⊢ valid1 rs notStuck (λ _:unitO, True)%I empC α τ)%I) →
-  ssteps (gReifiers_sReifier rs) (α ()) st β st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
+      (£ cr ⊢ valid1 rs notStuck (λne _: unitO, True)%I empC α τ)%I) →
+  ssteps (gReifiers_sReifier NotCtxDep rs) (α ()) st β st' k →
+  (∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
   intros Hlog Hst.
   destruct (IT_to_V β) as [βv|] eqn:Hb.
   { right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. }
   left.
-  cut ((∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
+  cut ((∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
       ∨ (∃ e, β ≡ Err e ∧ notStuck e)).
   { intros [?|He]; first done.
     destruct He as [? [? []]]. }
@@ -586,9 +450,9 @@ Proof.
   iMod (new_heapG rs σ) as (H3) "H".
   iAssert (has_substate σ ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
   { unfold has_substate, has_full_state.
-    assert (of_state rs (IT (gReifiers_ops rs) _) st ≡
-            of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)
-            ⋅ of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state ios)) as ->; last first.
+    assert (of_state NotCtxDep rs (IT (gReifiers_ops NotCtxDep rs) _) st ≡
+            of_idx NotCtxDep rs (IT (gReifiers_ops NotCtxDep rs) _) sR_idx (sR_state σ)
+            ⋅ of_idx NotCtxDep rs (IT (gReifiers_ops NotCtxDep rs) _) sR_idx (sR_state ios)) as ->; last first.
     { rewrite -own_op. done. }
     unfold sR_idx. simpl.
     intro j.
@@ -615,10 +479,10 @@ Qed.
 
 Definition R := sumO locO (sumO unitO natO).
 
-Lemma logrel1_safety e τ (β : IT (gReifiers_ops rs) R) st st' k :
+Lemma logrel1_safety e τ (β : IT (gReifiers_ops NotCtxDep rs) R) st st' k :
   typed empC e τ →
-  ssteps (gReifiers_sReifier rs) (interp_expr rs e ()) st β st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
+  ssteps (gReifiers_sReifier NotCtxDep rs) (interp_expr rs e ()) st β st' k →
+  (∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
   intros Hty Hst.

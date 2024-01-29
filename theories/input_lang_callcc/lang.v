@@ -1,6 +1,4 @@
-From stdpp Require Export strings.
 From gitrees Require Export prelude.
-From Equations Require Import Equations.
 Require Import List.
 Import ListNotations.
 

@@ -7,12 +7,14 @@ Module io_lang.
   Definition state := input_lang.lang.state.
   Definition ty := input_lang.lang.ty.
   Definition expr := input_lang.lang.expr.
-  Definition tyctx := tyctx ty.
-  Definition typed {S} := input_lang.lang.typed (S:=S).
-  Definition interp_closed {sz} (rs : gReifiers sz) `{!subReifier reify_io rs} (e : expr []) {R} `{!Cofe R, !SubOfe natO R} : IT (gReifiers_ops rs) R :=
-    input_lang.interp.interp_expr rs e ().
+  Definition tyctx {S : Set} := S → ty.
+  Definition typed {S : Set} := input_lang.lang.typed (S:=S).
+  Program Definition ı_scope {sz} (rs : gReifiers NotCtxDep sz) `{!subReifier reify_io rs} {R} `{!Cofe R} : @interp_scope (gReifiers_ops NotCtxDep rs) R _ Empty_set := λne (x : ∅), match x with end.
+  Definition interp_closed {sz} (rs : gReifiers NotCtxDep sz) `{!subReifier reify_io rs} (e : expr ∅) {R} `{!Cofe R, !SubOfe natO R} : IT (gReifiers_ops NotCtxDep rs) R :=
+    input_lang.interp.interp_expr rs e (ı_scope rs).
 End io_lang.
 
+From gitrees Require Export lang_affine.
 
 Inductive ty :=
   tBool | tInt | tUnit
@@ -42,15 +44,15 @@ Inductive expr : scope → Type :=
 | Alloc {S} : expr S → expr S
 | Replace {S1 S2} : expr S1 → expr S2 → expr (S1++S2)
 | Dealloc {S} : expr S → expr S
-| EEmbed {τ1 τ1' S} : io_lang.expr [] → ty_conv τ1 τ1' → expr S
+| EEmbed {τ1 τ1' S} : io_lang.expr Empty_set → ty_conv τ1 τ1' → expr S
 .
 
 Section affine.
   Context {sz : nat}.
-  Variable rs : gReifiers sz.
+  Variable rs : gReifiers NotCtxDep sz.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier reify_io rs}.
-  Notation F := (gReifiers_ops rs).
+  Notation F := (gReifiers_ops NotCtxDep rs).
   Context {R : ofe}.
   Context `{!Cofe R, !SubOfe unitO R, !SubOfe natO R, !SubOfe locO R}.
   Notation IT := (IT F R).

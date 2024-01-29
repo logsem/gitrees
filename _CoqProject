@@ -16,7 +16,7 @@ vendor/Binding/Resolver.v
 
 theories/prelude.v
 theories/lang_generic.v
-theories/lang_generic_sem.v
+theories/lang_affine.v
 
 theories/gitree/core.v
 theories/gitree/subofe.v

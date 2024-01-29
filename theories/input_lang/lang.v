@@ -1,34 +1,242 @@
-From stdpp Require Export strings.
-From gitrees Require Export prelude lang_generic.
-From Equations Require Import Equations.
+From gitrees Require Export prelude.
 Require Import List.
 Import ListNotations.
 
-Delimit Scope expr_scope with E.
+Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
 
 Inductive nat_op := Add | Sub | Mult.
 
-Inductive expr : scope → Type :=
+Inductive expr {X : Set} : Type :=
   (* Values *)
-  | Val : forall {S}, val S → expr S
-  (* Base lambda calculus *)
-  | Var : forall {S}, var S            → expr S
-  | Rec : forall {S}, expr (()::()::S) → expr S
-  | App : forall {S}, expr S → expr S  → expr S
-  (* Base types and their operations *)
-  | NatOp : forall {S},
-      nat_op → expr S → expr S         → expr S
-  | If : forall {S},
-    expr S → expr S → expr S           → expr S
-  (* The effects *)
-  | Input : forall {S},                  expr S
-  | Output : forall  {S}, expr S       → expr S
-with val : scope → Type :=
-  | Lit : forall {S}, nat               → val S
-  | RecV : forall {S}, expr (()::()::S) → val S.
+| Val (v : val) : expr
+| Var (x : X) : expr
+(* Base lambda calculus *)
+| App (e₁ : expr) (e₂ : expr) : expr
+(* Base types and their operations *)
+| NatOp (op : nat_op) (e₁ : expr) (e₂ : expr) : expr
+| If (e₁ : expr) (e₂ : expr) (e₃ : expr) : expr
+(* The effects *)
+| Input : expr
+| Output (e : expr) : expr
+with val {X : Set} :=
+| LitV (n : nat) : val
+| RecV (e : @expr (inc (inc X))) : val
+with ectx {X : Set} :=
+| EmptyK : ectx
+| OutputK (K : ectx) : ectx
+| IfK (K : ectx) (e₁ : expr) (e₂ : expr) : ectx
+| AppLK (K : ectx) (v : val) : ectx
+| AppRK (e : expr) (K : ectx) : ectx
+| NatOpRK (op : nat_op) (e : expr) (K : ectx) : ectx
+| NatOpLK (op : nat_op) (K : ectx) (v : val) : ectx.
 
-Bind Scope expr_scope with expr.
-Notation of_val := Val (only parsing).
+Arguments val X%bind : clear implicits.
+Arguments expr X%bind : clear implicits.
+Arguments ectx X%bind : clear implicits.
+
+Local Open Scope bind_scope.
+
+Fixpoint emap {A B : Set} (f : A [→] B) (e : expr A) : expr B :=
+  match e with
+  | Val v => Val (vmap f v)
+  | Var x => Var (f x)
+  | App e₁ e₂ => App (emap f e₁) (emap f e₂)
+  | NatOp o e₁ e₂ => NatOp o (emap f e₁) (emap f e₂)
+  | If e₁ e₂ e₃ => If (emap f e₁) (emap f e₂) (emap f e₃)
+  | Input => Input
+  | Output e => Output (emap f e)
+  end
+with vmap {A B : Set} (f : A [→] B) (v : val A) : val B :=
+       match v with
+       | LitV n => LitV n
+       | RecV e => RecV (emap ((f ↑) ↑) e)
+       end
+with kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
+       match K with
+       | EmptyK => EmptyK
+       | OutputK K => OutputK (kmap f K)
+       | IfK K e₁ e₂ => IfK (kmap f K) (emap f e₁) (emap f e₂)
+       | AppLK K v => AppLK (kmap f K) (vmap f v)
+       | AppRK e K => AppRK (emap f e) (kmap f K)
+       | NatOpRK op e K => NatOpRK op (emap f e) (kmap f K)
+       | NatOpLK op K v => NatOpLK op (kmap f K) (vmap f v)
+       end.
+#[export] Instance FMap_expr : FunctorCore expr := @emap.
+#[export] Instance FMap_val  : FunctorCore val := @vmap.
+#[export] Instance FMap_ectx  : FunctorCore ectx := @kmap.
+
+#[export] Instance SPC_expr : SetPureCore expr := @Var.
+
+Fixpoint ebind {A B : Set} (f : A [⇒] B) (e : expr A) : expr B :=
+  match e with
+  | Val v => Val (vbind f v)
+  | Var x => f x
+  | App e₁ e₂ => App (ebind f e₁) (ebind f e₂)
+  | NatOp o e₁ e₂ => NatOp o (ebind f e₁) (ebind f e₂)
+  | If e₁ e₂ e₃ => If (ebind f e₁) (ebind f e₂) (ebind f e₃)
+  | Input => Input
+  | Output e => Output (ebind f e)
+  end
+with vbind {A B : Set} (f : A [⇒] B) (v : val A) : val B :=
+       match v with
+       | LitV n => LitV n
+       | RecV e => RecV (ebind ((f ↑) ↑) e)
+       end
+with kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B :=
+       match K with
+       | EmptyK => EmptyK
+       | OutputK K => OutputK (kbind f K)
+       | IfK K e₁ e₂ => IfK (kbind f K) (ebind f e₁) (ebind f e₂)
+       | AppLK K v => AppLK (kbind f K) (vbind f v)
+       | AppRK e K => AppRK (ebind f e) (kbind f K)
+       | NatOpRK op e K => NatOpRK op (ebind f e) (kbind f K)
+       | NatOpLK op K v => NatOpLK op (kbind f K) (vbind f v)
+       end.
+
+#[export] Instance BindCore_expr : BindCore expr := @ebind.
+#[export] Instance BindCore_val  : BindCore val := @vbind.
+#[export] Instance BindCore_ectx  : BindCore ectx := @kbind.
+
+#[export] Instance IP_typ : SetPure expr.
+Proof.
+  split; intros; reflexivity.
+Qed.
+
+Fixpoint vmap_id X (δ : X [→] X) (v : val X) : δ ≡ ı → fmap δ v = v
+with emap_id X (δ : X [→] X) (e : expr X) : δ ≡ ı → fmap δ e = e
+with kmap_id X (δ : X [→] X) (e : ectx X) : δ ≡ ı → fmap δ e = e.
+Proof.
+  - auto_map_id.
+  - auto_map_id.
+  - auto_map_id.
+Qed.
+
+Fixpoint vmap_comp (A B C : Set) (f : B [→] C) (g : A [→] B) h (v : val A) :
+  f ∘ g ≡ h → fmap f (fmap g v) = fmap h v
+with emap_comp (A B C : Set) (f : B [→] C) (g : A [→] B) h (e : expr A) :
+  f ∘ g ≡ h → fmap f (fmap g e) = fmap h e
+with kmap_comp (A B C : Set) (f : B [→] C) (g : A [→] B) h (e : ectx A) :
+  f ∘ g ≡ h → fmap f (fmap g e) = fmap h e.
+Proof.
+  - auto_map_comp.
+  - auto_map_comp.
+  - auto_map_comp.
+Qed.
+
+#[export] Instance Functor_val : Functor val.
+Proof.
+  split; [exact vmap_id | exact vmap_comp].
+Qed.
+#[export] Instance Functor_expr : Functor expr.
+Proof.
+  split; [exact emap_id | exact emap_comp].
+Qed.
+#[export] Instance Functor_ectx : Functor ectx.
+Proof.
+  split; [exact kmap_id | exact kmap_comp].
+Qed.
+
+Fixpoint vmap_vbind_pure (A B : Set) (f : A [→] B) (g : A [⇒] B) (v : val A) :
+  f ̂ ≡ g → fmap f v = bind g v
+with emap_ebind_pure (A B : Set) (f : A [→] B) (g : A [⇒] B) (e : expr A) :
+  f ̂ ≡ g → fmap f e = bind g e
+with kmap_kbind_pure (A B : Set) (f : A [→] B) (g : A [⇒] B) (e : ectx A) :
+  f ̂ ≡ g → fmap f e = bind g e.
+Proof.
+  - auto_map_bind_pure.
+    erewrite emap_ebind_pure; [reflexivity |].
+    intros [| [| x]]; term_simpl; [reflexivity | reflexivity |].
+    rewrite <-(EQ x).
+    reflexivity.
+  - auto_map_bind_pure.
+  - auto_map_bind_pure.
+Qed.
+
+#[export] Instance BindMapPure_val : BindMapPure val.
+Proof.
+  split; intros; now apply vmap_vbind_pure.
+Qed.
+#[export] Instance BindMapPure_expr : BindMapPure expr.
+Proof.
+  split; intros; now apply emap_ebind_pure.
+Qed.
+#[export] Instance BindMapPure_ectx : BindMapPure ectx.
+Proof.
+  split; intros; now apply kmap_kbind_pure.
+Qed.
+
+Fixpoint vmap_vbind_comm (A B₁ B₂ C : Set) (f₁ : B₁ [→] C) (f₂ : A [→] B₂)
+  (g₁ : A [⇒] B₁) (g₂ : B₂ [⇒] C) (v : val A) :
+  g₂ ∘ f₂ ̂ ≡ f₁ ̂ ∘ g₁ → bind g₂ (fmap f₂ v) = fmap f₁ (bind g₁ v)
+with emap_ebind_comm (A B₁ B₂ C : Set) (f₁ : B₁ [→] C) (f₂ : A [→] B₂)
+       (g₁ : A [⇒] B₁) (g₂ : B₂ [⇒] C) (e : expr A) :
+  g₂ ∘ f₂ ̂ ≡ f₁ ̂ ∘ g₁ → bind g₂ (fmap f₂ e) = fmap f₁ (bind g₁ e)
+with kmap_kbind_comm (A B₁ B₂ C : Set) (f₁ : B₁ [→] C) (f₂ : A [→] B₂)
+       (g₁ : A [⇒] B₁) (g₂ : B₂ [⇒] C) (e : ectx A) :
+  g₂ ∘ f₂ ̂ ≡ f₁ ̂ ∘ g₁ → bind g₂ (fmap f₂ e) = fmap f₁ (bind g₁ e).
+Proof.
+  - auto_map_bind_comm.
+    erewrite emap_ebind_comm; [reflexivity |].
+    erewrite lift_comm; [reflexivity |].
+    erewrite lift_comm; [reflexivity | assumption].
+  - auto_map_bind_comm.
+  - auto_map_bind_comm.
+Qed.
+
+#[export] Instance BindMapComm_val : BindMapComm val.
+Proof.
+  split; intros; now apply vmap_vbind_comm.
+Qed.
+#[export] Instance BindMapComm_expr : BindMapComm expr.
+Proof.
+  split; intros; now apply emap_ebind_comm.
+Qed.
+#[export] Instance BindMapComm_ectx : BindMapComm ectx.
+Proof.
+  split; intros; now apply kmap_kbind_comm.
+Qed.
+
+Fixpoint vbind_id (A : Set) (f : A [⇒] A) (v : val A) :
+  f ≡ ı → bind f v = v
+with ebind_id  (A : Set) (f : A [⇒] A) (e : expr A) :
+  f ≡ ı → bind f e = e
+with kbind_id  (A : Set) (f : A [⇒] A) (e : ectx A) :
+  f ≡ ı → bind f e = e.
+Proof.
+  - auto_bind_id.
+    rewrite ebind_id; [reflexivity |].
+    apply lift_id, lift_id; assumption.
+  - auto_bind_id.
+  - auto_bind_id.
+Qed.
+
+Fixpoint vbind_comp (A B C : Set) (f : B [⇒] C) (g : A [⇒] B) h (v : val A) :
+  f ∘ g ≡ h → bind f (bind g v) = bind h v
+with ebind_comp (A B C : Set) (f : B [⇒] C) (g : A [⇒] B) h (e : expr A) :
+  f ∘ g ≡ h → bind f (bind g e) = bind h e
+with kbind_comp (A B C : Set) (f : B [⇒] C) (g : A [⇒] B) h (e : ectx A) :
+  f ∘ g ≡ h → bind f (bind g e) = bind h e.
+Proof.
+  - auto_bind_comp.
+    erewrite ebind_comp; [reflexivity |].
+    erewrite lift_comp; [reflexivity |].
+    erewrite lift_comp; [reflexivity | assumption].
+  - auto_bind_comp.
+  - auto_bind_comp.
+Qed.
+
+#[export] Instance Bind_val : Bind val.
+Proof.
+  split; intros; [now apply vbind_id | now apply vbind_comp].
+Qed.
+#[export] Instance Bind_expr : Bind expr.
+Proof.
+  split; intros; [now apply ebind_id | now apply ebind_comp].
+Qed.
+#[export] Instance Bind_ectx : Bind ectx.
+Proof.
+  split; intros; [now apply kbind_id | now apply kbind_comp].
+Qed.
 
 Definition to_val {S} (e : expr S) : option (val S) :=
   match e with
@@ -38,244 +246,39 @@ Definition to_val {S} (e : expr S) : option (val S) :=
 
 Definition do_natop (op : nat_op) (x y : nat) : nat :=
   match op with
-  | Add => x+y
-  | Sub => x-y
-  | Mult => x+y
+  | Add => plus x y
+  | Sub => minus x y
+  | Mult => mult x y
   end.
 
 Definition nat_op_interp {S} (n : nat_op) (x y : val S) : option (val S) :=
   match x, y with
-  | Lit x, Lit y => Some $ Lit $ do_natop n x y
+  | LitV x, LitV y => Some $ LitV $ do_natop n x y
   | _,_ => None
   end.
 
-(** substitution stuff *)
-Definition rens S S' := var S → var S'.
-Definition subs S S' := var S → expr S'.
+Fixpoint fill {X : Set} (K : ectx X) (e : expr X) : expr X :=
+  match K with
+  | EmptyK => e
+  | OutputK K => Output (fill K e)
+  | IfK K e₁ e₂ => If (fill K e) e₁ e₂
+  | AppLK K v => App (fill K e) (Val v)
+  | AppRK e' K => App e' (fill K e)
+  | NatOpRK op e' K => NatOp op e' (fill K e)
+  | NatOpLK op K v => NatOp op (fill K e) (Val v)
+  end.
 
-Definition idren {S} : rens S S := fun v => v.
-Definition idsub {S} : subs S S := Var.
-
-Equations conssub {S S' τ} (M : expr S') (s : subs S S') : subs (τ::S) S' :=
-  conssub M s Vz := M;
-  conssub M s (Vs v) := s v.
-
-Notation "{/ e ; .. ; f /}" := (conssub e .. (conssub f idsub) ..).
-
-Definition tl_sub {S S' τ} : subs (τ::S) S' → subs S S' := λ s v, s (Vs v).
-Definition hd_sub {S S' τ} : subs (τ::S) S' → expr S' := λ s, s Vz.
-Definition tl_ren {S S' τ} : rens (τ::S) S' → rens S S' := λ s v, s (Vs v).
-Definition hd_ren {S S' τ} : rens (τ::S) S' → var S' := λ s, s Vz.
-
-(* Lifting a renaming, renaming terms, and lifting substitutions *)
-Equations rens_lift {S S'} (s : rens S S') : rens (()::S) (()::S') :=
-  rens_lift s Vz := Vz;
-  rens_lift s (Vs v) := Vs $ s v.
-
-Equations ren_expr {S S'} (M : expr S) (r : rens S S') : expr S' :=
-ren_expr (Val v) r := Val $ ren_val v r;
-ren_expr (Var v) r := Var (r v);
-ren_expr (Rec M) r := Rec (ren_expr M (rens_lift (rens_lift r)));
-ren_expr (App M N) r := App (ren_expr M r) (ren_expr N r);
-ren_expr (NatOp op e1 e2) r := NatOp op (ren_expr e1 r) (ren_expr e2 r);
-ren_expr (If e0 e1 e2) r := If (ren_expr e0 r) (ren_expr e1 r) (ren_expr e2 r);
-ren_expr Input r := Input;
-ren_expr (Output e) r := Output (ren_expr e r);
-with ren_val {S S'} (M : val S) (r : rens S S') : val S' :=
-ren_val (Lit n) _ := Lit n;
-ren_val (RecV e) r := RecV (ren_expr e (rens_lift (rens_lift r))).
-
-
-Definition expr_lift {S} (M : expr S) : expr (()::S) := ren_expr M Vs.
-
-Equations subs_lift {S S'} (s : subs S S') : subs (()::S) (()::S') :=
-  subs_lift s Vz := Var Vz;
-  subs_lift s (Vs v) := expr_lift $ s v.
-
-(* We can now define the substitution operation *)
-Equations subst_expr {S S'} (M : expr S) (s : subs S S') : expr S' :=
-subst_expr (Val v) r := Val $ subst_val v r;
-subst_expr (Var v) r := r v;
-subst_expr (Rec M) r := Rec (subst_expr M (subs_lift (subs_lift r)));
-subst_expr (App M N) r := App (subst_expr M r) (subst_expr N r);
-subst_expr (NatOp op e1 e2) r := NatOp op (subst_expr e1 r) (subst_expr e2 r);
-subst_expr (If e0 e1 e2) r := If (subst_expr e0 r) (subst_expr e1 r) (subst_expr e2 r);
-subst_expr (Input) r := Input;
-subst_expr (Output e) r := Output (subst_expr e r);
-with subst_val {S S'} (M : val S) (r : subs S S') : val S' :=
-subst_val (Lit n) _ := Lit n;
-subst_val (RecV e) r := RecV (subst_expr e (subs_lift (subs_lift r))).
-
-Definition subst1 {S : scope} {τ} (M : expr (τ::S)) (N : expr S) : expr S
-  := subst_expr M {/ N /}.
-Definition subst2 {S : scope} {i j} (M : expr (i::j::S)) (N1 : expr S) (N2 : expr S) : expr S
-  := subst_expr M {/ N1; N2 /}.
-
-Definition appsub {S1 S2 S3} (s : subs S1 S2) (s' : subs S2 S3) : subs S1 S3 :=
-  λ v, subst_expr (s v) s'.
-
-Global Instance rens_equiv S S' : Equiv (rens S S') := λ s1 s2, ∀ v, s1 v = s2 v.
-Global Instance subs_equiv S S' : Equiv (subs S S') := λ s1 s2, ∀ v, s1 v = s2 v.
-
-Global Instance rens_lift_proper S S' : Proper ((≡) ==> (≡)) (@rens_lift S S').
+Lemma fill_emap {X Y : Set} (f : X [→] Y) (K : ectx X) (e : expr X)
+  : fmap f (fill K e) = fill (fmap f K) (fmap f e).
 Proof.
-  intros s1 s2 Hs v. dependent elimination v; simp rens_lift; eauto.
-  f_equiv. apply Hs.
-Qed.
-
-Lemma ren_expr_proper {S S'} (e : expr S) : Proper ((≡) ==> (=)) (@ren_expr S S' e)
-  with ren_val_proper  {S S'} v : Proper ((≡) ==> (=)) (@ren_val S S' v).
-Proof.
-  - revert S'.
-    induction e; intros S' s1 s2 Hs; simp ren_expr;
-      f_equiv; try solve [eauto | apply ren_expr_proper; eauto ].
-    + by apply ren_val_proper.
-    + apply ren_expr_proper. by repeat f_equiv.
-  - revert S'.
-    induction v; intros S' s1 s2 Hs; simp ren_expr;
-      f_equiv; try solve [eauto | apply ren_expr_proper; eauto ].
-    apply ren_expr_proper. by repeat f_equiv.
-Qed.
-
-#[export] Existing Instance ren_expr_proper.
-#[export] Existing Instance ren_val_proper.
-
-#[export]  Instance subs_lift_proper S S' : Proper ((≡) ==> (≡)) (@subs_lift S S').
-Proof.
-  intros s1 s2 Hs v. dependent elimination v; simp subs_lift; eauto.
-  f_equiv. apply Hs.
-Qed.
-
-Lemma subst_expr_proper {S S'} (e : expr S) : Proper ((≡) ==> (=)) (@subst_expr S S' e)
-  with subst_val_proper  {S S'} v : Proper ((≡) ==> (=)) (@subst_val S S' v).
-Proof.
-  - revert S'.
-    induction e; intros S' s1 s2 Hs; simp subst_expr;
-      f_equiv; try solve [eauto | apply subst_expr_proper; eauto ].
-    + by apply subst_val_proper.
-    + apply subst_expr_proper. by repeat f_equiv.
-  - revert S'.
-    induction v; intros S' s1 s2 Hs; simp subst_expr;
-      f_equiv; try solve [eauto | apply subst_expr_proper; eauto ].
-    apply subst_expr_proper. by repeat f_equiv.
-Qed.
-#[export]  Existing Instance subst_expr_proper.
-#[export]  Existing Instance subst_val_proper.
-
-Lemma subst_ren_expr {S1 S2 S3} e (s : subs S2 S3) (r : rens S1 S2) :
-  subst_expr (ren_expr e r) s = subst_expr e (compose s r)
-with subst_ren_val  {S1 S2 S3} v (s : subs S2 S3) (r : rens S1 S2) :
-  subst_val (ren_val v r) s = subst_val v (compose s r).
-Proof.
-  - revert S2 S3 r s.
-    induction e=>S2 S3 r s; simp ren_expr; simp subst_expr; try f_equiv; eauto.
-    rewrite IHe. apply subst_expr_proper.
-    intro v. simpl.
-    dependent elimination v; simp rens_lift; simp subs_lift; eauto.
-    f_equiv. dependent elimination v; simp rens_lift; simp subs_lift; eauto.
-  - revert S2 S3 r s.
-    induction v=>S2 S3 r s; simpl; simp ren_val; simp subst_val; try f_equiv.
-    rewrite subst_ren_expr.
-    apply subst_expr_proper.
-    intro v. simpl.
-    dependent elimination v; simp rens_lift; simp subs_lift; eauto.
-    f_equiv. dependent elimination v; simp rens_lift; simp subs_lift; eauto.
-Qed.
-
-Lemma ren_ren_expr {S1 S2 S3} e (s : rens S2 S3) (r : rens S1 S2) :
-  ren_expr (ren_expr e r) s = ren_expr e (compose s r)
-with ren_ren_val  {S1 S2 S3} v (s : rens S2 S3) (r : rens S1 S2) :
-  ren_val (ren_val v r) s = ren_val v (compose s r).
-Proof.
-  - revert S2 S3 r s.
-    induction e=>S2 S3 r s; simp ren_expr; try f_equiv; eauto.
-    rewrite IHe. apply ren_expr_proper.
-    intro v. simpl.
-    dependent elimination v; simp rens_lift; simp subs_lift; eauto.
-    f_equiv. dependent elimination v; simp rens_lift; simp subs_lift; eauto.
-  - revert S2 S3 r s.
-    induction v=>S2 S3 r s; simpl; simp ren_val; simp subst_val; try f_equiv.
-    rewrite ren_ren_expr.
-    apply ren_expr_proper.
-    intro v. simpl.
-    dependent elimination v; simp rens_lift; simp subs_lift; eauto.
-    f_equiv. dependent elimination v; simp rens_lift; simp subs_lift; eauto.
-Qed.
-
-Definition rcompose {S1 S2 S3} (r : rens S2 S3) (s : subs S1 S2)  : subs S1 S3 :=
-  λ v, ren_expr (s v) r.
-
-Lemma ren_subst_expr {S1 S2 S3} e (s : subs S1 S2) (r : rens S2 S3) :
-  ren_expr (subst_expr e s) r = subst_expr e (rcompose r s)
-with ren_subst_val {S1 S2 S3} v (s : subs S1 S2) (r : rens S2 S3) :
-  ren_val (subst_val v s) r = subst_val v (rcompose r s).
-Proof.
-  - revert S2 S3 r s.
-    induction e=>S2 S3 r s; simp subst_expr; simp ren_expr; try f_equiv; eauto.
-    rewrite IHe. apply subst_expr_proper.
-    intro v. simpl. unfold rcompose.
-    dependent elimination v; eauto.
-    dependent elimination v; eauto.
-    simp subs_lift. unfold expr_lift.
-    rewrite !ren_ren_expr. apply ren_expr_proper.
-    intro x. dependent elimination v; eauto.
-  - revert S2 S3 r s.
-    induction v=>S2 S3 r s; simp subst_expr; simp ren_expr; try f_equiv; eauto.
-    rewrite ren_subst_expr. apply subst_expr_proper.
-    intro v. simpl. unfold rcompose.
-    dependent elimination v; eauto.
-    dependent elimination v; eauto.
-    simp subs_lift. unfold expr_lift.
-    rewrite !ren_ren_expr. apply ren_expr_proper.
-    intro x. dependent elimination v; eauto.
-Qed.
-
-Lemma appsub_lift {S1 S2 S3} (s : subs S1 S2) (s' : subs S2 S3) :
-  subs_lift (appsub s s') ≡ appsub (subs_lift s) (subs_lift s').
-Proof.
-  unfold appsub.
-  intro v. dependent elimination v; simp subs_lift; eauto.
-  unfold expr_lift. rewrite subst_ren_expr.
-  rewrite ren_subst_expr. apply subst_expr_proper.
-  intro x. unfold rcompose. simpl. simp subs_lift. done.
-Qed.
-
-Lemma subst_expr_appsub {S1 S2 S3} (s1 : subs S1 S2) (s2 : subs S2 S3) e :
-  subst_expr (subst_expr e s1) s2 = subst_expr e (appsub s1 s2)
-with subst_val_appsub {S1 S2 S3} (s1 : subs S1 S2) (s2 : subs S2 S3) v :
-  subst_val (subst_val v s1) s2 = subst_val v (appsub s1 s2).
-Proof.
-  - revert S2 S3 s1 s2.
-    induction e=>S2 S3 s1 s2; simp subst_expr; try f_equiv; eauto.
-    rewrite !appsub_lift. apply IHe.
-  - revert S3 s2.
-    induction v=>S3 s2; simpl; f_equiv; eauto.
-    rewrite !appsub_lift. apply subst_expr_appsub.
-Qed.
-
-Lemma subst_expr_lift {S S'} e e1 (s : subs S S') :
-  subst_expr (expr_lift e) (conssub e1 s) = subst_expr e s.
-Proof.
-  unfold expr_lift.
-  rewrite subst_ren_expr. apply subst_expr_proper.
-   intro v. simpl. simp conssub. done.
-Qed.
-
-Lemma subst_expr_idsub {S} (e : expr S) :
-  subst_expr e idsub = e
-with subst_val_idsub {S} (v : val S) :
-  subst_val v idsub = v.
-Proof.
-  - induction e; simp subst_expr; simpl; try f_equiv; eauto.
-    assert ((subs_lift (subs_lift idsub)) ≡ idsub) as ->; last auto.
-    intro v.
-    dependent elimination v; simp subs_lift; auto.
-    dependent elimination v; simp subs_lift; auto.
-  - induction v; simp subst_val; simpl; try f_equiv; eauto.
-    assert ((subs_lift (subs_lift idsub)) ≡ idsub) as ->; last auto.
-    intro v.
-    dependent elimination v; simp subs_lift; auto.
-    dependent elimination v; simp subs_lift; auto.
+  revert f.
+  induction K as [| ?? IH
+                 | ?? IH
+                 | ?? IH
+                 | ??? IH
+                 | ???? IH
+                 | ??? IH];
+    intros f; term_simpl; first done; rewrite IH; reflexivity.
 Qed.
 
 (*** Operational semantics *)
@@ -286,7 +289,6 @@ Record state := State {
                  }.
 #[export] Instance state_inhabited : Inhabited state := populate (State [] []).
 
-
 Definition update_input (s : state) : nat * state :=
   match s.(inputs) with
   | [] => (0, s)
@@ -296,30 +298,26 @@ Definition update_input (s : state) : nat * state :=
 Definition update_output (n:nat) (s : state) : state :=
   {| inputs := s.(inputs); outputs := n::s.(outputs) |}.
 
-
 Inductive head_step {S} : expr S → state → expr S → state → nat*nat → Prop :=
-| RecS e σ :
-  head_step (Rec e) σ (Val $ RecV e) σ (0,0)
-| BetaS e1 v2 e' σ :
-  e' = subst2 e1 (Val $ RecV e1) (Val v2) →
-  head_step (App (Val $ RecV e1) (Val v2)) σ e' σ (1,0)
+| BetaS e1 v2 σ :
+  head_step (App (Val $ RecV e1) (Val v2)) σ (subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1) (Val (shift (Inc := inc) v2))) (Val (RecV e1))) σ (1,0)
 | InputS σ n σ' :
   update_input σ = (n,σ') →
-  head_step Input σ (Val (Lit n)) σ' (1,1)
+  head_step Input σ (Val (LitV n)) σ' (1,1)
 | OutputS σ n σ' :
   update_output n σ = σ' →
-  head_step (Output (Val (Lit n))) σ (Val (Lit 0)) σ' (1,1)
+  head_step (Output (Val (LitV n))) σ (Val (LitV 0)) σ' (1,1)
 | NatOpS op v1 v2 v3 σ :
   nat_op_interp op v1 v2 = Some v3 →
   head_step (NatOp op (Val v1) (Val v2)) σ
             (Val v3) σ (0,0)
 | IfTrueS n e1 e2 σ :
   n > 0 →
-  head_step (If (Val (Lit n)) e1 e2) σ
+  head_step (If (Val (LitV n)) e1 e2) σ
             e1 σ (0,0)
 | IfFalseS n e1 e2 σ :
   n = 0 →
-  head_step (If (Val (Lit n)) e1 e2) σ
+  head_step (If (Val (LitV n)) e1 e2) σ
             e2 σ (0,0)
 .
 
@@ -333,59 +331,52 @@ Lemma head_step_no_io {S} (e1 e2 : expr S) σ1 σ2 n :
   head_step e1 σ1 e2 σ2 (n,0) → σ1 = σ2.
 Proof.  inversion 1; eauto. Qed.
 
-Inductive ectx_item {S} :=
-  | AppLCtx (v2 : val S)
-  | AppRCtx (e1 : expr S)
-  | NatOpLCtx (op : nat_op) (v2 : val S)
-  | NatOpRCtx (op : nat_op) (e1 : expr S)
-  | IfCtx (e1 e2 : expr S)
-  | OutputCtx
-.
-Arguments ectx_item S : clear implicits.
-
-Definition fill_item {S} (Ki : ectx_item S) (e : expr S) : expr S :=
-  match Ki with
-  | AppLCtx v2 => App e (of_val v2)
-  | AppRCtx e1 => App e1 e
-  | NatOpLCtx op v2 => NatOp op e (Val v2)
-  | NatOpRCtx op e1 => NatOp op e1 e
-  | IfCtx e1 e2 => If e e1 e2
-  | OutputCtx => Output e
-  end.
-
 (** Carbonara from heap lang *)
-Global Instance fill_item_inj {S} (Ki : ectx_item S) : Inj (=) (=) (fill_item Ki).
+Global Instance fill_item_inj {S} (Ki : ectx S) : Inj (=) (=) (fill Ki).
 Proof. induction Ki; intros ???; simplify_eq/=; auto with f_equal. Qed.
 
 Lemma fill_item_val {S} Ki (e : expr S) :
-  is_Some (to_val (fill_item Ki e)) → is_Some (to_val e).
+  is_Some (to_val (fill Ki e)) → is_Some (to_val e).
 Proof. intros [v ?]. induction Ki; simplify_option_eq; eauto. Qed.
 
 Lemma val_head_stuck {S} (e1 : expr S) σ1 e2 σ2 m : head_step e1 σ1 e2 σ2 m → to_val e1 = None.
 Proof. destruct 1; naive_solver. Qed.
 
-Lemma head_ctx_item_step_val {S} Ki (e : expr S) σ1 e2 σ2 m :
-  head_step (fill_item Ki e) σ1 e2 σ2 m → is_Some (to_val e).
-Proof. revert m e2. induction Ki; simpl; inversion 1; simplify_option_eq; eauto. Qed.
+Fixpoint ectx_compose {S} (K1 K2 : ectx S) : ectx S
+  := match K1 with
+     | EmptyK => K2
+     | OutputK K => OutputK (ectx_compose K K2)
+     | IfK K e₁ e₂ => IfK (ectx_compose K K2) e₁ e₂
+     | AppLK K v => AppLK (ectx_compose K K2) v
+     | AppRK e K => AppRK e (ectx_compose K K2)
+     | NatOpRK op e K => NatOpRK op e (ectx_compose K K2)
+     | NatOpLK op K v => NatOpLK op (ectx_compose K K2) v
+     end.
 
-Lemma fill_item_no_val_inj {S} Ki1 Ki2 (e1 e2 : expr S) :
-  to_val e1 = None → to_val e2 = None →
-  fill_item Ki1 e1 = fill_item Ki2 e2 → Ki1 = Ki2.
+Lemma fill_app {S} (K1 K2 : ectx S) e : fill (ectx_compose K1 K2) e = fill K1 (fill K2 e).
 Proof.
-  revert Ki1. induction Ki2; intros Ki1; induction Ki1; naive_solver eauto with f_equal.
+  revert K2.
+  revert e.
+  induction K1 as [| ?? IH
+                  | ?? IH
+                  | ?? IH
+                  | ??? IH
+                  | ???? IH
+                  | ??? IH];
+    simpl; first done; intros e' K2; rewrite IH; reflexivity.
 Qed.
 
-(** Lifting the head step **)
-
-Definition ectx S := (list (ectx_item S)).
-Definition fill {S} (K : ectx S) (e : expr S) : expr S := foldl (flip fill_item) e K.
-
-Lemma fill_app {S} (K1 K2 : ectx S) e : fill (K1 ++ K2) e = fill K2 (fill K1 e).
-Proof. apply foldl_app. Qed.
-
-
 Lemma fill_val : ∀ {S} K (e : expr S), is_Some (to_val (fill K e)) → is_Some (to_val e).
-Proof. intros S K. induction K as [|Ki K IH]=> e //=. by intros ?%IH%fill_item_val. Qed.
+Proof.
+  intros S K.
+  induction K as [| ?? IH
+                 | ?? IH
+                 | ?? IH
+                 | ??? IH
+                 | ???? IH
+                 | ??? IH]=> e' //=;
+                              inversion 1 as [? HH]; inversion HH.
+Qed.
 
 Lemma fill_not_val : ∀ {S} K (e : expr S), to_val e = None → to_val (fill K e) = None.
 Proof.
@@ -393,13 +384,20 @@ Proof.
   eauto using fill_val.
 Qed.
 
-Lemma fill_empty {S} (e : expr S) : fill [] e = e.
+Lemma fill_empty {S} (e : expr S) : fill EmptyK e = e.
 Proof. reflexivity. Qed.
-Lemma fill_comp {S} K1 K2 (e : expr S) : fill K1 (fill K2 e) = fill (K2 ++ K1) e.
+Lemma fill_comp {S} K1 K2 (e : expr S) : fill K2 (fill K1 e) = fill (ectx_compose K2 K1) e.
 Proof. by rewrite fill_app. Qed.
-Global Instance fill_inj {S} (K:ectx S) : Inj (=) (=) (fill K).
-Proof. induction K as [|Ki K IH]; rewrite /Inj; naive_solver. Qed.
-
+Global Instance fill_inj {S} (K : ectx S) : Inj (=) (=) (fill K).
+Proof.
+  induction K as [| ?? IH
+                 | ?? IH
+                 | ?? IH
+                 | ??? IH
+                 | ???? IH
+                 | ??? IH];
+    rewrite /Inj; naive_solver.
+Qed.
 
 Inductive prim_step {S} (e1 : expr S) (σ1 : state)
           (e2 : expr S) (σ2 : state) (n : nat*nat) : Prop:=
@@ -469,41 +467,140 @@ Qed.
 Inductive ty :=
   | Tnat : ty | Tarr : ty → ty → ty.
 
-Local Notation tyctx := (tyctx ty).
-
-Inductive typed : forall {S}, tyctx S → expr S → ty → Prop :=
-| typed_Val {S} (Γ : tyctx S) (τ : ty) (v : val S)  :
+Inductive typed {S : Set} (Γ : S -> ty) : expr S → ty → Prop :=
+| typed_Val (τ : ty) (v : val S)  :
   typed_val Γ v τ →
   typed Γ (Val v) τ
-| typed_Var {S} (Γ : tyctx S) (τ : ty) (v : var S)  :
-  typed_var Γ v τ →
+| typed_Var (τ : ty) (v : S)  :
+  Γ v = τ →
   typed Γ (Var v) τ
-| typed_Rec {S} (Γ : tyctx S) (τ1 τ2 : ty) (e : expr (()::()::S) ) :
-  typed (consC (Tarr τ1 τ2) (consC τ1 Γ)) e τ2 →
-  typed Γ (Rec e) (Tarr τ1 τ2)
-| typed_App {S} (Γ : tyctx S) (τ1 τ2 : ty) e1 e2 :
+| typed_App (τ1 τ2 : ty) e1 e2 :
   typed Γ e1 (Tarr τ1 τ2) →
   typed Γ e2 τ1 →
   typed Γ (App e1 e2) τ2
-| typed_NatOp {S} (Γ : tyctx S) e1 e2 op :
+| typed_NatOp e1 e2 op :
   typed Γ e1 Tnat →
   typed Γ e2 Tnat →
   typed Γ (NatOp op e1 e2) Tnat
-| typed_If {S} (Γ : tyctx S) e0 e1 e2 τ :
+| typed_If e0 e1 e2 τ :
   typed Γ e0 Tnat →
   typed Γ e1 τ →
   typed Γ e2 τ →
   typed Γ (If e0 e1 e2) τ
-| typed_Input {S} (Γ : tyctx S) :
+| typed_Input :
   typed Γ Input Tnat
-| typed_Output {S} (Γ : tyctx S) e :
+| typed_Output e :
   typed Γ e Tnat →
   typed Γ (Output e) Tnat
-with typed_val : forall {S}, tyctx S → val S → ty → Prop :=
-| typed_Lit {S} (Γ : tyctx S) n :
-  typed_val Γ (Lit n) Tnat
-| typed_RecV {S} (Γ : tyctx S) (τ1 τ2 : ty) (e : expr (()::()::S) ) :
-  typed (consC (Tarr τ1 τ2) (consC τ1 Γ)) e τ2 →
+with typed_val {S : Set} (Γ : S -> ty) : val S → ty → Prop :=
+| typed_Lit n :
+  typed_val Γ (LitV n) Tnat
+| typed_RecV (τ1 τ2 : ty) (e : expr (inc (inc S))) :
+  typed (Γ ▹ (Tarr τ1 τ2) ▹ τ1) e τ2 →
   typed_val Γ (RecV e) (Tarr τ1 τ2)
 .
 
+Declare Scope syn_scope.
+Delimit Scope syn_scope with syn.
+
+Coercion Val : val >-> expr.
+
+Coercion App : expr >-> Funclass.
+Coercion AppLK : ectx >-> Funclass.
+Coercion AppRK : expr >-> Funclass.
+
+Class AsSynExpr (F : Set -> Type) := { __asSynExpr : ∀ S, F S -> expr S }.
+
+Arguments __asSynExpr {_} {_} {_}.
+
+Global Instance AsSynExprValue : AsSynExpr val := {
+    __asSynExpr _ v := Val v
+  }.
+Global Instance AsSynExprExpr : AsSynExpr expr := {
+    __asSynExpr _ e := e
+  }.
+
+Class OpNotation (A B C D : Type) := { __op : A -> B -> C -> D }.
+
+Global Instance OpNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : OpNotation (F S) nat_op (G S) (expr S) := {
+  __op e₁ op e₂ := NatOp op (__asSynExpr e₁) (__asSynExpr e₂)
+  }.
+
+Global Instance OpNotationLK {S : Set} : OpNotation (ectx S) (nat_op) (val S) (ectx S) := {
+  __op K op v := NatOpLK op K v
+  }.
+
+Global Instance OpNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : OpNotation (F S) (nat_op) (ectx S) (ectx S) := {
+  __op e op K := NatOpRK op (__asSynExpr e) K
+  }.
+
+Class IfNotation (A B C D : Type) := { __if : A -> B -> C -> D }.
+
+Global Instance IfNotationExpr {S : Set} {F G H : Set -> Type} `{AsSynExpr F, AsSynExpr G, AsSynExpr H} : IfNotation (F S) (G S) (H S) (expr S) := {
+  __if e₁ e₂ e₃ := If (__asSynExpr e₁) (__asSynExpr e₂) (__asSynExpr e₃)
+  }.
+
+Global Instance IfNotationK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : IfNotation (ectx S) (F S) (G S) (ectx S) := {
+  __if K e₂ e₃ := IfK K (__asSynExpr e₂) (__asSynExpr e₃)
+  }.
+
+Class OutputNotation (A B : Type) := { __output : A -> B }.
+
+Global Instance OutputNotationExpr {S : Set} {F : Set -> Type} `{AsSynExpr F} : OutputNotation (F S) (expr S) := {
+  __output e := Output (__asSynExpr e)
+  }.
+
+Global Instance OutputNotationK {S : Set} : OutputNotation (ectx S) (ectx S) := {
+  __output K := OutputK K
+  }.
+
+Class AppNotation (A B C : Type) := { __app : A -> B -> C }.
+
+Global Instance AppNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : AppNotation (F S) (G S) (expr S) := {
+  __app e₁ e₂ := App (__asSynExpr e₁) (__asSynExpr e₂)
+  }.
+
+Global Instance AppNotationLK {S : Set} : AppNotation (ectx S) (val S) (ectx S) := {
+  __app K v := AppLK K v
+  }.
+
+Global Instance AppNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppNotation (F S) (ectx S) (ectx S) := {
+  __app e K := AppRK (__asSynExpr e) K
+  }.
+
+Notation of_val := Val (only parsing).
+
+Notation "x '⋆' y" := (__app x%syn y%syn) (at level 40, y at next level, left associativity) : syn_scope.
+Notation "x '+' y" := (__op x%syn Add y%syn) : syn_scope.
+Notation "x '-' y" := (__op x%syn Sub y%syn) : syn_scope.
+Notation "x '*' y" := (__op x%syn Mult y%syn) : syn_scope.
+Notation "'if' x 'then' y 'else' z" := (__if x%syn y%syn z%syn) : syn_scope.
+Notation "'output' x" := (__output x%syn) (at level 60) : syn_scope.
+Notation "'#' n" := (LitV n) (at level 60) : syn_scope.
+Notation "'input'" := (Input) : syn_scope.
+Notation "'rec' e" := (RecV e%syn) (at level 60) : syn_scope.
+Notation "'$' fn" := (set_pure_resolver fn) (at level 60) : syn_scope.
+Notation "□" := (EmptyK) : syn_scope.
+Notation "K '⟪' e '⟫'" := (fill K%syn e%syn) (at level 60) : syn_scope.
+
+Definition LamV {S : Set} (e : expr (inc S)) : val S :=
+  RecV (shift e).
+
+Notation "'λ' . e" := (LamV e%syn) (at level 60) : syn_scope.
+
+Definition LetE {S : Set} (e : expr S) (e' : expr (inc S)) : expr S :=
+  App (LamV e') (e).
+
+Notation "'let_' e₁ 'in' e₂" := (LetE e₁%syn e₂%syn) (at level 60, right associativity) : syn_scope.
+
+Definition SeqE {S : Set} (e e' : expr S) : expr S :=
+  App (LamV (shift e)) e'.
+
+Notation "e₁ ';;' e₂" := (SeqE e₁%syn e₂%syn) : syn_scope.
+
+Declare Scope typ_scope.
+Delimit Scope typ_scope with typ.
+
+Notation "'ℕ'" := (Tnat) (at level 1) : typ_scope.
+Notation "A →ₜ B" := (Tarr A%typ B%typ)
+                       (right associativity, at level 60) : typ_scope.
