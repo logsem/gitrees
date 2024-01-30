@@ -31,6 +31,26 @@ Section reifier.
     }.
 End reifier.
 
+Section reifier_coercion.
+  Context {A} `{!Cofe A}.
+  #[local] Open Scope type.
+  Program Definition sReifier_NotCtxDep_CtxDep (r : sReifier NotCtxDep)
+    : sReifier CtxDep :=
+    {|
+      sReifier_ops := sReifier_ops _ r;
+      sReifier_state := sReifier_state _ r;
+      sReifier_re x xc op :=
+        (λne y, (optionO_map (prodO_map y.2 idfun)
+                   (sReifier_re _ r op (y.1.1, y.1.2))));
+        sReifier_inhab := sReifier_inhab _ r;
+      sReifier_cofe := sReifier_cofe _ r;
+    |}.
+  Next Obligation.
+    intros.
+    repeat intro; repeat f_equiv; assumption.
+  Qed.
+End reifier_coercion.
+
 Section reifier_cofe_inst.
   Context {A} `{!Cofe A}.
   #[local] Open Scope type.

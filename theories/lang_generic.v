@@ -26,6 +26,19 @@ Section interp.
     solve_proper.
   Qed.
 
+  Definition interp_scope_split {S1 S2 : Set} :
+    interp_scope (sum S1 S2) -n> interp_scope S1 * interp_scope S2.
+  Proof.
+    simple refine (λne (f : interp_scope (sum S1 S2)), _).
+    - split.
+      + simple refine (λne x, _).
+        apply (f (inl x)).
+      + simple refine (λne x, _).
+        apply (f (inr x)).
+    - repeat intro; simpl.
+      repeat f_equiv; intro; simpl; f_equiv; assumption.
+  Defined.
+
   Global Instance interp_var_proper {S : Set} (v : S) : Proper ((≡) ==> (≡)) (interp_var v).
   Proof. apply ne_proper. apply _. Qed.
 
