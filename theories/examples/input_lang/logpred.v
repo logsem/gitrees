@@ -1,6 +1,6 @@
 (** Unary (Kripke) logical relation for the IO lang *)
 From gitrees Require Import gitree program_logic lang_generic.
-From gitrees.input_lang Require Import lang interp.
+From gitrees.examples.input_lang Require Import lang interp.
 Require Import Binding.Lib Binding.Set Binding.Env.
 
 Section io_lang.

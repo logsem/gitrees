@@ -1,6 +1,6 @@
 (** Logical relation for adequacy for the IO lang *)
 From gitrees Require Import gitree lang_generic.
-From gitrees.input_lang Require Import lang interp.
+From gitrees.examples.input_lang Require Import lang interp.
 Require Import Binding.Lib Binding.Set Binding.Env.
 
 Section logrel.

@@ -1,5 +1,5 @@
 From gitrees Require Import gitree.
-From gitrees.input_lang_callcc Require Import lang interp.
+From gitrees.examples.input_lang_callcc Require Import lang interp.
 Require Import gitrees.lang_generic.
 Require Import Binding.Lib Binding.Set Binding.Env.
 

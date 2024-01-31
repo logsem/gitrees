@@ -1,7 +1,7 @@
-From Equations Require Import Equations.
 From gitrees Require Import gitree program_logic.
-From gitrees.input_lang Require Import lang interp.
-From gitrees.examples Require Import store while.
+From gitrees.examples.input_lang Require Import lang interp.
+From gitrees.effects Require Import store.
+From gitrees.lib Require Import while.
 
 Section fact.
   Definition rs : gReifiers NotCtxDep 2 :=
