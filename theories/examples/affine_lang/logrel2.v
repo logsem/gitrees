@@ -452,28 +452,19 @@ Section glue.
     typed_glued Ω e τ →
     ⊢ valid2 Ω (interp_expr _ e) τ.
   Proof.
-    intros typed. induction typed; simpl.
+    intros typed.
+    iStartProof.
+    iInduction typed as [| | | | | | | | | | |] "IH".
     - iApply glue_to_affine_compatibility.
       by iApply fundamental.
     - by iApply compat_var.
-    - iApply compat_lam.
-      iApply IHtyped.
-    - iApply (@compat_app _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-      + iApply IHtyped1.
-      + iApply IHtyped2.
-    - iApply (@compat_pair _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-      + iApply IHtyped1.
-      + iApply IHtyped2.
-    - iApply (@compat_destruct _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-      + iApply IHtyped1.
-      + iApply IHtyped2.
-    - iApply compat_alloc.
-      iApply IHtyped.
-    - iApply (@compat_replace _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-      + iApply IHtyped1.
-      + iApply IHtyped2.
-    - iApply compat_dealloc.
-      iApply IHtyped.
+    - by iApply compat_lam.
+    - by iApply (@compat_app _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply (@compat_pair _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply (@compat_destruct _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply compat_alloc.
+    - by iApply (@compat_replace _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply compat_dealloc.
     - by iApply compat_nat.
     - by iApply compat_bool.
     - by iApply compat_unit.

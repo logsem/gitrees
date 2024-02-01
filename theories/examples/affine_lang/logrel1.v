@@ -816,26 +816,16 @@ Section logrel.
     ⊢ valid1 Ω (interp_expr _ e) τ.
   Proof.
     intros H.
-    induction H.
+    iStartProof.
+    iInduction H as [| | | | | | | | | |] "IH".
     - by iApply compat_var.
-    - iApply compat_lam;
-        iApply IHtyped.
-    - iApply (@compat_app S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-      + iApply IHtyped1.
-      + iApply IHtyped2.
-    - iApply (@compat_pair S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-      + iApply IHtyped1.
-      + iApply IHtyped2.
-    - iApply (@compat_destruct S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-      + iApply IHtyped1.
-      + iApply IHtyped2.
-    - iApply compat_alloc;
-        iApply IHtyped.
-    - iApply (@compat_replace S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-      + iApply IHtyped1.
-      + iApply IHtyped2.
-    - iApply compat_dealloc;
-        iApply IHtyped.
+    - by iApply compat_lam.
+    - by iApply (@compat_app S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply (@compat_pair S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply (@compat_destruct S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply compat_alloc.
+    - by iApply (@compat_replace S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply compat_dealloc.
     - by iApply compat_nat.
     - by iApply compat_bool.
     - by iApply compat_unit.
