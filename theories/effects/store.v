@@ -125,14 +125,13 @@ Section constructors.
                 (λne _, Next (Ret ())).
 End constructors.
 
-
 Section wp.
   Context {n : nat}.
   Variable (rs : gReifiers NotCtxDep n).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe unitO R}.
 
-  Notation F := (gReifiers_ops NotCtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
   Notation stateO := (stateF ♯ IT).

@@ -517,3 +517,6 @@ Section reify_props.
 End reify_props.
 
 Arguments reify {_ _ _} _.
+Arguments sReifier_ops {_}.
+Arguments sReifier_re {_} _ {_ _}.
+Arguments sReifier_state {_}.

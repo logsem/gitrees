@@ -62,7 +62,7 @@ Section iter_wp.
   Variable (rs : gReifiers NotCtxDep sz).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
-  Notation F := (gReifiers_ops NotCtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
   Context `{!invGS Σ, !stateG rs R Σ}.

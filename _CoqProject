@@ -48,3 +48,5 @@ theories/lib/pairs.v
 theories/lib/while.v
 theories/lib/factorial.v
 theories/lib/iter.v
+
+theories/utils/finite_sets.v

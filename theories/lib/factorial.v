@@ -4,9 +4,10 @@ From gitrees.effects Require Import store.
 From gitrees.lib Require Import while.
 
 Section fact.
-  Definition rs : gReifiers NotCtxDep 2 :=
-    gReifiers_cons NotCtxDep reify_io (gReifiers_cons NotCtxDep reify_store (gReifiers_nil NotCtxDep)).
-  Notation F := (gReifiers_ops NotCtxDep rs).
+  Context (n' : nat) (r : gReifiers NotCtxDep n').
+  Definition rs : gReifiers NotCtxDep (S (S n')) :=
+    (gReifiers_cons reify_io (gReifiers_cons reify_store r)).
+  Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R, !SubOfe unitO R}.
   Notation IT := (IT F R).

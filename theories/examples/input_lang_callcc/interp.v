@@ -176,7 +176,7 @@ Section weakestpre.
   Context {sz : nat}.
   Variable (rs : gReifiers CtxDep sz).
   Context {subR : subReifier reify_io rs}.
-  Notation F := (gReifiers_ops CtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
   Notation IT := (IT F R).
@@ -289,7 +289,7 @@ Section interp.
   Context {subR : subReifier reify_io rs}.
   Context {R} `{CR : !Cofe R}.
   Context `{!SubOfe natO R}.
-  Notation F := (gReifiers_ops CtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 

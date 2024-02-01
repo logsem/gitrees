@@ -1,221 +1,10 @@
 (** Unary (Kripke) logical relation for the affine lang *)
-From gitrees Require Export gitree program_logic.
+Require Import iris.algebra.gmap.
+From gitrees Require Export gitree program_logic greifiers.
 From gitrees.examples.affine_lang Require Import lang.
 From gitrees.effects Require Import store.
 From gitrees.lib Require Import pairs.
-Require Import iris.algebra.gmap.
-Require Import stdpp.finite.
-
-Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
-
-Lemma fin_to_set_sum {S1 S2 : Set} `{EqDecision S1} `{EqDecision S2} `{EqDecision (S1 + S2)}
-  `{Finite S1} `{Finite S2} `{Finite (S1 + S2)}
-  `{Countable S1} `{Countable S2} `{Countable (S1 + S2)}
-  : let A1 : gset S1 := (fin_to_set S1) in
-    let A2 : gset (S1 + S2) := set_map (inl : S1 → S1 + S2) A1 in
-    let B1 : gset S2 := (fin_to_set S2) in
-    let B2 : gset (S1 + S2) := set_map (inr : S2 → S1 + S2) B1 in
-    let C : gset (S1 + S2) := fin_to_set (S1 + S2) in
-    C = A2 ∪ B2.
-Proof.
-  apply set_eq.
-  intros [x|x]; simpl; split; intros _.
-  - apply elem_of_union; left.
-    apply elem_of_map_2.
-    apply elem_of_fin_to_set.
-  - apply elem_of_fin_to_set.
-  - apply elem_of_union; right.
-    apply elem_of_map_2.
-    apply elem_of_fin_to_set.
-  - apply elem_of_fin_to_set.
-Qed.
-
-Lemma fin_to_set_empty :
-  let A : gset ∅ := fin_to_set ∅ in
-  let B : gset ∅ := empty in
-  A = B.
-Proof.
-  apply set_eq; intros [].
-Qed.
-
-Section InstSum.
-  Global Instance EqDecisionLeft {S1 S2 : Set} {H : EqDecision (S1 + S2)} : EqDecision S1.
-  Proof.
-    intros x y.
-    destruct (decide (inl x = inl y)) as [G | G];
-      [left; by inversion G | right; intros C; by subst].
-  Qed.
-
-  Global Instance EqDecisionRight {S1 S2 : Set} {H : EqDecision (S1 + S2)} : EqDecision S2.
-  Proof.
-    intros x y.
-    destruct (decide (inr x = inr y)) as [G | G];
-      [left; by inversion G | right; intros C; by subst].
-  Qed.
-
-  Global Instance FiniteLeft {S1 S2 : Set} `{EqDecision S1}
-    `{EqDecision (S1 + S2)} `{Finite (S1 + S2)}
-    : Finite S1.
-  Proof.
-    unshelve econstructor.
-    - apply (foldr (λ x acc, match x with
-                             | inl x => x :: acc
-                             | inr _ => acc
-                             end) [] (enum (S1 + S2))).
-    - set (l := enum (S1 + S2)).
-      assert (NoDup l) as K; first apply NoDup_enum.
-      clearbody l.
-      induction l as [| a l IH]; first constructor.
-      destruct a as [a | a]; simpl.
-      + constructor.
-        * intros C.
-          assert (inl a ∈ l) as C'.
-          {
-            clear -C.
-            induction l as [| b l IH]; first inversion C.
-            destruct b as [b | b]; simpl.
-            - rewrite foldr_cons in C.
-              rewrite elem_of_cons in C.
-              destruct C as [-> | C].
-              + apply elem_of_cons.
-                by left.
-              + right.
-                apply IH.
-                apply C.
-            - apply elem_of_cons.
-              right.
-              rewrite foldr_cons in C.
-              apply IH.
-              apply C.
-          }
-          by inversion K.
-        * apply IH.
-          by inversion K.
-      + apply IH.
-        by inversion K.
-    - intros x.
-      set (l := enum (S1 + S2)).
-      assert (inl x ∈ l) as K; first apply elem_of_enum.
-      clearbody l.
-      induction l as [| a l IH]; first inversion K.
-      destruct a as [a | a]; simpl.
-      + rewrite elem_of_cons in K.
-        destruct K as [K | K].
-        * inversion K; subst.
-          apply elem_of_cons; by left.
-        * apply elem_of_cons; right; by apply IH.
-      + rewrite elem_of_cons in K.
-        destruct K as [K | K]; first inversion K.
-        by apply IH.
-  Qed.
-
-  Global Instance FiniteRight {S1 S2 : Set} `{EqDecision S2}
-    `{EqDecision (S1 + S2)} `{H : Finite (S1 + S2)}
-    : Finite S2.
-  Proof.
-    unshelve econstructor.
-    - apply (foldr (λ x acc, match x with
-                             | inl _ => acc
-                             | inr x => x :: acc
-                             end) [] (enum (S1 + S2))).
-    - set (l := enum (S1 + S2)).
-      assert (NoDup l) as K; first apply NoDup_enum.
-      clearbody l.
-      induction l as [| a l IH]; first constructor.
-      destruct a as [a | a]; simpl.
-      + apply IH.
-        by inversion K.
-      + constructor.
-        * intros C.
-          assert (inr a ∈ l) as C'.
-          {
-            clear -C.
-            induction l as [| b l IH]; first inversion C.
-            destruct b as [b | b]; simpl.
-            - apply elem_of_cons.
-              right.
-              rewrite foldr_cons in C.
-              apply IH.
-              apply C.
-            - rewrite foldr_cons in C.
-              rewrite elem_of_cons in C.
-              destruct C as [-> | C].
-              + apply elem_of_cons.
-                by left.
-              + right.
-                apply IH.
-                apply C.
-          }
-          by inversion K.
-        * apply IH.
-          by inversion K.
-    - intros x.
-      set (l := enum (S1 + S2)).
-      assert (inr x ∈ l) as K; first apply elem_of_enum.
-      clearbody l.
-      induction l as [| a l IH]; first inversion K.
-      destruct a as [a | a]; simpl.
-      + rewrite elem_of_cons in K.
-        destruct K as [K | K]; first inversion K.
-        by apply IH.
-      + rewrite elem_of_cons in K.
-        destruct K as [K | K].
-        * inversion K; subst.
-          apply elem_of_cons; by left.
-        * apply elem_of_cons; right; by apply IH.
-  Qed.
-
-End InstSum.
-
-Section InstInc.
-  Context (S : Set).
-
-  Global Instance EqDecisionIncN {HS : EqDecision S} (n : nat) : EqDecision (Init.Nat.iter n inc S).
-  Proof using S.
-    induction n; simpl.
-    - apply _.
-    - intros [|x] [|y].
-      + by left.
-      + by right.
-      + by right.
-      + destruct (decide (x = y)) as [-> |]; first by left.
-        right; by inversion 1.
-  Qed.
-
-  Global Instance EqDecisionInc {HS : EqDecision S} : EqDecision (inc S).
-  Proof using S.
-    assert (inc S = Init.Nat.iter 1 inc S) as ->; first done.
-    by apply EqDecisionIncN.
-  Qed.
-
-  Global Instance FiniteIncN {HS : EqDecision S} (HF : Finite S) (n : nat) {HS' : EqDecision (Init.Nat.iter n inc S)} : Finite (Init.Nat.iter n inc S).
-  Proof using S.
-    induction n.
-    - apply (@surjective_finite S HS HF _ _ id).
-      apply _.
-    - simpl.
-      unshelve eapply (@surjective_finite (option (Init.Nat.iter n inc S))); simpl in *.
-      + intros [x |].
-        * apply (VS x).
-        * apply VZ.
-      + apply _.
-      + intros [| x]; simpl.
-        * exists None; reflexivity.
-        * exists (Some x); reflexivity.
-  Qed.
-
-  Global Instance FiniteInc {HS : EqDecision S} (HF : Finite S) (HE : EqDecision (inc S)) : Finite (inc S).
-  Proof using S.
-    assert (J : @Finite (Init.Nat.iter 1 inc S) HE).
-    { apply FiniteIncN, HF. }
-    simpl in J.
-    apply J.
-  Qed.
-
-End InstInc.
-
-Definition sum_map' {A B C : Set} (f : A → C) (g : B → C) : sum A B → C :=
-  λ x, match x with | inl x' => f x' | inr x' => g x' end.
+From gitrees.utils Require Import finite_sets.
 
 Inductive typed : forall {S : Set}, (S → ty) → expr S → ty → Prop :=
 (** functions *)
@@ -263,7 +52,7 @@ Section logrel.
   Variable rs : gReifiers NotCtxDep sz.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier input_lang.interp.reify_io rs}.
-  Notation F := (gReifiers_ops NotCtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
   Context `{!SubOfe unitO R}.
@@ -314,10 +103,7 @@ Section logrel.
     | tRef τ => interp_ref (interp_ty τ)
     end.
 
-  Program Definition ssubst_valid {S : Set} `{!EqDecision S} `{!Finite S}
-    (Ω : S → ty) (ss : interp_scope S) : iProp
-    := ([∗ set] x ∈ (fin_to_set S),
-         (expr_pred (ss x) (protected (interp_ty (Ω x))))%I).
+  Notation ssubst_valid := (ssubst_valid_fin1 rs ty (λ x, protected (interp_ty x)) expr_pred).
 
   Definition valid1 {S : Set} `{!EqDecision S} `{!Finite S} (Ω : S → ty)
     (α : interp_scope S -n> IT) (τ : ty) : iProp :=
@@ -325,123 +111,9 @@ Section logrel.
           -∗ (ssubst_valid Ω ss)
           -∗ expr_pred (α ss) (interp_ty τ).
 
-  Lemma ssubst_valid_empty (αs : interp_scope ∅) :
-    ⊢ ssubst_valid □ αs.
-  Proof.
-    iStartProof.
-    unfold ssubst_valid.
-    match goal with
-    | |- context G [big_opS ?a ?b ?c] => assert (c = empty) as ->
-    end.
-    { apply set_eq; intros []. }
-    by iApply big_sepS_empty.
-  Qed.
-
-  Lemma ssubst_valid_app
-    {S1 S2 : Set} `{!EqDecision S1} `{!Finite S1}
-    `{!EqDecision S2} `{!Finite S2}
-    `{!EqDecision (S1 + S2)} `{!Finite (S1 + S2)}
-    (Ω1 : S1 → ty) (Ω2 : S2 → ty)
-    (αs : interp_scope (sum S1 S2)) :
-    (ssubst_valid (sum_map' Ω1 Ω2) αs) ⊢
-    (ssubst_valid Ω1 (interp_scope_split αs).1)
-    ∗ (ssubst_valid Ω2 (interp_scope_split αs).2).
-  Proof.
-    iIntros "H".
-    rewrite /ssubst_valid fin_to_set_sum big_sepS_union; first last.
-    {
-      apply elem_of_disjoint.
-      intros [x | x].
-      - rewrite !elem_of_list_to_set.
-        intros _ H2.
-        apply elem_of_list_fmap_2 in H2.
-        destruct H2 as [y [H2 H2']]; inversion H2.
-      - rewrite !elem_of_list_to_set.
-        intros H1 _.
-        apply elem_of_list_fmap_2 in H1.
-        destruct H1 as [y [H1 H1']]; inversion H1.
-    }
-    iDestruct "H" as "(H1 & H2)".
-    iSplitL "H1".
-    - rewrite big_opS_list_to_set; first last.
-      {
-        apply NoDup_fmap.
-        - intros ??; by inversion 1.
-        - apply NoDup_elements.
-      }
-      rewrite big_sepL_fmap /=.
-      rewrite big_sepS_elements.
-      iFrame "H1".
-    - rewrite big_opS_list_to_set; first last.
-      {
-        apply NoDup_fmap.
-        - intros ??; by inversion 1.
-        - apply NoDup_elements.
-      }
-      rewrite big_sepL_fmap /=.
-      rewrite big_sepS_elements.
-      iFrame "H2".
-  Qed.
-
-  Lemma ssubst_valid_cons {S : Set} `{!EqDecision S} `{!Finite S}
-    (Ω : S → ty) (αs : interp_scope S) τ t :
-    ssubst_valid Ω αs ∗ expr_pred t (protected (interp_ty τ)) ⊢ ssubst_valid (Ω ▹ τ) (extend_scope αs t).
-  Proof.
-    iIntros "(H & G)".
-    rewrite /ssubst_valid.
-    pose (Y := let A := {[VZ]} : @gset (leibnizO (inc S)) _ finite_countable in
-               let B := fin_to_set (leibnizO S) : gset (leibnizO S) in
-               let C := set_map (VS : S → inc S) B
-                   : gset (inc S) in A ∪ C).
-    assert (fin_to_set (inc S) = Y) as ->.
-    {
-      subst Y; simpl.
-      apply set_eq.
-      intros [| x].
-      - split.
-        + intros _; apply elem_of_union; left.
-          by apply elem_of_singleton.
-        + intros _; apply elem_of_fin_to_set.
-      - split.
-        + intros _; apply elem_of_union; right.
-          apply elem_of_map_2, elem_of_fin_to_set.
-        + intros H.
-          apply elem_of_fin_to_set.
-    }
-    subst Y; simpl.
-    rewrite big_sepS_union; first last.
-    {
-      apply elem_of_disjoint.
-      intros [| x].
-      - rewrite !elem_of_list_to_set.
-        intros _ H2.
-        apply elem_of_list_fmap_2 in H2.
-        destruct H2 as [y [H2 H2']]; inversion H2.
-      - rewrite !elem_of_list_to_set.
-        intros H1 _.
-        apply elem_of_singleton_1 in H1.
-        inversion H1.
-    }
-    iSplitL "G".
-    - rewrite big_opS_singleton.
-      iFrame "G".
-    - erewrite big_opS_set_map.
-      + iFrame "H".
-      + intros ?? H; by inversion H.
-  Qed.
-
-  Lemma ssubst_valid_lookup {S : Set} `{!EqDecision S} `{!Finite S}
-    (Ω : S → ty) (αs : interp_scope S) x :
-    ssubst_valid Ω αs ⊢ expr_pred (αs x) (protected (interp_ty (Ω x))).
-  Proof.
-    iIntros "H".
-    iDestruct (big_sepS_elem_of_acc _ _ x with "H") as "($ & _)";
-      first apply elem_of_fin_to_set.
-  Qed.
-
   Lemma compat_pair {S1 S2 : Set}
-    `{!EqDecision S1} `{!Finite S1}
-    `{!EqDecision S2} `{!Finite S2}
+    `(!EqDecision S1) `(!Finite S1)
+    `(!EqDecision S2) `(!Finite S2)
     `{!EqDecision (S1 + S2)} `{!Finite (S1 + S2)}
     (Ω1 : S1 → ty) (Ω2 : S2 → ty) α β τ1 τ2 :
     ⊢ valid1 Ω1 α τ1 -∗
@@ -452,7 +124,7 @@ Section logrel.
     iIntros "H1 H2".
     iIntros (αs) "#Hctx Has".
     cbn-[interp_pair].
-    rewrite ssubst_valid_app.
+    rewrite ssubst_valid_fin_app1.
     iDestruct "Has" as "[Ha1 Ha2]". cbn-[interp_app].
     iSpecialize ("H1"  with "Hctx Ha1").
     iSpecialize ("H2"  with "Hctx Ha2").
@@ -469,8 +141,8 @@ Section logrel.
   Qed.
 
   Lemma compat_destruct {S1 S2 : Set}
-    `{!EqDecision S1} `{!Finite S1}
-    `{!EqDecision S2} `{!Finite S2}
+    `(!EqDecision S1) `(!Finite S1)
+    `(!EqDecision S2) `(!Finite S2)
     `{!EqDecision (S1 + S2)} `{!Finite (S1 + S2)}
     (Ω1 : S1 → ty) (Ω2 : S2 → ty)
     α β τ1 τ2 τ :
@@ -482,7 +154,7 @@ Section logrel.
     iIntros "H1 H2".
     iIntros (αs) "#Hctx Has".
     cbn-[interp_destruct].
-    rewrite ssubst_valid_app.
+    rewrite ssubst_valid_fin_app1.
     iDestruct "Has" as "[Ha1 Ha2]".
     iSpecialize ("H1"  with "Hctx Ha1").
     iApply (expr_pred_bind (LETCTX _) with "H1").
@@ -519,9 +191,9 @@ Section logrel.
     iSpecialize ("H2" $! ss'
                   with "Hctx [-Hx] Hx").
     {
-      iApply ssubst_valid_cons.
+      iApply ssubst_valid_fin_cons1.
       iSplitR "Hl1 Hb1".
-      - iApply ssubst_valid_cons.
+      - iApply ssubst_valid_fin_cons1.
         iSplitL "Ha2"; first done.
         Transparent thunkedV thunked.
         simpl.
@@ -603,8 +275,8 @@ Section logrel.
   Qed.
 
   Lemma compat_replace {S1 S2 : Set}
-    `{!EqDecision S1} `{!Finite S1}
-    `{!EqDecision S2} `{!Finite S2}
+    `(!EqDecision S1) `(!Finite S1)
+    `(!EqDecision S2) `(!Finite S2)
     `{!EqDecision (S1 + S2)} `{!Finite (S1 + S2)}
     (Ω1 : S1 → ty) (Ω2 : S2 → ty) α β τ τ' :
     ⊢ valid1 Ω1 α (tRef τ) -∗
@@ -615,7 +287,7 @@ Section logrel.
     iIntros "H1 H2".
     iIntros (αs) "#Hctx Has".
     cbn-[interp_replace].
-    rewrite ssubst_valid_app.
+    rewrite ssubst_valid_fin_app1.
     iDestruct "Has" as "[Ha1 Ha2]". cbn-[interp_app].
     iSpecialize ("H1"  with "Hctx Ha1").
     iSpecialize ("H2"  with "Hctx Ha2").
@@ -712,8 +384,7 @@ Section logrel.
     { solve_proper. }
     unfold AppLSCtx.
     simpl.
-    unfold ssubst_valid.
-    iDestruct (ssubst_valid_lookup _ _ v with "Has Hx") as "Has".
+    iDestruct (ssubst_valid_fin_lookup1 _ _ _ _ _ _ v with "Has Hx") as "Has".
     iApply (wp_wand with "Has").
     iIntros (w) "(%y & Hw1 & Hw2)"; simpl.
     iModIntro.
@@ -726,8 +397,8 @@ Section logrel.
   Qed.
 
   Lemma compat_app {S1 S2 : Set}
-    `{!EqDecision S1} `{!Finite S1}
-    `{!EqDecision S2} `{!Finite S2}
+    `(!EqDecision S1) `(!Finite S1)
+    `(!EqDecision S2) `(!Finite S2)
     `{!EqDecision (S1 + S2)} `{!Finite (S1 + S2)}
     (Ω1 : S1 → ty) (Ω2 : S2 → ty)
     α β τ1 τ2 :
@@ -738,7 +409,7 @@ Section logrel.
     iIntros "H1 H2".
     iIntros (αs) "#Hctx Has".
     iEval(cbn-[interp_app]).
-    rewrite ssubst_valid_app.
+    rewrite ssubst_valid_fin_app1.
     iDestruct "Has" as "[Ha1 Ha2]". cbn-[interp_app].
     iSpecialize ("H1"  with "Hctx Ha1").
     iSpecialize ("H2"  with "Hctx Ha2").
@@ -781,7 +452,7 @@ Section logrel.
     iSpecialize ("H" $! ss'
              with "Hctx [-Hx] Hx").
     {
-      iApply ssubst_valid_cons.
+      iApply ssubst_valid_fin_cons1.
       iFrame "Has".
       Local Transparent thunked thunkedV.
       simpl.
@@ -809,7 +480,7 @@ Section logrel.
   Qed.
 
   Lemma fundamental_affine (S : Set)
-    {HE : EqDecision S} {HF : Finite S}
+    (HE : EqDecision S) (HF : Finite S)
     (Ω : S → ty)
     (e : expr S) τ :
     typed Ω e τ →
@@ -820,11 +491,11 @@ Section logrel.
     iInduction H as [| | | | | | | | | |] "IH".
     - by iApply compat_var.
     - by iApply compat_lam.
-    - by iApply (@compat_app S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-    - by iApply (@compat_pair S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-    - by iApply (@compat_destruct S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply (compat_app EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply (compat_pair EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply (compat_destruct EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
     - by iApply compat_alloc.
-    - by iApply (@compat_replace S1 S2 EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
+    - by iApply (compat_replace EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
     - by iApply compat_dealloc.
     - by iApply compat_nat.
     - by iApply compat_bool.
@@ -839,30 +510,31 @@ Arguments interp_tnat {_ _ _ _ _ _}.
 Arguments interp_tunit {_ _ _ _ _ _}.
 Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _ _ _ _ _} τ.
 
+Arguments compat_app {_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _}.
+Arguments compat_pair {_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _}.
+Arguments compat_destruct {_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _}.
+Arguments compat_replace {_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _}.
+
 Local Definition rs : gReifiers NotCtxDep 2 :=
-  gReifiers_cons NotCtxDep reify_store (gReifiers_cons NotCtxDep input_lang.interp.reify_io (gReifiers_nil NotCtxDep)).
+  gReifiers_cons reify_store (gReifiers_cons input_lang.interp.reify_io gReifiers_nil).
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Require Import gitrees.gitree.greifiers.
-
-Program Definition ı_scope R `{!Cofe R} : @interp_scope (gReifiers_ops NotCtxDep rs) R _ Empty_set := λne (x : ∅), match x with end.
-
 Lemma logrel1_adequacy cr Σ R `{!Cofe R, !SubOfe natO R, !SubOfe unitO R, !SubOfe locO R} `{!invGpreS Σ}
   `{!statePreG rs R Σ} `{!heapPreG rs R Σ} τ
-  (α : interp_scope ∅ -n>  IT (gReifiers_ops NotCtxDep rs) R) (β : IT (gReifiers_ops NotCtxDep rs) R) st st' k :
+  (α : interp_scope ∅ -n>  IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ} `{H3: !heapG rs R Σ},
       (£ cr ⊢ valid1 rs notStuck (λne _: unitO, True)%I □ α τ)%I) →
-  ssteps (gReifiers_sReifier NotCtxDep rs) (α (ı_scope _)) st β st' k →
+  ssteps (gReifiers_sReifier NotCtxDep rs) (α ı_scope) st β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
-   ∨ (∃ βv, IT_of_V βv ≡ β).
+   ∨ (∃ βv, (IT_of_V βv ≡ β)%stdpp).
 Proof.
   intros Hlog Hst.
   destruct (IT_to_V β) as [βv|] eqn:Hb.
   { right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. }
   left.
   cut ((∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
-      ∨ (∃ e, β ≡ Err e ∧ notStuck e)).
+      ∨ (∃ e, (β ≡ Err e)%stdpp ∧ notStuck e)).
   { intros [?|He]; first done.
     destruct He as [? [? []]]. }
   eapply (wp_safety (S cr)); eauto.
@@ -877,9 +549,9 @@ Proof.
   iMod (new_heapG rs σ) as (H3) "H".
   iAssert (has_substate σ ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
   { unfold has_substate, has_full_state.
-    assert (of_state NotCtxDep rs (IT (gReifiers_ops NotCtxDep rs) _) st ≡
-            of_idx NotCtxDep rs (IT (gReifiers_ops NotCtxDep rs) _) sR_idx (sR_state σ)
-            ⋅ of_idx NotCtxDep rs (IT (gReifiers_ops NotCtxDep rs) _) sR_idx (sR_state ios)) as ->; last first.
+    assert (of_state NotCtxDep rs (IT (gReifiers_ops rs) _) st ≡
+            of_idx NotCtxDep rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)
+            ⋅ of_idx NotCtxDep rs (IT (gReifiers_ops rs) _) sR_idx (sR_state ios))%stdpp as ->; last first.
     { rewrite -own_op. done. }
     unfold sR_idx. simpl.
     intro j.
@@ -896,8 +568,8 @@ Proof.
   { iNext. iExists _. iFrame. }
   simpl.
   iPoseProof (@Hlog _ _ _ with "Hcr") as "Hlog".
-  iSpecialize ("Hlog" $! (ı_scope _) with "Hinv []").
-  { iApply ssubst_valid_empty. }
+  iSpecialize ("Hlog" $! ı_scope with "Hinv []").
+  { iApply ssubst_valid_fin_empty1. }
   iSpecialize ("Hlog" $! tt with "[//]").
   iModIntro.
   iApply (wp_wand with "Hlog").
@@ -906,11 +578,11 @@ Qed.
 
 Definition R := sumO locO (sumO unitO natO).
 
-Lemma logrel1_safety e τ (β : IT (gReifiers_ops NotCtxDep rs) R) st st' k :
+Lemma logrel1_safety e τ (β : IT (gReifiers_ops rs) R) st st' k :
   typed □ e τ →
-  ssteps (gReifiers_sReifier NotCtxDep rs) (interp_expr rs e (ı_scope _)) st β st' k →
+  ssteps (gReifiers_sReifier NotCtxDep rs) (interp_expr rs e ı_scope) st β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
-   ∨ (∃ βv, IT_of_V βv ≡ β).
+   ∨ (∃ βv, (IT_of_V βv ≡ β)%stdpp).
 Proof.
   intros Hty Hst.
   pose (Σ:=#[invΣ;stateΣ rs R;heapΣ rs R]).

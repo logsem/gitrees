@@ -6,8 +6,8 @@ From gitrees.gitree Require Import core reify.
 Section sstep.
   Context {A} `{!Cofe A} {a : is_ctx_dep}.
   Context (r : sReifier a).
-  Notation F := (sReifier_ops a r).
-  Notation stateF := (sReifier_state a r).
+  Notation F := (sReifier_ops r).
+  Notation stateF := (sReifier_state r).
   Notation IT := (IT F A).
   Notation ITV := (ITV F A).
   Notation stateO := (stateF ♯ IT).
@@ -88,8 +88,8 @@ End sstep.
 Section istep.
   Context {A} `{!Cofe A} {a : is_ctx_dep}.
   Context (r : sReifier a).
-  Notation F := (sReifier_ops a r).
-  Notation stateF := (sReifier_state a r).
+  Notation F := (sReifier_ops r).
+  Notation stateF := (sReifier_state r).
   Notation IT := (IT F A).
   Notation ITV := (ITV F A).
   Notation stateO := (stateF ♯ IT).
@@ -342,8 +342,8 @@ End istep.
 Section istep_ctx_indep.
   Context {A} `{!Cofe A}.
   Context (r : sReifier NotCtxDep).
-  Notation F := (sReifier_ops NotCtxDep r).
-  Notation stateF := (sReifier_state NotCtxDep r).
+  Notation F := (sReifier_ops r).
+  Notation stateF := (sReifier_state r).
   Notation IT := (IT F A).
   Notation ITV := (ITV F A).
   Notation stateO := (stateF ♯ IT).

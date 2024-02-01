@@ -2,12 +2,13 @@
 From gitrees Require Import gitree program_logic lang_generic.
 From gitrees.examples.input_lang Require Import lang interp.
 Require Import Binding.Lib Binding.Set Binding.Env.
+Require Import gitrees.gitree.greifiers.
 
 Section io_lang.
   Context {sz : nat}.
   Variable rs : gReifiers NotCtxDep sz.
   Context `{!subReifier reify_io rs}.
-  Notation F := (gReifiers_ops NotCtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
   Notation IT := (IT F R).
@@ -41,15 +42,10 @@ Section io_lang.
     | Tarr τ1 τ2 => interp_tarr (interp_ty τ1) (interp_ty τ2)
     end.
 
-  Definition ssubst_valid {S : Set}
-    (Γ : S -> ty)
-    (ss : @interp_scope F R _ S) : iProp :=
-    (∀ x, □ expr_pred (ss x) (interp_ty (Γ x)))%I.
+  Notation ssubst_valid := (ssubst_valid1 rs ty interp_ty expr_pred).
 
   #[global] Instance io_lang_interp_ty_pers  τ βv : Persistent (io_lang.interp_ty τ βv).
   Proof. induction τ; apply _. Qed.
-  #[global] Instance ssubst_valid_pers {S : Set} (Γ : S → ty) ss : Persistent (ssubst_valid Γ ss).
-  Proof. apply _. Qed.
 
   Program Definition valid1 {S : Set} (Γ : S → ty) (α : interp_scope S -n> IT) (τ : ty) : iProp :=
     (∀ σ ss, has_substate σ -∗ ssubst_valid Γ ss -∗
@@ -250,21 +246,17 @@ End io_lang.
 Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _ _} τ.
 Arguments interp_tarr {_ _ _ _ _ _ _ _ _ _ _} Φ1 Φ2.
 
-Local Definition rs : gReifiers NotCtxDep _ := gReifiers_cons NotCtxDep reify_io (gReifiers_nil NotCtxDep).
+Local Definition rs : gReifiers NotCtxDep _ := gReifiers_cons reify_io gReifiers_nil.
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Require Import gitrees.gitree.greifiers.
-
-Program Definition ı_scope R `{!Cofe R} : @interp_scope (gReifiers_ops NotCtxDep rs) R _ Empty_set := λne (x : ∅), match x with end.
-
 Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}
   `{!invGpreS Σ} `{!statePreG rs R Σ} τ
-  (α : interp_scope ∅ -n> IT (gReifiers_ops NotCtxDep rs) R)
-  (β : IT (gReifiers_ops NotCtxDep rs) R) st st' k :
+  (α : interp_scope ∅ -n> IT (gReifiers_ops rs) R)
+  (β : IT (gReifiers_ops rs) R) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ},
       (£ cr ⊢ valid1 rs notStuck (λne _ : unitO, True)%I □ α τ)%I) →
-  ssteps (gReifiers_sReifier NotCtxDep rs) (α (ı_scope _)) st β st' k →
+  ssteps (gReifiers_sReifier NotCtxDep rs) (α ı_scope) st β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
@@ -287,8 +279,8 @@ Proof.
   destruct st as [σ []].
   iAssert (has_substate σ) with "[Hst]" as "Hs".
   { unfold has_substate, has_full_state.
-    assert (of_state NotCtxDep rs (IT (gReifiers_ops NotCtxDep rs) _) (σ,()) ≡
-            of_idx NotCtxDep rs (IT (gReifiers_ops NotCtxDep rs) _) sR_idx (sR_state σ)) as ->; last done.
+    assert (of_state NotCtxDep rs (IT (gReifiers_ops rs) _) (σ,()) ≡
+            of_idx NotCtxDep rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)) as ->; last done.
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.
@@ -310,9 +302,9 @@ Proof.
   done.
 Qed.
 
-Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops NotCtxDep (gReifiers_sReifier NotCtxDep rs)) natO) k :
+Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier NotCtxDep rs)) natO) k :
   typed □ e τ →
-  ssteps (gReifiers_sReifier NotCtxDep rs) (interp_expr rs e (ı_scope _)) (σ, ()) β st' k →
+  ssteps (gReifiers_sReifier NotCtxDep rs) (interp_expr rs e ı_scope) (σ, ()) β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.

@@ -7,6 +7,9 @@ From iris.si_logic Require Import bi siprop.
 From iris.proofmode Require Import classes tactics modality_instances
                                    coq_tactics reduction.
 
+Definition sum_map' {A B C : Set} (f : A → C) (g : B → C) : sum A B → C :=
+  λ x, match x with | inl x' => f x' | inr x' => g x' end.
+
 Program Definition idfun {A : ofe} : A -n> A := λne x, x.
 
 (** OFEs stuff *)

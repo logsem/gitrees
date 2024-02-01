@@ -1,8 +1,7 @@
 From gitrees Require Import gitree lang_generic.
 From gitrees.examples.input_lang Require Import lang.
 
-Require Import Binding.Lib.
-Require Import Binding.Set.
+Require Import Binding.Lib Binding.Set.
 
 Notation stateO := (leibnizO state).
 
@@ -92,7 +91,7 @@ Section weakestpre.
   Context {sz : nat}.
   Variable (rs : gReifiers NotCtxDep sz).
   Context {subR : subReifier reify_io rs}.
-  Notation F := (gReifiers_ops NotCtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
   Notation IT := (IT F R).
@@ -137,7 +136,7 @@ Section interp.
   Context {subR : subReifier reify_io rs}.
   Context {R} `{CR : !Cofe R}.
   Context `{!SubOfe natO R}.
-  Notation F := (gReifiers_ops NotCtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
@@ -164,10 +163,10 @@ Section interp.
   Typeclasses Opaque interp_natop.
 
   Opaque laterO_map.
-  Program Definition interp_rec_pre {S : Set} (body : @interp_scope F R _ (inc (inc S)) -n> IT)
-    : laterO (@interp_scope F R _ S -n> IT) -n> @interp_scope F R _ S -n> IT :=
-    λne self env, Fun $ laterO_map (λne (self : @interp_scope F R  _ S -n> IT) (a : IT),
-                      body (@extend_scope F R _ _ (@extend_scope F R _ _ env (self env)) a)) self.
+  Program Definition interp_rec_pre {S : Set} (body : interp_scope (inc (inc S)) -n> IT)
+    : laterO (interp_scope S -n> IT) -n> interp_scope S -n> IT :=
+    λne self env, Fun $ laterO_map (λne (self : interp_scope S -n> IT) (a : IT),
+                      body (extend_scope (extend_scope env (self env)) a)) self.
   Next Obligation.
     intros.
     solve_proper_prepare.
@@ -191,14 +190,14 @@ Section interp.
   Qed.
 
   Program Definition interp_rec {S : Set}
-    (body : @interp_scope F R _ (inc (inc S)) -n> IT) :
-    @interp_scope F R _ S -n> IT :=
+    (body : interp_scope (inc (inc S)) -n> IT) :
+    interp_scope S -n> IT :=
     mmuu (interp_rec_pre body).
 
   Program Definition ir_unf {S : Set}
-    (body : @interp_scope F R _ (inc (inc S)) -n> IT) env : IT -n> IT :=
-    λne a, body (@extend_scope F R _ _
-                   (@extend_scope F R _ _ env (interp_rec body env))
+    (body : interp_scope (inc (inc S)) -n> IT) env : IT -n> IT :=
+    λne a, body (extend_scope
+                   (extend_scope env (interp_rec body env))
                    a).
   Next Obligation.
     intros.
@@ -206,7 +205,7 @@ Section interp.
     f_equiv. intros [| [| y']]; simpl; solve_proper.
   Qed.
 
-  Lemma interp_rec_unfold {S : Set} (body : @interp_scope F R _ (inc (inc S)) -n> IT) env :
+  Lemma interp_rec_unfold {S : Set} (body : interp_scope (inc (inc S)) -n> IT) env :
     interp_rec body env ≡ Fun $ Next $ ir_unf body env.
   Proof.
     trans (interp_rec_pre body (Next (interp_rec body)) env).

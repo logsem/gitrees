@@ -1,13 +1,14 @@
 (** Logical relation for adequacy for the IO lang *)
 From gitrees Require Import gitree lang_generic.
 From gitrees.examples.input_lang Require Import lang interp.
+Require Import gitrees.gitree.greifiers.
 Require Import Binding.Lib Binding.Set Binding.Env.
 
 Section logrel.
   Context {sz : nat}.
   Variable (rs : gReifiers NotCtxDep sz).
   Context {subR : subReifier reify_io rs}.
-  Notation F := (gReifiers_ops NotCtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Notation IT := (IT F natO).
   Notation ITV := (ITV F natO).
   Context `{!invGS Σ, !stateG rs natO Σ}.
@@ -353,24 +354,22 @@ Lemma κ_Ret {S} {E} n : κ ((RetV n) : ITV E natO) = (LitV n : val S).
 Proof.
   Transparent RetV. unfold RetV. simpl. done. Opaque RetV.
 Qed.
-Definition rs : gReifiers NotCtxDep 1 := gReifiers_cons NotCtxDep reify_io (gReifiers_nil NotCtxDep).
+Definition rs : gReifiers NotCtxDep 1 := gReifiers_cons reify_io gReifiers_nil.
 
-Require Import gitrees.gitree.greifiers.
-
-Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs natO Σ} {S} (α : IT (gReifiers_ops NotCtxDep rs) natO) (e : expr S) n σ σ' k :
+Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs natO Σ} {S} (α : IT (gReifiers_ops rs) natO) (e : expr S) n σ σ' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs natO Σ},
       (True ⊢ logrel rs Tnat α e)%I) →
   ssteps (gReifiers_sReifier NotCtxDep rs) α (σ,()) (Ret n) σ' k → ∃ m σ', prim_steps e σ (Val $ LitV n) σ' m.
 Proof.
   intros Hlog Hst.
-  pose (ϕ := λ (βv : ITV (gReifiers_ops NotCtxDep rs) natO),
+  pose (ϕ := λ (βv : ITV (gReifiers_ops rs) natO),
           ∃ m σ', prim_steps e σ (Val $ κ βv) σ' m).
   cut (ϕ (RetV n)).
   { destruct 1 as ( m' & σ2 & Hm).
     exists m', σ2. revert Hm. by rewrite κ_Ret. }
   eapply (wp_adequacy 0); eauto.
   intros Hinv1 Hst1.
-  pose (Φ := (λ (βv : ITV (gReifiers_ops NotCtxDep rs) natO), ∃ n, logrel_val rs Tnat (Σ:=Σ) (S:=S) βv (LitV n)
+  pose (Φ := (λ (βv : ITV (gReifiers_ops rs) natO), ∃ n, logrel_val rs Tnat (Σ:=Σ) (S:=S) βv (LitV n)
           ∗ ⌜∃ m σ', prim_steps e σ (Val $ LitV n) σ' m⌝)%I).
   assert (NonExpansive Φ).
   { unfold Φ.
@@ -392,8 +391,8 @@ Proof.
   iPoseProof (Hlog with "[//]") as "Hlog".
   iAssert (has_substate σ) with "[Hs]" as "Hs".
   { unfold has_substate, has_full_state.
-    assert (of_state NotCtxDep rs (IT (gReifiers_ops NotCtxDep rs) natO) (σ, ()) ≡
-            of_idx NotCtxDep rs (IT (gReifiers_ops NotCtxDep rs) natO) 0 σ) as ->; last done.
+    assert (of_state NotCtxDep rs (IT (gReifiers_ops rs) natO) (σ, ()) ≡
+            of_idx NotCtxDep rs (IT (gReifiers_ops rs) natO) 0 σ)%stdpp as ->; last done.
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.
@@ -411,8 +410,6 @@ Proof.
   iExists l. iModIntro. iSplit; eauto.
   iExists l. iSplit; eauto.
 Qed.
-
-Program Definition ı_scope : @interp_scope (gReifiers_ops NotCtxDep rs) natO _ Empty_set := λne (x : ∅), match x with end.
 
 Theorem adequacy (e : expr ∅) (k : nat) σ σ' n :
   typed □ e Tnat →

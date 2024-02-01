@@ -9,7 +9,7 @@ Section hom.
   Context {sz : nat}.
   Context {rs : gReifiers CtxDep sz}.
   Context {subR : subReifier reify_io rs}.
-  Notation F := (gReifiers_ops CtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Notation IT := (IT F natO).
   Notation ITV := (ITV F natO).
 

@@ -7,9 +7,6 @@ Section greifiers_generic.
   #[local] Open Scope type.
   Context (a : is_ctx_dep).
   Notation sReifier := (sReifier a).
-  Notation sReifier_ops := (sReifier_ops a).
-  Notation sReifier_state := (sReifier_state a).
-  Notation sReifier_re := (sReifier_re a).
 
   (** Global reifiers: a collection of reifiers *)
   Inductive gReifiers : nat → Type :=
@@ -135,7 +132,7 @@ Section greifiers.
       let fs := gState_decomp NotCtxDep i st in
       let σ := fs.1 in
       let rest := fs.2 in
-      let rx := sReifier_re NotCtxDep (rs !!! i) op' (x, σ) in
+      let rx := sReifier_re (rs !!! i) op' (x, σ) in
       optionO_map (prodO_map idfun (gState_recomp NotCtxDep rest)) rx.
   Next Obligation. solve_proper_please. Qed.
 
@@ -153,7 +150,7 @@ Section greifiers.
       let fs := gState_decomp CtxDep i b in
       let σ := fs.1 in
       let rest := fs.2 in
-      let rx := sReifier_re CtxDep (rs !!! i) op' (a, σ, c) in
+      let rx := sReifier_re (rs !!! i) op' (a, σ, c) in
       optionO_map (prodO_map idfun (gState_recomp CtxDep rest)) rx.
   Next Obligation. solve_proper_please. Qed.
 
@@ -194,14 +191,14 @@ Section greifiers.
   Defined.
 
   Lemma gReifiers_re_idx_ctx_dep {n} (i : fin n) (rs : gReifiers CtxDep n)
-    {X} `{!Cofe X} (op : opid (sReifier_ops CtxDep (rs !!! i)))
-    (x : Ins (sReifier_ops CtxDep _ op) ♯ X)
-    (σ : sReifier_state CtxDep (rs !!! i) ♯ X)
+    {X} `{!Cofe X} (op : opid (sReifier_ops (rs !!! i)))
+    (x : Ins (sReifier_ops _ op) ♯ X)
+    (σ : sReifier_state (rs !!! i) ♯ X)
     (rest : gState_rest CtxDep i rs ♯ X)
-    (κ : (Outs (sReifier_ops CtxDep (rs !!! i) op) ♯ X -n> laterO X)) :
+    (κ : (Outs (sReifier_ops (rs !!! i) op) ♯ X -n> laterO X)) :
     gReifiers_re CtxDep rs (existT i op) (x, gState_recomp CtxDep rest σ, κ) ≡
       optionO_map (prodO_map idfun (gState_recomp CtxDep rest))
-      (sReifier_re CtxDep (rs !!! i) op (x, σ, κ)).
+      (sReifier_re (rs !!! i) op (x, σ, κ)).
   Proof.
     unfold gReifiers_re. cbn-[prodO_map optionO_map].
     f_equiv; last repeat f_equiv.
@@ -213,13 +210,13 @@ Section greifiers.
   Qed.
 
   Lemma gReifiers_re_idx_ctx_indep {n} (i : fin n) (rs : gReifiers NotCtxDep n)
-    {X} `{!Cofe X} (op : opid (sReifier_ops NotCtxDep (rs !!! i)))
-    (x : Ins (sReifier_ops NotCtxDep _ op) ♯ X)
-    (σ : sReifier_state NotCtxDep (rs !!! i) ♯ X)
+    {X} `{!Cofe X} (op : opid (sReifier_ops (rs !!! i)))
+    (x : Ins (sReifier_ops _ op) ♯ X)
+    (σ : sReifier_state (rs !!! i) ♯ X)
     (rest : gState_rest NotCtxDep i rs ♯ X) :
     gReifiers_re NotCtxDep rs (existT i op) (x, gState_recomp NotCtxDep rest σ) ≡
       optionO_map (prodO_map idfun (gState_recomp NotCtxDep rest))
-      (sReifier_re NotCtxDep (rs !!! i) op (x, σ)).
+      (sReifier_re (rs !!! i) op (x, σ)).
   Proof.
     unfold gReifiers_re. cbn-[prodO_map optionO_map].
     f_equiv; last repeat f_equiv.
@@ -231,26 +228,26 @@ Section greifiers.
   Qed.
 
   Program Definition gReifiers_re_idx_type {n} a (i : fin n) (rs : gReifiers a n)
-    {X} `{!Cofe X} (op : opid (sReifier_ops a (rs !!! i)))
-    (x : Ins (sReifier_ops a _ op) ♯ X)
-    (σ : sReifier_state a (rs !!! i) ♯ X)
+    {X} `{!Cofe X} (op : opid (sReifier_ops (rs !!! i)))
+    (x : Ins (sReifier_ops _ op) ♯ X)
+    (σ : sReifier_state (rs !!! i) ♯ X)
     (rest : gState_rest a i rs ♯ X) :
     Type.
   Proof.
     destruct a.
-    - apply (∀ (κ : (Outs (sReifier_ops CtxDep (rs !!! i) op) ♯ X -n> laterO X)),
+    - apply (∀ (κ : (Outs (sReifier_ops (rs !!! i) op) ♯ X -n> laterO X)),
                gReifiers_re CtxDep rs (existT i op) (x, gState_recomp CtxDep rest σ, κ) ≡
                  optionO_map (prodO_map idfun (gState_recomp CtxDep rest))
-                 (sReifier_re CtxDep (rs !!! i) op (x, σ, κ))).
+                 (sReifier_re (rs !!! i) op (x, σ, κ))).
     - apply (gReifiers_re NotCtxDep rs (existT i op) (x, gState_recomp NotCtxDep rest σ) ≡
                optionO_map (prodO_map idfun (gState_recomp NotCtxDep rest))
-               (sReifier_re NotCtxDep (rs !!! i) op (x, σ))).
+               (sReifier_re (rs !!! i) op (x, σ))).
   Defined.
 
   Lemma gReifiers_re_idx {n} a (i : fin n) (rs : gReifiers a n)
-    {X} `{!Cofe X} (op : opid (sReifier_ops a (rs !!! i)))
-    (x : Ins (sReifier_ops a _ op) ♯ X)
-    (σ : sReifier_state a (rs !!! i) ♯ X)
+    {X} `{!Cofe X} (op : opid (sReifier_ops (rs !!! i)))
+    (x : Ins (sReifier_ops _ op) ♯ X)
+    (σ : sReifier_state (rs !!! i) ♯ X)
     (rest : gState_rest a i rs ♯ X) : gReifiers_re_idx_type a i rs op x σ rest.
   Proof.
     destruct a.
@@ -261,34 +258,34 @@ Section greifiers.
   Program Definition sR_re_type {n}
     {X} `{!Cofe X} (a : is_ctx_dep) (r : sReifier a) (rs : gReifiers a n)
     (sR_idx : fin n)
-    (sR_ops : subEff (sReifier_ops a r) (sReifier_ops a (rs !!! sR_idx)))
-    (sR_state : sReifier_state a r ♯ X ≃ sReifier_state a (rs !!! sR_idx) ♯ X)
-    (m : nat) (op : opid (sReifier_ops a r)) : Type.
+    (sR_ops : subEff (sReifier_ops r) (sReifier_ops (rs !!! sR_idx)))
+    (sR_state : sReifier_state r ♯ X ≃ sReifier_state (rs !!! sR_idx) ♯ X)
+    (m : nat) (op : opid (sReifier_ops r)) : Type.
   Proof.
     destruct a.
-    - apply (∀ (x : Ins (sReifier_ops CtxDep r op) ♯ X)
+    - apply (∀ (x : Ins (sReifier_ops r op) ♯ X)
                (y : laterO X)
-               (s1 s2 : sReifier_state CtxDep r ♯ X)
-               (k : (Outs (sReifier_ops CtxDep r op) ♯ X -n> laterO X)),
-               sReifier_re CtxDep r op (x, s1, k) ≡{m}≡ Some (y, s2) →
-               sReifier_re CtxDep (rs !!! sR_idx) (subEff_opid op)
+               (s1 s2 : sReifier_state r ♯ X)
+               (k : (Outs (sReifier_ops r op) ♯ X -n> laterO X)),
+               sReifier_re r op (x, s1, k) ≡{m}≡ Some (y, s2) →
+               @sReifier_re CtxDep (rs !!! sR_idx) _ _ (subEff_opid op)
                  (subEff_ins x, sR_state s1, k ◎ (subEff_outs ^-1)) ≡{m}≡
                  Some (y, sR_state s2)).
-    - apply (∀ (x : Ins (sReifier_ops NotCtxDep _ op) ♯ X)
-               (y : Outs (sReifier_ops NotCtxDep _ op) ♯ X)
-               (s1 s2 : sReifier_state NotCtxDep r ♯ X),
-               sReifier_re NotCtxDep r op (x, s1) ≡{m}≡ Some (y, s2) →
-               sReifier_re NotCtxDep (rs !!! sR_idx) (subEff_opid op)
+    - apply (∀ (x : Ins (sReifier_ops _ op) ♯ X)
+               (y : Outs (sReifier_ops _ op) ♯ X)
+               (s1 s2 : sReifier_state r ♯ X),
+               sReifier_re r op (x, s1) ≡{m}≡ Some (y, s2) →
+               @sReifier_re NotCtxDep (rs !!! sR_idx) _ _ (subEff_opid op)
                  (subEff_ins x, sR_state s1) ≡{m}≡
                  Some (subEff_outs y, sR_state s2)).
   Defined.
 
   Class subReifier {n} {a : is_ctx_dep} (r : sReifier a) (rs : gReifiers a n) :=
     { sR_idx : fin n;
-      sR_ops :: subEff (sReifier_ops a r) (sReifier_ops a (rs !!! sR_idx));
+      sR_ops :: subEff (sReifier_ops r) (sReifier_ops (rs !!! sR_idx));
       sR_state {X} `{!Cofe X} :
-      sReifier_state a r ♯ X ≃ sReifier_state a (rs !!! sR_idx) ♯ X;
-      sR_re (m : nat) {X} `{!Cofe X} (op : opid (sReifier_ops a r))
+      sReifier_state r ♯ X ≃ sReifier_state (rs !!! sR_idx) ♯ X;
+      sR_re (m : nat) {X} `{!Cofe X} (op : opid (sReifier_ops r))
       : sR_re_type a r rs sR_idx sR_ops (@sR_state X _) m op
     }.
 
@@ -331,7 +328,7 @@ Section greifiers.
 
   #[local] Definition subR_op {n} {a : is_ctx_dep}
     {r : sReifier a} {rs : gReifiers a n} `{!subReifier r rs} :
-    opid (sReifier_ops a r) → opid (gReifiers_ops a rs).
+    opid (sReifier_ops r) → opid (gReifiers_ops a rs).
   Proof.
     intros op.
     simpl.
@@ -340,7 +337,7 @@ Section greifiers.
 
   #[export] Instance subReifier_subEff {n} {a : is_ctx_dep}
     {r : sReifier a} {rs : gReifiers a n} `{!subReifier r rs} :
-    subEff (sReifier_ops a r) (gReifiers_ops a rs).
+    subEff (sReifier_ops r) (gReifiers_ops a rs).
   Proof.
     simple refine {| subEff_opid := subR_op |}.
     - intros op X ?. simpl.
@@ -351,29 +348,29 @@ Section greifiers.
 
   Program Definition subReifier_reify_idx_type {n}
     (a : is_ctx_dep) (r : sReifier a) (rs : gReifiers a n)
-    `{!subReifier r rs} X `{!Cofe X} (op : opid (sReifier_ops a r)) : Type.
+    `{!subReifier r rs} X `{!Cofe X} (op : opid (sReifier_ops r)) : Type.
   Proof.
     destruct a.
-    - apply (∀ (x : Ins (sReifier_ops CtxDep r op) ♯ X)
+    - apply (∀ (x : Ins (sReifier_ops r op) ♯ X)
                (y : laterO X)
-               (s1 s2 : sReifier_state CtxDep r ♯ X)
-               (k : (Outs (sReifier_ops CtxDep r op) ♯ X -n> laterO X)),
-               sReifier_re CtxDep r op (x, s1, k) ≡ Some (y, s2) →
-               sReifier_re CtxDep (rs !!! sR_idx) (subEff_opid op)
+               (s1 s2 : sReifier_state r ♯ X)
+               (k : (Outs (sReifier_ops r op) ♯ X -n> laterO X)),
+               sReifier_re r op (x, s1, k) ≡ Some (y, s2) →
+               @sReifier_re CtxDep (rs !!! sR_idx) _ _ (subEff_opid op)
                  (subEff_ins x, sR_state s1, k ◎ (subEff_outs ^-1)) ≡
                  Some (y, sR_state s2)).
-    - apply (∀ (x : Ins (sReifier_ops NotCtxDep _ op) ♯ X)
-               (y : Outs (sReifier_ops NotCtxDep _ op) ♯ X)
-               (s1 s2 : sReifier_state NotCtxDep r ♯ X),
-               sReifier_re NotCtxDep r op (x, s1) ≡ Some (y, s2) →
-               sReifier_re NotCtxDep (rs !!! sR_idx) (subEff_opid op)
+    - apply (∀ (x : Ins (sReifier_ops _ op) ♯ X)
+               (y : Outs (sReifier_ops _ op) ♯ X)
+               (s1 s2 : sReifier_state r ♯ X),
+               sReifier_re r op (x, s1) ≡ Some (y, s2) →
+               @sReifier_re NotCtxDep (rs !!! sR_idx) _ _ (subEff_opid op)
                  (subEff_ins x, sR_state s1) ≡
                  Some (subEff_outs y, sR_state s2)).
   Defined.
 
   Lemma subReifier_reify_idx {n} {a : is_ctx_dep}
     (r : sReifier a) (rs : gReifiers a n)
-    `{!subReifier r rs} {X} `{!Cofe X} (op : opid (sReifier_ops a r))
+    `{!subReifier r rs} {X} `{!Cofe X} (op : opid (sReifier_ops r))
     : subReifier_reify_idx_type a r rs X op.
   Proof.
     destruct a.
@@ -391,19 +388,19 @@ Section greifiers.
 
   Program Definition subReifier_reify_type {n} (a : is_ctx_dep) (r : sReifier a)
     (rs : gReifiers a n) `{!subReifier r rs} X `{!Cofe X}
-    (op : opid (sReifier_ops a r)) : Type.
+    (op : opid (sReifier_ops r)) : Type.
   Proof.
     destruct a.
-    - apply (∀ (x : Ins (sReifier_ops CtxDep _ op) ♯ X) (y : laterO X)
-               (k : (Outs (sReifier_ops CtxDep r op) ♯ X -n> laterO X))
-               (σ σ' : sReifier_state CtxDep r ♯ X) (rest : gState_rest CtxDep sR_idx rs ♯ X),
-               sReifier_re CtxDep r op (x, σ, k) ≡ Some (y, σ') →
+    - apply (∀ (x : Ins (sReifier_ops _ op) ♯ X) (y : laterO X)
+               (k : (Outs (sReifier_ops r op) ♯ X -n> laterO X))
+               (σ σ' : sReifier_state r ♯ X) (rest : gState_rest CtxDep sR_idx rs ♯ X),
+               sReifier_re r op (x, σ, k) ≡ Some (y, σ') →
                gReifiers_re CtxDep rs (subEff_opid op)
                  (subEff_ins x, gState_recomp CtxDep rest (sR_state σ), k ◎ (subEff_outs ^-1))
                  ≡ Some (y, gState_recomp CtxDep rest (sR_state σ'))).
-    - apply (∀ (x : Ins (sReifier_ops NotCtxDep _ op) ♯ X) (y : Outs (sReifier_ops NotCtxDep _ op) ♯ X)
-               (σ σ' : sReifier_state NotCtxDep r ♯ X) (rest : gState_rest NotCtxDep sR_idx rs ♯ X),
-               sReifier_re NotCtxDep r op (x,σ) ≡ Some (y, σ') →
+    - apply (∀ (x : Ins (sReifier_ops _ op) ♯ X) (y : Outs (sReifier_ops _ op) ♯ X)
+               (σ σ' : sReifier_state r ♯ X) (rest : gState_rest NotCtxDep sR_idx rs ♯ X),
+               sReifier_re r op (x,σ) ≡ Some (y, σ') →
                gReifiers_re NotCtxDep rs (subEff_opid op)
                  (subEff_ins x, gState_recomp NotCtxDep rest (sR_state σ))
                  ≡ Some (subEff_outs y, gState_recomp NotCtxDep rest (sR_state σ'))).
@@ -411,7 +408,7 @@ Section greifiers.
 
   Lemma subReifier_reify {n} {a : is_ctx_dep} (r : sReifier a)
     (rs : gReifiers a n) `{!subReifier r rs} {X} `{!Cofe X}
-    (op : opid (sReifier_ops a r)) : subReifier_reify_type a r rs X op.
+    (op : opid (sReifier_ops r)) : subReifier_reify_type a r rs X op.
   Proof.
     destruct a.
     - simpl.
@@ -422,7 +419,7 @@ Section greifiers.
       simpl in J'.
       rewrite J'; clear J'.
       transitivity (prod_map (λ x0 : laterO X, x0)
-                      (λ st : sReifier_state CtxDep (rs !!! sR_idx) ♯ X,
+                      (λ st : sReifier_state (rs !!! sR_idx) ♯ X,
                           (gState_decomp' CtxDep sR_idx rs ^-1) (st, H)) <$>
                       (Some (y, sR_state σ'))).
       + unfold prod_map.
@@ -439,9 +436,9 @@ Section greifiers.
         as J'.
       simpl in J'.
       rewrite J'; clear J'.
-      transitivity (prod_map (λ x0 : Outs (sReifier_ops NotCtxDep (rs !!! sR_idx)
+      transitivity (prod_map (λ x0 : Outs (sReifier_ops (rs !!! sR_idx)
                                              (subEff_opid op)) ♯ X, x0)
-                      (λ st : sReifier_state NotCtxDep (rs !!! sR_idx) ♯ X,
+                      (λ st : sReifier_state (rs !!! sR_idx) ♯ X,
                           (gState_decomp' NotCtxDep sR_idx rs ^-1) (st, rest)) <$>
                       (Some (subEff_outs y, sR_state σ'))).
       + unfold prod_map.
@@ -476,53 +473,55 @@ Section greifiers.
   Qed.
 
   Lemma subReifier_reify_idxI_ctx_dep (r : sReifier CtxDep)
-    `{!@subReifier sz CtxDep r rs} {X} `{!Cofe X} (op : opid (sReifier_ops CtxDep r))
-    (x : Ins (sReifier_ops CtxDep _ op) ♯ X)
+    `{!@subReifier sz CtxDep r rs} {X} `{!Cofe X} (op : opid (sReifier_ops r))
+    (x : Ins (sReifier_ops _ op) ♯ X)
     (y : laterO X)
-    (k : (Outs (sReifier_ops CtxDep r op) ♯ X -n> laterO X))
-    (s1 s2 : sReifier_state CtxDep r ♯ X) :
-    sReifier_re CtxDep r op (x, s1, k) ≡ Some (y, s2) ⊢@{iProp}
-                                                         sReifier_re CtxDep (rs !!! sR_idx) (subEff_opid op)
-                                                         (subEff_ins x, sR_state s1, k ◎ (subEff_outs ^-1)) ≡
-                                                         Some (y, sR_state s2).
+    (k : (Outs (sReifier_ops r op) ♯ X -n> laterO X))
+    (s1 s2 : sReifier_state r ♯ X) :
+    sReifier_re r op (x, s1, k) ≡ Some (y, s2)
+    ⊢@{iProp}
+       sReifier_re  (rs !!! sR_idx) (subEff_opid op)
+       (subEff_ins x, sR_state s1, k ◎ (subEff_outs ^-1)) ≡
+       Some (y, sR_state s2).
   Proof.
     apply uPred.internal_eq_entails=>m.
     intros H'.
-    rewrite (sR_re (a := CtxDep)); last first.
+    rewrite (@sR_re _ CtxDep); last first.
     - rewrite H'.
       reflexivity.
     - reflexivity.
   Qed.
 
   Lemma subReifier_reify_idxI_ctx_indep (r : sReifier NotCtxDep)
-    `{!@subReifier sz NotCtxDep r rs} {X} `{!Cofe X} (op : opid (sReifier_ops NotCtxDep r))
-    (x : Ins (sReifier_ops NotCtxDep _ op) ♯ X)
-    (y : Outs (sReifier_ops NotCtxDep _ op) ♯ X)
-    (s1 s2 : sReifier_state NotCtxDep r ♯ X) :
-    sReifier_re NotCtxDep r op (x, s1) ≡ Some (y, s2)
+    `{!@subReifier sz NotCtxDep r rs} {X} `{!Cofe X} (op : opid (sReifier_ops r))
+    (x : Ins (sReifier_ops _ op) ♯ X)
+    (y : Outs (sReifier_ops _ op) ♯ X)
+    (s1 s2 : sReifier_state r ♯ X) :
+    sReifier_re r op (x, s1) ≡ Some (y, s2)
     ⊢@{iProp}
-       sReifier_re NotCtxDep (rs !!! sR_idx) (subEff_opid op)
+       sReifier_re (rs !!! sR_idx) (subEff_opid op)
        (subEff_ins x, sR_state s1) ≡
        Some (subEff_outs y, sR_state s2).
   Proof.
     apply uPred.internal_eq_entails=>m.
-    apply (sR_re (a := NotCtxDep)).
+    apply (@sR_re _ NotCtxDep).
   Qed.
 
   Lemma subReifier_reifyI_ctx_dep (r : sReifier CtxDep)
     `{!@subReifier sz CtxDep r rs} {X} `{!Cofe X}
-    (op : opid (sReifier_ops CtxDep r))
-    (x : Ins (sReifier_ops CtxDep _ op) ♯ X) (y : laterO X)
-    (k : (Outs (sReifier_ops CtxDep r op) ♯ X -n> laterO X))
-    (σ σ' : sReifier_state CtxDep r ♯ X) (rest : gState_rest CtxDep sR_idx rs ♯ X) :
-    sReifier_re CtxDep r op (x,σ, k) ≡ Some (y, σ') ⊢@{iProp}
-                                                       gReifiers_re CtxDep rs (subEff_opid op)
-                                                       (subEff_ins x, gState_recomp CtxDep rest (sR_state σ), k ◎ (subEff_outs ^-1))
-                                                       ≡ Some (y, gState_recomp CtxDep rest (sR_state σ')).
+    (op : opid (sReifier_ops r))
+    (x : Ins (sReifier_ops _ op) ♯ X) (y : laterO X)
+    (k : (Outs (sReifier_ops r op) ♯ X -n> laterO X))
+    (σ σ' : sReifier_state r ♯ X) (rest : gState_rest CtxDep sR_idx rs ♯ X) :
+    sReifier_re r op (x,σ, k) ≡ Some (y, σ')
+    ⊢@{iProp}
+       gReifiers_re CtxDep rs (subEff_opid op)
+       (subEff_ins x, gState_recomp CtxDep rest (sR_state σ), k ◎ (subEff_outs ^-1))
+       ≡ Some (y, gState_recomp CtxDep rest (sR_state σ')).
   Proof.
     apply uPred.internal_eq_entails=>m.
     intros He.
-    eapply (sR_re (a := CtxDep)) in He.
+    eapply (@sR_re _ CtxDep) in He.
     rewrite (gReifiers_re_idx CtxDep)//.
     rewrite He. simpl.
     reflexivity.
@@ -530,10 +529,10 @@ Section greifiers.
 
   Lemma subReifier_reifyI_ctx_indep (r : sReifier NotCtxDep)
     `{!@subReifier sz NotCtxDep r rs} {X} `{!Cofe X}
-    (op : opid (sReifier_ops NotCtxDep r))
-    (x : Ins (sReifier_ops NotCtxDep _ op) ♯ X) (y : Outs (sReifier_ops NotCtxDep _ op) ♯ X)
-    (σ σ' : sReifier_state NotCtxDep r ♯ X) (rest : gState_rest NotCtxDep sR_idx rs ♯ X) :
-    sReifier_re NotCtxDep r op (x,σ) ≡ Some (y, σ')
+    (op : opid (sReifier_ops r))
+    (x : Ins (sReifier_ops _ op) ♯ X) (y : Outs (sReifier_ops _ op) ♯ X)
+    (σ σ' : sReifier_state r ♯ X) (rest : gState_rest NotCtxDep sR_idx rs ♯ X) :
+    sReifier_re r op (x,σ) ≡ Some (y, σ')
     ⊢@{iProp}
        gReifiers_re NotCtxDep rs (subEff_opid op)
        (subEff_ins x, gState_recomp NotCtxDep rest (sR_state σ))
@@ -541,15 +540,15 @@ Section greifiers.
   Proof.
     apply uPred.internal_eq_entails=>m.
     intros He.
-    eapply (sR_re (a := NotCtxDep)) in He.
+    eapply (@sR_re _ NotCtxDep) in He.
     pose proof (@gReifiers_re_idx sz NotCtxDep sR_idx rs X _ (subEff_opid op)
                   (subEff_ins x)) as J.
     simpl in J.
     simpl.
     rewrite J//; clear J.
-    transitivity (prod_map (λ x0 : Outs (sReifier_ops NotCtxDep (rs !!! sR_idx)
+    transitivity (prod_map (λ x0 : Outs (sReifier_ops (rs !!! sR_idx)
                                            (subEff_opid op)) ♯ X, x0)
-                    (λ st : sReifier_state NotCtxDep (rs !!! sR_idx) ♯ X,
+                    (λ st : sReifier_state (rs !!! sR_idx) ♯ X,
                         (gState_decomp' NotCtxDep sR_idx rs ^-1) (st, rest)) <$>
                     (Some
                        (subEff_outs y, sR_state σ'))).
@@ -562,3 +561,12 @@ Section greifiers.
   Qed.
 
 End greifiers.
+
+Arguments gReifiers_cons {_ _}.
+Arguments gReifiers_nil {_}.
+Arguments gReifiers_ops {_ _}.
+Arguments gReifiers_re {_ _}.
+Arguments gReifiers_state {_ _}.
+Arguments gReifiers_re_idx {_ _}.
+Arguments gReifiers_re_idx_type {_ _}.
+Arguments gReifiers_re_type {_ _}.

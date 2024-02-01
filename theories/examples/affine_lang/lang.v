@@ -10,9 +10,8 @@ Module io_lang.
   Definition expr := input_lang.lang.expr.
   Definition tyctx {S : Set} := S → ty.
   Definition typed {S : Set} := input_lang.lang.typed (S:=S).
-  Program Definition ı_scope {sz} (rs : gReifiers NotCtxDep sz) `{!subReifier reify_io rs} {R} `{!Cofe R} : @interp_scope (gReifiers_ops NotCtxDep rs) R _ Empty_set := λne (x : ∅), match x with end.
-  Definition interp_closed {sz} (rs : gReifiers NotCtxDep sz) `{!subReifier reify_io rs} (e : expr ∅) {R} `{!Cofe R, !SubOfe natO R} : IT (gReifiers_ops NotCtxDep rs) R :=
-    input_lang.interp.interp_expr rs e (ı_scope rs).
+  Definition interp_closed {sz} (rs : gReifiers NotCtxDep sz) `{!subReifier reify_io rs} (e : expr ∅) {R} `{!Cofe R, !SubOfe natO R} : IT (gReifiers_ops rs) R :=
+    input_lang.interp.interp_expr rs e ı_scope.
 End io_lang.
 
 Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
@@ -51,7 +50,7 @@ Section affine.
   Variable rs : gReifiers NotCtxDep sz.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier reify_io rs}.
-  Notation F := (gReifiers_ops NotCtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Context {R : ofe}.
   Context `{!Cofe R, !SubOfe unitO R, !SubOfe natO R, !SubOfe locO R}.
   Notation IT := (IT F R).

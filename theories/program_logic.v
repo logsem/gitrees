@@ -4,7 +4,7 @@ From gitrees Require Import gitree.
 Section program_logic.
   Context {sz : nat} {a : is_ctx_dep}.
   Variable rs : gReifiers a sz.
-  Notation F := (gReifiers_ops a rs).
+  Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
@@ -27,7 +27,7 @@ End program_logic.
 Section program_logic_ctx_indep.
   Context {sz : nat}.
   Variable rs : gReifiers NotCtxDep sz.
-  Notation F := (gReifiers_ops NotCtxDep rs).
+  Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
