@@ -4,9 +4,9 @@ From gitrees.effects Require Import store.
 From gitrees.lib Require Import while.
 
 Section fact.
-  Context (n' : nat) (r : gReifiers NotCtxDep n').
-  Definition rs : gReifiers NotCtxDep (S (S n')) :=
-    (gReifiers_cons reify_io (gReifiers_cons reify_store r)).
+  Context (n' : nat) (rs : gReifiers NotCtxDep n').
+  Context `{!subReifier reify_store rs}.
+  Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R, !SubOfe unitO R}.
@@ -103,11 +103,11 @@ Section fact.
     simpl. rewrite get_ret_ret.
     iApply (wp_alloc with "Hctx").
     { solve_proper. }
-    fold rs. iNext. iNext.
+    iNext. iNext.
     iIntros (acc) "Hacc". simpl.
     iApply (wp_alloc with "Hctx").
     { solve_proper. }
-    fold rs. iNext. iNext.
+    iNext. iNext.
     iIntros (ℓ) "Hl". simpl.
     iApply wp_seq.
     { solve_proper. }
