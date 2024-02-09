@@ -705,7 +705,11 @@ Definition config_to_expr {S} (c : config S) :=
   | Cret v => Val v
   end.
 (* i mean not really bcause missing [reset]s *)
+(* is the solution just adding a reset between each metacontext?
+   maybe? but idk if we would want that *)
 
+(* Definition meta_fill_reset {S} (mk : Mcont S) e := *)
+(*   fold_left (λ e k, Reset (fill k e)) mk e. *)
 
 (*** Type system *)
 
@@ -732,17 +736,8 @@ Inductive typed {S : Set} (Γ : S -> ty) : expr S → ty → Prop :=
   typed Γ e1 τ →
   typed Γ e2 τ →
   typed Γ (If e0 e1 e2) τ
-(* | typed_Input : *)
-(*   typed Γ Input Tnat *)
-(* | typed_Output e : *)
-(*   typed Γ e Tnat → *)
-(*   typed Γ (Output e) Tnat *)
-(* | typed_Throw e1 e2 τ τ' : *)
-(*   typed Γ e1 τ -> *)
-(*   typed Γ e2 (Tcont τ) -> *)
-(*   typed Γ (Throw e1 e2) τ' *)
-| typed_Shift e τ :
-  typed Γ e (Tarr (Tcont τ) τ) ->
+| typed_Shift (e : expr (inc S)) τ :
+  typed (Γ ▹ Tcont τ) e τ ->
   typed Γ (Shift e) τ
 | typed_App_Cont (τ τ' : ty) e1 e2 :
   typed Γ e1 (Tcont τ) ->
@@ -786,12 +781,12 @@ Global Instance OpNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSy
   __op e₁ op e₂ := NatOp op (__asSynExpr e₁) (__asSynExpr e₂)
   }.
 
-Global Instance OpNotationLK {S : Set} : OpNotation (ectx S) (nat_op) (val S) (ectx S) := {
-  __op K op v := K ++ [NatOpLK op v]
+Global Instance OpNotationLK {S : Set} : OpNotation (cont S) (nat_op) (val S) (cont S) := {
+  __op K op v := cont_compose K (NatOpLK op v END)
   }.
 
-Global Instance OpNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : OpNotation (F S) (nat_op) (ectx S) (ectx S) := {
-  __op e op K := K ++ [NatOpRK op (__asSynExpr e)]
+Global Instance OpNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : OpNotation (F S) (nat_op) (cont S) (cont S) := {
+  __op e op K := cont_compose K (NatOpRK op (__asSynExpr e) END)
   }.
 
 Class IfNotation (A B C D : Type) := { __if : A -> B -> C -> D }.
@@ -801,8 +796,8 @@ Global Instance IfNotationExpr {S : Set} {F G H : Set -> Type} `{AsSynExpr F, As
   }.
 
 Global Instance IfNotationK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} :
-  IfNotation (ectx S) (F S) (G S) (ectx S) := {
-  __if K e₂ e₃ := K ++ [IfK (__asSynExpr e₂) (__asSynExpr e₃)]
+  IfNotation (cont S) (F S) (G S) (cont S) := {
+  __if K e₂ e₃ := cont_compose K (IfK (__asSynExpr e₂) (__asSynExpr e₃) END)
   }.
 
 
@@ -812,8 +807,8 @@ Global Instance IfNotationK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynEx
 (*   __output e := Output (__asSynExpr e) *)
 (*   }. *)
 
-(* Global Instance OutputNotationK {S : Set} : OutputNotation (ectx S) (ectx S) := { *)
-(*   __output K := K ++ [OutputK] *)
+(* Global Instance OutputNotationK {S : Set} : OutputNotation (cont S) (cont S) := { *)
+(*   __output K := cont_compose K (OutputK END) *)
 (*   }. *)
 
 Class ResetNotation (A B : Type) := { __reset : A -> B }.
@@ -821,8 +816,8 @@ Class ResetNotation (A B : Type) := { __reset : A -> B }.
 Global Instance ResetNotationExpr {S : Set} {F : Set -> Type} `{AsSynExpr F} :
   ResetNotation (F S) (expr S) := { __reset e := Reset (__asSynExpr e) }.
 
-Global Instance ResetNotationK {S : Set} : ResetNotation (ectx S) (ectx S) :=
-  { __reset K := K ++ [ResetK] }.
+(* Global Instance ResetNotationK {S : Set} : ResetNotation (cont S) (cont S) := *)
+(*   { __reset K := cont_compose K (ResetK END) }. *)
 
 (* Class ThrowNotation (A B C : Type) := { __throw : A -> B -> C }. *)
 
@@ -830,11 +825,11 @@ Global Instance ResetNotationK {S : Set} : ResetNotation (ectx S) (ectx S) :=
 (*   __throw e₁ e₂ := Throw (__asSynExpr e₁) (__asSynExpr e₂) *)
 (*   }. *)
 
-(* Global Instance ThrowNotationLK {S : Set} {F : Set -> Type} `{AsSynExpr F} : ThrowNotation (ectx S) (F S) (ectx S) := { *)
+(* Global Instance ThrowNotationLK {S : Set} {F : Set -> Type} `{AsSynExpr F} : ThrowNotation (cont S) (F S) (cont S) := { *)
 (*   __throw K e₂ := ThrowLK K (__asSynExpr e₂) *)
 (*   }. *)
 
-(* Global Instance ThrowNotationRK {S : Set} : ThrowNotation (val S) (ectx S) (ectx S) := { *)
+(* Global Instance ThrowNotationRK {S : Set} : ThrowNotation (val S) (cont S) (cont S) := { *)
 (*   __throw v K := ThrowRK v K *)
 (*   }. *)
 
@@ -844,12 +839,12 @@ Global Instance AppNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsS
   __app e₁ e₂ := App (__asSynExpr e₁) (__asSynExpr e₂)
   }.
 
-Global Instance AppNotationLK {S : Set} : AppNotation (ectx S) (val S) (ectx S) := {
-  __app K v := K ++ [AppLK v]
+Global Instance AppNotationLK {S : Set} : AppNotation (cont S) (val S) (cont S) := {
+  __app K v := cont_compose K (AppLK v END)
   }.
 
-Global Instance AppNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppNotation (F S) (ectx S) (ectx S) := {
-  __app e K := K ++ [AppRK (__asSynExpr e)]
+Global Instance AppNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppNotation (F S) (cont S) (cont S) := {
+  __app e K := cont_compose K (AppRK (__asSynExpr e) END)
   }.
 
 Notation of_val := Val (only parsing).
@@ -890,7 +885,7 @@ Delimit Scope typ_scope with typ.
 Notation "'ℕ'" := (Tnat) (at level 1) : typ_scope.
 Notation "A →ₜ B" := (Tarr A%typ B%typ)
                        (right associativity, at level 60) : typ_scope.
-Notation "A 'cont'" := (Tcont A%typ)
+Notation "A 'Cont'" := (Tcont A%typ)
                          (at level 60) : typ_scope.
 
 Declare Scope typing_scope.
@@ -926,95 +921,95 @@ Module SynExamples.
   Example test8 : Prop := (empty_env ⊢ (# 0) : ℕ).
 End SynExamples.
 
-Definition compute_head_step {S}
-  (e : expr S) (K : ectx S) :
-  option (expr S * ectx S * (nat * nat)) :=
-  match e with
-  | (App (Val (RecV e1)) (Val v2)) =>
-      Some ((subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1)
-                                   (Val (shift (Inc := inc) v2)))
-               (Val (RecV e1))), K, (1,0))
-  (* | Input => *)
-  (*     let '(n, σ') := update_input σ in *)
-  (*     Some ((Val (LitV n)), σ', K, (1, 1)) *)
-  (* | Output (Val (LitV n)) => *)
-  (*     (* let := update_output n σ in *) *)
-  (*     Some ((Val (LitV 0)), σ', K, (1, 1)) *)
-  | (NatOp op (Val v1) (Val v2)) =>
-      let res := nat_op_interp op v1 v2 in
-      option_rect (fun _ => option _) (fun v3 => Some ((Val v3), K, (0, 0))) None res
-  | (If (Val (LitV n)) e1 e2) =>
-      if (decide (0 < n))
-      then Some (e1, K, (0, 0))
-      else
-        if (decide (n = 0))
-        then Some (e2, K, (0, 0))
-        else None
-  (* | (Shift e) => *)
-  (*     let (Ki, Ko) := shift_context K in *)
-  (*     let f := cont_to_rec Ki in *)
-  (*     Some ((subst (Inc := inc) e (Val f)), Ko, (1, 1)) *)
-  | (Reset (Val v)) => Some (Val v, K, (1, 1))
-  (* | (Reset (fill E (Shift e))) => None *)
-  | _ => None
-  end.
-(* CHECK *)
+(* Definition compute_head_step {S} *)
+(*   (e : expr S) (K : cont S) : *)
+(*   option (expr S * cont S * (nat * nat)) := *)
+(*   match e with *)
+(*   | (App (Val (RecV e1)) (Val v2)) => *)
+(*       Some ((subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1) *)
+(*                                    (Val (shift (Inc := inc) v2))) *)
+(*                (Val (RecV e1))), K, (1,0)) *)
+(*   (* | Input => *) *)
+(*   (*     let '(n, σ') := update_input σ in *) *)
+(*   (*     Some ((Val (LitV n)), σ', K, (1, 1)) *) *)
+(*   (* | Output (Val (LitV n)) => *) *)
+(*   (*     (* let := update_output n σ in *) *) *)
+(*   (*     Some ((Val (LitV 0)), σ', K, (1, 1)) *) *)
+(*   | (NatOp op (Val v1) (Val v2)) => *)
+(*       let res := nat_op_interp op v1 v2 in *)
+(*       option_rect (fun _ => option _) (fun v3 => Some ((Val v3), K, (0, 0))) None res *)
+(*   | (If (Val (LitV n)) e1 e2) => *)
+(*       if (decide (0 < n)) *)
+(*       then Some (e1, K, (0, 0)) *)
+(*       else *)
+(*         if (decide (n = 0)) *)
+(*         then Some (e2, K, (0, 0)) *)
+(*         else None *)
+(*   (* | (Shift e) => *) *)
+(*   (*     let (Ki, Ko) := shift_context K in *) *)
+(*   (*     let f := cont_to_rec Ki in *) *)
+(*   (*     Some ((subst (Inc := inc) e (Val f)), Ko, (1, 1)) *) *)
+(*   | (Reset (Val v)) => Some (Val v, K, (1, 1)) *)
+(*   (* | (Reset (fill E (Shift e))) => None *) *)
+(*   | _ => None *)
+(*   end. *)
+(* (* CHECK *) *)
 
-Example test21 : val ∅ := (rec (if ($ 0) then # 1 else #0))%syn.
-
-
-Example testc : option (expr (inc ∅) * ectx (inc ∅) * (nat * nat)) :=
-  (compute_head_step (App (Val test1) (Val $ LitV 5)) []).
-Eval compute in testc.
+(* Example test21 : val ∅ := (rec (if ($ 0) then # 1 else #0))%syn. *)
 
 
-Lemma head_step_reflect {S : Set} (e : expr S) (K Ko : ectx S)
-  : option_reflect (fun '(e', K', nm) => head_step e K e' K' Ko nm)
-      True
-      (compute_head_step e  K).
-Proof.
-  destruct e; try (by constructor).
-  - destruct e1; try (by constructor).
-    destruct v; try (by constructor).
-    destruct e2; try (by constructor).
-    constructor.
-    constructor.
-  - destruct e1; try (by constructor).
-    destruct e2; try (by constructor).
-    destruct (nat_op_interp op v v0) eqn:Heqn.
-    + simpl; rewrite Heqn.
-      simpl.
-      constructor.
-      by constructor.
-    + simpl; rewrite Heqn.
-      simpl.
-      constructor.
-      constructor.
-  - destruct e1; try (by constructor).
-    destruct v; try (by constructor).
-    simpl.
-    case_match; simpl.
-    + constructor.
-      constructor.
-      assumption.
-    + case_match; simpl.
-      * constructor.
-        constructor.
-        assumption.
-      * constructor.
-        constructor.
-  (* - simpl. *)
-  (*   destruct (update_input σ) eqn:Heqn. *)
-  (*   by do 2 constructor. *)
-  (* - simpl. *)
-  (*   destruct e; try (by constructor). *)
-  (*   destruct v; try (by constructor). *)
-  (*   destruct (update_output n σ) eqn:Heqn. *)
-  (*   by do 2 constructor. *)
-  (* - simpl. *)
-  (*   destruct (shift_context K) as [Ki Ko] eqn:HK. *)
-  (*   constructor. apply ShiftS with Ki =>//=. *)
-  -  simpl.
-     destruct e; try (by constructor).
-     do 2 constructor.
-Qed.
+(* Example testc : option (expr (inc ∅) * cont (inc ∅) * (nat * nat)) := *)
+(*   (compute_head_step (App (Val test1) (Val $ LitV 5)) []). *)
+(* Eval compute in testc. *)
+
+
+(* Lemma head_step_reflect {S : Set} (e : expr S) (K Ko : cont S) *)
+(*   : option_reflect (fun '(e', K', nm) => head_step e K e' K' Ko nm) *)
+(*       True *)
+(*       (compute_head_step e  K). *)
+(* Proof. *)
+(*   destruct e; try (by constructor). *)
+(*   - destruct e1; try (by constructor). *)
+(*     destruct v; try (by constructor). *)
+(*     destruct e2; try (by constructor). *)
+(*     constructor. *)
+(*     constructor. *)
+(*   - destruct e1; try (by constructor). *)
+(*     destruct e2; try (by constructor). *)
+(*     destruct (nat_op_interp op v v0) eqn:Heqn. *)
+(*     + simpl; rewrite Heqn. *)
+(*       simpl. *)
+(*       constructor. *)
+(*       by constructor. *)
+(*     + simpl; rewrite Heqn. *)
+(*       simpl. *)
+(*       constructor. *)
+(*       constructor. *)
+(*   - destruct e1; try (by constructor). *)
+(*     destruct v; try (by constructor). *)
+(*     simpl. *)
+(*     case_match; simpl. *)
+(*     + constructor. *)
+(*       constructor. *)
+(*       assumption. *)
+(*     + case_match; simpl. *)
+(*       * constructor. *)
+(*         constructor. *)
+(*         assumption. *)
+(*       * constructor. *)
+(*         constructor. *)
+(*   (* - simpl. *) *)
+(*   (*   destruct (update_input σ) eqn:Heqn. *) *)
+(*   (*   by do 2 constructor. *) *)
+(*   (* - simpl. *) *)
+(*   (*   destruct e; try (by constructor). *) *)
+(*   (*   destruct v; try (by constructor). *) *)
+(*   (*   destruct (update_output n σ) eqn:Heqn. *) *)
+(*   (*   by do 2 constructor. *) *)
+(*   (* - simpl. *) *)
+(*   (*   destruct (shift_context K) as [Ki Ko] eqn:HK. *) *)
+(*   (*   constructor. apply ShiftS with Ki =>//=. *) *)
+(*   -  simpl. *)
+(*      destruct e; try (by constructor). *)
+(*      do 2 constructor. *)
+(* Qed. *)
