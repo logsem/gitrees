@@ -507,7 +507,7 @@ Section interp.
   #[export] Instance interp_reset_ne :
     NonExpansive (interp_reset).
   Proof.
-    intros n ???. rewrite /interp_reset. simpl. repeat f_equiv. 
+    intros n ???. rewrite /interp_reset. simpl. repeat f_equiv.
     by do 2 (intro; simpl; repeat f_equiv).
   Qed.
 
