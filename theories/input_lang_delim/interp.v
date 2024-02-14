@@ -13,46 +13,54 @@ Require Import Binding.Set.
 
 (** * State *)
 
-Definition stateF : oFunctor := (gmapOF unitO (▶ ∙))%OF.
+(* Definition stateF : oFunctor := (gmapOF unitO (▶ ∙))%OF. *)
+
+(* #[local] Instance state_inhabited : Inhabited (stateF ♯ unitO). *)
+(* Proof. apply _. Qed. *)
+(* #[local] Instance state_cofe X `{!Cofe X} : Cofe (stateF ♯ X). *)
+(* Proof. apply _. Qed. *)
+
+Definition stateF : oFunctor := (listOF (▶ ∙ -n> ▶ ∙))%OF.
 
 #[local] Instance state_inhabited : Inhabited (stateF ♯ unitO).
 Proof. apply _. Qed.
+
 #[local] Instance state_cofe X `{!Cofe X} : Cofe (stateF ♯ X).
 Proof. apply _. Qed.
 
+(* We store a list of meta continuations in the state. *)
 
 
 (** * Signatures *)
 
-Program Definition readE : opInterp :=  {|
-  Ins := unitO;
-  Outs := (▶ ∙);
-|}.
-
-Program Definition writeE : opInterp :=  {|
-  Ins := (▶ ∙);
-  Outs := unitO;
-|}.
-
-Program Definition callccE : opInterp :=
+Program Definition shiftE : opInterp :=
   {|
     Ins := ((▶ ∙ -n> ▶ ∙) -n> ▶ ∙);
     Outs := (▶ ∙);
   |}.
-Program Definition throwE : opInterp :=
+
+Program Definition resetE : opInterp :=
   {|
-    Ins := (▶ ∙ * (▶ ∙ -n> ▶ ∙));
-    Outs := Empty_setO;
+    Ins := (▶ ∙);
+    Outs := (▶ ∙);
+  |}.
+
+(* to apply the head of the meta continuation *)
+Program Definition metaE : opInterp :=
+  {|
+    Ins := (▶ ∙);
+    Outs := (▶ ∙);
   |}.
 
 
-Definition delimE := @[readE; writeE; callccE; throwE].
+Definition delimE := @[shiftE; resetE; metaE].
 
 
-Notation op_read := (inl ()).
-Notation op_write := (inr (inl ())).
-Notation op_callcc := (inr (inr (inl ()))).
-Notation op_throw := (inr (inr (inr (inl ())))).
+
+Notation op_shift := (inl ()).
+Notation op_reset := (inr (inl ())).
+Notation op_meta := (inr (inr (inl ()))).
+
 
 
 Section reifiers.
@@ -61,59 +69,40 @@ Section reifiers.
   Notation state := (stateF ♯ X).
 
 
-  Definition reify_read : unit * state * (laterO X -n> laterO X) →
-                          option (laterO X * state)
-    := λ '(u,σ,κ), x ← σ !! u;
-  Some (κ x, σ).
-  #[export] Instance reify_read_ne :
-    NonExpansive (reify_read : prodO (prodO unitO state)
-                                 (laterO X -n> laterO X) →
-                               optionO (prodO (laterO X) state)).
-  Proof.
-    intros n[[]][[]][[]]. simpl in *.
-    apply option_mbind_ne; first solve_proper.
-    by rewrite H0.
-  Qed.
-
-  Definition reify_write : (laterO X) * state * (unitO -n> laterO X) →
-                           option (laterO X * state)
-    := λ '(n,s,κ), let s' := <[():=n]>s
-                   in Some (κ (), s').
-  #[export] Instance reify_write_ne :
-    NonExpansive (reify_write : prodO (prodO _ state)
-                                  (unitO -n> laterO X) →
-                                optionO (prodO (laterO X) state)).
-  Proof.
-    intros n [[]] [[]] [[]]; simpl in *. solve_proper.
-  Qed.
-
-
-  Definition reify_callcc : ((laterO X -n> laterO X) -n> laterO X) *
+  Definition reify_shift : ((laterO X -n> laterO X) -n> laterO X) *
                               state * (laterO X -n> laterO X) →
                             option (laterO X * state) :=
-    λ '(f, σ, k), Some ((k (f k): laterO X), σ : state).
-  #[export] Instance reify_callcc_ne :
-    NonExpansive (reify_callcc :
+    λ '(f, σ, k), Some ((f k): laterO X, σ : state).
+  #[export] Instance reify_shift_ne :
+    NonExpansive (reify_shift :
       prodO (prodO ((laterO X -n> laterO X) -n> laterO X) state)
         (laterO X -n> laterO X) →
       optionO (prodO (laterO X) state)).
   Proof. intros ?[[]][[]][[]]. simpl in *. repeat f_equiv; auto. Qed.
 
+  Definition reify_reset : (laterO X) * state * (laterO X -n> laterO X) →
+                           option (laterO X * state) :=
+    λ '(e, σ, k), Some (e, (k :: σ)).
+  #[export] Instance reify_reset_ne :
+    NonExpansive (reify_reset :
+        prodO (prodO (laterO X) state) (laterO X -n> laterO X) →
+        optionO (prodO (laterO X) state)).
+  Proof. intros ?[[]][[]][[]]. simpl in *. by repeat f_equiv. Qed.
 
-  Definition reify_throw :
-    ((laterO X * (laterO X -n> laterO X)) * state * (Empty_setO -n> laterO X)) →
-    option (laterO X * state) :=
-    λ '((e, k'), σ, _),
-      Some ((k' e : laterO X), σ : state).
-  #[export] Instance reify_throw_ne :
-    NonExpansive (reify_throw :
-        prodO (prodO (prodO (laterO X) (laterO X -n> laterO X)) state)
-          (Empty_setO -n> laterO X) →
-        optionO (prodO (laterO X) (state))).
-  Proof.
-    intros ?[[[]]][[[]]]?. rewrite /reify_throw.
-    repeat f_equiv; apply H.
-  Qed.
+
+  Definition reify_meta : (laterO X) * state * (laterO X -n> laterO X) →
+                           option (laterO X * state) :=
+    λ '(e, σ, k),
+      match σ with
+      | [] => Some (e, σ)
+      | k' :: σ' => Some (k' e, σ')
+      end.
+  #[export] Instance reify_meta_ne :
+    NonExpansive (reify_meta :
+        prodO (prodO (laterO X) state) (laterO X -n> laterO X) →
+        optionO (prodO (laterO X) state)).
+  Proof. intros ?[[]][[]][[]]. simpl in *. by repeat f_equiv. Qed.
+
 
 End reifiers.
 
@@ -124,11 +113,10 @@ Proof.
              sReifier_state := stateF
            |}.
   intros X HX op.
-  destruct op as [ | [ | [ | [| []]]]]; simpl.
-  - simple refine (OfeMor (reify_read)).
-  - simple refine (OfeMor (reify_write)).
-  - simple refine (OfeMor (reify_callcc)).
-  - simple refine (OfeMor (reify_throw)).
+  destruct op as [ | [ | [ | []]]]; simpl.
+  - simple refine (OfeMor (reify_shift)).
+  - simple refine (OfeMor (reify_reset)).
+  - simple refine (OfeMor (reify_meta)).
 Defined.
 
 
@@ -142,56 +130,46 @@ Section constructors.
   Notation ITV := (ITV E A).
 
 
-  Program Definition READ : IT :=
-    Vis (E:=E) (subEff_opid $ op_read)
-      (subEff_ins (F:=delimE) (op:=op_read) ())
-      ((subEff_outs (F:=delimE) (op:=op_read))^-1).
 
 
-  Program Definition WRITE :  IT -n> IT :=
-    λne a, Vis (E:=E) (subEff_opid $ op_write)
-                (subEff_ins (F:=delimE) (op:=op_write) (Next a))
-                (λne _, Next (Ret ())).
-  Solve Obligations with solve_proper.
-
-
-  Program Definition CALLCC_ : ((laterO IT -n> laterO IT) -n> laterO IT) -n>
+  Program Definition SHIFT_ : ((laterO IT -n> laterO IT) -n> laterO IT) -n>
                                 (laterO IT -n> laterO IT) -n>
                                 IT :=
-    λne f k, Vis (E:=E) (subEff_opid op_callcc)
-             (subEff_ins (F:=delimE) (op:=op_callcc) f)
-             (k ◎ (subEff_outs (F:=delimE) (op:=op_callcc))^-1).
+    λne f k, Vis (E:=E) (subEff_opid op_shift)
+             (subEff_ins (F:=delimE) (op:=op_shift) f)
+             (k ◎ (subEff_outs (F:=delimE) (op:=op_shift))^-1).
   Solve All Obligations with solve_proper.
 
-  Program Definition CALLCC : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT :=
-    λne f, CALLCC_ f (idfun).
+  Program Definition SHIFT : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT :=
+    λne f, SHIFT_ f (idfun).
   Solve Obligations with solve_proper.
 
-  Lemma hom_CALLCC_ k e f `{!IT_hom f} :
-    f (CALLCC_ e k) ≡ CALLCC_ e (laterO_map (OfeMor f) ◎ k).
+  Lemma hom_SHIFT_ k e f `{!IT_hom f} :
+    f (SHIFT_ e k) ≡ SHIFT_ e (laterO_map (OfeMor f) ◎ k).
   Proof.
-    unfold CALLCC_.
+    unfold SHIFT_.
     rewrite hom_vis/=.
     f_equiv. by intro.
   Qed.
 
-  Program Definition THROW : IT -n> (laterO IT -n> laterO IT) -n> IT :=
-    λne e k, Vis (E:=E) (subEff_opid op_throw)
-               (subEff_ins (F:=delimE) (op:=op_throw)
-                  (NextO e, k))
-               (λne x, Empty_setO_rec _ ((subEff_outs (F:=delimE) (op:=op_throw))^-1 x)).
-  Next Obligation.
-    solve_proper_prepare.
-    destruct ((subEff_outs ^-1) x).
-  Qed.
-  Next Obligation.
-    intros; intros ???; simpl.
-    repeat f_equiv. assumption.
-  Qed.
-  Next Obligation.
-    intros ?????; simpl.
-    repeat f_equiv; assumption.
-  Qed.
+
+  Program Definition META : IT -n> IT :=
+    λne e, Vis (E:=E) (subEff_opid op_meta)
+             (subEff_ins (F:=delimE) (op:=op_meta) (Next e))
+             ((subEff_outs (F:=delimE) (op:=op_meta))^-1).
+  Solve All Obligations with solve_proper.
+
+  Program Definition RESET_ : (laterO IT -n> laterO IT) -n>
+                                laterO IT -n>
+                                IT :=
+    λne k e, Vis (E:=E) (subEff_opid op_reset)
+               (subEff_ins (F := delimE) (op := op_reset) (laterO_map (get_val META) e))
+               (k ◎ subEff_outs (F := delimE) (op := op_reset)^-1).
+  Solve Obligations with solve_proper.
+
+  Program Definition RESET : laterO IT -n> IT :=
+    RESET_ idfun.
+
 
 
 End constructors.
@@ -207,262 +185,82 @@ Section weakestpre.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
   Notation state := (stateF ♯ IT).
-
-
-  (* a separate ghost state for keeping track of locations *)
-  Definition istate := gmap_viewUR unit (laterO IT).
-  Class heapPreG Σ := HeapPreG { heapPreG_inG :: inG Σ istate }.
-  Class heapG Σ := HeapG {
-      heapG_inG :: inG Σ istate;
-      heapG_name : gname;
-    }.
-  Definition heapΣ : gFunctors := GFunctor istate.
-  #[export] Instance subG_heapΣ {Σ} : subG heapΣ Σ → heapPreG Σ.
-  Proof. solve_inG. Qed.
-
-  Lemma new_heapG σ `{!heapPreG Σ} :
-    (⊢ |==> ∃ `{!heapG Σ}, own heapG_name (●V σ): iProp Σ)%I.
-  Proof.
-    iMod (own_alloc (●V σ)) as (γ) "H".
-    { apply gmap_view_auth_valid. }
-    pose (sg := {| heapG_inG := _; heapG_name := γ |}).
-    iModIntro. iExists sg. by iFrame.
-  Qed.
-
-  Context `{!invGS_gen HasLc Σ, !stateG rs R Σ}.
+  Context `{!invGS Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
-
-  (** * The ghost state theory for the heap *)
-
-  Context `{!heapG Σ}.
-
-  Definition heap_ctx := inv (nroot.@"storeE")
-                        (∃ σ, £ 1 ∗ has_substate σ ∗ own heapG_name (●V σ))%I.
-
-  Definition pointsto (u : unit) (α : IT) : iProp :=
-    own heapG_name $ gmap_view_frag u (DfracOwn 1) (Next α).
-
-
-
-  Lemma istate_alloc α u σ :
-    σ !! u = None →
-    own heapG_name (●V σ) ==∗ own heapG_name (●V (<[u:=(Next α)]>σ))
-                   ∗ pointsto u α.
-  Proof.
-    iIntros (Hl) "H".
-    iMod (own_update with "H") as "[$ $]".
-    { apply (gmap_view_alloc _ u (DfracOwn 1) (Next α)); eauto.
-      done. }
-    done.
-  Qed.
-  Lemma istate_read u α σ :
-    own heapG_name (●V σ) -∗ pointsto u α -∗ σ !! u ≡ Some (Next α).
-  Proof.
-    iIntros "Ha Hf".
-    iPoseProof (own_valid_2 with "Ha Hf") as "H".
-    rewrite gmap_view_both_validI.
-    iDestruct "H" as "[_ Hval]". done.
-  Qed.
-  Lemma istate_loc_dom u α σ :
-    own heapG_name (●V σ) -∗ pointsto u α -∗ ⌜is_Some (σ !! u)⌝.
-  Proof.
-    iIntros "Hinv Hloc".
-    iPoseProof (istate_read with "Hinv Hloc") as "Hl".
-    destruct (σ !! u) ; eauto.
-    by rewrite option_equivI.
-  Qed.
-  Lemma istate_write u α β σ :
-    own heapG_name (●V σ) -∗ pointsto u α ==∗ own heapG_name (●V <[u:=(Next β)]>σ)
-                                  ∗ pointsto u β.
-  Proof.
-    iIntros "H Hu".
-    iMod (own_update_2 with "H Hu") as "[$ $]".
-    { apply (gmap_view_update). }
-    done.
-  Qed.
-  Lemma istate_delete u α σ :
-    own heapG_name (●V σ) -∗ pointsto u α ==∗ own heapG_name (●V delete u σ).
-  Proof.
-    iIntros "H Hu".
-    iMod (own_update_2 with "H Hu") as "$".
-    { apply (gmap_view_delete). }
-    done.
-  Qed.
-
 
   (** * The symbolic execution rules *)
 
-  (** ** READ *)
 
-  Lemma wp_read_atomic (l : unit)  E1 E2 s Φ
-    (k : IT -n> IT) `{!IT_hom k} :
-    nclose (nroot.@"storeE") ## E1 →
-    heap_ctx -∗
-    (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
-        ▷ ▷ (pointsto l α ={E2,E1}=∗ WP@{rs} k α @ s {{ Φ }})) -∗
-    WP@{rs} k READ @ s {{ Φ }}.
-  Proof.
-    iIntros (Hee) "#Hcxt H". rewrite hom_vis. simpl.
-    match goal with
-    | |- context G [Vis ?a ?b ?c] => assert (c ≡ laterO_map k ◎ subEff_outs (op:=op_read) ^-1) as ->
-    end; first solve_proper.
-    iApply wp_subreify'.
-    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
-    iApply (fupd_mask_weaken E1).
-    { set_solver. }
-    iIntros "Hwk".
-    iMod "H" as (α) "[Hp Hback]".
-    iApply (lc_fupd_elim_later with "Hlc").
-    iNext.
-    iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom".
-    { iApply (istate_loc_dom with "Hh Hp"). }
-    destruct Hdom as [x Hx].
-    destruct (Next_uninj x) as [β' Hb'].
-    iAssert ((σ !! l ≡ Some (Next α)))%I as "#Hlookup".
-    { iApply (istate_read with "Hh Hp"). }
-    iAssert (▷ (β' ≡ α))%I as "#Hba".
-    { rewrite Hx. rewrite option_equivI.
-      rewrite Hb'. by iNext. }
-    iClear "Hlookup".
-    iExists σ,(Next $ k β'),σ,(k β').
-    iFrame "Hs".
-    repeat iSplit.
-    - assert ((option_bind _ _ (λ x, Some (laterO_map k x, σ)) (σ !! l)) ≡
-                 (option_bind _ _ (λ x, Some (x, σ)) (Some (Next $ k β')))) as H.
-      { rewrite Hx. simpl. rewrite Hb'. by rewrite later_map_Next. }
-      simpl in H.
-      rewrite <-H.
-      unfold mbind.
-      simpl.
-      iPureIntro.
-      f_equiv; last done.
-      intros ???.
-      do 2 f_equiv. rewrite H0.
-      by rewrite ofe_iso_21.
-    - done.
-    - iNext. iIntros "Hlc Hs".
-      iMod ("Hback" with "Hp") as "Hback".
-      iMod "Hwk" .
-      iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
-      { iExists _. by iFrame. }
-      iRewrite "Hba". done.
-  Qed.
+  (** ** SHIFT *)
 
-  Lemma wp_read (l : unit) (α : IT) s Φ
-    (k : IT -n> IT) `{!IT_hom k} :
-    heap_ctx -∗
-    ▷ pointsto l α -∗
-    ▷ ▷ (pointsto l α -∗ WP@{rs} k α @ s {{ Φ }}) -∗
-    WP@{rs} k READ @ s {{ Φ }}.
-  Proof.
-    iIntros "#Hcxt Hp Ha".
-    iApply (wp_read_atomic _ (⊤∖ nclose (nroot.@"storeE")) with "[$]").
-    { set_solver. }
-    iModIntro. iExists _; iFrame.
-    iNext. iNext. iIntros "Hl".
-    iModIntro. by iApply "Ha".
-  Qed.
-
-  (** ** WRITE *)
-
-  Lemma wp_write_atomic  E1 E2 β s Φ
-    (k : IT -n> IT) `{!IT_hom k} :
-    nclose (nroot.@"storeE") ## E1 →
-    heap_ctx -∗
-    (|={E1,E2}=> ∃ α, ▷ pointsto () α ∗
-        ▷ ▷ (pointsto () β ={E2,E1}=∗ WP@{rs} k (Ret ()) @ s {{ Φ }})) -∗
-    WP@{rs} k (WRITE β) @ s {{ Φ }}.
-  Proof.
-    iIntros (Hee) "#Hcxt H". rewrite hom_vis. simpl.
-    iApply wp_subreify'.
-    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
-    iApply (fupd_mask_weaken E1).
-    { set_solver. }
-    iIntros "Hwk".
-    iMod "H" as (α) "[Hp Hback]".
-    iAssert (▷ ⌜is_Some (σ !! tt)⌝)%I as "#Hdom".
-    { iNext. iApply (istate_loc_dom with "Hh Hp"). }
-    iDestruct "Hdom" as ">%Hdom".
-    destruct Hdom as [x Hx].
-    destruct (Next_uninj x) as [α' Ha'].
-    iApply (lc_fupd_elim_later with "Hlc").
-    iNext.
-    iExists σ, (Next $ k (Ret ())), (<[():=Next β]>σ), (k $ Ret ()).
-    iFrame "Hs".
-    iSimpl. repeat iSplit; [ by rewrite later_map_Next | done | ].
-    iNext. iIntros "Hlc".
-    iMod (istate_write _ _ β with "Hh Hp") as "[Hh Hp]".
-    iIntros "Hs".
-    iMod ("Hback" with "Hp") as "Hback".
-    iMod "Hwk" .
-    iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
-    { iExists _. iFrame. }
-    done.
-  Qed.
-
-  Lemma wp_write (α β : IT) s Φ (k : IT -n> IT) `{!IT_hom k} :
-    heap_ctx -∗
-    ▷ pointsto () α -∗
-    ▷▷ (pointsto () β -∗ WP@{rs} k (Ret ()) @ s {{ Φ }}) -∗
-    WP@{rs} k $ WRITE β @ s {{ Φ }}.
-  Proof.
-    iIntros "#Hctx Hp Ha".
-    iApply (wp_write_atomic (⊤∖ nclose (nroot.@"storeE")) with "[$]").
-    { set_solver. }
-    iModIntro. iExists _; iFrame.
-    iNext. iNext. iIntros "Hl".
-    iModIntro. by iApply "Ha".
-  Qed.
-
-
-  (** ** THROW *)
-
-  Lemma wp_throw' (σ : state) (f : laterO IT -n> laterO IT) (x : IT)
-    (κ : IT -n> IT) `{!IT_hom κ} Φ s :
-    has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} later_car $ f (Next x) @ s {{ Φ }}) -∗
-    WP@{rs} κ (THROW x f) @ s {{ Φ }}.
-  Proof.
-    iIntros "Hs Ha". rewrite /THROW. simpl.
-    rewrite hom_vis.
-    destruct (Next_uninj (f (Next x))) as [α Hα].
-    iApply (wp_subreify with "Hs"); simpl.
-    + reflexivity.
-    + apply Hα.
-    + by assert (α ≡ later_car (f (Next x))) as -> by done.
-  Qed.
-
-  Lemma wp_throw (σ : state) (f : laterO IT -n> laterO IT) (x : IT) Φ s :
-    has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} later_car $ f $ Next x @ s {{ Φ }}) -∗
-    WP@{rs} (THROW x f) @ s {{ Φ }}.
-  Proof.
-    iApply (wp_throw' _ _ _ idfun).
-  Qed.
-
-  (** ** CALL/CC *)
-
-  Lemma wp_callcc (σ : state) (f : (laterO IT -n> laterO IT) -n> laterO IT)
+  Lemma wp_shift (σ : state) (f : (laterO IT -n> laterO IT) -n> laterO IT)
     (k : IT -n> IT) {Hk : IT_hom k} Φ s :
     has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k (later_car (f (laterO_map k))) @ s {{ Φ }}) -∗
-    WP@{rs} (k (CALLCC f)) @ s {{ Φ }}.
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} idfun (later_car (f (laterO_map k))) @ s {{ Φ }}) -∗
+    WP@{rs} (k (SHIFT f)) @ s {{ Φ }}.
   Proof.
     iIntros "Hs Ha".
-    unfold CALLCC. simpl.
+    unfold SHIFT. simpl.
     rewrite hom_vis.
-    iApply (wp_subreify _ _ _ _ _ _ _ ((later_map k ((f (laterO_map k))))) with "Hs").
+    iApply (wp_subreify _ _ _ _ _ _ _ (later_map idfun $ f (laterO_map k)) with "Hs").
     {
       simpl.
       repeat f_equiv.
-      - rewrite ofe_iso_21.
-        f_equiv. intro x. simpl.
-        by rewrite ofe_iso_21.
+      - rewrite ccompose_id_l later_map_id.
+        f_equiv. intro. simpl. by rewrite ofe_iso_21.
       - reflexivity.
     }
     { by rewrite later_map_Next. }
     iModIntro.
     iApply "Ha".
+  Qed.
+
+
+
+  Lemma wp_reset (σ : state) (e : laterO IT) (k : IT -n> IT) {Hk : IT_hom k}
+    Φ s :
+    has_substate σ -∗
+    ▷ (£ 1 -∗ has_substate ((laterO_map k) :: σ) -∗
+       WP@{rs} get_val META (later_car e) @ s {{ Φ }}) -∗
+    WP@{rs} k $ (RESET e) @ s {{ Φ }}.
+  Proof.
+    iIntros "Hs Ha".
+    unfold RESET. simpl. rewrite hom_vis.
+    iApply (wp_subreify _ _ _ _ _ _ _ (laterO_map (get_val META) e) with "Hs").
+    - simpl. repeat f_equiv. rewrite ccompose_id_l.
+      trans ((laterO_map k) :: σ); last reflexivity.
+      f_equiv. intro. simpl. by rewrite ofe_iso_21.
+    - reflexivity.
+    - iApply "Ha".
+  Qed.
+
+
+  Lemma wp_meta_end (v : ITV) (k : IT -n> IT) {Hk : IT_hom k}
+    Φ s :
+    has_substate [] -∗
+    ▷ (£ 1 -∗ has_substate [] -∗ WP@{rs} IT_of_V v @ s {{ Φ }}) -∗
+    WP@{rs} k $ get_val META (IT_of_V v) @ s {{ Φ }}.
+  Proof.
+    iIntros "Hs Ha".
+    rewrite get_val_ITV. simpl. rewrite hom_vis.
+    iApply (wp_subreify _ _ _ _ _ _ _ ((Next $ IT_of_V v)) with "Hs").
+    - simpl. reflexivity.
+    - reflexivity.
+    - done.
+  Qed.
+
+  Lemma wp_meta_cons (σ : state) (v : ITV) (k : IT -n> IT) {Hk : IT_hom k}
+    Φ s :
+    has_substate ((laterO_map k) :: σ) -∗
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k $ IT_of_V v @ s {{ Φ }}) -∗
+    WP@{rs} k $ get_val META (IT_of_V v) @ s {{ Φ }}.
+  Proof.
+    iIntros "Hs Ha".
+    rewrite get_val_ITV. simpl. rewrite hom_vis.
+    iApply (wp_subreify _ _ _ _ _ _ _ ((laterO_map k (Next $ IT_of_V v))) with "Hs").
+    - simpl. reflexivity.
+    - reflexivity.
+    - done.
   Qed.
 
 End weakestpre.
@@ -490,44 +288,32 @@ Section interp.
   (** * Interpreting individual operators *)
 
   (** ** RESET *)
-  Program Definition interp_reset (e : IT) : IT :=
-    CALLCC (λne (k : laterO IT -n> laterO IT),
-              Next $
-              LET READ (λne m, SEQ
-                                 (WRITE (λit r, SEQ (WRITE m) (THROW r k)))
-                                 (APP' READ e))).
-  Solve Obligations with solve_proper.
-  Next Obligation.
-    intros e k n ???. repeat f_equiv. intro. simpl. solve_proper.
-  Qed.
-  Next Obligation.
-    intros e n ???. repeat f_equiv. by do 2 (intro; simpl; repeat f_equiv).
-  Qed.
 
-  #[export] Instance interp_reset_ne :
-    NonExpansive (interp_reset).
-  Proof.
-    intros n ???. rewrite /interp_reset. simpl. repeat f_equiv.
-    by do 2 (intro; simpl; repeat f_equiv).
-  Qed.
+  Program Definition interp_reset {S} (e : S -n> IT) : S -n> IT :=
+    λne env, RESET (Next $ e env).
+  Solve All Obligations with solve_proper.
 
   (** ** SHIFT *)
-  Program Definition interp_shift {S}
-    (e : @interp_scope F R _ (inc S) -n> IT) : interp_scope S -n> IT :=
-    λne env, CALLCC (λne (k : laterO IT -n> laterO IT),
-                       Next (APP'
-                               READ
-                               (e (@extend_scope F R _ _ env
-                                     (λit x, interp_reset (THROW x k)))))).
+
+  Program Definition interp_shift {S} (e : @interp_scope F R _ (inc S) -n> IT) :
+    interp_scope S -n> IT :=
+    λne env, SHIFT (λne (k : laterO IT -n> laterO IT),
+                      Next (e (@extend_scope F R _ _ env (λit x, Tau (k (Next x)))))).
+  Next Obligation. solve_proper. Qed.
   Next Obligation.
-    intros S e env k n ???. by repeat f_equiv.
+    solve_proper_prepare.
+    repeat f_equiv.
+    intros [| a]; simpl; last solve_proper.
+    repeat f_equiv.
+    intros ?; simpl.
+    by repeat f_equiv.
   Qed.
   Next Obligation.
-    intros S e env n ???. repeat f_equiv. intro. simpl. by repeat f_equiv.
-  Qed.
-  Next Obligation.
-    intros S e n ???. f_equiv. intro; simpl; repeat f_equiv.
-    intros [|a]; simpl; last solve_proper.
+    solve_proper_prepare.
+    repeat f_equiv.
+    intros ?; simpl.
+    repeat f_equiv.
+    intros [| a]; simpl; last solve_proper.
     repeat f_equiv.
   Qed.
 
@@ -635,9 +421,9 @@ Section interp.
   (*   intros [|z]; eauto. *)
   (* Qed. *)
 
-  #[local] Instance interp_reset_full_ne {S} (f : @interp_scope F R _ S -n> IT):
-    NonExpansive (λ env, interp_reset (f env)).
-  Proof. solve_proper. Qed.
+  (* #[local] Instance interp_reset_full_ne {S} (f : @interp_scope F R _ S -n> IT): *)
+  (*   NonExpansive (λ env, interp_reset (f env)). *)
+  (* Proof. solve_proper. Qed. *)
 
   Program Definition interp_ifk {A} (e1 e2 : A -n> IT) (K : A -n> IT -n> IT) :
     A -n> (IT -n> IT) :=
@@ -680,7 +466,7 @@ Section interp.
     | NatOp op e1 e2 => interp_natop op (interp_expr e1) (interp_expr e2)
     | If e e1 e2 => interp_if (interp_expr e) (interp_expr e1) (interp_expr e2)
     | Shift e => interp_shift (interp_expr e)
-    | Reset e => λne env, (OfeMor interp_reset) (interp_expr e env)
+    | Reset e => interp_reset (interp_expr e)
     end
   with
   interp_cont {S} (K : cont S) : interp_scope S -n> (IT -n> IT) :=
@@ -693,65 +479,39 @@ Section interp.
     | NatOpRK op e K => interp_natoprk op (interp_expr e) (interp_cont K)
     end.
 
-  (* Definition interp_ectx_el {S} (C : ectx_el S) : *)
-  (*   (interp_scope S -n> IT) -n> (interp_scope S) -n> IT := *)
-  (*   match C with *)
-  (*   | AppRK e1 => interp_apprk (interp_expr e1) *)
-  (*   | AppLK e2 => interp_applk (interp_expr e2) *)
-  (*   | NatOpRK op e1 => interp_natoprk op (interp_expr e1) *)
-  (*   | NatOpLK op e2 => interp_natoplk op (interp_expr e2) *)
-  (*   | IfK e1 e2 => interp_ifk (interp_expr e1) (interp_expr e2) *)
-  (*   | ResetK => interp_resetk *)
-  (*   end. *)
+  (** ** Interpretation of configurations *)
+
+  Program Definition interp_config {S} (C : config S) : @interp_scope F R _  S -n> (prodO IT state) :=
+      match C with
+      | Cexpr e => λne env, (get_val META (interp_expr e env), []) : prodO IT state
+      | Ceval e K mk => λne env, (get_val META (interp_cont K env (interp_expr e env)),
+                                    list_fmap _ _ (λ k, laterO_map (interp_cont k env)) mk)
+      | Ccont K v mk => λne env, (get_val META (interp_cont K env (interp_val v env)),
+                                    list_fmap _ _ (λ k, laterO_map (interp_cont k env)) mk)
+      | Cmcont mk v => λne env, (get_val META (interp_val v env),
+                                   list_fmap _ _ (λ k, laterO_map (interp_cont k env)) mk)
+      | Cret v => λne env, (get_val META (interp_val v env), [])
+      end.
+  Solve Obligations with try solve_proper.
+  Next Obligation.
+    intros S C e K mk <- n???. f_equiv.
+    - by repeat f_equiv.
+    - apply list_fmap_ext_ne. intro. by repeat f_equiv.
+  Qed.
+  Next Obligation.
+    intros S C v K mk <- n???. f_equiv.
+    - by repeat f_equiv.
+    - apply list_fmap_ext_ne. intro. by repeat f_equiv.
+  Qed.
+  Next Obligation.
+    intros S C v mk <- n???. f_equiv.
+    - by repeat f_equiv.
+    - apply list_fmap_ext_ne. intro. by repeat f_equiv.
+  Qed.
 
 
-  (* Fixpoint interp_ectx' {S} (K : ectx S) : *)
-  (*   interp_scope S -> IT -> IT := *)
-  (*   match K with *)
-  (*   | [] => λ env, idfun *)
-  (*   | C :: K => λ (env : interp_scope S), λ (t : IT), *)
-  (*                 (interp_ectx' K env) (interp_ectx_el C (λne env, t) env) *)
-  (*   end. *)
-  (* #[export] Instance interp_ectx_1_ne {S} (K : ectx S) (env : interp_scope S) : *)
-  (*   NonExpansive (interp_ectx' K env : IT → IT). *)
-  (* Proof. induction K; solve_proper_please. Qed. *)
 
-  (* Definition interp_ectx'' {S} (K : ectx S) (env : interp_scope S) : IT -n> IT := *)
-  (*   OfeMor (interp_ectx' K env). *)
 
-  (* Lemma interp_ectx''_cons {S} (env : interp_scope S) *)
-  (*   (K : ectx S) (C : ectx_el S) (x : IT) (n : nat) : *)
-  (*   interp_ectx'' (C :: K) env x ≡{n}≡ interp_ectx'' K env (interp_ectx_el C (λne _, x) env). *)
-  (* Proof. done. Qed. *)
-
-  (* #[export] Instance interp_ectx_2_ne {S} (K : ectx S) : *)
-  (*   NonExpansive (interp_ectx'' K : interp_scope S → (IT -n> IT)). *)
-  (* Proof. *)
-  (*   induction K; intros ????; try by intro. *)
-  (*   intro. *)
-  (*   rewrite !interp_ectx''_cons. *)
-  (*   f_equiv. *)
-  (*   - by apply IHK. *)
-  (*   - by f_equiv. *)
-  (* Qed. *)
-
-  (* Definition interp_ectx {S} (K : ectx S) : interp_scope S -n> (IT -n> IT) := *)
-  (*   OfeMor (interp_ectx'' K). *)
-
-  (* Eval cbv[test_ectx interp_ectx interp_ectx' interp_ectx_el *)
-  (*            interp_apprk interp_outputk interp_output interp_app] in (interp_ectx test_ectx). *)
-  (* Definition interp_ectx {S} (K : ectx S) : interp_scope S -n> IT -n> IT := *)
-  (*   λne env e, *)
-  (*     (fold_left (λ k c, λne (e : interp_scope S -n> IT), *)
-  (*                   (interp_ectx_el c env) (λne env, k e)) K (λne t : , t)) e. *)
-
-  (* Open Scope syn_scope. *)
-
-  (* Example callcc_ex : expr ∅ := *)
-  (*   NatOp + (# 1) (Callcc (NatOp + (# 1) (Throw (# 2) ($ 0)))). *)
-  (* Eval cbn in callcc_ex. *)
-  (* Eval cbn in interp_expr callcc_ex *)
-  (*               (λne (x : leibnizO ∅), match x with end). *)
 
   Global Instance interp_val_asval {S} {D : interp_scope S} (v : val S)
     : AsVal (interp_val v D).
@@ -793,8 +553,6 @@ Section interp.
         rewrite interp_expr_ren. f_equiv.
         intros [|a]; simpl; last done.
         by repeat f_equiv.
-      + unfold interp_reset. repeat f_equiv.
-        by repeat (intro; simpl; repeat f_equiv).
     - destruct e; simpl.
       + reflexivity.
       + clear -interp_expr_ren.
@@ -863,7 +621,6 @@ Section interp.
         rewrite interp_expr_subst. f_equiv.
         intros [|a]; simpl; repeat f_equiv. rewrite interp_expr_ren.
         f_equiv. intro. done.
-      + unfold interp_reset; repeat f_equiv. by repeat (intro; simpl; repeat f_equiv).
     - destruct e; simpl.
       + reflexivity.
       + clear -interp_expr_subst.
@@ -1023,18 +780,21 @@ Section interp.
     induction K; simpl; apply _.
   Qed.
 
+
   (** ** Finally, preservation of reductions *)
-  Lemma interp_expr_head_step {S : Set} (env : interp_scope S) (e : expr S) e' K K' Ko n :
-    head_step e K e' K' Ko (n, 0) →
-    interp_expr e env ≡ Tick_n n $ interp_expr e' env.
+  Lemma interp_cred {S : Set} (env : interp_scope S) (C C' : config S)
+    (t t' : IT) (σ σ' : state) n :
+    C ===> C' / (n, 0) ->
+    (interp_config C env) = (t, σ) ->
+    (interp_config C' env) = (t', σ') ->
+    t ≡ Tick_n n $ t'.
   Proof.
-    inversion 1; cbn-[IF APP' Tick get_ret2].
-    - (* app lemma *)
-      subst.
+    inversion 1; cbn-[IF APP' Tick get_ret2]; intros Ht Ht'; inversion Ht; inversion Ht'; try done.
+    - rewrite -hom_tick. f_equiv.
       erewrite APP_APP'_ITV; last apply _.
-      trans (APP (Fun (Next (ir_unf (interp_expr e1) env))) (Next $ interp_val v2 env)).
+      trans (interp_cont k env (APP (Fun (Next (ir_unf (interp_expr e) env))) (Next $ interp_val v env))).
       { repeat f_equiv. apply interp_rec_unfold. }
-      rewrite APP_Fun. simpl. rewrite Tick_eq. do 2 f_equiv.
+      rewrite APP_Fun. simpl. rewrite hom_tick. do 2 f_equiv.
       simplify_eq.
       rewrite !interp_expr_subst.
       f_equiv.
@@ -1042,8 +802,7 @@ Section interp.
       rewrite interp_val_ren.
       f_equiv.
       intros ?; simpl; reflexivity.
-    - (* continuations *)
-      subst.
+    - rewrite -!hom_tick.
       erewrite APP_APP'_ITV; last apply _.
       rewrite APP_Fun. simpl. rewrite -Tick_eq. do 2 f_equiv.
       rewrite interp_expr_subst.

@@ -680,7 +680,7 @@ Variant Cred {S : Set} : config -> config -> (nat * nat) -> Prop :=
 
   (* meta-cont *)
   | Cmcont_cont : forall k mk v,
-      Cmcont (k :: mk) v ===> Ccont k v mk / (0,0)
+      Cmcont (k :: mk) v ===> Ccont k v mk / (0,1)
 
   | Cmcont_ret : forall v,
       Cmcont [] v ===> Cret v / (0, 0)
