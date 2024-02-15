@@ -404,7 +404,7 @@ Section interp.
 
   (** ** CONT *)
   Program Definition interp_cont_val {S} (K : S -n> (IT -n> IT)) : S -n> IT :=
-    λne env, (λit x, Tau (laterO_map (K env) (Next x))).
+    λne env, (λit x, Tau (laterO_map (get_val META ◎ K env) (Next x))).
   Solve All Obligations with solve_proper_please.
 
   (* Program Definition interp_cont {S} (e : @interp_scope F R _ (inc S) -n> IT) : *)
@@ -751,6 +751,7 @@ Section interp.
   Qed.
 
 
+
   (** ** Finally, preservation of reductions *)
   Lemma interp_cred_no_reify {S : Set} (env : interp_scope S) (C C' : config S)
     (t t' : IT) (σ σ' : state) n :
@@ -778,6 +779,7 @@ Section interp.
       f_equiv. rewrite -Tick_eq !hom_tick.
       do 2 f_equiv. simpl.
       replace (interp_val v env) with (interp_expr (Val v) env) by done.
+      
       by rewrite -!interp_comp fill_comp.
     - subst.
       destruct n0; simpl.
@@ -807,8 +809,7 @@ Section interp.
     - trans (reify (gReifiers_sReifier rs)
                (RESET_ (laterO_map (get_val META ◎ (interp_cont k env)))
                (Next (interp_expr e env)))
-               (gState_recomp σr (sR_state (map_meta_cont mk env)))
-            ).
+               (gState_recomp σr (sR_state (map_meta_cont mk env)))).
       {
         repeat f_equiv. rewrite !hom_vis. simpl. f_equiv.
         rewrite ccompose_id_l. by intro.
@@ -824,7 +825,29 @@ Section interp.
         repeat f_equiv; last done.  solve_proper.
       }
       f_equiv. by rewrite laterO_map_Next.
-    - 
+    - remember (map_meta_cont mk env) as σ.
+      match goal with
+      | |- context G [Vis _ (_ ?f)] => set (fin := f)
+      end.
+      trans (reify (gReifiers_sReifier rs)
+               (SHIFT_ (fin)
+                  ((laterO_map (get_val META ◎ interp_cont k env))))
+               (gState_recomp σr (sR_state σ))).
+      {
+        repeat f_equiv. rewrite !hom_vis.
+        subst fin. simpl. f_equiv. by intro.
+      }
+      rewrite reify_vis_eq//; last first.
+      {
+        epose proof (@subReifier_reify sz reify_delim rs _ IT _ (op_shift)
+                       (fin) _ (laterO_map (get_val META ◎ interp_cont k env))
+                     σ σ σr) as Hr.
+        simpl in Hr|-*.
+        erewrite <-Hr; last reflexivity.
+        repeat f_equiv; last done. solve_proper.
+      }
+      rewrite -Tick_eq. do 2 f_equiv. 
+      rewrite interp_expr_subst. 
 
 
 
