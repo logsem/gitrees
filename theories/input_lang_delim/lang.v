@@ -661,9 +661,13 @@ Variant Cred {S : Set} : config -> config -> (nat * nat) -> Prop :=
                     (Val (shift (Inc := inc) v)))
                  (Val (RecV e))) k mk / (1, 0)
 
+  (* | Ccont_cont : forall v k k' mk, *)
+  (*     Ccont (AppLK v k) (ContV k') mk ===> *)
+  (*       Ccont k' v (k :: mk) / (2, 0) *)
+
   | Ccont_cont : forall v k k' mk,
       Ccont (AppLK v k) (ContV k') mk ===>
-        Ccont k' v (k :: mk) / (2, 0)
+        Ccont (cont_compose k k') v mk / (2, 0)
 
   | Ccont_if : forall et ef n k mk,
       Ccont (IfK et ef k) (LitV n) mk ===>
@@ -694,6 +698,49 @@ Arguments config S%bind : clear implicits.
 
 Definition meta_fill {S} (mk : Mcont S) e :=
   fold_left (λ e k, fill k e) mk e.
+
+
+
+Inductive steps {S} : config S -> config S -> (nat * nat) -> Prop :=
+| steps_zero : forall c,
+    steps c c (0,0)
+| steps_many : forall c1 c2 c3 n m n' m',
+    c1 ===> c2 / (n,m) ->
+    steps c2 c3 (n',m') ->
+    steps c1 c3 (n+n',m+m').
+
+
+(* Lemma ceval_expr_to_val {S} : *)
+(*   forall (e : expr S) k mk, exists v nm, steps (Ceval e k mk) (Ceval v k mk) nm. *)
+(* Proof. *)
+(*   intros. *)
+(*   induction 1; intros. *)
+(*   - exists (Val v), (0,0). constructor. *)
+(*   - *)
+
+
+(* (* One of the rule has been changed slightly *) *)
+(* Lemma old_new_confluence {S} : forall (K K' : cont S) mk v v' n m, *)
+(*     steps (Ccont K' v (K::mk)) (Ccont K v' mk) (n, m+1) -> *)
+(*     steps (Ccont (cont_compose K K') v mk) (Ccont K v' mk) (n, m). *)
+(* Proof. *)
+(*   intros until K'. revert K. induction K'; intros. *)
+(*   - simpl in *. inversion H as []; subst. *)
+(*     { contradict H3. clear H. induction mk; congruence. } *)
+(*     inversion H0; subst. *)
+(*     inversion H1; subst. *)
+(*     inversion H7; subst. *)
+(*     simpl in H5. *)
+(*     replace (0 + (0 + n'0)) with (n'0) by lia. *)
+(*     assert (m'0 = m) as -> by lia. *)
+(*     eapply H8. *)
+(*   - simpl in *. inversion H as []; subst; first lia. *)
+(*     inversion H0; subst. simpl in *. *)
+(*     (* inversion H1; subst. *) *)
+(*     replace m with (0+m) by lia. *)
+(*     replace n' with (0+n') by lia. *)
+(*     constructor 2 with (Ceval (if n =? 0 then e2 else e1) (cont_compose K K') mk); first constructor. *)
+(*     subst. *)
 
 
 Definition config_to_expr {S} (c : config S) :=
