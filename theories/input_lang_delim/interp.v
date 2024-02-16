@@ -132,25 +132,6 @@ Section constructors.
 
 
 
-  Program Definition SHIFT_ : ((laterO IT -n> laterO IT) -n> laterO IT) -n>
-                                (laterO IT -n> laterO IT) -n>
-                                IT :=
-    λne f k, Vis (E:=E) (subEff_opid op_shift)
-             (subEff_ins (F:=delimE) (op:=op_shift) f)
-             (k ◎ (subEff_outs (F:=delimE) (op:=op_shift))^-1).
-  Solve All Obligations with solve_proper.
-
-  Program Definition SHIFT : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT :=
-    λne f, SHIFT_ f (idfun).
-  Solve Obligations with solve_proper.
-
-  Lemma hom_SHIFT_ k e f `{!IT_hom f} :
-    f (SHIFT_ e k) ≡ SHIFT_ e (laterO_map (OfeMor f) ◎ k).
-  Proof.
-    unfold SHIFT_.
-    rewrite hom_vis/=.
-    f_equiv. by intro.
-  Qed.
 
 
   Program Definition META : IT -n> IT :=
@@ -170,6 +151,25 @@ Section constructors.
   Program Definition RESET : laterO IT -n> IT :=
     RESET_ idfun.
 
+  Program Definition SHIFT_ : ((laterO IT -n> laterO IT) -n> laterO IT) -n>
+                                (laterO IT -n> laterO IT) -n>
+                                IT :=
+    λne f k, Vis (E:=E) (subEff_opid op_shift)
+             (subEff_ins (F:=delimE) (op:=op_shift) ((laterO_map $ get_val META) ◎ f))
+             (k ◎ (subEff_outs (F:=delimE) (op:=op_shift))^-1).
+  Solve All Obligations with solve_proper.
+
+  Program Definition SHIFT : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT :=
+    λne f, SHIFT_ f (idfun).
+  Solve Obligations with solve_proper.
+
+  Lemma hom_SHIFT_ k e f `{!IT_hom f} :
+    f (SHIFT_ e k) ≡ SHIFT_ e (laterO_map (OfeMor f) ◎ k).
+  Proof.
+    unfold SHIFT_.
+    rewrite hom_vis/=.
+    f_equiv. by intro.
+  Qed.
 
 
 End constructors.
@@ -196,18 +196,17 @@ Section weakestpre.
   Lemma wp_shift (σ : state) (f : (laterO IT -n> laterO IT) -n> laterO IT)
     (k : IT -n> IT) {Hk : IT_hom k} Φ s :
     has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} idfun (later_car (f (laterO_map k))) @ s {{ Φ }}) -∗
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} get_val META (later_car ( f (laterO_map k))) @ s {{ Φ }}) -∗
     WP@{rs} (k (SHIFT f)) @ s {{ Φ }}.
   Proof.
     iIntros "Hs Ha".
     unfold SHIFT. simpl.
     rewrite hom_vis.
-    iApply (wp_subreify _ _ _ _ _ _ _ (later_map idfun $ f (laterO_map k)) with "Hs").
+    iApply (wp_subreify _ _ _ _ _ _ _ (later_map (get_val META) $ f (laterO_map k)) with "Hs").
     {
       simpl.
       repeat f_equiv.
-      - rewrite ccompose_id_l later_map_id.
-        f_equiv. intro. simpl. by rewrite ofe_iso_21.
+      - rewrite ccompose_id_l. intro. simpl. by rewrite ofe_iso_21.
       - reflexivity.
     }
     { by rewrite later_map_Next. }
@@ -485,6 +484,10 @@ Section interp.
     λne env, list_fmap _ _ (λ k, laterO_map (get_val (META) ◎ (interp_cont k env))) mk.
   Next Obligation. intros S mk n ???. apply list_fmap_ext_ne. intro. by repeat f_equiv. Qed.
 
+  Lemma map_meta_cont_nil {S} env :
+    map_meta_cont ([] : Mcont S) env = [].
+  Proof. done. Qed.
+
   Lemma map_meta_cont_cons {S} (k : cont S) (mk : Mcont S) env :
     map_meta_cont (k::mk) env = (laterO_map ((get_val META) ◎ interp_cont k env)) :: (map_meta_cont mk env).
   Proof. done. Qed.
@@ -498,7 +501,7 @@ Section interp.
                                     map_meta_cont mk env)
       | Cmcont mk v => λne env, (get_val META (interp_val v env),
                                    map_meta_cont mk env)
-      | Cret v => λne env, (get_val META (interp_val v env), [])
+      | Cret v => λne env, (interp_val v env, [])
       end.
   Solve Obligations with try solve_proper.
   Next Obligation.
@@ -779,8 +782,8 @@ Section interp.
       f_equiv. rewrite -Tick_eq !hom_tick.
       do 2 f_equiv. simpl.
       replace (interp_val v env) with (interp_expr (Val v) env) by done.
-      
-      by rewrite -!interp_comp fill_comp.
+      admit.
+      (* by rewrite -!interp_comp fill_comp. *)
     - subst.
       destruct n0; simpl.
       + by rewrite IF_False; last lia.
@@ -789,7 +792,9 @@ Section interp.
       destruct v1,v0; try naive_solver. simpl in *.
       rewrite NATOP_Ret.
       destruct op; simplify_eq/=; done.
-  Qed.
+  (* Qed. *)
+  Admitted.
+  
 
 
   Opaque map_meta_cont.
@@ -827,27 +832,73 @@ Section interp.
       f_equiv. by rewrite laterO_map_Next.
     - remember (map_meta_cont mk env) as σ.
       match goal with
-      | |- context G [Vis _ (_ ?f)] => set (fin := f)
+      | |- context G [Vis ?o ?f ?κ] => set (fin := f); set (op := o); set (kout := κ)
       end.
       trans (reify (gReifiers_sReifier rs)
-               (SHIFT_ (fin)
-                  ((laterO_map (get_val META ◎ interp_cont k env))))
+               (Vis op fin ((laterO_map (get_val META ◎ interp_cont k env)) ◎ kout))
                (gState_recomp σr (sR_state σ))).
       {
-        repeat f_equiv. rewrite !hom_vis.
-        subst fin. simpl. f_equiv. by intro.
+        repeat f_equiv. rewrite !hom_vis. f_equiv. by intro.
       }
       rewrite reify_vis_eq//; last first.
       {
         epose proof (@subReifier_reify sz reify_delim rs _ IT _ (op_shift)
-                       (fin) _ (laterO_map (get_val META ◎ interp_cont k env))
+                       _ _ (laterO_map (get_val META ◎ interp_cont k env))
                      σ σ σr) as Hr.
         simpl in Hr|-*.
         erewrite <-Hr; last reflexivity.
-        repeat f_equiv; last done. solve_proper.
+        repeat f_equiv; last first.
+        - subst kout. by rewrite ccompose_id_l.
+        - subst fin. reflexivity.
+        - solve_proper.
       }
-      rewrite -Tick_eq. do 2 f_equiv. 
-      rewrite interp_expr_subst. 
+      rewrite -Tick_eq. do 3 f_equiv.
+      rewrite interp_expr_subst.
+      simpl. f_equiv.
+      intros [|s]; simpl; eauto.
+      Transparent extend_scope.
+      simpl. f_equiv. f_equiv. by intro.
+      Opaque extend_scope.
+    - remember (map_meta_cont mk env) as σ.
+      trans (reify (gReifiers_sReifier rs) (META (interp_val v env))
+               (gState_recomp σr (sR_state (laterO_map (get_val META ◎ interp_cont k env) :: σ)))).
+      {
+        do 2 f_equiv; last repeat f_equiv.
+        apply get_val_ITV.
+      }
+      rewrite reify_vis_eq//; last first.
+      {
+        epose proof (@subReifier_reify sz reify_delim rs _ IT _ (op_meta)
+                       (Next (interp_val v env)) _ _
+                       (laterO_map (get_val META ◎ interp_cont k env) :: σ) σ σr)
+                       as Hr.
+        simpl in Hr|-*.
+        erewrite <-Hr; last reflexivity.
+        repeat f_equiv; last by erewrite ccompose_id_l.
+        solve_proper.
+      }
+      f_equiv. rewrite laterO_map_Next -Tick_eq.
+      by f_equiv.
+    - trans (reify (gReifiers_sReifier rs) (META (interp_val v env))
+               (gState_recomp σr (sR_state []))).
+      {
+        do 2 f_equiv; last first.
+        { f_equiv. by rewrite map_meta_cont_nil. }
+        apply get_val_ITV.
+      }
+      rewrite reify_vis_eq//; last first.
+      {
+        epose proof (@subReifier_reify sz reify_delim rs _ IT _ (op_meta)
+                       (Next (interp_val v env)) _ _
+                       [] [] σr)
+                       as Hr.
+        simpl in Hr|-*.
+        erewrite <-Hr; last reflexivity.
+        repeat f_equiv; last by erewrite ccompose_id_l.
+        solve_proper.
+      }
+      f_equiv. by rewrite -Tick_eq.
+  Qed.
 
 
 

@@ -684,10 +684,10 @@ Variant Cred {S : Set} : config -> config -> (nat * nat) -> Prop :=
 
   (* meta-cont *)
   | Cmcont_cont : forall k mk v,
-      Cmcont (k :: mk) v ===> Ccont k v mk / (0,1)
+      Cmcont (k :: mk) v ===> Ccont k v mk / (1,1)
 
   | Cmcont_ret : forall v,
-      Cmcont [] v ===> Cret v / (0, 0) (* FIXME snd0=1 and fix interp *)
+      Cmcont [] v ===> Cret v / (1, 1) (* FIXME snd0=1 and fix interp *)
 
 where "c ===> c' / nm" := (Cred c c' nm).
 
