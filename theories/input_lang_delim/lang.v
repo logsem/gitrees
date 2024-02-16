@@ -671,6 +671,9 @@ Variant Cred {S : Set} : config -> config -> (nat * nat) -> Prop :=
   | Ccont_appr : forall e v k mk,
       Ccont (AppRK e k) v mk ===> Ceval e (AppLK v k) mk / (0, 0)
 
+  | Ccont_app_contr : forall e v k mk,
+      Ccont (AppContRK e k) v mk ===> Ceval e (AppContLK v k) mk / (0, 0)
+
   | Ccont_appl : forall e v k mk,
       Ccont (AppLK v k) (RecV e) mk ===>
         Ceval (subst (Inc := inc)
@@ -704,7 +707,7 @@ Variant Cred {S : Set} : config -> config -> (nat * nat) -> Prop :=
       Cmcont (k :: mk) v ===> Ccont k v mk / (1,1)
 
   | Cmcont_ret : forall v,
-      Cmcont [] v ===> Cret v / (1, 1) (* FIXME snd0=1 and fix interp *)
+      Cmcont [] v ===> Cret v / (1, 1) 
 
 where "c ===> c' / nm" := (Cred c c' nm).
 
