@@ -17,6 +17,8 @@ Inductive expr {X : Set} :=
 | Var (x : X) : expr
 (* Base lambda calculus *)
 | App (e₁ : expr) (e₂ : expr) : expr
+(* special application for continuations *)
+| AppCont (e₁ : expr) (e₂ : expr) : expr
 (* Base types and their operations *)
 | NatOp (op : nat_op) (e₁ : expr) (e₂ : expr) : expr
 | If (e₁ : expr) (e₂ : expr) (e₃ : expr) : expr
@@ -34,6 +36,8 @@ with cont {X : Set} :=
 | IfK (e1 : expr) (e2 : expr) : cont -> cont
 | AppLK (v : val) : cont -> cont (* ◻ v *)
 | AppRK (e : expr) : cont -> cont (* e ◻ *)
+| AppContLK (v : val) : cont -> cont (* ◻ v *)
+| AppContRK (e : expr) : cont -> cont (* e ◻ *)
 | NatOpLK (op : nat_op) (v : val) : cont -> cont (* ◻ + v *)
 | NatOpRK (op : nat_op) (e : expr) : cont -> cont. (* e + ◻ *)
 
@@ -56,6 +60,7 @@ Fixpoint emap {A B : Set} (f : A [→] B) (e : expr A) : expr B :=
   | Val v => Val (vmap f v)
   | Var x => Var (f x)
   | App e₁ e₂ => App (emap f e₁) (emap f e₂)
+  | AppCont e₁ e₂ => AppCont (emap f e₁) (emap f e₂)
   | NatOp o e₁ e₂ => NatOp o (emap f e₁) (emap f e₂)
   | If e₁ e₂ e₃ => If (emap f e₁) (emap f e₂) (emap f e₃)
   (* | Input => Input *)
@@ -76,6 +81,8 @@ with kmap {A B : Set} (f : A [→] B) (K : cont A) : cont B :=
    | IfK e1 e2 k => IfK (emap f e1) (emap f e2) (kmap f k)
    | AppLK v k => AppLK (vmap f v) (kmap f k)
    | AppRK e k => AppRK (emap f e) (kmap f k)
+   | AppContLK v k => AppContLK (vmap f v) (kmap f k)
+   | AppContRK e k => AppContRK (emap f e) (kmap f k)
    | NatOpLK op v k => NatOpLK op (vmap f v) (kmap f k)
    | NatOpRK op e k => NatOpRK op (emap f e) (kmap f k)
    end.
@@ -92,6 +99,7 @@ Fixpoint ebind {A B : Set} (f : A [⇒] B) (e : expr A) : expr B :=
   | Val v => Val (vbind f v)
   | Var x => f x
   | App e₁ e₂ => App (ebind f e₁) (ebind f e₂)
+  | AppCont e₁ e₂ => AppCont (ebind f e₁) (ebind f e₂)
   | NatOp o e₁ e₂ => NatOp o (ebind f e₁) (ebind f e₂)
   | If e₁ e₂ e₃ => If (ebind f e₁) (ebind f e₂) (ebind f e₃)
   (* | Input => Input *)
@@ -112,6 +120,8 @@ with kbind {A B : Set} (f : A [⇒] B) (K : cont A) : cont B :=
    | IfK e1 e2 k => IfK (ebind f e1) (ebind f e2) (kbind f k)
    | AppLK v k => AppLK (vbind f v) (kbind f k)
    | AppRK e k => AppRK (ebind f e) (kbind f k)
+   | AppContLK v k => AppContLK (vbind f v) (kbind f k)
+   | AppContRK e k => AppContRK (ebind f e) (kbind f k)
    | NatOpLK op v k => NatOpLK op (vbind f v) (kbind f k)
    | NatOpRK op e k => NatOpRK op (ebind f e) (kbind f k)
    end.
@@ -289,6 +299,8 @@ Fixpoint fill {X : Set} (K : cont X) (e : expr X) : expr X :=
   | END => e
   | AppLK v K => fill K (App e (Val v))
   | AppRK el K => fill K (App el e)
+  | AppContLK v K => fill K (AppCont e (Val v))
+  | AppContRK el K => fill K (AppCont el e)
   | NatOpLK op v K => fill K (NatOp op e (Val v))
   | NatOpRK op el K => fill K (NatOp op el e)
   end.
@@ -511,6 +523,8 @@ Fixpoint cont_compose {S} (K1 K2 : cont S) : cont S :=
   | IfK e1 e2 K => IfK e1 e2 (cont_compose K1 K)
   | AppLK v K => AppLK v (cont_compose K1 K)
   | AppRK e K => AppRK e (cont_compose K1 K)
+  | AppContLK v K => AppContLK v (cont_compose K1 K)
+  | AppContRK e K => AppContRK e (cont_compose K1 K)
   | NatOpLK op v K => NatOpLK op v (cont_compose K1 K)
   | NatOpRK op e K => NatOpRK op e (cont_compose K1 K)
   end.
@@ -633,6 +647,9 @@ Variant Cred {S : Set} : config -> config -> (nat * nat) -> Prop :=
   | Ceval_app : forall e0 e1 k mk,
       Ceval (App e0 e1) k mk ===> Ceval e1 (AppRK e0 k) mk / (0,0)
 
+  | Ceval_app_cont : forall e0 e1 k mk,
+      Ceval (AppCont e0 e1) k mk ===> Ceval e1 (AppContRK e0 k) mk / (0,0)
+
   | Ceval_natop : forall op e0 e1 k mk,
       Ceval (NatOp op e0 e1) k mk ===> Ceval e1 (NatOpRK op e0 k) mk / (0,0)
 
@@ -661,13 +678,13 @@ Variant Cred {S : Set} : config -> config -> (nat * nat) -> Prop :=
                     (Val (shift (Inc := inc) v)))
                  (Val (RecV e))) k mk / (1, 0)
 
+  | Ccont_cont : forall v k k' mk,
+      Ccont (AppContLK v k) (ContV k') mk ===>
+        Ccont k' v (k :: mk) / (2, 1)
+
   (* | Ccont_cont : forall v k k' mk, *)
   (*     Ccont (AppLK v k) (ContV k') mk ===> *)
-  (*       Ccont k' v (k :: mk) / (2, 0) *)
-
-  | Ccont_cont : forall v k k' mk,
-      Ccont (AppLK v k) (ContV k') mk ===>
-        Ccont (cont_compose k k') v mk / (2, 0)
+  (*       Ccont (cont_compose k k') v mk / (2, 0) *)
 
   | Ccont_if : forall et ef n k mk,
       Ccont (IfK et ef k) (LitV n) mk ===>

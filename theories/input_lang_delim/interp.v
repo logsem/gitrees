@@ -52,14 +52,21 @@ Program Definition metaE : opInterp :=
     Outs := (▶ ∙);
   |}.
 
+(* apply continuation, pushes outer context in meta *)
+Program Definition appContE : opInterp :=
+  {|
+    Ins := (▶ ∙ * (▶ (∙ -n> ∙)));
+    Outs := ▶ ∙;
+  |} .
 
-Definition delimE := @[shiftE; resetE; metaE].
+Definition delimE := @[shiftE; resetE; metaE;appContE].
 
 
 
 Notation op_shift := (inl ()).
 Notation op_reset := (inr (inl ())).
 Notation op_meta := (inr (inr (inl ()))).
+Notation op_app_cont := (inr (inr (inr (inl ())))).
 
 
 
@@ -104,6 +111,20 @@ Section reifiers.
   Proof. intros ?[[]][[]][[]]. simpl in *. by repeat f_equiv. Qed.
 
 
+  Definition reify_app_cont : ((laterO X * (laterO (X -n> X))) * state * (laterO X -n> laterO X)) →
+                              option (laterO X * state) :=
+  λ '((e, k'), σ, k),
+    Some (((laterO_ap k' : laterO X -n> laterO X) e : laterO X), k::σ : state).
+  #[export] Instance reify_app_cont_ne :
+    NonExpansive (reify_app_cont :
+        prodO (prodO (prodO (laterO X) (laterO (X -n> X))) state)
+          (laterO X -n> laterO X) →
+        optionO (prodO (laterO X) (state))).
+  Proof.
+    intros ?[[[]]][[[]]]?. rewrite /reify_app_cont.
+    repeat f_equiv; apply H.
+  Qed.
+
 End reifiers.
 
 Canonical Structure reify_delim : sReifier.
@@ -113,10 +134,11 @@ Proof.
              sReifier_state := stateF
            |}.
   intros X HX op.
-  destruct op as [ | [ | [ | []]]]; simpl.
+  destruct op as [ | [ | [ | [| []]]]]; simpl.
   - simple refine (OfeMor (reify_shift)).
   - simple refine (OfeMor (reify_reset)).
   - simple refine (OfeMor (reify_meta)).
+  - simple refine (OfeMor (reify_app_cont)).
 Defined.
 
 
@@ -131,14 +153,15 @@ Section constructors.
 
 
 
-
-
+  (** ** META *)
 
   Program Definition META : IT -n> IT :=
     λne e, Vis (E:=E) (subEff_opid op_meta)
              (subEff_ins (F:=delimE) (op:=op_meta) (Next e))
              ((subEff_outs (F:=delimE) (op:=op_meta))^-1).
   Solve All Obligations with solve_proper.
+
+  (** ** RESET *)
 
   Program Definition RESET_ : (laterO IT -n> laterO IT) -n>
                                 laterO IT -n>
@@ -150,6 +173,8 @@ Section constructors.
 
   Program Definition RESET : laterO IT -n> IT :=
     RESET_ idfun.
+
+  (** ** SHIFT *)
 
   Program Definition SHIFT_ : ((laterO IT -n> laterO IT) -n> laterO IT) -n>
                                 (laterO IT -n> laterO IT) -n>
@@ -171,6 +196,21 @@ Section constructors.
     f_equiv. by intro.
   Qed.
 
+
+  (** ** APP_CONT *)
+
+  Program Definition APP_CONT_ : laterO IT -n> (laterO (IT -n> IT)) -n>
+                                    (laterO IT -n> laterO IT) -n>
+                                    IT :=
+      λne e k k', Vis (E := E) (subEff_opid op_app_cont)
+                    (subEff_ins (F:=delimE) (op:=op_app_cont) (e, k))
+                    (k' ◎ (subEff_outs (F:=delimE) (op:=op_app_cont))^-1).
+  Solve All Obligations with solve_proper.
+
+  Program Definition APP_CONT : laterO IT -n> (laterO (IT -n> IT)) -n>
+                                  IT :=
+    λne e k, APP_CONT_ e k idfun.
+  Solve All Obligations with solve_proper.
 
 End constructors.
 
@@ -389,6 +429,22 @@ Section interp.
   Proof. solve_proper. Qed.
   Typeclasses Opaque interp_app.
 
+  (** ** APP_CONT *)
+
+  Program Definition interp_app_cont {A} (k e : A -n> IT) : A -n> IT :=
+    λne env, get_val (λne x, get_fun
+                               (λne (f : laterO (IT -n> IT)),
+                                  APP_CONT (Next x) f)
+                               (k env))
+                     (e env).
+  Solve All Obligations with first [ solve_proper | solve_proper_please ].
+  Global Instance interp_app_cont_ne A : NonExpansive2 (@interp_app_cont A).
+  Proof.
+    intros n??????. rewrite /interp_app_cont. intro. simpl.
+    repeat f_equiv; last done. intro. simpl. by repeat f_equiv.
+  Qed.
+  (* Typeclasses Opaque interp_app_cont. *)
+
   (** ** IF *)
   Program Definition interp_if {A} (t0 t1 t2 : A -n> IT) : A -n> IT :=
     λne env, IF (t0 env) (t1 env) (t2 env).
@@ -439,6 +495,33 @@ Section interp.
     λne env t, (K env) $ interp_app (λne env, t) q env.
   Solve All Obligations with solve_proper.
 
+  Program Definition interp_app_contrk {A} (q : A -n> IT) (K : A -n> IT -n> IT) :
+    A -n> IT -n> IT :=
+    λne env t, (K env) $ interp_app_cont q (λne env, t) env.
+  Next Obligation. intros A q K t n ????. done. Qed.
+  Next Obligation.
+    intros A q K env n ???. simpl. by repeat f_equiv.
+  Qed.
+  Next Obligation.
+    intros A q K n ???. intro. simpl. f_equiv.
+    - by f_equiv.
+    - f_equiv. f_equiv. intro. simpl. by repeat f_equiv.
+  Qed.
+
+  Program Definition interp_app_contlk {A} (q : A -n> IT) (K : A -n> IT -n> IT) :
+    A -n> IT -n> IT :=
+    λne env t, (K env) $ interp_app_cont (λne env, t) q env.
+  Next Obligation. intros A q K t n ????. done. Qed.
+  Next Obligation.
+    intros A q K env n ???. simpl. repeat f_equiv.
+    intro. simpl. by repeat f_equiv.
+  Qed.
+  Next Obligation.
+    intros A q K n ???. intro. simpl. f_equiv.
+    - by f_equiv.
+    - f_equiv; last by f_equiv. f_equiv.  intro. simpl. repeat f_equiv.
+  Qed.
+
   Program Definition interp_natoprk {A} (op : nat_op) (q : A -n> IT) (K : A -n> IT -n> IT) :
     A -n> IT -n> IT :=
     λne env t, (K env) $ interp_natop op q (λne env, t) env.
@@ -462,6 +545,7 @@ Section interp.
     | Val v => interp_val v
     | Var x => interp_var x
     | App e1 e2 => interp_app (interp_expr e1) (interp_expr e2)
+    | AppCont e1 e2 => interp_app_cont (interp_expr e1) (interp_expr e2)
     | NatOp op e1 e2 => interp_natop op (interp_expr e1) (interp_expr e2)
     | If e e1 e2 => interp_if (interp_expr e) (interp_expr e1) (interp_expr e2)
     | Shift e => interp_shift (interp_expr e)
@@ -474,6 +558,8 @@ Section interp.
     | IfK e1 e2 K => interp_ifk (interp_expr e1) (interp_expr e2) (interp_cont K)
     | AppLK v K => interp_applk (interp_val v) (interp_cont K)
     | AppRK e K => interp_apprk (interp_expr e) (interp_cont K)
+    | AppContLK v K => interp_app_contlk (interp_val v) (interp_cont K)
+    | AppContRK e K => interp_app_contrk (interp_expr e) (interp_cont K)
     | NatOpLK op v K => interp_natoplk op (interp_val v) (interp_cont K)
     | NatOpRK op e K => interp_natoprk op (interp_expr e) (interp_cont K)
     end.
@@ -551,6 +637,8 @@ Section interp.
     interp_cont (fmap δ K) env ≡ interp_cont K (ren_scope δ env).
   Proof.
     - destruct e; simpl; try by repeat f_equiv.
+      + f_equiv; last by rewrite interp_expr_ren.
+        f_equiv. intro. simpl. by f_equiv.
       + repeat f_equiv. intro; simpl; repeat f_equiv.
         rewrite interp_expr_ren. f_equiv.
         intros [|a]; simpl; last done.
@@ -574,8 +662,12 @@ Section interp.
       + repeat f_equiv.
         intro. simpl. repeat f_equiv.
         apply interp_cont_ren.
-    - destruct K; simpl; repeat f_equiv; intro; simpl; repeat f_equiv;
-        (apply interp_expr_ren || apply interp_val_ren || apply interp_cont_ren).
+    - destruct K; try solve [simpl; repeat f_equiv; intro; simpl; repeat f_equiv;
+        (apply interp_expr_ren || apply interp_val_ren || apply interp_cont_ren)].
+      + intro. simpl. f_equiv; eauto. f_equiv; eauto. f_equiv.
+        intro. simpl. by repeat f_equiv.
+      + intro. simpl. f_equiv; eauto. do 2 f_equiv.
+        intro. simpl. by repeat f_equiv.
   Qed.
 
 
@@ -590,7 +682,10 @@ Section interp.
 
   Lemma interp_comp {S} (e : expr S) (env : interp_scope S) (K : cont S):
     interp_expr (fill K e) env ≡ (interp_cont K) env ((interp_expr e) env).
-  Proof. elim : K e env; eauto. Qed.
+  Proof. elim : K e env; eauto.
+         intros. simpl. rewrite H. f_equiv. simpl.
+         do 2 f_equiv. intro. simpl. by repeat f_equiv.
+  Qed.
 
   Program Definition sub_scope {S S'} (δ : S [⇒] S') (env : interp_scope S')
     : interp_scope S := λne x, interp_expr (δ x) env.
@@ -619,6 +714,7 @@ Section interp.
     interp_cont (bind δ K) env ≡ interp_cont K (sub_scope δ env).
   Proof.
     - destruct e; simpl; try by repeat f_equiv.
+      + f_equiv; last eauto. f_equiv. intro. simpl. by repeat f_equiv.
       + repeat f_equiv. repeat (intro; simpl; repeat f_equiv).
         rewrite interp_expr_subst. f_equiv.
         intros [|a]; simpl; repeat f_equiv. rewrite interp_expr_ren.
@@ -646,8 +742,10 @@ Section interp.
           done.
       + repeat f_equiv. intro. simpl. repeat f_equiv.
         by rewrite interp_cont_subst.
-    - destruct K; simpl; repeat f_equiv; intro; simpl; repeat f_equiv;
-        (apply interp_expr_subst || apply interp_val_subst || apply interp_cont_subst).
+    - destruct K; try solve [simpl; repeat f_equiv; intro; simpl; repeat f_equiv;
+        (apply interp_expr_subst || apply interp_val_subst || apply interp_cont_subst)].
+      + simpl. intro. simpl. f_equiv; eauto. f_equiv; eauto. f_equiv. intro. simpl. by repeat f_equiv.
+      + simpl. intro. simpl. f_equiv; eauto. f_equiv; eauto. f_equiv. intro. simpl. by repeat f_equiv.
   Qed.
 
 
@@ -708,6 +806,36 @@ Section interp.
         first (f_equiv; apply APP'_Err_l; apply interp_val_asval).
       apply hom_err.
   Qed.
+
+
+  #[global] Instance interp_cont_hom_app_contr {S} (K : cont S)
+    (e : expr S) env :
+    IT_hom (interp_cont K env) ->
+    IT_hom (interp_cont (AppContRK e K) env).
+  Proof.
+    intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - by rewrite -!hom_tick. 
+    - rewrite !hom_vis. f_equiv. intro x. simpl.
+      by rewrite -laterO_map_compose.
+    - by rewrite !hom_err.
+  Qed.
+
+  #[global] Instance interp_cont_hom_app_contl {S} (K : cont S)
+    (v : val S) (env : interp_scope S) :
+    IT_hom (interp_cont K env) ->
+    IT_hom (interp_cont (AppContLK v K) env).
+  Proof.
+    intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - rewrite -hom_tick. f_equiv.
+      rewrite get_val_ITV. simpl. rewrite hom_tick.
+      f_equiv. by rewrite get_val_ITV.
+    - rewrite get_val_ITV. simpl. rewrite get_fun_vis. rewrite hom_vis.
+      f_equiv. intro. simpl. rewrite -laterO_map_compose.
+      f_equiv. f_equiv. intro. simpl.
+      f_equiv. by rewrite get_val_ITV.
+    - rewrite get_val_ITV. simpl. rewrite get_fun_err. apply hom_err.
+  Qed.
+
 
   #[global] Instance interp_cont_hom_natopr {S} (K : cont S)
     (e : expr S) op env :
@@ -776,14 +904,6 @@ Section interp.
       rewrite interp_val_ren.
       f_equiv.
       intros ?; simpl; reflexivity.
-    - rewrite -!hom_tick.
-      erewrite APP_APP'_ITV; last apply _.
-      rewrite APP_Fun. simpl.
-      f_equiv. rewrite -Tick_eq !hom_tick.
-      do 2 f_equiv. simpl.
-      replace (interp_val v env) with (interp_expr (Val v) env) by done.
-      admit.
-      (* by rewrite -!interp_comp fill_comp. *)
     - subst.
       destruct n0; simpl.
       + by rewrite IF_False; last lia.
@@ -792,10 +912,7 @@ Section interp.
       destruct v1,v0; try naive_solver. simpl in *.
       rewrite NATOP_Ret.
       destruct op; simplify_eq/=; done.
-  (* Qed. *)
-  Admitted.
-  
-
+  Qed.
 
   Opaque map_meta_cont.
   Opaque extend_scope.
@@ -859,6 +976,31 @@ Section interp.
       Transparent extend_scope.
       simpl. f_equiv. f_equiv. by intro.
       Opaque extend_scope.
+    - remember (map_meta_cont mk env) as σ.
+      remember (laterO_map (get_val META ◎ interp_cont k env)) as kk.
+      match goal with
+      | |- context G [ofe_mor_car _ _ (get_fun _)
+                        (ofe_mor_car _ _ Fun ?f)] => set (fin := f)
+      end.
+      trans (reify (gReifiers_sReifier rs)
+               (APP_CONT_ (Next (interp_val v env))
+                  fin kk)
+            (gState_recomp σr (sR_state (σ)))).
+      {
+        repeat f_equiv. rewrite get_val_ITV. simpl. rewrite get_fun_fun. simpl.
+        rewrite !hom_vis. f_equiv. subst kk. rewrite ccompose_id_l. intro. simpl.
+        rewrite laterO_map_compose. done.
+      }
+      rewrite reify_vis_eq//; last first.
+      {
+        epose proof (@subReifier_reify sz reify_delim rs _ IT _ (op_app_cont)
+                       (Next (interp_val v env), fin) _ kk σ (kk :: σ) σr)
+                    as Hr.
+        simpl in Hr|-*.
+        erewrite <-Hr; last reflexivity.
+        repeat f_equiv; eauto. solve_proper.
+      }
+      f_equiv. by rewrite -!Tick_eq. 
     - remember (map_meta_cont mk env) as σ.
       trans (reify (gReifiers_sReifier rs) (META (interp_val v env))
                (gState_recomp σr (sR_state (laterO_map (get_val META ◎ interp_cont k env) :: σ)))).
