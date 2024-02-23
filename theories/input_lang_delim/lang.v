@@ -306,98 +306,6 @@ Fixpoint fill {X : Set} (K : cont X) (e : expr X) : expr X :=
   end.
 
 
-(* Fixpoint trim_to_first_reset {X : Set} (K : ectx X) (acc : ectx X) : (ectx X * ectx X) := *)
-(*   match K with *)
-(*   (* | OutputK :: K => trim_to_first_reset K (OutputK :: acc) *) *)
-(*   (* | (IfK e1 e2) :: K => trim_to_first_reset K ((IfK e1 e2) :: acc) *) *)
-(*   (* | (AppLK v) :: K => trim_to_first_reset K ((AppLK v) :: acc) *) *)
-(*   (* | (AppRK el) :: K => trim_to_first_reset K ((AppRK el) :: acc) *) *)
-(*   (* | (NatOpLK op v) :: K => trim_to_first_reset K ((NatOpLK op v) :: acc) *) *)
-(*   (* | (NatOpRK op el) :: K => trim_to_first_reset K ((NatOpRK op el) :: acc) *) *)
-(*   | (ResetK) :: K => (acc, ResetK :: K) *)
-(*   | C :: K => trim_to_first_reset K (C :: acc) *)
-(*   | [] => (acc, []) *)
-(*   end. *)
-
-
-
-(* (* Separate continuation [K] on innermost [reset] *) *)
-(* Definition shift_context {X : Set} (K : ectx X) : (ectx X * ectx X) := *)
-(*   let (Ki, Ko) := trim_to_first_reset K [] in *)
-(*   (List.rev Ki, Ko). *)
-
-
-
-(* Lemma trim_to_first_reset_app {X : Set} (K Ki Ko acc : ectx X) : *)
-(*   (Ki, Ko) = trim_to_first_reset K acc -> *)
-(*   (List.rev Ki) ++ Ko = (List.rev acc) ++ K. *)
-(* Proof. *)
-(*   revert Ki Ko acc. induction K; simpl; intros. *)
-(*   - by inversion H. *)
-(*   - specialize (IHK Ki Ko (a :: acc)) as HI. *)
-(*     destruct a; try (specialize (HI H); rewrite HI; simpl; *)
-(*                   rewrite -app_assoc; symmetry; apply cons_middle). *)
-(*     by inversion H. *)
-(* Qed. *)
-
-
-(* Lemma shift_context_app {X : Set} (K Ki Ko : ectx X) : *)
-(*   (Ki, Ko) = shift_context K -> K = Ki ++ Ko. *)
-(* Proof. *)
-(*   unfold shift_context. intro. *)
-(*   destruct (trim_to_first_reset K ([])) as [Ki' Ko'] eqn:He. *)
-(*   inversion H. subst. *)
-(*   trans (rev [] ++ K); first auto. symmetry. *)
-(*   by apply trim_to_first_reset_app. *)
-(* Qed. *)
-
-
-(* Lemma trim_reset_no_reset {X : Set} (K Ki Ko acc : ectx X) : *)
-(*   (Ki, Ko) = trim_to_first_reset K acc -> *)
-(*   ResetK ∉ acc -> *)
-(*   ResetK ∉ Ki. *)
-(* Proof. *)
-(*   elim: K Ko acc Ki; simpl; intros. *)
-(*   - congruence. *)
-(*   - destruct a; try solve [eapply H; try eapply H0; try (apply not_elem_of_cons; done)]. *)
-(*     congruence. *)
-(* Qed. *)
-
-
-(* Lemma shift_context_no_reset {X : Set} (K Ki Ko : ectx X) : *)
-(*   (Ki, Ko) = shift_context K -> ResetK ∉ Ki. *)
-(* Proof. *)
-(*   rewrite /shift_context//. destruct (trim_to_first_reset K []) eqn:Heq. symmetry in Heq. *)
-(*   intros. eapply trim_reset_no_reset in Heq; last apply not_elem_of_nil. *)
-(*   rewrite rev_alt in H. inversion H. subst. by rewrite elem_of_reverse. *)
-(* Qed. *)
-
-
-(* Lemma no_reset_trim_ident {X : Set} (K acc : ectx X) : *)
-(*   ResetK ∉ K -> ResetK ∉ acc -> *)
-(*   ((List.rev K) ++ acc, []) = trim_to_first_reset K acc. *)
-(*   Proof. *)
-(*     elim: K acc; intros; simpl; eauto. *)
-(*     apply not_elem_of_cons in H0 as [Hh Ht]. *)
-(*     destruct a; try contradiction; *)
-(*       rewrite -app_assoc; simpl; apply H; eauto; by apply not_elem_of_cons. *)
-(*   Qed. *)
-
-
-(* Lemma no_reset_shift_context_ident {X : Set} (K : ectx X) : *)
-(*   ResetK ∉ K -> (K, []) = shift_context K. *)
-(* Proof. *)
-(*   unfold shift_context. intros. rewrite -no_reset_trim_ident; *)
-(*     last apply not_elem_of_nil; last done. *)
-(*   by rewrite app_nil_r rev_involutive. *)
-(* Qed. *)
-
-
-(* Only if no reset in K *)
-(* Definition cont_to_rec {X : Set} (K : ectx X) : (val X) := *)
-(*   ContV (fill (shift K) (Var VZ)). *)
-
-(* Example test1 : val (inc ∅) := (cont_to_rec [(NatOpLK Add (LitV 3)); AppRK (Var VZ)]). *)
 
 (* Lemma fill_emap {X Y : Set} (f : X [→] Y) (K : ectx X) (e : expr X) *)
 (*   : fmap f (fill K e) = fill (fmap f K) (fmap f e). *)
@@ -411,90 +319,6 @@ Fixpoint fill {X : Set} (K : cont X) (e : expr X) : expr X :=
 
 (*** Operational semantics *)
 
-(* Record state := State { *)
-(*                     inputs : list nat; *)
-(*                     outputs : list nat; *)
-(*                  }. *)
-(* #[export] Instance state_inhabited : Inhabited state := populate (State [] []). *)
-
-(* Definition update_input (s : state) : nat * state := *)
-(*   match s.(inputs) with *)
-(*   | [] => (0, s) *)
-(*   | n::ns => *)
-(*       (n, {| inputs := ns; outputs := s.(outputs) |}) *)
-(*   end. *)
-(* Definition update_output (n:nat) (s : state) : state := *)
-(*   {| inputs := s.(inputs); outputs := n::s.(outputs) |}. *)
-
-
-(** [head_step e σ K e' σ' K' Ko (n, m)] : step from [(e, σ, K)] to [(e', σ', K')]
-    under outer context [Ko] in [n] ticks with [m] effects encountered *)
-(* Variant head_step {S} : expr S -> ectx S -> *)
-(*                         expr S -> ectx S -> *)
-(*                         ectx S -> *)
-(*                         nat * nat → Prop := *)
-(*   | BetaS e1 v2 K Ko : *)
-(*     head_step (App (Val $ RecV e1) (Val v2)) K *)
-(*       (subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1) *)
-(*                              (Val (shift (Inc := inc) v2))) *)
-(*          (Val (RecV e1))) K Ko (1,0) *)
-(*   | BetaContS e1 v2 K Ko : *)
-(*     head_step (App (Val $ ContV e1) (Val v2)) K *)
-(*       (subst  (Inc := inc) e1 (Val  v2)) *)
-(*       K Ko (2,0) *)
-(*   (* | InputS n σ' K Ko : *) *)
-(*   (*   update_input = (n, σ') → *) *)
-(*   (*   head_step Input K (Val (LitV n)) σ' K Ko (1, 1) *) *)
-(*   (* | OutputS n σ' K Ko : *) *)
-(*   (*   update_output n = σ' → *) *)
-(*   (*   head_step (Output (Val (LitV n))) K (Val (LitV 0)) σ' K Ko (1, 1) *) *)
-(*   | NatOpS op v1 v2 v3 K Ko : *)
-(*     nat_op_interp op v1 v2 = Some v3 → *)
-(*     head_step (NatOp op (Val v1) (Val v2)) K *)
-(*       (Val v3) K Ko (0, 0) *)
-(*   | IfTrueS n e1 e2 K Ko : *)
-(*     n > 0 → *)
-(*     head_step (If (Val (LitV n)) e1 e2) K *)
-(*       e1 K Ko (0, 0) *)
-(*   | IfFalseS n e1 e2 K Ko : *)
-(*     n = 0 → *)
-(*     head_step (If (Val (LitV n)) e1 e2) K *)
-(*       e2 K Ko (0, 0) *)
-
-(*   | ShiftS (e : expr (inc (inc S))) K Ko f : *)
-(*     ResetK ∉ K -> *)
-(*     f = cont_to_rec (ResetK::K) -> *)
-(*     head_step (Shift (Val $ RecV e)) K *)
-(*       (subst (Inc := inc) ((subst (F := expr) (Inc := inc) e) *)
-(*                              (Val (shift (Inc := inc) f))) *)
-(*          (Val $ RecV e)) [] Ko (1, 1) *)
-
-(*   | ResetS v K Ko : *)
-(*     head_step (Reset (Val v)) K (Val v) K Ko (1, 1). *)
-
-
-(*   (* | ValueS v σ K C: *) *)
-(*   (*   head_step (Val v) σ (C::K) (ctx_el_to_expr C (Val v)) σ K (0, 0) *) *)
-
-(*   (* | ResetShiftS e σ K E: *) *)
-(*   (*   head_step *) *)
-(*   (*     (Reset (fill E (Shift e))) σ *) *)
-(*   (*     (Reset (subst (Inc := inc) e (Val $ ContV $ ResetK E))) σ K (1,0). *) *)
-
-(* Lemma head_step_io_01 {S} (e1 e2 : expr S) K K' Ko n m : *)
-(*   head_step e1 K e2 K' Ko (n,m) → m = 0 ∨ m = 1. *)
-(* Proof.  inversion 1; eauto. Qed. *)
-(* (* Lemma head_step_unfold_01 {S} (e1 e2 : expr S) σ1 σ2 K K' n m : *) *)
-(* (*   head_step e1 σ1 K e2 σ2 K' (n,m) → n = 0 ∨ n = 1. *) *)
-(* (* Proof.  inversion 1; eauto. Qed. *) *)
-(* (* Lemma head_step_no_io {S} (e1 e2 : expr S) σ1 σ2 K K' Ko n : *) *)
-(* (*   head_step e1 σ1 K e2 σ2 K' Ko (n,0) → σ1 = σ2. *) *)
-(* (* Proof.  inversion 1; eauto. Qed. *) *)
-
-(* (** Carbonara from heap lang *) *)
-
-(* Global Instance ctx_el_to_expr_inj {S} (C : ectx_el S) : Inj (=) (=) (ctx_el_to_expr C). *)
-(* Proof. case: C => [] >; simpl in*; congruence. Qed. *)
 
 Global Instance fill_inj {S} (Ki : cont S) : Inj (=) (=) (fill Ki).
 Proof. induction Ki; intros ???; simplify_eq/=; auto with f_equal. Qed.
@@ -542,82 +366,6 @@ Proof.
   intros S K e. rewrite !eq_None_not_Some.
   eauto using fill_val.
 Qed.
-
-
-(* FIXME maybe *)
-(* Inductive prim_step {S} : ∀ (e1 : expr S)  *)
-(*           (e2 : expr S) (nm : nat * nat), Prop := *)
-(* (* | Ectx_step e1 σ1 e2 σ2 nm (K1 K2 : ectx S) e1' e2' : *) *)
-(* (*   e1 = fill K1 e1' -> *) *)
-(* (*   e2 = fill K2 e2' -> *) *)
-(* (*   ResetK ∉ K1 -> *) *)
-(* (*   head_step e1' σ1 K1 e2' σ2 K2 nm -> *) *)
-(* (*   prim_step e1 σ1 e2 σ2 nm *) *)
-(* | Shift_step e1 K Ki Ko e2 Ki' nm : *)
-(*   (Ki, Ko) = shift_context K -> *)
-(*   head_step e1 Ki e2 Ki' Ko nm -> *)
-(*   prim_step (fill K e1) (fill (Ki' ++ Ko) e2) nm. *)
-(* (* CHECK *) *)
-
-(* (* Lemma prim_step_pure {S} (e1 e2 : expr S) σ1 σ2 n : *) *)
-(* (*   prim_step e1 σ1 e2 σ2 (n,0) → σ1 = σ2. *) *)
-(* (* Proof. *) *)
-(* (*   inversion 1; simplify_eq/=. by inversion H1. *) *)
-(* (* Qed. *) *)
-
-(* Inductive prim_steps {S} : expr S → expr S → nat * nat → Prop := *)
-(* | prim_steps_zero e : *)
-(*   prim_steps e e (0, 0) *)
-(* | prim_steps_abit e1 e2 e3 n1 m1 n2 m2 : *)
-(*   prim_step e1 e2 (n1, m1) → *)
-(*   prim_steps e2 e3 (n2, m2) → *)
-(*   prim_steps e1 e3 (plus n1 n2, plus m1 m2) *)
-(* . *)
-
-(* Lemma Ectx_step' {S} (K1 K2 : ectx S) e1 e2 efs : *)
-(*   head_step e1 K1 e2 K2 [] efs → *)
-(*   ResetK ∉ K1 -> *)
-(*   prim_step (fill K1 e1) (fill K2 e2) efs. *)
-(* Proof. *)
-(*   intros. rewrite -(app_nil_r K2). *)
-(*   econstructor; eauto. by apply no_reset_shift_context_ident. *)
-(* Qed. *)
-
-(* Lemma prim_steps_app {S} nm1 nm2 (e1 e2 e3 : expr S) : *)
-(*   prim_steps e1 e2 nm1 → prim_steps e2 e3 nm2 → *)
-(*   prim_steps e1 e3 (plus nm1.1 nm2.1, plus nm1.2 nm2.2). *)
-(* Proof. *)
-(*   intros Hst. revert nm2. *)
-(*   induction Hst; intros [n' m']; simplify_eq/=; first done. *)
-(*   rewrite -!Nat.add_assoc. intros Hsts. *)
-(*   econstructor; eauto. *)
-(*   by apply (IHHst (n',m')). *)
-(* Qed. *)
-
-(* Lemma prim_step_steps {S} nm (e1 e2 : expr S) : *)
-(*   prim_step e1 e2 nm → prim_steps e1 e2 nm. *)
-(* Proof. *)
-(*   destruct nm as [n m]. intro Hs. *)
-(*   rewrite -(Nat.add_0_r n). *)
-(*   rewrite -(Nat.add_0_r m). *)
-(*   econstructor; eauto. *)
-(*   by constructor. *)
-(* Qed. *)
-
-(* Lemma prim_step_steps_steps {S} (e1 e2 e3 : expr S) nm1 nm2 nm3 : *)
-(*   nm3 = (plus nm1.1 nm2.1, plus nm1.2 nm2.2) -> *)
-(*   prim_step e1 e2 nm1 → prim_steps e2 e3 nm2 -> prim_steps e1 e3 nm3. *)
-(* Proof. *)
-(*   intros -> H G. *)
-(*   eapply prim_steps_app; last apply G. *)
-(*   apply prim_step_steps, H. *)
-(* Qed. *)
-
-(* Lemma head_step_prim_step {S} (e1 e2 : expr S) nm : *)
-(*   head_step e1 [] e2 [] [] nm -> prim_step e1 e2 nm. *)
-(* Proof. *)
-(*   move => H; apply Ectx_step' in H => //=. apply not_elem_of_nil. *)
-(* Qed. *)
 
 
 (*** Abstract Machine semantics *)
@@ -685,10 +433,6 @@ Variant Cred {S : Set} : config -> config -> (nat * nat) -> Prop :=
       Ccont (AppContLK v k) (ContV k') mk ===>
         Ccont k' v (k :: mk) / (2, 1)
 
-  (* | Ccont_cont : forall v k k' mk, *)
-  (*     Ccont (AppLK v k) (ContV k') mk ===> *)
-  (*       Ccont (cont_compose k k') v mk / (2, 0) *)
-
   | Ccont_if : forall et ef n k mk,
       Ccont (IfK et ef k) (LitV n) mk ===>
         Ceval (if (n =? 0) then ef else et) k mk / (0, 0)
@@ -707,7 +451,7 @@ Variant Cred {S : Set} : config -> config -> (nat * nat) -> Prop :=
       Cmcont (k :: mk) v ===> Ccont k v mk / (1,1)
 
   | Cmcont_ret : forall v,
-      Cmcont [] v ===> Cret v / (1, 1) 
+      Cmcont [] v ===> Cret v / (1, 1)
 
 where "c ===> c' / nm" := (Cred c c' nm).
 
@@ -739,93 +483,90 @@ Inductive steps {S} : config S -> config S -> (nat * nat) -> Prop :=
 (*   - *)
 
 
-(* (* One of the rule has been changed slightly *) *)
-(* Lemma old_new_confluence {S} : forall (K K' : cont S) mk v v' n m, *)
-(*     steps (Ccont K' v (K::mk)) (Ccont K v' mk) (n, m+1) -> *)
-(*     steps (Ccont (cont_compose K K') v mk) (Ccont K v' mk) (n, m). *)
-(* Proof. *)
-(*   intros until K'. revert K. induction K'; intros. *)
-(*   - simpl in *. inversion H as []; subst. *)
-(*     { contradict H3. clear H. induction mk; congruence. } *)
-(*     inversion H0; subst. *)
-(*     inversion H1; subst. *)
-(*     inversion H7; subst. *)
-(*     simpl in H5. *)
-(*     replace (0 + (0 + n'0)) with (n'0) by lia. *)
-(*     assert (m'0 = m) as -> by lia. *)
-(*     eapply H8. *)
-(*   - simpl in *. inversion H as []; subst; first lia. *)
-(*     inversion H0; subst. simpl in *. *)
-(*     (* inversion H1; subst. *) *)
-(*     replace m with (0+m) by lia. *)
-(*     replace n' with (0+n') by lia. *)
-(*     constructor 2 with (Ceval (if n =? 0 then e2 else e1) (cont_compose K K') mk); first constructor. *)
-(*     subst. *)
-
-
-Definition config_to_expr {S} (c : config S) :=
-  match c with
-  | Ceval e k mk => meta_fill mk (fill k e)
-  | Ccont k v mk => meta_fill mk (fill k (Val v))
-  | Cmcont mk v => meta_fill mk (Val v)
-  | Cexpr e => e
-  | Cret v => Val v
-  end.
-(* i mean not really bcause missing [reset]s *)
-(* is the solution just adding a reset between each metacontext?
-   maybe? but idk if we would want that *)
-
-(* Definition meta_fill_reset {S} (mk : Mcont S) e := *)
-(*   fold_left (λ e k, Reset (fill k e)) mk e. *)
-
 (*** Type system *)
+(* Type system from [Filinski, Danvy 89] : A Functional Abstraction of Typed Contexts *)
+
+Coercion Val : val >-> expr.
 
 Inductive ty :=
-  | Tnat : ty | Tarr : ty → ty → ty | Tcont : ty → ty.
+| Tnat : ty
+| Tarr : ty -> ty -> ty -> ty -> ty
+| TarrCont : ty -> ty -> ty -> ty -> ty.
 
-Inductive typed {S : Set} (Γ : S -> ty) : expr S → ty → Prop :=
-| typed_Val (τ : ty) (v : val S)  :
-  typed_val Γ v τ →
-  typed Γ (Val v) τ
-| typed_Var (τ : ty) (v : S)  :
-  Γ v = τ →
-  typed Γ (Var v) τ
-| typed_App (τ1 τ2 : ty) e1 e2 :
-  typed Γ e1 (Tarr τ1 τ2) →
-  typed Γ e2 τ1 →
-  typed Γ (App e1 e2) τ2
-| typed_NatOp e1 e2 op :
-  typed Γ e1 Tnat →
-  typed Γ e2 Tnat →
-  typed Γ (NatOp op e1 e2) Tnat
-| typed_If e0 e1 e2 τ :
-  typed Γ e0 Tnat →
-  typed Γ e1 τ →
-  typed Γ e2 τ →
-  typed Γ (If e0 e1 e2) τ
-| typed_Shift (e : expr (inc S)) τ :
-  typed (Γ ▹ Tcont τ) e τ ->
-  typed Γ (Shift e) τ
-| typed_App_Cont (τ τ' : ty) e1 e2 :
-  typed Γ e1 (Tcont τ) ->
-  typed Γ e2 τ ->
-  typed Γ (App e1 e2) τ'
-| type_Reset e τ :
-  typed Γ e τ ->
-  typed Γ (Reset e) τ
-(* CHECK *)
-with typed_val {S : Set} (Γ : S -> ty) : val S → ty → Prop :=
-| typed_Lit n :
-  typed_val Γ (LitV n) Tnat
-| typed_RecV (τ1 τ2 : ty) (e : expr (inc (inc S))) :
-  typed (Γ ▹ (Tarr τ1 τ2) ▹ τ1) e τ2 →
-  typed_val Γ (RecV e) (Tarr τ1 τ2)
-.
+
+(* Notation "'T' τ '/' α '->' σ '/' β" := (Tarr τ α σ β) (at level 99, only parsing). *)
+(* Notation "τ '/' α '→k' σ '/' β" := (TarrCont τ α σ β) (at level 60). *)
+
+(* Reserved Notation " Γ , α ⊢ e : τ , β" *)
+(*   (at level 90, e at next level, τ at level 20, no associativity). *)
+
+(* Inductive typed {S : Set} (Γ : S -> ty) : ty -> expr S -> ty -> ty -> Prop := *)
+
+(* | typed_Lit α n : *)
+(*   Γ, α ⊢ (LitV n) : Tnat, α *)
+
+(* | typed_Rec (δ σ τ α β : ty) (e : expr (inc (inc S))) : *)
+(*     (Γ ▹ (Tarr  σ α τ β) ▹ σ) , α ⊢ e : τ , β -> *)
+(*     Γ,δ ⊢ (RecV e) : (Tarr σ α τ β) , δ *)
+
+(* | typed_Cont (δ σ τ α : ty) (k : cont S) : *)
+(*   typed_cont Γ α k (TarrCont σ α τ α) α -> *)
+(*   Γ,δ ⊢ (ContV k) : (TarrCont σ α τ α) , δ *)
+
+(* with typed_cont {S : Set} (Γ : S -> ty) : ty -> cont S -> ty -> ty -> Prop := *)
+
+(* | typed_END τ α δ : *)
+(*   typed_cont Γ δ END (TarrCont τ α τ α) δ *)
+
+(* | typed_IfK τ τ' α ε e1 e2 : *)
+(*   Γ, α ⊢ e1 : τ, α -> *)
+(*   Γ, α ⊢ e2 : τ, α -> *)
+(*   typed_cont Γ α K  *)
+(*   typed_cont Γ α (IfK e1 e2 K) (TarrCont Tnat ε τ' ε) α *)
+
+(* where "Γ , α ⊢ e : τ , β" := (typed Γ α e τ β). *)
+
+(* | typed_Val (τ : ty) (v : val S)  : *)
+(*   typed_val Γ v τ → *)
+(*   typed Γ (Val v) τ *)
+(* | typed_Var (τ : ty) (v : S)  : *)
+(*   Γ v = τ → *)
+(*   typed Γ (Var v) τ *)
+(* | typed_App (τ1 τ2 : ty) e1 e2 : *)
+(*   typed Γ e1 (Tarr τ1 τ2) → *)
+(*   typed Γ e2 τ1 → *)
+(*   typed Γ (App e1 e2) τ2 *)
+(* | typed_NatOp e1 e2 op : *)
+(*   typed Γ e1 Tnat → *)
+(*   typed Γ e2 Tnat → *)
+(*   typed Γ (NatOp op e1 e2) Tnat *)
+(* | typed_If e0 e1 e2 τ : *)
+(*   typed Γ e0 Tnat → *)
+(*   typed Γ e1 τ → *)
+(*   typed Γ e2 τ → *)
+(*   typed Γ (If e0 e1 e2) τ *)
+(* | typed_Shift (e : expr (inc S)) τ : *)
+(*   typed (Γ ▹ Tcont τ) e τ -> *)
+(*   typed Γ (Shift e) τ *)
+(* | typed_App_Cont (τ τ' : ty) e1 e2 : *)
+(*   typed Γ e1 (Tcont τ) -> *)
+(*   typed Γ e2 τ -> *)
+(*   typed Γ (App e1 e2) τ' *)
+(* | type_Reset e τ : *)
+(*   typed Γ e τ -> *)
+(*   typed Γ (Reset e) τ *)
+(* (* CHECK *) *)
+(* with typed_val {S : Set} (Γ : S -> ty) : ty -> val S -> ty -> ty -> Prop := *)
+(* | typed_Lit n : *)
+(*   typed_val Γ (LitV n) Tnat *)
+(* | typed_RecV (τ1 τ2 : ty) (e : expr (inc (inc S))) : *)
+(*   typed (Γ ▹ (Tarr τ1 τ2) ▹ σ) e τ2 → *)
+(*   typed_val Γ (RecV e) (Tarr τ1 τ2) *)
+(* . *)
 
 Declare Scope syn_scope.
 Delimit Scope syn_scope with syn.
 
-Coercion Val : val >-> expr.
 
 Coercion App : expr >-> Funclass.
 (* Coercion AppLK : expr >-> Funclass. *)
@@ -952,8 +693,8 @@ Delimit Scope typ_scope with typ.
 Notation "'ℕ'" := (Tnat) (at level 1) : typ_scope.
 Notation "A →ₜ B" := (Tarr A%typ B%typ)
                        (right associativity, at level 60) : typ_scope.
-Notation "A 'Cont'" := (Tcont A%typ)
-                         (at level 60) : typ_scope.
+(* Notation "A 'Cont'" := (Tcont A%typ) *)
+(*                          (at level 60) : typ_scope. *)
 
 Declare Scope typing_scope.
 Delimit Scope typing_scope with typing.
@@ -962,13 +703,13 @@ Class TypingNotation (A B C : Type) := { __typing : A -> B -> C -> Prop }.
 
 Notation "Γ ⊢ e : τ" := (__typing Γ e%syn τ%typ) (at level 70, e at level 60) : typing_scope.
 
-Global Instance TypingNotationExpr {S : Set} {F : Set -> Type} `{AsSynExpr F} : TypingNotation (S -> ty) (F S) ty := {
-    __typing Γ e τ := typed Γ (__asSynExpr e) τ
-  }.
+(* Global Instance TypingNotationExpr {S : Set} {F : Set -> Type} `{AsSynExpr F} : TypingNotation (S -> ty) (F S) ty := { *)
+(*     __typing Γ e τ := typed Γ (__asSynExpr e) τ *)
+(*   }. *)
 
-Global Instance TypingNotationVal {S : Set} : TypingNotation (S -> ty) (val S) ty := {
-    __typing Γ e τ := typed_val Γ e τ
-  }.
+(* Global Instance TypingNotationVal {S : Set} : TypingNotation (S -> ty) (val S) ty := { *)
+(*     __typing Γ e τ := typed_val Γ e τ *)
+(*   }. *)
 
 Module SynExamples.
 
@@ -985,7 +726,7 @@ Module SynExamples.
 
   Open Scope typing_scope.
 
-  Example test8 : Prop := (empty_env ⊢ (# 0) : ℕ).
+  (* Example test8 : Prop := (empty_env ⊢ (# 0) : ℕ). *)
 End SynExamples.
 
 (* Definition compute_head_step {S} *)
