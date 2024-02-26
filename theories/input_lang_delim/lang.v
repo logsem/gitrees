@@ -655,9 +655,24 @@ Global Instance AppNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppNo
   __app e K := cont_compose K (AppRK (__asSynExpr e) END)
   }.
 
+Class AppContNotation (A B C : Type) := { __app_cont : A -> B -> C }.
+
+Global Instance AppContNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : AppContNotation (F S) (G S) (expr S) := {
+  __app_cont e₁ e₂ := AppCont (__asSynExpr e₁) (__asSynExpr e₂)
+  }.
+
+Global Instance AppContNotationLK {S : Set} : AppContNotation (cont S) (val S) (cont S) := {
+  __app_cont K v := cont_compose K (AppContLK v END)
+  }.
+
+Global Instance AppContNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppContNotation (F S) (cont S) (cont S) := {
+  __app_cont e K := cont_compose K (AppContRK (__asSynExpr e) END)
+  }.
+
 Notation of_val := Val (only parsing).
 
 Notation "x '⋆' y" := (__app x%syn y%syn) (at level 40, y at next level, left associativity) : syn_scope.
+Notation "x '@k' y" := (__app_cont x%syn y%syn) (at level 40, y at next level, left associativity) : syn_scope.
 Notation "x '+' y" := (__op x%syn Add y%syn) : syn_scope.
 Notation "x '-' y" := (__op x%syn Sub y%syn) : syn_scope.
 Notation "x '*' y" := (__op x%syn Mult y%syn) : syn_scope.

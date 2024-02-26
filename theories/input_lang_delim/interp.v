@@ -277,33 +277,52 @@ Section weakestpre.
   Qed.
 
 
-  Lemma wp_pop_end (v : ITV) (k : IT -n> IT) {Hk : IT_hom k}
+  Lemma wp_pop_end (v : ITV)
     Φ s :
     has_substate [] -∗
     ▷ (£ 1 -∗ has_substate [] -∗ WP@{rs} IT_of_V v @ s {{ Φ }}) -∗
-    WP@{rs} k $ 𝒫 (IT_of_V v) @ s {{ Φ }}.
+    WP@{rs} 𝒫 (IT_of_V v) @ s {{ Φ }}.
   Proof.
     iIntros "Hs Ha".
-    rewrite get_val_ITV. simpl. rewrite hom_vis.
+    rewrite get_val_ITV. simpl.
     iApply (wp_subreify _ _ _ _ _ _ _ ((Next $ IT_of_V v)) with "Hs").
     - simpl. reflexivity.
     - reflexivity.
     - done.
   Qed.
 
-  Lemma wp_pop_cons (σ : state) (v : ITV) (k : IT -n> IT) {Hk : IT_hom k}
+  Lemma wp_pop_cons (σ : state) (v : ITV) (k : IT -n> IT)
     Φ s :
     has_substate ((laterO_map k) :: σ) -∗
     ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k $ IT_of_V v @ s {{ Φ }}) -∗
-    WP@{rs} k $ 𝒫 (IT_of_V v) @ s {{ Φ }}.
+    WP@{rs} 𝒫 (IT_of_V v) @ s {{ Φ }}.
   Proof.
     iIntros "Hs Ha".
-    rewrite get_val_ITV. simpl. rewrite hom_vis.
+    rewrite get_val_ITV. simpl.
     iApply (wp_subreify _ _ _ _ _ _ _ ((laterO_map k (Next $ IT_of_V v))) with "Hs").
     - simpl. reflexivity.
     - reflexivity.
     - done.
   Qed.
+
+  Lemma wp_app_cont (σ : state) (e : laterO IT) (k' : laterO (IT -n> IT))
+    (k : IT -n> IT) {Hk : IT_hom k}
+    Φ s :
+    has_substate σ -∗
+    ▷ (£ 1 -∗ has_substate ((laterO_map k) :: σ) -∗
+       WP@{rs} later_car (laterO_ap k' e) @ s {{ Φ }}) -∗
+    WP@{rs} k (APP_CONT e k') @ s {{ Φ }}.
+  Proof.
+    iIntros "Hs Ha".
+    unfold APP_CONT. simpl. rewrite hom_vis.
+    iApply (wp_subreify _ _ _ _ _ _ _ (laterO_ap k' e) with "Hs").
+    - simpl. do 2 f_equiv.
+      trans (laterO_map k :: σ); last reflexivity.
+      rewrite ccompose_id_l. f_equiv. intro. simpl. by rewrite ofe_iso_21.
+    - reflexivity.
+    - iApply "Ha".
+  Qed.
+
 
 End weakestpre.
 
