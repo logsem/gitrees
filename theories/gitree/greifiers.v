@@ -566,7 +566,12 @@ Arguments gReifiers_cons {_ _}.
 Arguments gReifiers_nil {_}.
 Arguments gReifiers_ops {_ _}.
 Arguments gReifiers_re {_ _}.
+Arguments gState_rest {_ _}.
+Arguments gState_recomp {_ _ _ _ _ _}.
+Arguments gState_decomp {_ _} _ {_ _ _}.
+Arguments gState_decomp' {_ _} _ {_ _ _}.
 Arguments gReifiers_state {_ _}.
 Arguments gReifiers_re_idx {_ _}.
 Arguments gReifiers_re_idx_type {_ _}.
 Arguments gReifiers_re_type {_ _}.
+Arguments gReifiers_sReifier {_ _}.

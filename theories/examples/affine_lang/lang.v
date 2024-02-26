@@ -3,6 +3,8 @@ From gitrees.examples.input_lang Require Import lang interp.
 From gitrees.effects Require Import store.
 From gitrees.lib Require Import pairs.
 
+Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
+
 (* for namespace sake *)
 Module io_lang.
   Definition state := input_lang.lang.state.
@@ -13,8 +15,6 @@ Module io_lang.
   Definition interp_closed {sz} (rs : gReifiers NotCtxDep sz) `{!subReifier reify_io rs} (e : expr ∅) {R} `{!Cofe R, !SubOfe natO R} : IT (gReifiers_ops rs) R :=
     input_lang.interp.interp_expr rs e ı_scope.
 End io_lang.
-
-Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
 
 Inductive ty :=
   tBool | tInt | tUnit
@@ -42,7 +42,7 @@ Inductive expr : ∀ (S : Set), Type :=
 | Alloc {S : Set} : expr S → expr S
 | Replace {S1 S2 : Set} : expr S1 → expr S2 → expr (sum S1 S2)
 | Dealloc {S : Set} : expr S → expr S
-| EEmbed {S : Set} {τ1 τ1'} : io_lang.expr Empty_set → ty_conv τ1 τ1' → expr S
+| EEmbed {S : Set} {τ1 τ1'} : io_lang.expr ∅ → ty_conv τ1 τ1' → expr S
 .
 
 Section affine.

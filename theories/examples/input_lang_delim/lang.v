@@ -1,13 +1,7 @@
-From stdpp Require Export strings.
 From gitrees Require Export prelude.
-(* From Equations Require Import Equations. *)
-Require Import List.
-Import ListNotations.
 
 Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
-
-Require Import FunctionalExtensionality.
-
+(* Require Import FunctionalExtensionality. *)
 
 Variant nat_op := Add | Sub | Mult.
 
@@ -23,8 +17,6 @@ Inductive expr {X : Set} :=
 | NatOp (op : nat_op) (e₁ : expr) (e₂ : expr) : expr
 | If (e₁ : expr) (e₂ : expr) (e₃ : expr) : expr
 (* The effects *)
-(* | Input : expr *)
-(* | Output (e : expr) : expr *)
 | Shift (e : @expr (inc X)) : expr
 | Reset (e : expr) : expr
 with val {X : Set} :=
@@ -49,11 +41,7 @@ Arguments val X%bind : clear implicits.
 Arguments expr X%bind : clear implicits.
 Arguments cont X%bind : clear implicits.
 
-
-
-
 Local Open Scope bind_scope.
-
 
 Fixpoint emap {A B : Set} (f : A [→] B) (e : expr A) : expr B :=
   match e with
@@ -63,8 +51,6 @@ Fixpoint emap {A B : Set} (f : A [→] B) (e : expr A) : expr B :=
   | AppCont e₁ e₂ => AppCont (emap f e₁) (emap f e₂)
   | NatOp o e₁ e₂ => NatOp o (emap f e₁) (emap f e₂)
   | If e₁ e₂ e₃ => If (emap f e₁) (emap f e₂) (emap f e₃)
-  (* | Input => Input *)
-  (* | Output e => Output (emap f e) *)
   | Shift e => Shift (emap (f ↑) e)
   | Reset e => Reset (emap f e)
   end
@@ -102,8 +88,6 @@ Fixpoint ebind {A B : Set} (f : A [⇒] B) (e : expr A) : expr B :=
   | AppCont e₁ e₂ => AppCont (ebind f e₁) (ebind f e₂)
   | NatOp o e₁ e₂ => NatOp o (ebind f e₁) (ebind f e₂)
   | If e₁ e₂ e₃ => If (ebind f e₁) (ebind f e₂) (ebind f e₃)
-  (* | Input => Input *)
-  (* | Output e => Output (ebind f e) *)
   | Shift e => Shift (ebind (f ↑) e)
   | Reset e => Reset (ebind f e)
   end
@@ -306,26 +290,11 @@ Fixpoint fill {X : Set} (K : cont X) (e : expr X) : expr X :=
   end.
 
 
-
-(* Lemma fill_emap {X Y : Set} (f : X [→] Y) (K : ectx X) (e : expr X) *)
-(*   : fmap f (fill K e) = fill (fmap f K) (fmap f e). *)
-(* Proof. *)
-(*   revert f. *)
-(*   induction K as *)
-(*     [ | ?? IH | ?? IH | ?? IH | ??? IH | ???? IH *)
-(*     | ??? IH | ?? IH ]; *)
-(*     intros f; term_simpl; first done; rewrite IH; reflexivity. *)
-(* Qed. *)
-
-(*** Operational semantics *)
+(*** Continuation operations *)
 
 
 Global Instance fill_inj {S} (Ki : cont S) : Inj (=) (=) (fill Ki).
 Proof. induction Ki; intros ???; simplify_eq/=; auto with f_equal. Qed.
-
-(* Lemma ctx_el_to_expr_val {S} C (e : expr S) : *)
-(*   is_Some (to_val (ctx_el_to_expr C e)) → is_Some (to_val e). *)
-(* Proof. case : C => [] > H; simpl in H; try by apply is_Some_None in H. Qed. *)
 
 Lemma fill_val {S} Ki (e : expr S) :
   is_Some (to_val (fill Ki e)) → is_Some (to_val e).
@@ -333,12 +302,6 @@ Proof.
   elim: Ki e; simpl in *; intros; first done;
     apply H in H0; simpl in H0; contradiction (is_Some_None H0).
 Qed.
-
-(* (* CHECK *) *)
-(* Lemma val_head_stuck {S} (e1 : expr S) e2 K K' Ko m : *)
-(*   head_step e1 K e2 K' Ko m → to_val e1 = None. *)
-(* Proof. destruct 1; naive_solver. Qed. *)
-
 
 (* K1 ∘ K2 *)
 Fixpoint cont_compose {S} (K1 K2 : cont S) : cont S :=
@@ -352,7 +315,6 @@ Fixpoint cont_compose {S} (K1 K2 : cont S) : cont S :=
   | NatOpLK op v K => NatOpLK op v (cont_compose K1 K)
   | NatOpRK op e K => NatOpRK op e (cont_compose K1 K)
   end.
-
 
 Lemma fill_comp {S} (K1 K2 : cont S) e : fill (cont_compose K1 K2) e = fill K1 (fill K2 e).
 Proof.
@@ -458,13 +420,6 @@ where "c ===> c' / nm" := (Cred c c' nm).
 Arguments Mcont S%bind : clear implicits.
 Arguments config S%bind : clear implicits.
 
-(** ** On configs & meta-contexts *)
-
-Definition meta_fill {S} (mk : Mcont S) e :=
-  fold_left (λ e k, fill k e) mk e.
-
-
-
 Inductive steps {S} : config S -> config S -> (nat * nat) -> Prop :=
 | steps_zero : forall c,
     steps c c (0,0)
@@ -473,15 +428,8 @@ Inductive steps {S} : config S -> config S -> (nat * nat) -> Prop :=
     steps c2 c3 (n',m') ->
     steps c1 c3 (n+n',m+m').
 
-
-(* Lemma ceval_expr_to_val {S} : *)
-(*   forall (e : expr S) k mk, exists v nm, steps (Ceval e k mk) (Ceval v k mk) nm. *)
-(* Proof. *)
-(*   intros. *)
-(*   induction 1; intros. *)
-(*   - exists (Val v), (0,0). constructor. *)
-(*   - *)
-
+Definition meta_fill {S} (mk : Mcont S) e :=
+  fold_left (λ e k, fill k e) mk e.
 
 (*** Type system *)
 (* Type system from [Filinski, Danvy 89] : A Functional Abstraction of Typed Contexts *)
@@ -563,6 +511,8 @@ Inductive ty :=
 (*   typed (Γ ▹ (Tarr τ1 τ2) ▹ σ) e τ2 → *)
 (*   typed_val Γ (RecV e) (Tarr τ1 τ2) *)
 (* . *)
+
+(*** Notations *)
 
 Declare Scope syn_scope.
 Delimit Scope syn_scope with syn.

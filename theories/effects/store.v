@@ -224,10 +224,7 @@ Section wp.
   Proof.
     iIntros (Hee) "#Hcxt H".
     unfold READ. simpl.
-    match goal with
-    | |- context G [Vis ?a ?b ?c] => assert (c ≡ idfun ◎ (subEff_outs ^-1)) as ->
-    end; first solve_proper.
-    iApply wp_subreify_ctx_indep'.
+    iApply wp_subreify_ctx_indep'. simpl.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
     { set_solver. }
@@ -249,16 +246,9 @@ Section wp.
     iFrame "Hs".
     repeat iSplit.
     - assert ((option_bind _ _ (λ x, Some (x, σ)) (σ !! l)) ≡
-                 (option_bind _ _ (λ x, Some (x, σ)) (Some (Next β')))) as H.
-      + f_equiv.
-        * solve_proper.
-        * by rewrite Hx Hb'.
-      + simpl in H.
-        rewrite <-H.
-        unfold mbind.
-        simpl.
-        iPureIntro.
-        f_equiv; last done.
+                (option_bind _ _ (λ x, Some (x, σ)) (Some (Next β')))) as <-.
+      { rewrite Hx /= ; solve_proper. }
+      simpl. iPureIntro. by f_equiv.
     - iPureIntro. apply ofe_iso_21.
     - iNext. iIntros "Hlc Hs".
       iMod ("Hback" with "Hp") as "Hback".
@@ -290,8 +280,7 @@ Section wp.
     WP@{rs} WRITE l β @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
-    unfold READ. simpl.
-    iApply wp_subreify_ctx_indep'.
+    iApply wp_subreify_ctx_indep'. simpl.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
     { set_solver. }
@@ -337,7 +326,7 @@ Section wp.
     WP@{rs} ALLOC α k @ s {{ Φ }}.
   Proof.
     iIntros "Hh H".
-    iApply wp_subreify_ctx_indep'.
+    iApply wp_subreify_ctx_indep'. simpl.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
@@ -365,8 +354,7 @@ Section wp.
     WP@{rs} DEALLOC l @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
-    unfold DEALLOC. simpl.
-    iApply wp_subreify_ctx_indep'.
+    iApply wp_subreify_ctx_indep'. simpl.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
     { set_solver. }
@@ -403,105 +391,6 @@ Section wp.
     iNext. iNext.
     iModIntro. done.
   Qed.
-
-  (** * The logical relation TODO *)
-  (* Definition N := nroot.@"heh". *)
-  (* Definition logrel_expr V (α : IT) : iProp := *)
-  (*   (heap_ctx -∗ WP@{rs} α {{ V }})%I. *)
-
-  (* Context `{!SubOfe natO R, !Inhabited R}. *)
-
-  (* Definition logrel_nat (βv : ITV) : iProp := *)
-  (*   (∃ n : nat, βv ≡ RetV n)%I. *)
-  (* Definition logrel_arr V1 V2 (βv : ITV) : iProp := *)
-  (*   (∃ f, IT_of_V βv ≡ Fun f ∧ □ ∀ αv, V1 αv -∗ *)
-  (*      logrel_expr V2 (APP' (Fun f) (IT_of_V αv)))%I. *)
-  (* Definition logrel_ref V (l : loc) : iProp := *)
-  (*   (inv (N.@l) (∃ βv, pointsto l (IT_of_V βv) ∗ V βv))%I. *)
-
-  (* Lemma logrel_alloc V V2 (αv :ITV) (k : locO -n> IT) `{!forall v, Persistent (V v)} *)
-  (*   `{NonExpansive V2} : *)
-  (*   V αv -∗ *)
-  (*   (∀ l, logrel_ref V l -∗ logrel_expr V2 (k l)) -∗ *)
-  (*   logrel_expr V2 (ALLOC (IT_of_V αv) k). *)
-  (* Proof. *)
-  (*   iIntros "#HV H". *)
-  (*   iIntros "#Hh". *)
-  (*   iApply (wp_alloc with "Hh"). *)
-  (*   iNext. iNext. *)
-  (*   iIntros (l) "Hl". *)
-  (*   iMod (inv_alloc (N.@l) _ (∃ βv, pointsto l (IT_of_V βv) ∗ V βv)%I with "[Hl]") *)
-  (*     as "#Hinv". *)
-  (*   { eauto with iFrame. } *)
-  (*   iSpecialize ("H" with "Hinv"). *)
-  (*   by iApply "H". *)
-  (* Qed. *)
-
-  (* Opaque Ret. (*TODO*) *)
-  (* Lemma logrel_write V αv l `{!forall v, Persistent (V v)} : *)
-  (*   logrel_ref V l -∗ *)
-  (*   V αv -∗ *)
-  (*   logrel_expr logrel_nat (WRITE l (IT_of_V  αv)). *)
-  (* Proof. *)
-  (*   iIntros "#Hl #Hav #Hctx". *)
-  (*   iApply wp_subreify'. *)
-  (*   iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl1". *)
-  (*   iInv (N.@l) as "HH" "Hcl2". *)
-  (*   iDestruct "HH" as (βv) "[Hbv #HV]". *)
-  (*   iApply (lc_fupd_elim_later with "Hlc"). *)
-  (*   iNext. *)
-  (*   iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom". *)
-  (*   { iApply (istate_loc_dom with "Hh Hbv"). } *)
-  (*   iExists σ, (),(<[l:=Next (IT_of_V αv)]>σ),(Ret ()). *)
-  (*   iFrame "Hs". *)
-  (*   iSimpl. repeat iSplit; [ done | done | ]. *)
-  (*   iNext. iIntros "Hlc Hs". *)
-  (*   iMod (istate_write _ _ (IT_of_V αv) with "Hh Hbv") as "[Hh Hlav]". *)
-  (*   iMod ("Hcl2" with "[Hlav]") as "_". *)
-  (*   { iNext. iExists _; by iFrame. } *)
-  (*   iMod ("Hcl1" with "[Hlc Hh Hs]") as "_". *)
-  (*   { iNext. iExists _; by iFrame. } *)
-  (*   iModIntro. *)
-  (*   iApply wp_val. iModIntro. *)
-  (*   iExists (). unfold RetV. done. *)
-  (* Qed. *)
-
-  (* Lemma logrel_read V l `{!forall v, Persistent (V v)} : *)
-  (*   logrel_ref V l -∗ *)
-  (*   logrel_expr V (READ l). *)
-  (* Proof. *)
-  (*   iIntros "#Hr #Hctx". *)
-  (*   iApply wp_subreify'. *)
-  (*   iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl1". *)
-  (*   iInv (N.@l) as "HH" "Hcl2". *)
-  (*   iDestruct "HH" as (βv) "[Hbv #HV]". *)
-  (*   iAssert (▷ (σ !! l ≡ Some (Next (IT_of_V βv))))%I as "#Hlookup". *)
-  (*   { iNext. iApply (istate_read with "Hh Hbv"). } *)
-  (*   iAssert (▷ ⌜is_Some (σ !! l)⌝)%I as "#Hdom". *)
-  (*   { iNext. iApply (istate_loc_dom with "Hh Hbv"). } *)
-  (*   iDestruct "Hdom" as ">%Hdom". *)
-  (*   destruct Hdom as [x Hx]. *)
-  (*   destruct (Next_uninj x) as [β' Hb']. *)
-  (*   iAssert (▷ ▷ (β' ≡ IT_of_V βv))%I as "#Hbv'". *)
-  (*   { iNext. rewrite Hx. rewrite option_equivI. *)
-  (*     rewrite Hb'. by iNext. } *)
-  (*   iClear "Hlookup". *)
-  (*   iApply (lc_fupd_elim_later with "Hlc"). *)
-  (*   iNext. iSimpl. *)
-  (*   iExists σ,(Next β'),σ,β'. iFrame "Hs". *)
-  (*   repeat iSplit. *)
-  (*   { iPureIntro. rewrite Hx/= Hb'. done. } *)
-  (*   { rewrite ofe_iso_21//. } *)
-  (*   iNext. iIntros "Hlc Hs". *)
-  (*   iMod ("Hcl2" with "[Hbv]") as "_". *)
-  (*   { iNext. eauto with iFrame. } *)
-  (*   iMod ("Hcl1" with "[Hlc Hh Hs]") as "_". *)
-  (*   { iNext. eauto with iFrame. } *)
-  (*   iModIntro. *)
-  (*   iRewrite "Hbv'". *)
-  (*   iApply wp_val. *)
-  (*   iModIntro. done. *)
-  (* Qed. *)
 
 End wp.
 

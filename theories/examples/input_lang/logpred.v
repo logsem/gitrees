@@ -256,15 +256,15 @@ Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}
   (β : IT (gReifiers_ops rs) R) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ},
       (£ cr ⊢ valid1 rs notStuck (λne _ : unitO, True)%I □ α τ)%I) →
-  ssteps (gReifiers_sReifier NotCtxDep rs) (α ı_scope) st β st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
+  ssteps (gReifiers_sReifier rs) (α ı_scope) st β st' k →
+  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
   intros Hlog Hst.
   destruct (IT_to_V β) as [βv|] eqn:Hb.
   { right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. }
   left.
-  cut ((∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
+  cut ((∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
       ∨ (∃ e, β ≡ Err e ∧ notStuck e)).
   { intros [?|He]; first done.
     destruct He as [? [? []]]. }
@@ -279,8 +279,8 @@ Proof.
   destruct st as [σ []].
   iAssert (has_substate σ) with "[Hst]" as "Hs".
   { unfold has_substate, has_full_state.
-    assert (of_state NotCtxDep rs (IT (gReifiers_ops rs) _) (σ,()) ≡
-            of_idx NotCtxDep rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)) as ->; last done.
+    assert (of_state rs (IT (gReifiers_ops rs) _) (σ,()) ≡
+            of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)) as ->; last done.
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.
@@ -302,10 +302,10 @@ Proof.
   done.
 Qed.
 
-Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier NotCtxDep rs)) natO) k :
+Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k :
   typed □ e τ →
-  ssteps (gReifiers_sReifier NotCtxDep rs) (interp_expr rs e ı_scope) (σ, ()) β st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
+  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ, ()) β st' k →
+  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
   intros Htyped Hsteps.

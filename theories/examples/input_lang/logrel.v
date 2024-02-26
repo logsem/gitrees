@@ -359,7 +359,7 @@ Definition rs : gReifiers NotCtxDep 1 := gReifiers_cons reify_io gReifiers_nil.
 Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs natO Σ} {S} (α : IT (gReifiers_ops rs) natO) (e : expr S) n σ σ' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs natO Σ},
       (True ⊢ logrel rs Tnat α e)%I) →
-  ssteps (gReifiers_sReifier NotCtxDep rs) α (σ,()) (Ret n) σ' k → ∃ m σ', prim_steps e σ (Val $ LitV n) σ' m.
+  ssteps (gReifiers_sReifier rs) α (σ,()) (Ret n) σ' k → ∃ m σ', prim_steps e σ (Val $ LitV n) σ' m.
 Proof.
   intros Hlog Hst.
   pose (ϕ := λ (βv : ITV (gReifiers_ops rs) natO),
@@ -391,8 +391,8 @@ Proof.
   iPoseProof (Hlog with "[//]") as "Hlog".
   iAssert (has_substate σ) with "[Hs]" as "Hs".
   { unfold has_substate, has_full_state.
-    assert (of_state NotCtxDep rs (IT (gReifiers_ops rs) natO) (σ, ()) ≡
-            of_idx NotCtxDep rs (IT (gReifiers_ops rs) natO) 0 σ)%stdpp as ->; last done.
+    assert (of_state rs (IT (gReifiers_ops rs) natO) (σ, ()) ≡
+            of_idx rs (IT (gReifiers_ops rs) natO) 0 σ)%stdpp as ->; last done.
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.
@@ -413,7 +413,7 @@ Qed.
 
 Theorem adequacy (e : expr ∅) (k : nat) σ σ' n :
   typed □ e Tnat →
-  ssteps (gReifiers_sReifier NotCtxDep rs) (interp_expr rs e ı_scope) (σ,()) (Ret k : IT _ natO) σ' n →
+  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ,()) (Ret k : IT _ natO) σ' n →
   ∃ mm σ', prim_steps e σ (Val $ LitV k) σ' mm.
 Proof.
   intros Hty Hst.
@@ -424,8 +424,7 @@ Proof.
   { apply Hty. }
   unfold logrel_valid.
   iIntros "_".
-  unshelve iSpecialize ("H" $! ı_scope _ with "[]").
-  { apply ı%bind. }
+  iSpecialize ("H" $! ı_scope ı%bind with "[]").
   { iIntros (x); destruct x. }
   rewrite ebind_id; first last.
   { intros ?; reflexivity. }

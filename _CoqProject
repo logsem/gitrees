@@ -31,6 +31,7 @@ theories/program_logic.v
 
 theories/examples/input_lang_delim/lang.v
 theories/examples/input_lang_delim/interp.v
+theories/examples/input_lang_delim/example.v
 
 theories/examples/input_lang_callcc/lang.v
 theories/examples/input_lang_callcc/interp.v

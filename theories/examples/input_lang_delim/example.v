@@ -1,7 +1,5 @@
-From gitrees Require Import gitree.
+From gitrees Require Import gitree lang_generic.
 From gitrees.examples.input_lang_delim Require Import lang interp.
-Require Import gitrees.lang_generic.
-From iris.algebra Require Import gmap excl auth gmap_view.
 From iris.proofmode Require Import base classes tactics environments.
 From iris.base_logic Require Import algebra.
 
@@ -63,6 +61,7 @@ Proof.
   (* then, shift *)
   do 2 shift_hom.
   iApply (wp_shift with "Hσ").
+  { rewrite laterO_map_Next. done. }
   iIntros "!>_ Hσ".
   simpl.
 
@@ -70,7 +69,7 @@ Proof.
   rewrite -(IT_of_V_Ret 6) get_val_ITV'. simpl.
   rewrite get_fun_fun. simpl.
   do 2 shift_hom.
-  iApply (wp_app_cont with "Hσ").
+  iApply (wp_app_cont with "Hσ"); first done.
   iIntros "!> _ Hσ". simpl.
   rewrite later_map_Next -Tick_eq.
   iApply wp_tick. iNext.
@@ -86,7 +85,7 @@ Proof.
   shift_hom. shift_natop_l.
   rewrite get_fun_fun. simpl.
   shift_hom. shift_natop_l.
-  iApply (wp_app_cont with "Hσ").
+  iApply (wp_app_cont with "Hσ"); first done.
   iIntros "!> _ Hσ". simpl.
   rewrite later_map_Next -Tick_eq.
   iApply wp_tick. iNext.

@@ -1,5 +1,4 @@
 (** Logical relation for adequacy for the IO lang *)
-From Equations Require Import Equations.
 From gitrees Require Import gitree.
 From gitrees.examples.input_lang_callcc Require Import lang interp hom.
 Require Import gitrees.lang_generic.

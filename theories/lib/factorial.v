@@ -111,7 +111,7 @@ Section fact.
     iIntros (ℓ) "Hl". simpl.
     iApply wp_seq.
     { solve_proper. }
-    iApply (wp_wand _ _ (λ _, pointsto acc (Ret $ fact n)) with "[-]"); last first.
+    iApply (wp_wand _ (λ _, pointsto acc (Ret $ fact n)) with "[-]"); last first.
     { simpl. iIntros (_) "Hacc".
       iModIntro. iApply (wp_read with "Hctx Hacc").
       iNext. iNext. iIntros "Hacc".
