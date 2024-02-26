@@ -59,7 +59,7 @@ End iter.
 
 Section iter_wp.
   Context {sz : nat}.
-  Variable (rs : gReifiers sz).
+  Variable (rs : gReifiers NotCtxDep sz).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
   Notation F := (gReifiers_ops rs).
@@ -67,15 +67,12 @@ Section iter_wp.
   Notation ITV := (ITV F R).
   Context `{!invGS Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
-  Context {HCI : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-             CtxIndep (gReifiers_sReifier rs)
-               (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}.
 
   Lemma wp_iter f (m : nat) β Ψ `{!AsVal f} `{!NonExpansive Ψ} :
     ⊢ WP@{rs} β {{ Ψ }} -∗
       □ (∀ βv, Ψ βv -∗ WP@{rs} (f ⊙ (IT_of_V βv)) {{ Ψ }}) -∗
       WP@{rs} (ITER ⊙ f ⊙ (Ret m) ⊙ β) {{ Ψ }}.
-  Proof using HCI.
+  Proof.
     iIntros "Hb #H".
     iApply (wp_bind _ (AppRSCtx (ITER ⊙ f ⊙ (Ret m)))).
     iApply (wp_wand with "Hb").

@@ -1,4 +1,3 @@
-From Equations Require Import Equations.
 From iris.algebra Require Import gmap excl auth gmap_view.
 From iris.proofmode Require Import classes tactics.
 From iris.base_logic Require Import algebra.
@@ -17,47 +16,47 @@ Proof. apply _. Qed.
 #[local] Instance state_cofe X `{!Cofe X} : Cofe (stateF ♯ X).
 Proof. apply _. Qed.
 
-Definition state_read X `{!Cofe X} : loc * (stateF ♯ X) * (laterO X -n> laterO X) → option (laterO X * (stateF ♯ X))
-  := λ '(l,σ,κ), x ← σ !! l;
-               Some (κ x, σ).
+Definition state_read X `{!Cofe X} : loc * (stateF ♯ X) → option (laterO X * (stateF ♯ X))
+  := λ '(l,σ), x ← σ !! l;
+               Some (x, σ).
 #[export] Instance state_read_ne X `{!Cofe X} :
-  NonExpansive (state_read X : prodO (prodO locO (stateF ♯ X)) (laterO X -n> laterO X) → optionO (prodO (laterO X) (stateF ♯ X))).
+  NonExpansive (state_read X : prodO locO (stateF ♯ X) → optionO (prodO (laterO X) (stateF ♯ X))).
 Proof.
-  intros n [[l1 s1] κ1] [[l2 s2] κ2]. simpl. intros [[-> Hs'] Hs].
-  apply (option_mbind_ne _ (λ n, Some (κ1 n, s1)) (λ n, Some (κ2 n, s2)));
+  intros n [l1 s1] [l2 s2]. simpl. intros [-> Hs].
+  apply (option_mbind_ne _ (λ n, Some (n, s1)) (λ n, Some (n, s2)));
     solve_proper.
 Qed.
 
-Definition state_dealloc X `{!Cofe X} : loc * (stateF ♯ X) * (unitO -n> laterO X) → option (laterO X * (stateF ♯ X))
-  := λ '(l,σ,κ), Some (κ (), delete l σ).
+Definition state_dealloc X `{!Cofe X} : loc * (stateF ♯ X) → option (unitO * (stateF ♯ X))
+  := λ '(l,σ), Some ((), delete l σ).
 #[export] Instance state_dealloc_ne X `{!Cofe X} :
-  NonExpansive (state_dealloc X : prodO (prodO locO (stateF ♯ X)) (unitO -n> laterO X) → optionO (prodO (laterO X) (stateF ♯ X))).
+  NonExpansive (state_dealloc X : prodO locO (stateF ♯ X) → optionO (prodO unitO (stateF ♯ X))).
 Proof.
-  intros n [[l1 s1] κ1] [[l2 s2] κ2]. simpl. intros [[-> Hs'] Hs].
+  intros n [l1 s1] [l2 s2]. simpl. intros [-> Hs].
   solve_proper.
 Qed.
 
 Definition state_write X `{!Cofe X} :
-  (loc * (laterO X)) * (stateF ♯ X) * (unitO -n> laterO X) → option (laterO X * (stateF ♯ X))
-  := λ '((l,n),s,κ), let s' := <[l:=n]>s
-                   in Some (κ (), s').
+  (loc * (laterO X)) * (stateF ♯ X) → option (unit * (stateF ♯ X))
+  := λ '((l,n),s), let s' := <[l:=n]>s
+                   in Some ((), s').
 #[export] Instance state_write_ne X `{!Cofe X} :
-  NonExpansive (state_write X : prodO (prodO (prodO locO _) (stateF ♯ _)) (unitO -n> laterO X) → optionO (prodO (laterO X) (stateF ♯ X))).
+  NonExpansive (state_write X : prodO (prodO locO _) (stateF ♯ _) → optionO (prodO unitO (stateF ♯ X))).
 Proof.
-  intros n [[[l1 m1] s1] κ1] [[[l2 m2] s2] κ2]. simpl.
-  intros [[[Hl%leibnizO_leibniz Hm] Hs] Hκ]. simpl in Hl.
+  intros n [[l1 m1] s1] [[l2 m2] s2]. simpl.
+  intros [[Hl%leibnizO_leibniz Hm] Hs]. simpl in Hl.
   rewrite Hl. solve_proper.
 Qed.
 
-Definition state_alloc X `{!Cofe X} : (laterO X) * (stateF ♯ X) * (loc -n> laterO X) → option ((laterO X) * (stateF ♯ X))
-  := λ '(n,s,κ), let l := Loc.fresh (dom s) in
+Definition state_alloc X `{!Cofe X} : (laterO X) * (stateF ♯ X) → option (loc * (stateF ♯ X))
+  := λ '(n,s), let l := Loc.fresh (dom s) in
                let s' := <[l:=n]>s in
-               Some (κ l, s').
+               Some (l, s').
 #[export] Instance state_alloc_ne X `{!Cofe X} :
-  NonExpansive (state_alloc X : prodO (prodO _ (stateF ♯ X)) (locO -n> laterO X) → optionO (prodO (laterO X) (stateF ♯ X))).
+  NonExpansive (state_alloc X : prodO _ (stateF ♯ X) → optionO (prodO locO (stateF ♯ X))).
 Proof.
-  intros n [[m1 s1] κ1] [[m2 s2] κ2]. simpl.
-  intros [[Hm Hs] Hκ]. simpl in *.
+  intros n [m1 s1] [m2 s2]. simpl.
+  intros [Hm Hs]. simpl in *.
   set (l1 := Loc.fresh (dom s1)).
   set (l2 := Loc.fresh (dom s2)).
   assert (l1 = l2) as ->.
@@ -83,7 +82,7 @@ Program Definition DeallocE : opInterp :=  {|
 |}.
 
 Definition storeE : opsInterp := @[ReadE;WriteE;AllocE;DeallocE].
-Canonical Structure reify_store : sReifier.
+Canonical Structure reify_store : sReifier NotCtxDep.
 Proof.
   simple refine {| sReifier_ops := storeE |}.
   intros X HX op.
@@ -126,10 +125,9 @@ Section constructors.
                 (λne _, Next (Ret ())).
 End constructors.
 
-
 Section wp.
   Context {n : nat}.
-  Variable (rs : gReifiers n).
+  Variable (rs : gReifiers NotCtxDep n).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe unitO R}.
 
@@ -229,7 +227,7 @@ Section wp.
     match goal with
     | |- context G [Vis ?a ?b ?c] => assert (c ≡ idfun ◎ (subEff_outs ^-1)) as ->
     end; first solve_proper.
-    iApply wp_subreify'.
+    iApply wp_subreify_ctx_indep'.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
     { set_solver. }
@@ -261,10 +259,7 @@ Section wp.
         simpl.
         iPureIntro.
         f_equiv; last done.
-        intros ???.
-        do 2 f_equiv.
-        by rewrite ofe_iso_21.
-    - done.
+    - iPureIntro. apply ofe_iso_21.
     - iNext. iIntros "Hlc Hs".
       iMod ("Hback" with "Hp") as "Hback".
       iMod "Hwk" .
@@ -296,7 +291,7 @@ Section wp.
   Proof.
     iIntros (Hee) "#Hcxt H".
     unfold READ. simpl.
-    iApply wp_subreify'.
+    iApply wp_subreify_ctx_indep'.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
     { set_solver. }
@@ -309,7 +304,7 @@ Section wp.
     destruct (Next_uninj x) as [α' Ha'].
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
-    iExists σ,(Next (Ret ())),(<[l:=Next β]>σ),(Ret ()).
+    iExists σ,(),(<[l:=Next β]>σ),(Ret ()).
     iFrame "Hs".
     iSimpl. repeat iSplit; [ done | done | ].
     iNext. iIntros "Hlc".
@@ -342,22 +337,17 @@ Section wp.
     WP@{rs} ALLOC α k @ s {{ Φ }}.
   Proof.
     iIntros "Hh H".
-    iApply wp_subreify'.
+    iApply wp_subreify_ctx_indep'.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
     set (l:=Loc.fresh (dom σ)).
-    iExists σ,(Next (k l)),_,(k l).
+    iExists σ,l,_,(k l).
     iFrame "Hs".
     simpl. change (Loc.fresh (dom σ)) with l.
-    iSplit.
-    {
-      iPureIntro.
-      do 2 f_equiv; last reflexivity.
-      f_equiv.
-      by rewrite ofe_iso_21.
-    }
     iSplit; first done.
+    iSplit.
+    { simpl. rewrite ofe_iso_21. done. }
     iNext. iIntros "Hlc Hs".
     iMod (istate_alloc α l with "Hh") as "[Hh Hl]".
     { apply (not_elem_of_dom_1 (M:=gmap loc)).
@@ -376,7 +366,7 @@ Section wp.
   Proof.
     iIntros (Hee) "#Hcxt H".
     unfold DEALLOC. simpl.
-    iApply wp_subreify'.
+    iApply wp_subreify_ctx_indep'.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
     { set_solver. }
@@ -388,7 +378,7 @@ Section wp.
     { iApply (istate_loc_dom with "Hh Hp"). }
     destruct Hdom as [x Hx].
     destruct (Next_uninj x) as [β' Hb'].
-    iExists σ,(Next (Ret ())),(delete l σ),(Ret ()).
+    iExists σ,(),(delete l σ),(Ret ()).
     iFrame "Hs".
     repeat iSplit; simpl; eauto.
     iNext. iIntros "Hlc Hs".

@@ -1,14 +1,13 @@
-From Equations Require Import Equations.
 From gitrees Require Import gitree.
-From gitrees.input_lang_callcc Require Import lang interp.
-Require Import gitrees.lang_generic_sem.
+From gitrees.examples.input_lang_callcc Require Import lang interp.
+Require Import gitrees.lang_generic.
 Require Import Binding.Lib Binding.Set Binding.Env.
 
 Open Scope stdpp_scope.
 
 Section hom.
   Context {sz : nat}.
-  Context {rs : gReifiers sz}.
+  Context {rs : gReifiers CtxDep sz}.
   Context {subR : subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F natO).

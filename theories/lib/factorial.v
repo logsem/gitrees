@@ -1,20 +1,17 @@
-From Equations Require Import Equations.
 From gitrees Require Import gitree program_logic.
-From gitrees.input_lang Require Import lang interp.
-From gitrees.examples Require Import store while.
+From gitrees.examples.input_lang Require Import lang interp.
+From gitrees.effects Require Import store.
+From gitrees.lib Require Import while.
 
 Section fact.
-  Definition rs : gReifiers 2 :=
-    gReifiers_cons reify_io (gReifiers_cons reify_store gReifiers_nil).
+  Context (n' : nat) (rs : gReifiers NotCtxDep n').
+  Context `{!subReifier reify_store rs}.
+  Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R, !SubOfe unitO R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-
-  Context {HCI : ∀ o : opid (sReifier_ops (gReifiers_sReifier rs)),
-             CtxIndep (gReifiers_sReifier rs)
-               (ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R) o}.
 
   Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
   Notation iProp := (iProp Σ).
@@ -40,7 +37,7 @@ Section fact.
     heap_ctx -∗
     pointsto acc (Ret m) -∗ pointsto ℓ (Ret n) -∗
     WP@{rs} fact_imp_body acc ℓ {{ _, pointsto acc (Ret (m * fact n)) }}.
-  Proof using HCI.
+  Proof.
     iIntros "#Hctx Hacc Hl".
     iLöb as "IH" forall (n m).
     unfold fact_imp_body.
@@ -100,21 +97,21 @@ Section fact.
 
   Lemma wp_fact_imp (n : nat) :
     heap_ctx ⊢ WP@{rs} fact_imp ⊙ (Ret n) {{  βv, βv ≡ RetV (fact n)  }}.
-  Proof using HCI.
+  Proof.
     iIntros "#Hctx".
     iApply wp_lam. iNext.
     simpl. rewrite get_ret_ret.
     iApply (wp_alloc with "Hctx").
     { solve_proper. }
-    fold rs. iNext. iNext.
+    iNext. iNext.
     iIntros (acc) "Hacc". simpl.
     iApply (wp_alloc with "Hctx").
     { solve_proper. }
-    fold rs. iNext. iNext.
+    iNext. iNext.
     iIntros (ℓ) "Hl". simpl.
     iApply wp_seq.
     { solve_proper. }
-    iApply (wp_wand _ (λ _, pointsto acc (Ret $ fact n)) with "[-]"); last first.
+    iApply (wp_wand _ _ (λ _, pointsto acc (Ret $ fact n)) with "[-]"); last first.
     { simpl. iIntros (_) "Hacc".
       iModIntro. iApply (wp_read with "Hctx Hacc").
       iNext. iNext. iIntros "Hacc".
@@ -128,7 +125,7 @@ Section fact.
   Lemma wp_fact_io (n : nat) :
     heap_ctx ∗ has_substate (State [n] [])
     ⊢ WP@{rs} get_ret OUTPUT fact_io  {{ _, has_substate (State [] [fact n]) }}.
-  Proof using HCI.
+  Proof.
     iIntros "[#Hctx Htape]".
     unfold fact_io.
     iApply (wp_bind _ (get_ret _)).
