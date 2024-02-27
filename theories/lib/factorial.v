@@ -1,11 +1,12 @@
-From Equations Require Import Equations.
 From gitrees Require Import gitree program_logic.
-From gitrees.input_lang Require Import lang interp.
-From gitrees.examples Require Import store while.
+From gitrees.examples.input_lang Require Import lang interp.
+From gitrees.effects Require Import store.
+From gitrees.lib Require Import while.
 
 Section fact.
-  Definition rs : gReifiers 2 :=
-    gReifiers_cons reify_io (gReifiers_cons reify_store gReifiers_nil).
+  Context (n' : nat) (rs : gReifiers NotCtxDep n').
+  Context `{!subReifier reify_store rs}.
+  Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R, !SubOfe unitO R}.
@@ -102,11 +103,11 @@ Section fact.
     simpl. rewrite get_ret_ret.
     iApply (wp_alloc with "Hctx").
     { solve_proper. }
-    fold rs. iNext. iNext.
+    iNext. iNext.
     iIntros (acc) "Hacc". simpl.
     iApply (wp_alloc with "Hctx").
     { solve_proper. }
-    fold rs. iNext. iNext.
+    iNext. iNext.
     iIntros (ℓ) "Hl". simpl.
     iApply wp_seq.
     { solve_proper. }
@@ -141,4 +142,3 @@ Section fact.
   Qed.
 
 End fact.
-

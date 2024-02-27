@@ -59,7 +59,7 @@ End iter.
 
 Section iter_wp.
   Context {sz : nat}.
-  Variable (rs : gReifiers sz).
+  Variable (rs : gReifiers NotCtxDep sz).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
   Notation F := (gReifiers_ops rs).

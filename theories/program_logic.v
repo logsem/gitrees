@@ -2,8 +2,31 @@
 From gitrees Require Import gitree.
 
 Section program_logic.
+  Context {sz : nat} {a : is_ctx_dep}.
+  Variable rs : gReifiers a sz.
+  Notation F := (gReifiers_ops rs).
+  Context {R} `{!Cofe R}.
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
+
+  Context `{!invGS Σ, !stateG rs R Σ}.
+  Notation iProp := (iProp Σ).
+
+  Lemma wp_lam (f : IT -n> IT) β s Φ `{!AsVal β} :
+    ▷ WP@{rs} f β @ s {{ Φ }} ⊢ WP@{rs} Fun (Next f) ⊙ β @ s{{ Φ }}.
+  Proof.
+    iIntros "H".
+    rewrite APP'_Fun_l.
+    simpl.
+    rewrite -Tick_eq.
+    by iApply wp_tick.
+  Qed.
+
+End program_logic.
+
+Section program_logic_ctx_indep.
   Context {sz : nat}.
-  Variable rs : gReifiers sz.
+  Variable rs : gReifiers NotCtxDep sz.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Notation IT := (IT F R).
@@ -32,13 +55,4 @@ Section program_logic.
     by rewrite LET_Val.
   Qed.
 
-  Lemma wp_lam (f : IT -n> IT) β s Φ `{!AsVal β} :
-    ▷ WP@{rs} f β @ s {{ Φ }} ⊢ WP@{rs} Fun (Next f) ⊙ β @ s{{ Φ }}.
-  Proof.
-    rewrite APP'_Fun_l.
-    rewrite -Tick_eq/=. iApply wp_tick.
-  Qed.
-
-
-End program_logic.
-
+End program_logic_ctx_indep.

@@ -7,10 +7,25 @@ From iris.si_logic Require Import bi siprop.
 From iris.proofmode Require Import classes tactics modality_instances
                                    coq_tactics reduction.
 
+Definition sum_map' {A B C : Set} (f : A → C) (g : B → C) : sum A B → C :=
+  λ x, match x with | inl x' => f x' | inr x' => g x' end.
+
 Program Definition idfun {A : ofe} : A -n> A := λne x, x.
 
 (** OFEs stuff *)
 Notation "F ♯ E" := (oFunctor_apply F E) (at level 20, right associativity).
+
+Lemma ccompose_id_l {A B : ofe} (f : A -n> B) :
+  cid ◎ f ≡ f.
+Proof.
+  intros x; reflexivity.
+Qed.
+
+Lemma ccompose_id_r {A B : ofe} (f : A -n> B) :
+  f ◎ cid ≡ f.
+Proof.
+  intros x; reflexivity.
+Qed.
 
 Infix "≃" := (ofe_iso) (at level 50).
 

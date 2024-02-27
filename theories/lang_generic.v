@@ -1,130 +1,78 @@
-From gitrees Require Import prelude.
-From gitrees Require Import gitree.
-From Equations Require Import Equations.
+From gitrees Require Import prelude gitree utils.finite_sets.
 Require Import List.
 Import ListNotations.
 
-(** XXX: We /NEED/ this line for [Equations Derive] to work,
- this flag is globally unset by std++, but Equations need obligations to be transparent. *)
-Set Transparent Obligations.
+Require Import Binding.Lib Binding.Set.
 
-Derive NoConfusion NoConfusionHom for list.
-
-Definition scope := (list unit).
-
-(** Variables in a context *)
-Inductive var : scope → Type :=
-| Vz : forall {S : scope} {s}, var (s::S)
-| Vs : forall {S : scope} {s}, var S -> var (s::S)
-.
-Derive Signature NoConfusion for var.
-
-Inductive tyctx (ty : Type) : scope → Type :=
-| empC : tyctx ty []
-| consC : forall{Γ}, ty → tyctx ty Γ → tyctx ty (()::Γ)
-.
-Arguments empC {_}.
-Arguments consC {_ _} _ _.
-
-Equations list_of_tyctx {S ty} (Γ : tyctx ty S) : list ty :=
-  list_of_tyctx empC := [];
-  list_of_tyctx (consC τ Γ') := τ::list_of_tyctx Γ'.
-
-Equations tyctx_app {S1 S2 ty} (c1 : tyctx ty S1) (c2 : tyctx ty S2) : tyctx ty (S1++S2) :=
-  tyctx_app empC         c2 := c2;
-  tyctx_app (consC τ c1) c2 := consC τ (tyctx_app c1 c2).
-
-Inductive typed_var {ty : Type}: forall {S}, tyctx ty S → var S → ty → Prop :=
-| typed_var_Z S (τ : ty) (Γ : tyctx ty S) :
-  typed_var (consC τ Γ) Vz τ
-| typed_var_S S (τ τ' : ty) (Γ : tyctx ty S) v :
-  typed_var Γ v τ →
-  typed_var (consC τ' Γ) (Vs v) τ
-.
-
-Section interp.
+Section ctx_interp.
   Local Open Scope type.
   Context {E: opsInterp}.
   Context {R} `{!Cofe R}.
   Notation IT := (IT E R).
   Notation ITV := (ITV E R).
 
-  Fixpoint interp_scope (S : scope) : ofe :=
-    match S with
-    | [] => unitO
-    | τ::Sc => prodO IT (interp_scope Sc)
-    end.
+  Definition interp_scope (S : Set) : ofe := (leibnizO S) -n> IT.
 
-  Instance interp_scope_cofe S : Cofe (interp_scope S).
-  Proof. induction S; simpl; apply _. Qed.
+  Global Instance interp_scope_cofe S : Cofe (interp_scope S).
+  Proof. apply _. Qed.
 
-  Instance interp_scope_inhab S : Inhabited (interp_scope S).
-  Proof. induction S; simpl; apply _. Defined.
+  Global Instance interp_scope_inhab S : Inhabited (interp_scope S).
+  Proof. apply _. Defined.
 
-  Equations interp_var {S : scope} (v : var S) : interp_scope S -n> IT :=
-    interp_var (S:=(_::_))     Vz := fstO;
-    interp_var (S:=(_::Sc)) (Vs v) := interp_var v ◎ sndO.
-
-  Instance interp_var_ne S (v : var S) : NonExpansive (@interp_var S v).
-  Proof.
-    intros n D1 D2 HD12. induction v; simp interp_var.
-    - by f_equiv.
-    - eapply IHv. by f_equiv.
+  Program Definition interp_var {S : Set} (v : S) : interp_scope S -n> IT :=
+    λne (f : interp_scope S), f v.
+  Next Obligation.
+    solve_proper.
   Qed.
 
-  Global Instance interp_var_proper S (v : var S) : Proper ((≡) ==> (≡)) (interp_var v).
-  Proof. apply ne_proper. apply _. Qed.
+  Program Definition ı_scope : interp_scope Empty_set
+    := λne (x : ∅), match x with end.
 
-  Definition interp_scope_split {S1 S2} :
-    interp_scope (S1 ++ S2) -n> interp_scope S1 * interp_scope S2.
+  Definition interp_scope_split {S1 S2 : Set} :
+    interp_scope (sum S1 S2) -n> interp_scope S1 * interp_scope S2.
   Proof.
-    induction S1 as [|? S1]; simpl.
-    - simple refine (λne x, (tt, x)).
-      solve_proper.
-    - simple refine (λne xy, let ss := IHS1 xy.2 in ((xy.1, ss.1), ss.2)).
-      solve_proper.
+    simple refine (λne (f : interp_scope (sum S1 S2)), _).
+    - split.
+      + simple refine (λne x, _).
+        apply (f (inl x)).
+      + simple refine (λne x, _).
+        apply (f (inr x)).
+    - repeat intro; simpl.
+      repeat f_equiv; intro; simpl; f_equiv; assumption.
   Defined.
 
-  (** scope substituions *)
-  Inductive ssubst : scope → Type :=
-  | emp_ssubst : ssubst []
-  | cons_ssubst {S} : ITV → ssubst S → ssubst (tt::S)
-  .
+  Global Instance interp_var_proper {S : Set} (v : S) : Proper ((≡) ==> (≡)) (interp_var v).
+  Proof. apply ne_proper. apply _. Qed.
 
-  Equations interp_ssubst {S} (ss : ssubst S) : interp_scope S :=
-    interp_ssubst emp_ssubst := tt;
-    interp_ssubst (cons_ssubst αv ss) := (IT_of_V αv, interp_ssubst ss).
-
-  Equations list_of_ssubst {S} (ss : ssubst S) : list ITV :=
-    list_of_ssubst emp_ssubst := [];
-    list_of_ssubst (cons_ssubst αv ss) := αv::(list_of_ssubst ss).
-
-  Equations ssubst_split {S1 S2} (αs : ssubst (S1++S2)) : ssubst S1 * ssubst S2 :=
-    ssubst_split (S1:=[]) αs := (emp_ssubst,αs);
-    ssubst_split (S1:=u::_) (cons_ssubst αv αs) :=
-      (cons_ssubst αv (ssubst_split αs).1, (ssubst_split αs).2).
-  Lemma interp_scope_ssubst_split {S1 S2} (αs : ssubst (S1++S2)) :
-    interp_scope_split (interp_ssubst αs) ≡
-      (interp_ssubst (ssubst_split αs).1, interp_ssubst (ssubst_split αs).2).
-  Proof.
-    induction S1 as [|u S1]; simpl.
-    - simp ssubst_split. simpl.
-      simp interp_ssubst. done.
-    - dependent elimination αs as [cons_ssubst αv αs].
-      simp ssubst_split. simpl.
-      simp interp_ssubst. repeat f_equiv; eauto; simpl.
-       + rewrite IHS1//.
-       + rewrite IHS1//.
+  Program Definition extend_scope {S : Set}  : interp_scope S -n> IT -n> interp_scope (inc S)
+    := λne γ μ x, let x' : inc S := x in
+                  match x' with
+                  | VZ => μ
+                  | VS x'' => γ x''
+                  end.
+  Next Obligation.
+    intros ???? [| x] [| y]; term_simpl; [solve_proper | inversion 1 | inversion 1 | inversion 1; by subst].
+  Qed.
+  Next Obligation.
+    intros ??????.
+    intros [| a]; term_simpl; solve_proper.
+  Qed.
+  Next Obligation.
+    intros ??????.
+    intros [| a]; term_simpl; solve_proper.
   Qed.
 
-End interp.
+  Program Definition ren_scope {S S'} (δ : S [→] S') (env : interp_scope S')
+    : interp_scope S := λne x, env (δ x).
+
+End ctx_interp.
 
 (* Common definitions and lemmas for Kripke logical relations *)
 Section kripke_logrel.
   Variable s : stuckness.
 
-  Context {sz : nat}.
-  Variable rs : gReifiers sz.
+  Context {sz : nat} {a : is_ctx_dep}.
+  Variable rs : gReifiers a sz.
   Context {R} `{!Cofe R}.
 
   Notation F := (gReifiers_ops rs).
@@ -134,56 +82,26 @@ Section kripke_logrel.
   Notation iProp := (iProp Σ).
 
   Context {A:ofe}. (* The type & predicate for the explicit Kripke worlds *)
-  Variable (P : A → iProp).
-  Context `{!NonExpansive P}.
+  Variable (P : A -n> iProp).
 
   Implicit Types α β : IT.
   Implicit Types αv βv : ITV.
   Implicit Types Φ Ψ : ITV -n> iProp.
 
   Program Definition expr_pred (α : IT) (Φ : ITV -n> iProp) : iProp :=
-    (∀ x : A, P x -∗ WP@{rs} α @ s {{ v, ∃ y : A, Φ v ∗ P y }}).
-  #[export] Instance expr_pred_ne : NonExpansive2 expr_pred.
-  Proof. solve_proper. Qed.
-  #[export] Instance expr_pred_proper : Proper ((≡) ==> (≡) ==> (≡)) expr_pred .
-  Proof. solve_proper. Qed.
-
-  Definition ssubst_valid {ty} (interp_ty : ty → ITV -n> iProp) {S} (Γ : tyctx ty S) (ss : ssubst S) : iProp :=
-    ([∗ list] τx ∈ zip (list_of_tyctx Γ) (list_of_ssubst (E:=F) ss),
-      interp_ty (τx.1) (τx.2))%I.
-
-  Lemma ssubst_valid_nil {ty} (interp_ty : ty → ITV -n> iProp) :
-    ⊢ ssubst_valid interp_ty empC emp_ssubst.
-  Proof.
-    unfold ssubst_valid.
-    by simp list_of_tyctx list_of_ssubst.
+    (∀ x : A, P x -∗ wp rs α s ⊤ (λne v, ∃ y : A, Φ v ∗ P y)).
+  Next Obligation.
+    solve_proper.
   Qed.
 
-  Lemma ssubst_valid_cons {ty} (interp_ty : ty → ITV -n> iProp) {S}
-    (Γ : tyctx ty S) (ss : ssubst S) τ αv :
-    ssubst_valid interp_ty (consC τ Γ) (cons_ssubst αv ss)
-    ⊣⊢ interp_ty τ αv ∗ ssubst_valid interp_ty Γ ss.
+  Global Instance expr_pred_ne {n} : Proper (dist n ==> dist n ==> dist n) expr_pred.
   Proof.
-    unfold ssubst_valid.
-    by simp list_of_tyctx list_of_ssubst.
+    solve_proper.
   Qed.
 
-  Lemma ssubst_valid_app {ty} (interp_ty : ty → ITV -n> iProp)
-    {S1 S2} (Ω1 : tyctx ty S1) (Ω2 : tyctx ty S2) αs :
-    ssubst_valid interp_ty (tyctx_app Ω1 Ω2) αs ⊢
-     ssubst_valid interp_ty Ω1 (ssubst_split αs).1
-   ∗ ssubst_valid interp_ty Ω2 (ssubst_split αs).2.
+  Global Instance expr_pred_proper : Proper (equiv ==> equiv ==> equiv) expr_pred.
   Proof.
-    iInduction Ω1 as [|τ Ω1] "IH" forall (Ω2); simp tyctx_app ssubst_split.
-    - simpl. iIntros "$". iApply ssubst_valid_nil.
-    - iIntros "H".
-      rewrite {4 5}/ssubst_valid.
-      simpl in αs.
-      dependent elimination αs as [cons_ssubst αv αs].
-      simp ssubst_split. simpl.
-      simp list_of_ssubst list_of_tyctx.
-      simpl. iDestruct "H" as "[$ H]".
-      by iApply "IH".
+    solve_proper.
   Qed.
 
   Lemma expr_pred_ret α αv Φ `{!IntoVal α αv} :
@@ -191,23 +109,9 @@ Section kripke_logrel.
   Proof.
     iIntros "H".
     iIntros (x) "Hx". iApply wp_val.
-    eauto with iFrame.
-  Qed.
-
-  Lemma expr_pred_bind f `{!IT_hom f} α Φ Ψ `{!NonExpansive Φ} :
-    expr_pred α Ψ ⊢
-    (∀ αv, Ψ αv -∗ expr_pred (f (IT_of_V αv)) Φ) -∗
-    expr_pred (f α) Φ.
-  Proof.
-    iIntros "H1 H2".
-    iIntros (x) "Hx".
-    iApply wp_bind.
-    { solve_proper. }
-    iSpecialize ("H1" with "Hx").
-    iApply (wp_wand with "H1").
-    iIntros (βv). iDestruct 1 as (y) "[Hb Hy]".
-    iModIntro.
-    iApply ("H2" with "Hb Hy").
+    simpl.
+    iExists x.
+    by iFrame.
   Qed.
 
   Lemma expr_pred_frame α Φ :
@@ -216,7 +120,204 @@ Section kripke_logrel.
     iIntros "H".
     iIntros (x) "Hx".
     iApply (wp_wand with "H").
-    eauto with iFrame.
+    simpl.
+    iIntros (v) "Hv".
+    iExists x.
+    by iFrame.
   Qed.
+
 End kripke_logrel.
-Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_}.
+
+Section kripke_logrel_ctx_indep.
+  Variable s : stuckness.
+
+  Context {sz : nat}.
+  Variable rs : gReifiers NotCtxDep sz.
+  Context {R} `{!Cofe R}.
+
+  Notation F := (gReifiers_ops rs).
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
+  Context `{!invGS Σ, !stateG rs R Σ}.
+  Notation iProp := (iProp Σ).
+
+  Context {A : ofe}.
+  Variable (P : A -n> iProp).
+
+  Implicit Types α β : IT.
+  Implicit Types αv βv : ITV.
+  Implicit Types Φ Ψ : ITV -n> iProp.
+
+  Local Notation expr_pred := (expr_pred s rs P).
+
+  Lemma expr_pred_bind f `{!IT_hom f} α Φ Ψ `{!NonExpansive Φ}
+    : expr_pred α Ψ ⊢
+      (∀ αv, Ψ αv -∗ expr_pred (f (IT_of_V αv)) Φ)
+      -∗ expr_pred (f α) Φ.
+  Proof.
+    iIntros "H1 H2".
+    iIntros (x) "Hx".
+    iApply wp_bind.
+    iSpecialize ("H1" with "Hx").
+    iApply (wp_wand with "H1").
+    iIntros (βv). iDestruct 1 as (y) "[Hb Hy]".
+    iModIntro.
+    iApply ("H2" with "Hb Hy").
+  Qed.
+End kripke_logrel_ctx_indep.
+
+Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_ _}.
+
+Section tm_interp.
+  Context {sz : nat} {a : is_ctx_dep}.
+  Variable rs : gReifiers a sz.
+  Context {R} `{!Cofe R}.
+
+  Notation F := (gReifiers_ops rs).
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
+  Context `{!invGS Σ, !stateG rs R Σ}.
+  Notation iProp := (iProp Σ).
+
+  Context {A : ofe}.
+  Variable (P : A -n> iProp).
+
+  Variable (ty : Set).
+  Variable (interp_ty : ty → (ITV -n> iProp)).
+  Variable (kripke : IT → (ITV -n> iProp) → iProp).
+
+  Definition ssubst_valid1 {S : Set}
+    (Γ : S -> ty)
+    (ss : interp_scope S) : iProp :=
+    (∀ x, □ kripke (ss x) (interp_ty (Γ x)))%I.
+
+  Global Instance ssubst_valid_pers `{∀ τ β, Persistent (interp_ty τ β)}
+    {S : Set} (Γ : S → ty) ss : Persistent (ssubst_valid1 Γ ss).
+  Proof. apply _. Qed.
+
+End tm_interp.
+
+Section tm_interp_fin.
+  Context {sz : nat} {a : is_ctx_dep}.
+  Variable rs : gReifiers a sz.
+  Context {R} `{!Cofe R}.
+
+  Notation F := (gReifiers_ops rs).
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
+  Context `{!invGS Σ, !stateG rs R Σ}.
+  Notation iProp := (iProp Σ).
+
+  Context {A : ofe}.
+  Variable (P : A -n> iProp).
+
+  Variable (ty : Set).
+  Variable (interp_ty : ty → (ITV -n> iProp)).
+  Variable (kripke : IT → (ITV -n> iProp) → iProp).
+
+  Program Definition ssubst_valid_fin1 {S : Set} `{!EqDecision S} `{!Finite S}
+    (Ω : S → ty) (ss : interp_scope S) : iProp
+    := ([∗ set] x ∈ (fin_to_set S),
+         (kripke (ss x) (interp_ty (Ω x)))%I).
+
+  Context (Q : iProp).
+
+  Definition valid_fin1 {S : Set} `{!EqDecision S} `{!Finite S} (Ω : S → ty)
+    (α : interp_scope S -n> IT) (τ : ty) : iProp :=
+    ∀ ss, Q
+          -∗ (ssubst_valid_fin1 Ω ss)
+          -∗ kripke (α ss) (interp_ty τ).
+
+  Lemma ssubst_valid_fin_empty1 (αs : interp_scope ∅) :
+    ⊢ ssubst_valid_fin1 □ αs.
+  Proof.
+    iStartProof.
+    unfold ssubst_valid_fin1.
+    rewrite fin_to_set_empty.
+    by iApply big_sepS_empty.
+  Qed.
+
+  Lemma ssubst_valid_fin_app1
+    {S1 S2 : Set} `{!EqDecision S1} `{!Finite S1}
+    `{!EqDecision S2} `{!Finite S2}
+    `{!EqDecision (S1 + S2)} `{!Finite (S1 + S2)}
+    (Ω1 : S1 → ty) (Ω2 : S2 → ty)
+    (αs : interp_scope (sum S1 S2)) :
+    (ssubst_valid_fin1 (sum_map' Ω1 Ω2) αs) ⊢
+    (ssubst_valid_fin1 Ω1 (interp_scope_split αs).1)
+    ∗ (ssubst_valid_fin1 Ω2 (interp_scope_split αs).2).
+  Proof.
+    iIntros "H".
+    rewrite /ssubst_valid_fin1 fin_to_set_sum big_sepS_union; first last.
+    {
+      apply elem_of_disjoint.
+      intros [x | x].
+      - rewrite !elem_of_list_to_set.
+        intros _ H2.
+        apply elem_of_list_fmap_2 in H2.
+        destruct H2 as [y [H2 H2']]; inversion H2.
+      - rewrite !elem_of_list_to_set.
+        intros H1 _.
+        apply elem_of_list_fmap_2 in H1.
+        destruct H1 as [y [H1 H1']]; inversion H1.
+    }
+    iDestruct "H" as "(H1 & H2)".
+    iSplitL "H1".
+    - rewrite big_opS_list_to_set; first last.
+      {
+        apply NoDup_fmap.
+        - intros ??; by inversion 1.
+        - apply NoDup_elements.
+      }
+      rewrite big_sepL_fmap /=.
+      rewrite big_sepS_elements.
+      iFrame "H1".
+    - rewrite big_opS_list_to_set; first last.
+      {
+        apply NoDup_fmap.
+        - intros ??; by inversion 1.
+        - apply NoDup_elements.
+      }
+      rewrite big_sepL_fmap /=.
+      rewrite big_sepS_elements.
+      iFrame "H2".
+  Qed.
+
+  Lemma ssubst_valid_fin_cons1 {S : Set} `{!EqDecision S} `{!Finite S}
+    (Ω : S → ty) (αs : interp_scope S) τ t :
+    ssubst_valid_fin1 Ω αs ∗ kripke t (interp_ty τ) ⊢ ssubst_valid_fin1 (Ω ▹ τ) (extend_scope αs t).
+  Proof.
+    iIntros "(H & G)".
+    rewrite /ssubst_valid_fin1.
+    rewrite fin_to_set_inc /=.
+    rewrite big_sepS_union; first last.
+    {
+      apply elem_of_disjoint.
+      intros [| x].
+      - rewrite !elem_of_list_to_set.
+        intros _ H2.
+        apply elem_of_list_fmap_2 in H2.
+        destruct H2 as [y [H2 H2']]; inversion H2.
+      - rewrite !elem_of_list_to_set.
+        intros H1 _.
+        apply elem_of_singleton_1 in H1.
+        inversion H1.
+    }
+    iSplitL "G".
+    - rewrite big_opS_singleton.
+      iFrame "G".
+    - erewrite big_opS_set_map.
+      + iFrame "H".
+      + intros ?? H; by inversion H.
+  Qed.
+
+  Lemma ssubst_valid_fin_lookup1 {S : Set} `{!EqDecision S} `{!Finite S}
+    (Ω : S → ty) (αs : interp_scope S) x :
+    ssubst_valid_fin1 Ω αs ⊢ kripke (αs x) (interp_ty (Ω x)).
+  Proof.
+    iIntros "H".
+    iDestruct (big_sepS_elem_of_acc _ _ x with "H") as "($ & _)";
+      first apply elem_of_fin_to_set.
+  Qed.
+
+End tm_interp_fin.

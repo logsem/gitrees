@@ -1,15 +1,15 @@
 # Guarded Interaction Trees
 
 This is the Coq formalization of guarded interaction trees, associated examples and case studies.
+Read the [GITrees POPL paper](https://iris-project.org/pdfs/2024-popl-gitrees.pdf) describing our work.
 
 ## Installation instructions
 
-To install the formalization you will need the Iris, std++, and Equations packages.
+To install the formalization you will need Iris and std++ libraries.
 The dependencies can be easily installed using [Opam](https://opam.ocaml.org/) with the following commands:
 
 ```
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
 opam update
 opam install . --deps-only
 ```
@@ -25,13 +25,23 @@ All the code lives in the `theories` folder. Below is the quick guide
 to the code structure.
 
 - `gitree/` -- contains the core definitions related to guarded interaction trees
-- `input_lang/` -- formalization of the language with io, the soundness and adequacy
-- `affine_lang/` -- formalization of the affine language, type safety of the language interoperability
-- `examples/` -- some other smaller examples 
-- `lang_generic.v` -- generic facts about languages with binders and their interpretations, shared by `input_lang` and `affine_lang`
+- `lib/` -- derived combinators for gitrees
+- `effects/` -- concrete effects, their semantics, and program logic rules
+- `examples/input_lang/` -- formalization of the language with io, the soundness and adequacy
+- `examples/affine_lang/` -- formalization of the affine language, type safety of the language interoperability
+- `examples/input_lang_callcc/` -- formalization of the language with io, throw and call/cc, the soundness and adequacy
+- `examples/delim_lang/` -- formalization shift/reset effects, of a language with delimited continuations and its soundness
 - `prelude.v` -- some stuff that is missing from Iris
+- `lang_generic.v` -- generic facts about languages with binders and their interpretations, shared by `input_lang` and `affine_lang`
+
+For the representation of binders we use a library implemented by
+Filip Sieczkowski and Piotr Polesiuk, located in the `vendor/Binding/`
+folder.
 
 ### References from the paper to the code
+
+The version of the formalization that corresponds to the paper can be found under the [tag `popl24`](https://github.com/logsem/gitrees/releases/tag/popl24).
+Below we describe the correspondence per-section.
 
 - **Section 3**
   + Definition of guarded interaction trees, constructors, the
@@ -42,7 +52,7 @@ to the code structure.
   + The factorial example is in `examples/factorial.v`, and
     the pairs example is in `examples/pairs.v`
 - **Section 4**
-  + The definition of reifiers and the reify function are in `gitree/reify.v`
+  + The definition of context-dependent versions of reifiers and the reify function are in `gitree/reify.v`
   + The reduction relation is in `gitree/reductions.v`
   + The specific reifiers for IO and state are in `examples/store.v`
     and `input_lang/interp.v`
@@ -69,12 +79,6 @@ to the code structure.
   + The logical relation for the combined language is in `affine_lang/logrel2.v`
 
 ## Notes
-
-### Representations of binders
-For the representation of languages with binders, we follow the
-approach of (Benton, Hur, Kennedy, McBride, JAR 2012) with well-scoped
-terms and substitutions/renamings. 
-
 
 ### Disjunction property
 Some results in the formalization make use of the disjunction property

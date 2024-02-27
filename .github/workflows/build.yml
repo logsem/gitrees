@@ -4,12 +4,22 @@ name: Docker CI
 on: [push, pull_request]
 
 jobs:
+  build_nix:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v24
+      with:
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+    - run: nix build .#coq-artifact
+
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         image:
           - 'coqorg/coq:8.17'
+          - 'coqorg/coq:8.18'
       max-parallel: 4
       fail-fast: false
 
@@ -21,7 +31,6 @@ jobs:
           install: |
             startGroup "Install dependencies"
               sudo apt-get update -y -q
-              opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
               opam pin add -n -y -k path $PACKAGE $WORKDIR
               opam update -y
               opam install --confirm-level=unsafe-yes -j 2 $PACKAGE --deps-only

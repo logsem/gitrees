@@ -4,16 +4,13 @@ From gitrees Require Import prelude.
 From gitrees.gitree Require Import core reify.
 
 Section sstep.
-  Context {A} `{!Cofe A}.
-  Context (r : sReifier).
+  Context {A} `{!Cofe A} {a : is_ctx_dep}.
+  Context (r : sReifier a).
   Notation F := (sReifier_ops r).
   Notation stateF := (sReifier_state r).
   Notation IT := (IT F A).
   Notation ITV := (ITV F A).
   Notation stateO := (stateF ♯ IT).
-  Implicit Type op : opid F.
-  Implicit Type α β : IT.
-  Implicit Type σ : stateO.
 
   (** ** Reductions at the Prop level *)
   Inductive sstep : IT → stateO → IT → stateO → Prop :=
@@ -25,7 +22,8 @@ Section sstep.
     α ≡ Vis op i k →
     reify r α σ1 ≡ (σ2, Tick β) →
     sstep α σ1 β σ2.
-  #[export] Instance sstep_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (iff)) sstep.
+  #[export] Instance sstep_proper
+    : Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (iff)) sstep.
   Proof.
     intros α1 α2 Ha σ1 σ2 Hs β1 β2 Hb σ'1 σ'2 Hs'.
     simplify_eq/=. split.
@@ -47,13 +45,14 @@ Section sstep.
            rewrite -H0. repeat f_equiv; eauto.
   Qed.
 
-  Inductive ssteps  : IT → stateO → IT → stateO → nat → Prop :=
+  Inductive ssteps : IT → stateO → IT → stateO → nat → Prop :=
   | ssteps_zero α β σ σ' : α ≡ β → σ ≡ σ' → ssteps α σ β σ' 0
   | ssteps_many α1 σ1 α2 σ2 α3 σ3 n2 :
     sstep α1 σ1 α2 σ2 →
     ssteps α2 σ2 α3 σ3 n2 →
     ssteps α1 σ1 α3 σ3 (1+n2).
-  #[export] Instance ssteps_proper : Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (=) ==> (iff)) ssteps.
+  #[export] Instance ssteps_proper
+    : Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (=) ==> (iff)) ssteps.
   Proof.
     intros α α' Ha σ σ' Hs β β' Hb σ2 σ2' Hs2 n1 n2 Hnm.
     fold_leibniz. simplify_eq/=.
@@ -87,8 +86,8 @@ Section sstep.
 End sstep.
 
 Section istep.
-  Context {A} `{!Cofe A}.
-  Context (r : sReifier).
+  Context {A} `{!Cofe A} {a : is_ctx_dep}.
+  Context (r : sReifier a).
   Notation F := (sReifier_ops r).
   Notation stateF := (sReifier_state r).
   Notation IT := (IT F A).
@@ -105,11 +104,11 @@ Section istep.
   Solve All Obligations with solve_proper.
 
   Program Definition isteps_pre
-          (self : IT -n> stateO -n> IT -n> stateO -n> natO -n> iProp):
+    (self : IT -n> stateO -n> IT -n> stateO -n> natO -n> iProp):
     IT -n> stateO -n> IT -n> stateO -n> natO -n> iProp :=
     λne α σ β σ' n, ((n ≡ 0 ∧ α ≡ β ∧ σ ≡ σ')
-                 ∨ (∃ n' α0 σ0, n ≡ (1+n') ∧ istep α σ α0 σ0 ∧
-                     ▷ self α0 σ0 β σ' n'))%I.
+                     ∨ (∃ n' α0 σ0, n ≡ (1+n') ∧ istep α σ α0 σ0 ∧
+                                      ▷ self α0 σ0 β σ' n'))%I.
   Solve All Obligations with solve_proper.
 
   Global Instance isteps_pre_ne : NonExpansive isteps_pre.
@@ -122,8 +121,8 @@ Section istep.
   Lemma isteps_unfold α β σ σ' n :
     isteps α σ β σ' n ≡
       ((n ≡ 0 ∧ α ≡ β ∧ σ ≡ σ')
-                 ∨ (∃ n' α0 σ0, n ≡ (1+n') ∧ istep α σ α0 σ0 ∧
-                     ▷ isteps α0 σ0 β σ' n'))%I.
+       ∨ (∃ n' α0 σ0, n ≡ (1+n') ∧ istep α σ α0 σ0 ∧
+                        ▷ isteps α0 σ0 β σ' n'))%I.
   Proof. unfold isteps. apply (fixpoint_unfold isteps_pre _ _ _ _ _) . Qed.
 
 
@@ -179,7 +178,7 @@ Section istep.
   Proof.
     intros Hprf.
     destruct (IT_dont_confuse α)
-        as [[e Ha] | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
+      as [[e Ha] | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ') "[Ha Hs]". rewrite Ha.
@@ -200,13 +199,14 @@ Section istep.
       iApply (IT_tick_vis_ne). by iApply (internal_eq_sym with "Ha").
   Qed.
 
+  (* ctx-free steps *)
   Local Lemma effect_safe_externalize (α : IT) σ :
     (⊢ ∃ β σ', (∃ op i k, α ≡ Vis op i k ∧ reify r α σ ≡ (σ', Tick β)) : iProp) →
     ∃ β σ', sstep r α σ β σ'.
   Proof.
     intros Hprf.
     destruct (IT_dont_confuse α)
-        as [[e Ha] | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
+      as [[e Ha] | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
     + exfalso. eapply uPred.pure_soundness.
       iPoseProof (Hprf) as "H".
       iDestruct "H" as (β σ' op i k) "[Ha _]". rewrite Ha.
@@ -227,7 +227,8 @@ Section istep.
     + destruct (reify r (Vis op i k) σ) as [σ1 α1] eqn:Hr.
       assert ((∃ α' : IT, α1 ≡ Tick α') ∨ (α1 ≡ Err RuntimeErr)) as [[α' Ha']| Ha'].
       { eapply (reify_is_always_a_tick r op i k σ).
-        by rewrite Hr. }
+        by rewrite Hr.
+      }
       * exists α',σ1. eapply sstep_reify; eauto.
         rewrite -Ha' -Hr; repeat f_equiv; eauto.
       * exfalso. eapply uPred.pure_soundness.
@@ -244,7 +245,7 @@ Section istep.
 
   Local Lemma istep_safe_disj α σ :
     (∃ β σ', istep α σ β σ')
-      ⊢ (∃ β σ', α ≡ Tick β ∧ σ ≡ σ')
+    ⊢ (∃ β σ', α ≡ Tick β ∧ σ ≡ σ')
       ∨ (∃ β σ', (∃ op i k, α ≡ Vis op i k ∧ reify r α σ ≡ (σ', Tick β))).
   Proof.
     rewrite -bi.or_exist.
@@ -319,7 +320,8 @@ Section istep.
         ++  iApply (IT_fun_vis_ne with "Ht").
   Qed.
   Lemma isteps_tick α βv σ σ' k :
-    isteps (Tick α) σ (IT_of_V βv) σ' k ⊢ ∃ k' : nat, ⌜k = (1 + k')%nat⌝ ∧ ▷ isteps α σ (IT_of_V βv) σ' k'.
+    isteps (Tick α) σ (IT_of_V βv) σ' k
+    ⊢ ∃ k' : nat, ⌜k = (1 + k')%nat⌝ ∧ ▷ isteps α σ (IT_of_V βv) σ' k'.
   Proof.
     rewrite isteps_unfold.
     iDestruct 1 as "[[Hk [Ht Hs]] | H]".
@@ -335,8 +337,22 @@ Section istep.
       iRewrite -"Ha". iRewrite "Hs". done.
   Qed.
 
+End istep.
+
+Section istep_ctx_indep.
+  Context {A} `{!Cofe A}.
+  Context (r : sReifier NotCtxDep).
+  Notation F := (sReifier_ops r).
+  Notation stateF := (sReifier_state r).
+  Notation IT := (IT F A).
+  Notation ITV := (ITV F A).
+  Notation stateO := (stateF ♯ IT).
+
+  Context `{!invGS_gen hlc Σ}.
+  Notation iProp := (iProp Σ).
+
   Lemma istep_hom (f : IT → IT) `{!IT_hom f} α σ β σ' :
-    istep α σ β σ' ⊢ istep (f α) σ (f β) σ' : iProp.
+    istep r α σ β σ' ⊢ istep r (f α) σ (f β) σ' : iProp.
   Proof.
     iDestruct 1 as "[[Ha Hs]|H]".
     - iRewrite "Ha". iLeft. iSplit; eauto. iPureIntro. apply hom_tick.
@@ -350,14 +366,15 @@ Section istep.
       iApply (reify_vis_cont with "Hr").
   Qed.
 
-  Lemma istep_hom_inv α σ β σ' `{!IT_hom f} :
-    istep (f α) σ β σ' ⊢@{iProp} ⌜is_Some (IT_to_V α)⌝
-    ∨ (IT_to_V α ≡ None ∧ ∃ α', istep α σ α' σ' ∧ ▷ (β ≡ f α')).
+  Lemma istep_hom_inv α σ β σ' (f : IT → IT) `{!IT_hom f} :
+    istep r (f α) σ β σ' ⊢@{iProp} ⌜is_Some (IT_to_V α)⌝
+                          ∨ (IT_to_V α ≡ None ∧ ∃ α', istep r α σ α' σ'
+                                                      ∧ ▷ (β ≡ f α')).
   Proof.
     iIntros "H".
     destruct (IT_dont_confuse α)
       as [[e Ha] | [[n Ha] | [ [g Ha] | [[la Ha]|[op [i [k Ha]]]] ]]].
-    - iExFalso. iApply (istep_err σ e β σ').
+    - iExFalso. iApply (istep_err r σ e β σ').
       iAssert (f α ≡ Err e)%I as "Hf".
       { iPureIntro. by rewrite Ha hom_err. }
       iRewrite "Hf" in "H". done.
@@ -394,7 +411,4 @@ Section istep.
         iExists op,i,k. iFrame "Hr".
         iPureIntro. apply Ha.
   Qed.
-
-
-End istep.
-
+End istep_ctx_indep.

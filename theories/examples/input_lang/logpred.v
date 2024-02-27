@@ -1,11 +1,12 @@
 (** Unary (Kripke) logical relation for the IO lang *)
-From Equations Require Import Equations.
-From gitrees Require Import gitree program_logic.
-From gitrees.input_lang Require Import lang interp.
+From gitrees Require Import gitree program_logic lang_generic.
+From gitrees.examples.input_lang Require Import lang interp.
+Require Import Binding.Lib Binding.Set Binding.Env.
+Require Import gitrees.gitree.greifiers.
 
 Section io_lang.
   Context {sz : nat}.
-  Variable rs : gReifiers sz.
+  Variable rs : gReifiers NotCtxDep sz.
   Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
@@ -15,21 +16,24 @@ Section io_lang.
   Context `{!invGS Σ, !stateG rs R Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
 
-  Variable s : stuckness.
-  Context {A:ofe}.
-  Variable (P : A → iProp).
-  Context `{!NonExpansive P}.
+  Canonical Structure exprO S := leibnizO (expr S).
+  Canonical Structure valO S := leibnizO (val S).
 
-  Local Notation tyctx := (tyctx ty).
+  Variable s : stuckness.
+  Context {A : ofe}.
+  Variable (P : A -n> iProp).
+
   Local Notation expr_pred := (expr_pred s rs P).
 
   Program Definition interp_tnat : ITV -n> iProp := λne αv,
     (∃ n : nat, αv ≡ RetV n)%I.
   Solve All Obligations with solve_proper.
+
   Program Definition interp_tarr (Φ1 Φ2 : ITV -n> iProp) := λne αv,
-    (□ ∀ σ βv, has_substate σ -∗
-               Φ1 βv -∗
-               expr_pred (IT_of_V αv ⊙ (IT_of_V βv)) (λne v, ∃ σ', Φ2 v ∗ has_substate σ'))%I.
+      (□ ∀ σ βv, has_substate σ
+                 -∗ Φ1 βv
+                 -∗ expr_pred (IT_of_V αv ⊙ (IT_of_V βv))
+                      (λne v, ∃ σ', Φ2 v ∗ has_substate σ'))%I.
   Solve All Obligations with solve_proper.
 
   Fixpoint interp_ty (τ : ty) : ITV -n> iProp :=
@@ -38,45 +42,43 @@ Section io_lang.
     | Tarr τ1 τ2 => interp_tarr (interp_ty τ1) (interp_ty τ2)
     end.
 
-  Definition ssubst_valid {S} (Γ : tyctx S) ss := ssubst_valid rs interp_ty Γ ss.
+  Notation ssubst_valid := (ssubst_valid1 rs ty interp_ty expr_pred).
 
   #[global] Instance io_lang_interp_ty_pers  τ βv : Persistent (io_lang.interp_ty τ βv).
   Proof. induction τ; apply _. Qed.
-  #[global] Instance ssubst_valid_pers {S} (Γ : tyctx S) ss : Persistent (ssubst_valid  Γ  ss).
-  Proof. apply _. Qed.
 
-  Program Definition valid1 {S}  (Γ : tyctx S) (α : interp_scope S -n> IT) (τ : ty) : iProp :=
+  Program Definition valid1 {S : Set} (Γ : S → ty) (α : interp_scope S -n> IT) (τ : ty) : iProp :=
     (∀ σ ss, has_substate σ -∗ ssubst_valid Γ ss -∗
-          expr_pred (α (interp_ssubst ss)) (λne v, ∃ σ', interp_ty τ v ∗ has_substate σ'))%I.
+          expr_pred (α ss) (λne v, ∃ σ', interp_ty τ v ∗ has_substate σ'))%I.
   Solve Obligations with solve_proper.
 
-  Lemma compat_nat {S} n (Ω : tyctx S) :
+  Lemma compat_nat {S : Set} n (Ω : S → ty) :
     ⊢ valid1 Ω (interp_nat rs n) Tnat.
   Proof.
     iIntros (σ αs) "Hs Has".
     simpl. iApply expr_pred_ret. simpl.
     eauto with iFrame.
   Qed.
-  Lemma compat_var {S} Ω τ (v : var S) :
-    typed_var Ω v τ →
-    ⊢ valid1 Ω (interp_var v) τ.
+
+  Lemma compat_var {S : Set} (Ω : S → ty) (v : S) :
+    ⊢ valid1 Ω (interp_var v) (Ω v).
   Proof.
-    intros Hv.
     iIntros (σ ss) "Hs Has". simpl.
-    unfold ssubst_valid.
-    iInduction Hv as [|? ? ? Ω v] "IH" forall (ss); simpl.
-    - dependent elimination ss as [cons_ssubst αv ss].
-      rewrite ssubst_valid_cons.
-      simp interp_var. simpl.
-      iDestruct "Has" as "[H _]".
-      iApply expr_pred_ret; simpl; eauto with iFrame.
-    - dependent elimination ss as [cons_ssubst αv ss].
-      rewrite ssubst_valid_cons.
-      simp interp_var. simpl.
-      iDestruct "Has" as "[_ H]".
-      by iApply ("IH" with "Hs H").
+    iIntros (x) "HP".
+    simpl.
+    iSpecialize ("Has" $! v x with "HP").
+    iApply (wp_wand with "Has").
+    iIntros (v') "HH".
+    simpl.
+    iDestruct "HH" as "(%y & HH & HP')".
+    iModIntro.
+    iExists y.
+    iFrame "HP'".
+    iExists σ.
+    iFrame.
   Qed.
-  Lemma compat_if {S} (Γ : tyctx S) τ α β1 β2 :
+
+  Lemma compat_if {S : Set} (Γ : S → ty) τ α β1 β2 :
     ⊢ valid1 Γ α Tnat -∗
       valid1 Γ β1 τ -∗
       valid1 Γ β2 τ -∗
@@ -85,7 +87,8 @@ Section io_lang.
     iIntros "H0 H1 H2".
     iIntros (σ ss) "Hs #Has".
     iSpecialize ("H0" with "Hs Has").
-    simpl. iApply (expr_pred_bind (IFSCtx _ _) with "H0").
+    simpl.
+    iApply (expr_pred_bind (IFSCtx _ _) with "H0").
     iIntros (αv) "Ha/=".
     iDestruct "Ha" as (σ') "[Ha Hs]".
     iDestruct "Ha" as (n) "Hn".
@@ -97,7 +100,8 @@ Section io_lang.
     - rewrite IF_True; last lia.
       iApply ("H1" with "Hs Has Hx").
   Qed.
-  Lemma compat_input {S} (Γ : tyctx S) :
+
+  Lemma compat_input {S : Set} (Γ : S → ty) :
     ⊢ valid1 Γ (interp_input rs) Tnat.
   Proof.
     iIntros (σ ss) "Hs #Has".
@@ -108,7 +112,8 @@ Section io_lang.
     iNext. iIntros "_ Hs".
     iApply wp_val. simpl. eauto with iFrame.
   Qed.
-  Lemma compat_output {S} (Γ : tyctx S) α :
+
+  Lemma compat_output {S : Set} (Γ : S → ty) α :
     ⊢ valid1 Γ α Tnat → valid1 Γ (interp_output rs α) Tnat.
   Proof.
     iIntros "H".
@@ -127,7 +132,8 @@ Section io_lang.
     iNext. iIntros "_ Hs /=".
     eauto with iFrame.
   Qed.
-  Lemma compat_app {S} (Γ : tyctx S) α β τ1 τ2 :
+
+  Lemma compat_app {S : Set} (Γ : S → ty) α β τ1 τ2 :
     ⊢ valid1 Γ α (Tarr τ1 τ2) -∗
       valid1 Γ β τ1 -∗
       valid1 Γ (interp_app rs α β) τ2.
@@ -147,15 +153,14 @@ Section io_lang.
     iApply ("Ha" with "Hs Hb").
   Qed.
 
-  Lemma compat_rec {S} (Γ : tyctx S) τ1 τ2 α :
-    ⊢ □ valid1 (consC (Tarr τ1 τ2) (consC τ1 Γ)) α τ2 -∗
+  Lemma compat_rec {S : Set} (Γ : S → ty) τ1 τ2 α :
+    ⊢ □ valid1 (Γ ▹ (Tarr τ1 τ2) ▹ τ1) α τ2 -∗
       valid1 Γ (interp_rec rs α) (Tarr τ1 τ2).
   Proof.
     iIntros "#H". iIntros (σ ss) "Hs #Hss".
-    pose (env := (interp_ssubst ss)). fold env.
-    simp subst_expr.
-    pose (f := (ir_unf rs α env)).
-    iAssert (interp_rec rs α env ≡ IT_of_V $ FunV (Next f))%I as "Hf".
+    term_simpl.
+    pose (f := (ir_unf rs α ss)).
+    iAssert (interp_rec rs α ss ≡ IT_of_V $ FunV (Next f))%I as "Hf".
     { iPureIntro. apply interp_rec_unfold. }
     iRewrite "Hf". iApply expr_pred_ret. simpl.
     iExists _. iFrame. iModIntro.
@@ -165,20 +170,30 @@ Section io_lang.
     iIntros (x) "Hx".
     iApply wp_lam.
     iNext.
-    pose (ss' := cons_ssubst (FunV (Next f)) (cons_ssubst βv ss)).
+    pose (ss' := (extend_scope (extend_scope ss (interp_rec rs α ss)) (IT_of_V βv))).
     iSpecialize ("H" $! _ ss' with "Hs []").
-    { unfold ssubst_valid.
-      unfold ss'.
-      rewrite !ssubst_valid_cons.
-      by iFrame "IH Hw Hss". }
-    unfold f. simpl.
-    unfold ss'. simp interp_ssubst.
-    iAssert (IT_of_V (FunV (Next f)) ≡ interp_rec rs α env)%I as "Heq".
+    {
+      unfold ssubst_valid.
+      iIntros ([| [|]]); term_simpl.
+      - iModIntro; by iApply expr_pred_ret.
+      - iModIntro.
+        iRewrite "Hf".
+        iIntros (x') "Hx".
+        iApply wp_val.
+        iModIntro.
+        iExists x'.
+        iFrame "Hx".
+        iModIntro.
+        iApply "IH".
+      - iApply "Hss".
+    }
+    unfold f.
+    iAssert (IT_of_V (FunV (Next f)) ≡ interp_rec rs α ss)%I as "Heq".
     { rewrite interp_rec_unfold. done. }
     iRewrite -"Heq". by iApply "H".
   Qed.
 
-  Lemma compat_natop  {S} (Γ : tyctx S) op α β :
+  Lemma compat_natop {S : Set} (Γ : S → ty) op α β :
     ⊢ valid1 Γ α Tnat -∗
       valid1 Γ β Tnat -∗
       valid1 Γ (interp_natop _ op α β) Tnat.
@@ -203,15 +218,14 @@ Section io_lang.
     eauto with iFrame.
   Qed.
 
-  Lemma fundamental {S} (Γ : tyctx S) e τ :
+  Lemma fundamental {S : Set} (Γ : S → ty) e τ :
     typed Γ e τ → ⊢ valid1 Γ (interp_expr rs e) τ
-  with fundamental_val {S} (Γ : tyctx S) v τ :
+  with fundamental_val {S : Set} (Γ : S → ty) v τ :
     typed_val Γ v τ → ⊢ valid1 Γ (interp_val rs v) τ.
   Proof.
     - destruct 1.
       + by iApply fundamental_val.
-      + by iApply compat_var.
-      + iApply compat_rec; iApply fundamental; eauto.
+      + subst. by iApply compat_var.
       + iApply compat_app; iApply fundamental; eauto.
       + iApply compat_natop; iApply fundamental; eauto.
       + iApply compat_if;  iApply fundamental; eauto.
@@ -221,9 +235,10 @@ Section io_lang.
       + iApply compat_nat.
       + iApply compat_rec; iApply fundamental; eauto.
   Qed.
-  Lemma fundmanetal_closed (e : expr []) (τ : ty) :
-    typed empC e τ →
-    ⊢ valid1 empC (interp_expr rs e) τ.
+
+  Lemma fundmanetal_closed (e : expr ∅) (τ : ty) :
+    typed □ e τ →
+    ⊢ valid1 □ (interp_expr rs e) τ.
   Proof. apply fundamental. Qed.
 
 End io_lang.
@@ -231,14 +246,17 @@ End io_lang.
 Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _ _} τ.
 Arguments interp_tarr {_ _ _ _ _ _ _ _ _ _ _} Φ1 Φ2.
 
-Local Definition rs : gReifiers _ := gReifiers_cons reify_io gReifiers_nil.
+Local Definition rs : gReifiers NotCtxDep _ := gReifiers_cons reify_io gReifiers_nil.
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}`{!invGpreS Σ}`{!statePreG rs R Σ} τ (α : unitO -n> IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k :
+Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}
+  `{!invGpreS Σ} `{!statePreG rs R Σ} τ
+  (α : interp_scope ∅ -n> IT (gReifiers_ops rs) R)
+  (β : IT (gReifiers_ops rs) R) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ},
-      (£ cr ⊢ valid1 rs notStuck (λ _:unitO, True)%I empC α τ)%I) →
-  ssteps (gReifiers_sReifier rs) (α ()) st β st' k →
+      (£ cr ⊢ valid1 rs notStuck (λne _ : unitO, True)%I □ α τ)%I) →
+  ssteps (gReifiers_sReifier rs) (α ı_scope) st β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
@@ -254,7 +272,7 @@ Proof.
   { apply Hdisj. }
   { by rewrite Hb. }
   intros H1 H2.
-  exists (interp_ty (s:=notStuck) (P:=(λ _:unitO, True)) τ)%I. split.
+  exists (interp_ty (s:=notStuck) (P:=(λne _:unitO, True)) τ)%I. split.
   { apply _. }
   iIntros "[Hcr  Hst]".
   iPoseProof (Hlog with "Hcr") as "Hlog".
@@ -273,7 +291,10 @@ Proof.
     rewrite (eq_pi _ _ Heq eq_refl)//.
   }
   iSpecialize ("Hlog" $! σ with "Hs []").
-  { iApply ssubst_valid_nil. }
+  {
+    iIntros (x).
+    destruct x.
+  }
   iSpecialize ("Hlog" $! tt with "[//]").
   iApply (wp_wand with"Hlog").
   iIntros ( βv). simpl. iDestruct 1 as (_) "[H _]".
@@ -282,8 +303,8 @@ Proof.
 Qed.
 
 Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k :
-  typed empC e τ →
-  ssteps (gReifiers_sReifier rs) (interp_expr _ e ()) (σ,()) β st' k →
+  typed □ e τ →
+  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ, ()) β st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
