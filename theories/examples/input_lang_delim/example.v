@@ -32,21 +32,30 @@ Notation iProp := (iProp Σ).
 
 Ltac shift_hom :=
   match goal with
+  | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x)
+                               (ofe_mor_car _ _ (?k2 ?t) (IT_of_V ?e))) _ _ _) =>
+      assert ((ofe_mor_car _ _ (λne x, k1 x) (k2 t (IT_of_V e))) ≡ (λne x, k1 (k2 x (IT_of_V e))) t) as -> by done
   | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x) (?k2 ?t)) _ _ _) =>
       assert ((ofe_mor_car _ _ (λne x, k1 x) (k2 t)) ≡ (λne x, k1 (k2 x)) t) as -> by done
   | |- envs_entails _ (wp _ (?k ?t) _ _ _) =>
       assert (k t ≡ (λne x, k x) t) as -> by done
   end.
 
-Ltac shift_natop_l :=
+Ltac rem_hom k :=
   match goal with
-  | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x)
-                               (ofe_mor_car _ _
-                                  (ofe_mor_car _ _
-                                     (NATOP (do_natop lang.Add)) ?t) (IT_of_V ?e))) _ _ _) =>
-      assert ((ofe_mor_car _ _ (λne x, k1 x) (NATOP (do_natop lang.Add) t (IT_of_V e))) ≡
-                (λne x, k1 (NATOP (do_natop lang.Add) x (IT_of_V e))) t) as -> by done
+  | |- envs_entails _ (wp _ (ofe_mor_car _ _ ?k1 _) _ _ _) =>
+      remember k1 as k
   end.
+
+(* Ltac shift_natop_l := *)
+(*   match goal with *)
+(*   | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x) *)
+(*                                (ofe_mor_car _ _ *)
+(*                                   (ofe_mor_car _ _ *)
+(*                                      (NATOP (do_natop lang.Add)) ?t) (IT_of_V ?e))) _ _ _) => *)
+(*       assert ((ofe_mor_car _ _ (λne x, k1 x) (NATOP (do_natop lang.Add) t (IT_of_V e))) ≡ *)
+(*                 (λne x, k1 (NATOP (do_natop lang.Add) x (IT_of_V e))) t) as -> by done *)
+(*   end. *)
 
 Lemma wp_t (s : gitree.weakestpre.stuckness) :
   has_substate σ -∗
@@ -74,18 +83,15 @@ Proof.
   iIntros "!> _ Hσ". simpl.
   rewrite later_map_Next -Tick_eq.
   iApply wp_tick. iNext.
-  shift_hom.
   rewrite IT_of_V_Ret NATOP_Ret. simpl.
   rewrite -(IT_of_V_Ret 9).
   iApply (wp_pop_cons with "Hσ").
   iIntros "!> _ Hσ".
   simpl.
-
-  shift_hom. shift_natop_l.
+  do 2 shift_hom.
+  rem_hom k.                    (* so that it does't simpl *)
   rewrite -(IT_of_V_Ret 5) get_val_ITV'. simpl.
-  shift_hom. shift_natop_l.
-  rewrite get_fun_fun. simpl.
-  shift_hom. shift_natop_l.
+  rewrite get_fun_fun. simpl. subst k.
   iApply (wp_app_cont with "Hσ").
   iIntros "!> _ Hσ". simpl.
   rewrite later_map_Next -Tick_eq.
@@ -95,8 +101,7 @@ Proof.
   iApply (wp_pop_cons with "Hσ").
   iIntros "!> _ Hσ".
   simpl.
-  shift_hom.
-  shift_natop_l.
+  do 2 shift_hom.               (* otherwise can't do the next rewrite *)
   rewrite (IT_of_V_Ret 8).
   simpl. rewrite IT_of_V_Ret NATOP_Ret.
   simpl. rewrite -(IT_of_V_Ret 17).
