@@ -1,5 +1,5 @@
 From gitrees Require Import gitree lang_generic.
-From gitrees.examples.input_lang_delim Require Import lang interp.
+From gitrees.examples.delim_lang Require Import lang interp.
 From iris.proofmode Require Import base classes tactics environments.
 From iris.base_logic Require Import algebra.
 

@@ -232,47 +232,44 @@ Section weakestpre.
     iApply wp_val. iApply ("Ha" with "Hcl Hs").
   Qed.
 
-  Lemma wp_throw' (σ : stateO) (f : laterO (IT -n> IT)) (x : IT)
+  Lemma wp_throw' (σ : stateO) (f : IT -n> IT) (x : IT)
     (κ : IT -n> IT) `{!IT_hom κ} Φ s :
     has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} (later_car f) x @ s {{ Φ }}) -∗
-    WP@{rs} κ (THROW x f) @ s {{ Φ }}.
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} f x @ s {{ Φ }}) -∗
+    WP@{rs} κ (THROW x (Next f)) @ s {{ Φ }}.
   Proof.
     iIntros "Hs Ha". rewrite /THROW. simpl.
     rewrite hom_vis.
     iApply (wp_subreify_ctx_dep with "Hs"); simpl; done.
   Qed.
 
-  Lemma wp_throw (σ : stateO) (f : laterO (IT -n> IT)) (x : IT) Φ s :
+  Lemma wp_throw (σ : stateO) (f : IT -n> IT) (x : IT) Φ s :
     has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} later_car f x @ s {{ Φ }}) -∗
-    WP@{rs} (THROW x f) @ s {{ Φ }}.
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} f x @ s {{ Φ }}) -∗
+    WP@{rs} (THROW x (Next f)) @ s {{ Φ }}.
   Proof.
     iApply (wp_throw' _ _ _ idfun).
   Qed.
 
-  Lemma wp_callcc (σ : stateO) (f : (laterO IT -n> laterO IT) -n> laterO IT) (k : IT -n> IT) {Hk : IT_hom k} Φ s :
+  Lemma wp_callcc (σ : stateO) (f : (laterO IT -n> laterO IT) -n> laterO IT) (k : IT -n> IT) {Hk : IT_hom k} β Φ s :
+    f (laterO_map k) ≡ Next β →
     has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k (later_car (f (laterO_map k))) @ s {{ Φ }}) -∗
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k β @ s {{ Φ }}) -∗
     WP@{rs} (k (CALLCC f)) @ s {{ Φ }}.
   Proof.
-    iIntros "Hs Ha".
+    iIntros (Hp) "Hs Ha".
     unfold CALLCC. simpl.
     rewrite hom_vis.
-    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ ((later_map k ((f (laterO_map k))))) with "Hs").
+    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ (laterO_map k (Next β))  with "Hs").
     {
-      simpl.
-      repeat f_equiv.
-      - rewrite ofe_iso_21.
-        f_equiv.
-        intro; simpl.
-        f_equiv.
-        apply ofe_iso_21.
-      - reflexivity.
+      simpl. rewrite -Hp. repeat f_equiv; last done.
+      rewrite ccompose_id_l. rewrite ofe_iso_21.
+      repeat f_equiv. intro.
+      simpl. f_equiv.
+      apply ofe_iso_21.
     }
     {
-      rewrite later_map_Next.
-      reflexivity.
+      simpl. by rewrite later_map_Next.
     }
     iModIntro.
     iApply "Ha".
