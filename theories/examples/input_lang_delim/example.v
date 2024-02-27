@@ -29,6 +29,25 @@ Definition σ := snd ts.
 Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
 Notation iProp := (iProp Σ).
 
+
+Ltac shift_hom :=
+  match goal with
+  | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x) (?k2 ?t)) _ _ _) =>
+      assert ((ofe_mor_car _ _ (λne x, k1 x) (k2 t)) ≡ (λne x, k1 (k2 x)) t) as -> by done
+  | |- envs_entails _ (wp _ (?k ?t) _ _ _) =>
+      assert (k t ≡ (λne x, k x) t) as -> by done
+  end.
+
+Ltac shift_natop_l :=
+  match goal with
+  | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x)
+                               (ofe_mor_car _ _
+                                  (ofe_mor_car _ _
+                                     (NATOP (do_natop lang.Add)) ?t) (IT_of_V ?e))) _ _ _) =>
+      assert ((ofe_mor_car _ _ (λne x, k1 x) (NATOP (do_natop lang.Add) t (IT_of_V e))) ≡
+                (λne x, k1 (NATOP (do_natop lang.Add) x (IT_of_V e))) t) as -> by done
+  end.
+
 Lemma wp_t (s : gitree.weakestpre.stuckness) :
   has_substate σ -∗
   WP@{rs} t @ s {{βv, βv ≡ RetV 18}}.
@@ -37,167 +56,54 @@ Proof.
   iIntros "Hσ".
   cbn.
   (* first, reset *)
-  lazymatch goal with
-  | |- context G [ofe_mor_car _ _ RESET ?t] => set (e := t)
-  end.
-  lazymatch goal with
-  | |- context G [ofe_mor_car _ _ 𝒫 (?kk (ofe_mor_car _ _ RESET e))] => remember (𝒫 ◎ kk) as k
-  end.
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) => set (α := t)
-  end.
-  assert (NonExpansive k).
-  { subst. intros ????. solve_proper. }
-  assert (α ≡ (λne x, k x) (RESET e)) as -> by (by simpl; subst).
-  clear α.
+  do 2 shift_hom.
   iApply (wp_reset with "Hσ").
-  { subst. simpl. 
-    simple refine (IT_HOM _ _ _ _ _ ); intros; simpl.
-    - by rewrite !hom_tick.
-    - rewrite !hom_vis. f_equiv. intro. simpl. done.
-    - by rewrite !hom_err.
-  }
-  iIntros "!> Hl Hσ".
-  simpl.
+  iIntros "!> _ Hσ". simpl.
 
   (* then, shift *)
-  lazymatch goal with
-  | |- context G [ofe_mor_car _ _ SHIFT ?e] => set (f := e)
-      (* envs_entails _ (wp _ (ofe_mor_car _ _ SHIFT ?e) _ _ _) => idtac *)
-  end.
-  lazymatch goal with
-  | |- context G [?kk (ofe_mor_car _ _ SHIFT f)] => remember (𝒫 ◎ kk) as k'
-  end.
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) => set (α := t)
-  end.
-  assert (NonExpansive k').
-  { subst. intros ????. solve_proper. }
-  assert (α ≡ (λne y, k' y) (SHIFT f)) as -> by (by simpl; subst).
-  clear α.
+  do 2 shift_hom.
   iApply (wp_shift with "Hσ").
-  { subst. simpl. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - by rewrite !hom_tick.
-    - rewrite !hom_vis. f_equiv. by intro.
-    - by rewrite !hom_err.
-  }
   iIntros "!>_ Hσ".
   simpl.
 
   (* the rest *)
-  lazymatch goal with
-  | |- context G [ofe_mor_car _ _ (get_val ?f) (_ 5)] => remember f as func
-  end.
-  lazymatch goal with
-  | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ (NATOP _) ?x) ?y] =>
-      remember x as ex; remember y as ey
-  end.
-  remember (λ (x y : IT), 𝒫 $ NATOP (do_natop lang.Add) x y) as kplus.
-  assert (NonExpansive2 kplus).
-  { subst. intros ???????. solve_proper. }
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) => set (α := t)
-  end.
-  assert (α ≡ kplus (func (Ret 5)) (func (Ret 6))) as ->.
-  { subst kplus α ex ey. f_equiv. f_equiv.
-    - f_equiv. rewrite -IT_of_V_Ret. apply get_val_ITV'.
-    - rewrite -IT_of_V_Ret. apply get_val_ITV'.
-  }
-  subst func. simpl.
-  clear α.
-  lazymatch goal with
-  | |- context G [kplus ?scd (ofe_mor_car _ _ (get_fun ?f)
-                           (ofe_mor_car _ _ Fun ?g))] => remember f as func1; remember g as gfunc; remember scd as snd
-  end.
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) => set (α := t)
-  end.
-  assert (α ≡ kplus snd (func1 gfunc)) as ->.
-  { subst α kplus func1 gfunc. repeat f_equiv; first by subst.
-    simpl. by rewrite get_fun_fun.
-  }
-  subst func1 gfunc. simpl.
-  remember (λ x, kplus snd x) as kkkk.
-  assert (NonExpansive kkkk) by solve_proper.
-  clear α.
-  lazymatch goal with
-  | |- context G [kkkk ?e] => remember e as newe
-  end.
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) => set (α := t)
-  end.
-
-  assert (α ≡ (λne x, kkkk x) newe) as -> by (by subst).
-  subst newe; clear α.
+  rewrite -(IT_of_V_Ret 6) get_val_ITV'. simpl.
+  rewrite get_fun_fun. simpl.
+  do 2 shift_hom.
   iApply (wp_app_cont with "Hσ").
-  { subst. simpl.
-    simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - by rewrite !hom_tick.
-    - rewrite !hom_vis. f_equiv. intro. by simpl.
-    - by rewrite !hom_err.
-  }
-  simpl.
-  iIntros "!> _ Hσ".
+  iIntros "!> _ Hσ". simpl.
   rewrite later_map_Next -Tick_eq.
   iApply wp_tick. iNext.
-  subst. simpl.
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) => set (α := t)
-  end.
-  assert (α ≡ 𝒫 (IT_of_V $ RetV 9)) as ->.
-  { subst α. f_equiv. by rewrite NATOP_Ret. }
+  shift_hom.
+  rewrite IT_of_V_Ret NATOP_Ret. simpl.
+  rewrite -(IT_of_V_Ret 9).
   iApply (wp_pop_cons with "Hσ").
   iIntros "!> _ Hσ".
   simpl.
-  lazymatch goal with
-  | |- context G [ofe_mor_car _ _ (get_fun ?f)
-                    (ofe_mor_car _ _ Fun ?g)] => remember f as func1; remember g as gfunc
-  end.
-  clear α.
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) =>
-      assert (t ≡ 𝒫 $ NATOP (do_natop lang.Add) (func1 gfunc) (IT_of_V (RetV 9)))
-      as -> by (repeat f_equiv; apply get_fun_fun)
-  end.
-  subst. simpl.
-  remember (λ x : IT, 𝒫 (NATOP (do_natop lang.Add) x (IT_of_V (RetV 9)))) as kkkk.
-  assert (NonExpansive kkkk) by solve_proper.
 
-  lazymatch goal with
-  | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ (NATOP _) ?e) (IT_of_V (ofe_mor_car _ _ RetV 9))] => remember e as newe
-  end.
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) =>
-      assert (t ≡ (λne x, kkkk x) newe)
-      as -> by by subst
-  end.
-  subst newe.
+  shift_hom. shift_natop_l.
+  rewrite -(IT_of_V_Ret 5) get_val_ITV'. simpl.
+  shift_hom. shift_natop_l.
+  rewrite get_fun_fun. simpl.
+  shift_hom. shift_natop_l.
   iApply (wp_app_cont with "Hσ").
-  { subst. simpl. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - by rewrite NATOP_ITV_Tick_l hom_tick.
-    - rewrite NATOP_ITV_Vis_l hom_vis. f_equiv. by intro.
-    - by rewrite NATOP_Err_l hom_err.
-  }
   iIntros "!> _ Hσ". simpl.
-  rewrite later_map_Next -Tick_eq. iApply wp_tick. iNext.
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) => assert (t ≡ 𝒫 (IT_of_V $ RetV 8))
-      as -> by (f_equiv; by rewrite NATOP_Ret)
-  end.
-  iApply (wp_pop_cons with "Hσ").
-  iIntros "!> _ Hσ".
-  simpl. subst kkkk.
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) => assert (t ≡ 𝒫 (IT_of_V $ RetV 17))
-      as -> by (f_equiv; by rewrite NATOP_Ret)
-  end.
+  rewrite later_map_Next -Tick_eq.
+  iApply wp_tick. iNext.
+  rewrite (IT_of_V_Ret 5) NATOP_Ret. simpl.
+  rewrite -(IT_of_V_Ret 8).
   iApply (wp_pop_cons with "Hσ").
   iIntros "!> _ Hσ".
   simpl.
-  lazymatch goal with
-  | |- envs_entails _ (wp _ ?t _ _ _) => assert (t ≡ 𝒫 (IT_of_V $ RetV 18))
-      as -> by (f_equiv; by rewrite NATOP_Ret)
-  end.
+  shift_hom.
+  shift_natop_l.
+  rewrite (IT_of_V_Ret 8).
+  simpl. rewrite IT_of_V_Ret NATOP_Ret.
+  simpl. rewrite -(IT_of_V_Ret 17).
+  iApply (wp_pop_cons with "Hσ").
+  iIntros "!> _ Hσ". simpl.
+  rewrite IT_of_V_Ret NATOP_Ret.
+  simpl. rewrite -(IT_of_V_Ret 18).
   iApply (wp_pop_end with "Hσ").
   iIntros "!> _ _".
   iApply wp_val. done.
