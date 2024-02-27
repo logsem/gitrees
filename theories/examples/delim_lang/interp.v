@@ -1,6 +1,6 @@
 (* From Equations Require Import Equations. *)
 From gitrees Require Import gitree lang_generic.
-From gitrees.examples.input_lang_delim Require Import lang.
+From gitrees.examples.delim_lang Require Import lang.
 From iris.algebra Require Import list.
 From iris.proofmode Require Import classes tactics.
 From iris.base_logic Require Import algebra.
