@@ -257,7 +257,7 @@ Section logrel.
     set (γ1 := ((γ ↑) ↑)%bind).
     iApply (logrel_head_step_pure_ectx _ EmptyK _
               ((rec bind γ1 e)%syn v)
-              (Tick (later_car (Next f) (IT_of_V αv)))
+              (Tick (f (IT_of_V αv)))
            (logrel_val τ2) with "[]"); last first.
     + rewrite {2}/ss'. rewrite /f.
       iIntros (κ K) "#HK". iIntros (σ) "Hs".
@@ -482,6 +482,7 @@ Section logrel.
     iIntros (σ) "Hs".
 
     iApply (wp_callcc with "Hs []").
+    { simpl. done. }
     iNext. iIntros "Hcl Hs". term_simpl.
 
     pose (ff := (λit x : IT, Tick ((`κ) x))).
