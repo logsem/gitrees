@@ -10,7 +10,7 @@ Open Scope syn_scope.
 Example p : expr Empty_set :=
   ((#1) + (reset ((#3) + (shift/cc ((($0) @k #5) + (($0) @k #6)))))).
 
-Local Definition rs : gReifiers _ := gReifiers_cons reify_delim gReifiers_nil.
+Local Definition rs : gReifiers _ _ := gReifiers_cons reify_delim gReifiers_nil.
 (* Local Definition Hrs : subReifier reify_delim rs. *)
 (* Proof. unfold rs. apply subReifier_here. Qed. *)
 
@@ -51,9 +51,9 @@ Proof.
   assert (α ≡ (λne x, k x) (RESET e)) as -> by (by simpl; subst).
   clear α.
   iApply (wp_reset with "Hσ").
-  { subst. simpl. apply IT_hom_compose; first apply _.
-    refine (IT_HOM _ _ _ _ _ ).
-    - apply NATOP_Tick. by rewrite !hom_tick.
+  { subst. simpl. 
+    simple refine (IT_HOM _ _ _ _ _ ); intros; simpl.
+    - by rewrite !hom_tick.
     - rewrite !hom_vis. f_equiv. intro. simpl. done.
     - by rewrite !hom_err.
   }
