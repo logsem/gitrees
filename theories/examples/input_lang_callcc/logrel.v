@@ -1,5 +1,5 @@
 (** Logical relation for adequacy for the IO lang *)
-From gitrees Require Import gitree lang_generic.
+From gitrees Require Import gitree lang_generic effects.io_tape.
 From gitrees.examples.input_lang_callcc Require Import lang interp hom.
 Require Import Binding.Lib Binding.Set Binding.Env.
 
@@ -8,13 +8,14 @@ Open Scope stdpp_scope.
 Section logrel.
   Context {sz : nat}.
   Variable (rs : gReifiers CtxDep sz).
-  Context {subR : subReifier reify_io rs}.
+  Context `{!subReifier reify_cont rs}.
+  Context `{!subReifier (sReifier_NotCtxDep_CtxDep reify_io) rs}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F natO).
   Notation ITV := (ITV F natO).
   Context `{!invGS Σ, !stateG rs natO Σ}.
   Notation iProp := (iProp Σ).
-  Notation restO := (gState_rest sR_idx rs ♯ IT).
+  Notation restO := (gState_rest (@sR_idx _ _ (sReifier_NotCtxDep_CtxDep reify_io)) rs ♯ IT).
 
   Canonical Structure exprO S := leibnizO (expr S).
   Canonical Structure valO S := leibnizO (val S).
@@ -31,11 +32,13 @@ Section logrel.
   Definition logrel_nat {S} (βv : ITV) (v : val S) : iProp :=
     (∃ n, βv ≡ RetV n ∧ ⌜v = LitV n⌝)%I.
 
+  Definition cont_ctx : iProp := has_substate (() : sReifier_state reify_cont ♯ IT).
+
   Definition obs_ref {S} (α : IT) (e : expr S) : iProp :=
     (∀ (σ : stateO),
-        has_substate σ -∗
+        has_substate σ -∗ cont_ctx -∗
         WP α {{ βv, ∃ m v σ', ⌜prim_steps e σ (Val v) σ' m⌝
-                              ∗ logrel_nat βv v ∗ has_substate σ' }})%I.
+                              ∗ logrel_nat βv v ∗ has_substate σ' ∗ cont_ctx }})%I.
 
   Definition logrel_ectx {S} V (κ : HOM) (K : ectx S) : iProp :=
     (□ ∀ (βv : ITV) (v : val S), V βv v -∗ obs_ref (`κ (IT_of_V βv)) (fill K (Val v)))%I.
@@ -181,9 +184,8 @@ Section logrel.
     intros Hpure.
     iIntros "H".
     iIntros (κ' K') "#HK'".
-    iIntros (σ) "Hs".
-    iSpecialize ("H" with "HK'").
-    iSpecialize ("H" with "Hs").
+    iIntros (σ) "Hs Hcont".
+    iSpecialize ("H" with "HK' Hs Hcont").
     iApply (wp_wand with "H").
     iIntros (βv). iDestruct 1 as ([m m'] v σ' Hsteps) "[H2 Hs]".
     iExists ((Nat.add n m),m'),v,σ'. iFrame "H2 Hs".
@@ -200,8 +202,8 @@ Section logrel.
       obs_ref (`f α) (fill K e).
   Proof.
     iIntros "H1 #H2".
-    iIntros (σ) "Hs".
-    iApply (wp_wand with "[H1 H2 Hs] []"); first iApply ("H1" with "[H2] [$Hs]").
+    iIntros (σ) "Hs Hcont".
+    iApply (wp_wand with "[H1 H2 Hs Hcont] []"); first iApply ("H1" with "[H2] [$Hs] Hcont").
     - iIntros (βv v). iModIntro.
       iIntros "#Hv".
       by iApply "H2".
@@ -260,9 +262,9 @@ Section logrel.
               (Tick (f (IT_of_V αv)))
            (logrel_val τ2) with "[]"); last first.
     + rewrite {2}/ss'. rewrite /f.
-      iIntros (κ K) "#HK". iIntros (σ) "Hs".
+      iIntros (κ K) "#HK". iIntros (σ) "Hs Hcont".
       rewrite hom_tick. iApply wp_tick. iNext.
-      iApply "H"; eauto.
+      iApply ("H" with "[] [] Hs Hcont"); eauto.
       rewrite /ss' /γ'.
       iIntros (x'); destruct x' as [| [| x']]; term_simpl; iModIntro.
       * by iApply logrel_of_val.
@@ -338,12 +340,12 @@ Section logrel.
     iIntros (κ K) "#HK".
     unfold interp_input.
     term_simpl.
-    iIntros (σ) "Hs".
+    iIntros (σ) "Hs Hcont".
     destruct (update_input σ) as [n σ'] eqn:Hinp.
-    iApply (wp_input' with "Hs []"); first done.
+    iApply (wp_input' with "Hs [-]"); first done.
     iNext. iIntros "Hlc Hs". term_simpl.
     iSpecialize ("HK" $! (RetV n) (LitV n) with "[]"); first by iExists n.
-    iSpecialize ("HK" $! σ' with "Hs").
+    iSpecialize ("HK" $! σ' with "Hs Hcont").
     rewrite IT_of_V_Ret.
     iApply (wp_wand with "[$HK] []").
     iIntros (v') "(%m & %v'' & %σ'' & %Hstep & H)".
@@ -449,12 +451,12 @@ Section logrel.
     iRewrite "HEQ".
     rewrite get_fun_fun.
     simpl.
-    iIntros (σ) "Hs".
-    iApply (wp_throw' with "Hs []").
-    iNext. iIntros "Hcl Hs". term_simpl.
+    iIntros (σ) "Hs Hcont".
+    iApply (wp_throw' with "Hcont").
+    iNext. iIntros "Hcl Hcont". term_simpl.
     rewrite later_map_Next. iApply wp_tick. iNext.
     iSpecialize ("H" $! βv v with "[]"); first done.
-    iSpecialize ("H" $! σ with "Hs").
+    iSpecialize ("H" $! σ with "Hs Hcont").
     iApply (wp_wand with "[$H] []").
     iIntros (w) "(%m & %v'' & %σ'' & %Hstep & H)".
     destruct m as [m m'].
@@ -479,11 +481,11 @@ Section logrel.
     unfold interp_callcc.
     Opaque extend_scope.
     term_simpl.
-    iIntros (σ) "Hs".
+    iIntros (σ) "Hs Hcont".
 
-    iApply (wp_callcc with "Hs []").
+    iApply (wp_callcc with "Hcont").
     { simpl. done. }
-    iNext. iIntros "Hcl Hs". term_simpl.
+    iNext. iIntros "Hcl Hcont". term_simpl.
 
     pose (ff := (λit x : IT, Tick ((`κ) x))).
     match goal with
@@ -519,7 +521,7 @@ Section logrel.
     iSpecialize ("H" $! κ K with "HK").
     Opaque extend_scope.
     term_simpl.
-    iSpecialize ("H" $! σ with "Hs").
+    iSpecialize ("H" $! σ with "Hs Hcont").
     subst ss' γ'.
     iApply (wp_wand with "[$H] []").
     iIntros (v') "(%m & %v'' & %σ'' & %Hstep & H)".
@@ -555,12 +557,12 @@ Section logrel.
     iIntros (βv v). iModIntro. iIntros "#Hv".
     iDestruct "Hv" as (n) "[Hb ->]".
     iRewrite "Hb". simpl.
-    iIntros (σ) "Hs".
+    iIntros (σ) "Hs Hcont".
     rewrite get_ret_ret.
-    iApply (wp_output' with "Hs []"); first done.
+    iApply (wp_output' with "Hs"); first done.
     iNext. iIntros "Hlc Hs".
     iSpecialize ("HK" $! (RetV 0) (LitV 0) with "[]"); first by iExists 0.
-    iSpecialize ("HK" $! (update_output n σ) with "Hs").
+    iSpecialize ("HK" $! (update_output n σ) with "Hs Hcont").
     iApply (wp_wand with "[$HK] []").
     iIntros (v') "(%m & %v'' & %σ'' & %Hstep & H')".
     destruct m as [m m'].
@@ -685,13 +687,15 @@ Lemma κ_Ret {S} {E} n : κ ((RetV n) : ITV E natO) = (LitV n : val S).
 Proof.
   Transparent RetV. unfold RetV. simpl. done. Opaque RetV.
 Qed.
-Definition rs : gReifiers CtxDep 1 := gReifiers_cons reify_io gReifiers_nil.
+Definition rs : gReifiers CtxDep 2 :=
+  gReifiers_cons (sReifier_NotCtxDep_CtxDep reify_io)
+    (gReifiers_cons reify_cont gReifiers_nil).
 
 Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ} `{!statePreG rs natO Σ} {S}
   (α : IT (gReifiers_ops rs) natO)
   (e : expr S) n σ σ' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs natO Σ}, (⊢ logrel rs Tnat α e)%I) →
-  ssteps (gReifiers_sReifier rs) α (σ, ()) (Ret n) σ' k →
+  ssteps (gReifiers_sReifier rs) α (σ, ((), ())) (Ret n) σ' k →
   ∃ m σ', prim_steps e σ (Val $ LitV n) σ' m.
 Proof.
   intros Hlog Hst.
@@ -727,26 +731,28 @@ Proof.
     eauto.
   - iIntros "[_ Hs]".
     iPoseProof (Hlog) as "Hlog".
-    iAssert (has_substate σ) with "[Hs]" as "Hs".
+    iAssert (has_substate σ ∗ cont_ctx rs)%I with "[Hs]" as "[Hs Hcont]".
     {
       unfold has_substate, has_full_state.
-      assert ((of_state rs (IT (sReifier_ops (gReifiers_sReifier rs)) natO) (σ, ())) ≡
-                (of_idx rs (IT (sReifier_ops (gReifiers_sReifier rs)) natO) sR_idx (sR_state σ)))
-        as -> ; last done.
-      intros j. unfold sR_idx. simpl.
-      unfold of_state, of_idx.
-      destruct decide as [Heq|]; last first.
-      {
-        inv_fin j; first done.
-        intros i. inversion i.
-      }
-      inv_fin j; last done.
-      intros Heq.
-      rewrite (eq_pi _ _ Heq eq_refl)//.
+      assert ((of_state rs (IT (sReifier_ops (gReifiers_sReifier rs)) natO) (σ, ((),()))) ≡
+                (of_idx rs (IT (sReifier_ops (gReifiers_sReifier rs)) natO) sR_idx (sR_state σ))
+                ⋅ of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state (() : sReifier_state reify_cont ♯ IT _ _)))
+        as -> ; last first.
+      { rewrite -own_op. done. }
+      unfold sR_idx. simpl.
+      intro j.
+      rewrite discrete_fun_lookup_op.
+      inv_fin j.
+      { unfold of_state, of_idx. simpl.
+        erewrite (eq_pi _ _ _ (@eq_refl _ 0%fin)). done. }
+      intros j. inv_fin j.
+      { unfold of_state, of_idx. simpl.
+        erewrite (eq_pi _ _ _ (@eq_refl _ 1%fin)). done. }
+      intros i. inversion i.
     }
     iSpecialize ("Hlog" $! HOM_id EmptyK with "[]").
     {
-      iIntros (βv v); iModIntro. iIntros "Hv". iIntros (σ'') "HS".
+      iIntros (βv v); iModIntro. iIntros "Hv". iIntros (σ'') "HS Hcont".
       iApply wp_val.
       iModIntro.
       iExists (0, 0), v, σ''.
@@ -755,7 +761,7 @@ Proof.
       - by iFrame.
     }
     simpl.
-    iSpecialize ("Hlog" $! σ with "Hs").
+    iSpecialize ("Hlog" $! σ with "Hs Hcont").
     iApply (wp_wand with"Hlog").
     iIntros ( βv). iIntros "H".
     iDestruct "H" as (m' v σ1' Hsts) "[Hi Hsts]".
@@ -766,7 +772,7 @@ Qed.
 
 Theorem adequacy (e : expr ∅) (k : nat) σ σ' n :
   typed □ e Tnat →
-  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ, ()) (Ret k : IT _ natO) σ' n →
+  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ,((), ())) (Ret k : IT _ natO) σ' n →
   ∃ mm σ', prim_steps e σ (Val $ LitV k) σ' mm.
 Proof.
   intros Hty Hst.

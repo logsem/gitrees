@@ -28,6 +28,13 @@ theories/gitree.v
 
 theories/program_logic.v
 
+theories/effects/store.v
+theories/effects/io_tape.v
+
+theories/lib/pairs.v
+theories/lib/while.v
+theories/lib/factorial.v
+theories/lib/iter.v
 
 theories/examples/delim_lang/lang.v
 theories/examples/delim_lang/interp.v
@@ -46,12 +53,5 @@ theories/examples/input_lang/logrel.v
 theories/examples/affine_lang/lang.v
 theories/examples/affine_lang/logrel1.v
 theories/examples/affine_lang/logrel2.v
-
-theories/effects/store.v
-
-theories/lib/pairs.v
-theories/lib/while.v
-theories/lib/factorial.v
-theories/lib/iter.v
 
 theories/utils/finite_sets.v

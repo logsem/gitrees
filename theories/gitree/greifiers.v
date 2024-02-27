@@ -346,6 +346,17 @@ Section greifiers.
       apply subEff_outs.
   Defined.
 
+  #[export] Instance reifier_coercion_subEff {sz} r (rs : gReifiers CtxDep sz)
+    `{H : !subReifier (sReifier_NotCtxDep_CtxDep r) rs} :
+    subEff (sReifier_ops r) (gReifiers_ops _ rs) | 100.
+  Proof.
+      simple refine
+               {| subEff_opid (op : opid (sReifier_ops (sReifier_NotCtxDep_CtxDep r)))
+                 := subEff_opid op |}.
+      - intros. apply subEff_ins.
+      - intros. apply subEff_outs.
+  Defined.
+
   Program Definition subReifier_reify_idx_type {n}
     (a : is_ctx_dep) (r : sReifier a) (rs : gReifiers a n)
     `{!subReifier r rs} X `{!Cofe X} (op : opid (sReifier_ops r)) : Type.

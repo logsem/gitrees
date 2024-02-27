@@ -9,7 +9,8 @@ Open Scope stdpp_scope.
 Section hom.
   Context {sz : nat}.
   Context {rs : gReifiers CtxDep sz}.
-  Context {subR : subReifier reify_io rs}.
+  Context `{!subReifier reify_cont rs}.
+  Context `{!subReifier (sReifier_NotCtxDep_CtxDep reify_io) rs}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F natO).
   Notation ITV := (ITV F natO).
