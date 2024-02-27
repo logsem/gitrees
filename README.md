@@ -26,13 +26,17 @@ to the code structure.
 
 - `gitree/` -- contains the core definitions related to guarded interaction trees
 - `lib/` -- derived combinators for gitrees
+- `effects/` -- concrete effects, their semantics, and program logic rules
 - `examples/input_lang/` -- formalization of the language with io, the soundness and adequacy
-- `examples/input_lang_callcc/` -- formalization of the language with io, throw and call/cc, the soundness and adequacy
 - `examples/affine_lang/` -- formalization of the affine language, type safety of the language interoperability
-- `effects/` -- concrete effects, their interpretaions, and logics
+- `examples/input_lang_callcc/` -- formalization of the language with io, throw and call/cc, the soundness and adequacy
+- `examples/delim_lang/` -- formalization shift/reset effects, of a language with delimited continuations and its soundness
 - `prelude.v` -- some stuff that is missing from Iris
 - `lang_generic.v` -- generic facts about languages with binders and their interpretations, shared by `input_lang` and `affine_lang`
-- `vendor/Binding/` -- the functorial syntax library used for
+
+For the representation of binders we use a library implemented by
+Filip Sieczkowski and Piotr Polesiuk, located in the `vendor/Binding/`
+folder.
 
 ### References from the paper to the code
 
@@ -75,15 +79,6 @@ Below we describe the correspondence per-section.
   + The logical relation for the combined language is in `affine_lang/logrel2.v`
 
 ## Notes
-
-### Representations of binders 1
-For the representation of languages with binders, we follow the
-approach of (Benton, Hur, Kennedy, McBride, JAR 2012) with well-scoped
-terms and substitutions/renamings. (`input_lang`, `affine_lang`)
-
-### Representations of binders 2
-For `input_lang_callcc` we use a binder library, implemented by Filip
-Sieczkowski and Piotr Polesiuk.
 
 ### Disjunction property
 Some results in the formalization make use of the disjunction property
