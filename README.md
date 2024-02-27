@@ -1,10 +1,11 @@
 # Guarded Interaction Trees
 
 This is the Coq formalization of guarded interaction trees, associated examples and case studies.
+Read the [GITrees POPL paper](https://iris-project.org/pdfs/2024-popl-gitrees.pdf) describing our work.
 
 ## Installation instructions
 
-To install the formalization you will need the Iris, std++, and Equations packages.
+To install the formalization you will need Iris and std++ libraries.
 The dependencies can be easily installed using [Opam](https://opam.ocaml.org/) with the following commands:
 
 ```
@@ -24,15 +25,19 @@ All the code lives in the `theories` folder. Below is the quick guide
 to the code structure.
 
 - `gitree/` -- contains the core definitions related to guarded interaction trees
-- `input_lang/` -- formalization of the language with io, the soundness and adequacy
-- `input_lang_callcc/` -- formalization of the language with io, throw and call/cc, the soundness and adequacy
-- `affine_lang/` -- formalization of the affine language, type safety of the language interoperability
-- `examples/` -- some other smaller examples
-- `lang_generic.v` -- generic facts about languages with binders and their interpretations, shared by `input_lang` and `affine_lang`
-- `lang_generic_sem.v` -- generic facts about languages with a different representation of binders and their interpretations, used for `input_lang_callcc`
+- `lib/` -- derived combinators for gitrees
+- `examples/input_lang/` -- formalization of the language with io, the soundness and adequacy
+- `examples/input_lang_callcc/` -- formalization of the language with io, throw and call/cc, the soundness and adequacy
+- `examples/affine_lang/` -- formalization of the affine language, type safety of the language interoperability
+- `effects/` -- concrete effects, their interpretaions, and logics
 - `prelude.v` -- some stuff that is missing from Iris
+- `lang_generic.v` -- generic facts about languages with binders and their interpretations, shared by `input_lang` and `affine_lang`
+- `vendor/Binding/` -- the functorial syntax library used for
 
 ### References from the paper to the code
+
+The version of the formalization that corresponds to the paper can be found under the [tag `popl24`](https://github.com/logsem/gitrees/releases/tag/popl24).
+Below we describe the correspondence per-section.
 
 - **Section 3**
   + Definition of guarded interaction trees, constructors, the

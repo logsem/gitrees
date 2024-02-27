@@ -1,8 +1,6 @@
 From gitrees Require Export prelude.
-Require Import List.
-Import ListNotations.
-
 Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
+
 
 Inductive nat_op := Add | Sub | Mult.
 
@@ -508,6 +506,10 @@ Coercion Val : val >-> expr.
 Coercion App : expr >-> Funclass.
 Coercion AppLK : ectx >-> Funclass.
 Coercion AppRK : expr >-> Funclass.
+
+(* XXX: We use these typeclasses to share the notaiton between the
+expressions and the evaluation contexts, for readability. It will be
+good to also share the notation between different languages. *)
 
 Class AsSynExpr (F : Set -> Type) := { __asSynExpr : ∀ S, F S -> expr S }.
 

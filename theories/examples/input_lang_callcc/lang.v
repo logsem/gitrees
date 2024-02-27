@@ -1,12 +1,9 @@
 From gitrees Require Export prelude.
-Require Import List.
-Import ListNotations.
-
 Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
 
 Inductive nat_op := Add | Sub | Mult.
 
-Inductive expr {X : Set} :=
+Inductive expr {X : Set} : Type :=
 (* Values *)
 | Val (v : val) : expr
 | Var (x : X) : expr

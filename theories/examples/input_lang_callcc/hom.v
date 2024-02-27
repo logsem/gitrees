@@ -1,6 +1,7 @@
-From gitrees Require Import gitree.
+(** In this module, we package up IT homomorphism in a sigma type, and
+we will use it as a domain for logical relations on continuations *)
+From gitrees Require Import gitree lang_generic.
 From gitrees.examples.input_lang_callcc Require Import lang interp.
-Require Import gitrees.lang_generic.
 Require Import Binding.Lib Binding.Set Binding.Env.
 
 Open Scope stdpp_scope.
@@ -42,6 +43,7 @@ Section hom.
     `f ◎ `g = `h.
   Proof. intros ->. done. Qed.
 
+  (** Specific packaged homomorphisms *)
   Program Definition IFSCtx_HOM α β : HOM := exist _ (λne x, IFSCtx α β x) _.
   Next Obligation.
     intros; simpl.

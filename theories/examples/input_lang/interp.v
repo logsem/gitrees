@@ -443,9 +443,9 @@ Section interp.
       + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_val_subst].
   Qed.
 
-  (** ** Interpretation is a homomorphism (for some constructors) *)
+  (** ** Interpretation of evaluation contexts induces homomorphism *)
 
-  #[global] Instance interp_ectx_hom_emp {S} env :
+  #[local] Instance interp_ectx_hom_emp {S} env :
     IT_hom (interp_ectx (EmptyK : ectx S) env).
   Proof.
     simple refine (IT_HOM _ _ _ _ _); intros; auto.
@@ -453,7 +453,7 @@ Section interp.
     by rewrite laterO_map_id.
   Qed.
 
-  #[global] Instance interp_ectx_hom_output {S} (K : ectx S) env :
+  #[local] Instance interp_ectx_hom_output {S} (K : ectx S) env :
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (OutputK K) env).
   Proof.
@@ -465,7 +465,7 @@ Section interp.
     - by rewrite !hom_err.
   Qed.
 
-  #[global] Instance interp_ectx_hom_if {S}
+  #[local] Instance interp_ectx_hom_if {S}
     (K : ectx S) (e1 e2 : expr S) env :
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (IfK K e1 e2) env).
@@ -485,7 +485,7 @@ Section interp.
       apply IF_Err.
   Qed.
 
-  #[global] Instance interp_ectx_hom_appr {S} (K : ectx S)
+  #[local] Instance interp_ectx_hom_appr {S} (K : ectx S)
     (e : expr S) env :
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (AppRK e K) env).
@@ -497,7 +497,7 @@ Section interp.
     - by rewrite !hom_err.
   Qed.
 
-  #[global] Instance interp_ectx_hom_appl {S} (K : ectx S)
+  #[local] Instance interp_ectx_hom_appl {S} (K : ectx S)
     (v : val S) (env : interp_scope S) :
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (AppLK K v) env).
@@ -514,7 +514,7 @@ Section interp.
       apply APP'_Err_l, interp_val_asval.
   Qed.
 
-  #[global] Instance interp_ectx_hom_natopr {S} (K : ectx S)
+  #[local] Instance interp_ectx_hom_natopr {S} (K : ectx S)
     (e : expr S) op env :
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (NatOpRK op e K) env).
@@ -526,7 +526,7 @@ Section interp.
     - by rewrite !hom_err.
   Qed.
 
-  #[global] Instance interp_ectx_hom_natopl {S} (K : ectx S)
+  #[local] Instance interp_ectx_hom_natopl {S} (K : ectx S)
     (v : val S) op (env : interp_scope S) :
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (NatOpLK op K v) env).
@@ -544,14 +544,7 @@ Section interp.
       + by apply NATOP_Err_l, interp_val_asval.
   Qed.
 
-  Lemma get_fun_ret' E A `{Cofe A} n : (∀ f, @get_fun E A _ f (core.Ret n) ≡ Err RuntimeErr).
-  Proof.
-    intros.
-    by rewrite IT_rec1_ret.
-  Qed.
-
-  #[global] Instance interp_ectx_hom {S}
-    (K : ectx S) env :
+  #[global] Instance interp_ectx_hom {S} (K : ectx S) env :
     IT_hom (interp_ectx K env).
   Proof.
     induction K; apply _.
@@ -607,18 +600,18 @@ Section interp.
   Opaque Ret.
 
   Lemma interp_expr_fill_yes_reify {S} K env (e e' : expr S)
-    (σ σ' : stateO) (σr : gState_rest NotCtxDep sR_idx rs ♯ IT) n :
+    (σ σ' : stateO) (σr : gState_rest sR_idx rs ♯ IT) n :
     head_step e σ e' σ' (n, 1) →
-    reify (gReifiers_sReifier NotCtxDep rs)
-      (interp_expr (fill K e) env) (gState_recomp NotCtxDep σr (sR_state σ))
-      ≡ (gState_recomp NotCtxDep σr (sR_state σ'), Tick_n n $ interp_expr (fill K e') env).
+    reify (gReifiers_sReifier rs)
+      (interp_expr (fill K e) env) (gState_recomp σr (sR_state σ))
+      ≡ (gState_recomp σr (sR_state σ'), Tick_n n $ interp_expr (fill K e') env).
   Proof.
     intros Hst.
-    trans (reify (gReifiers_sReifier NotCtxDep rs) (interp_ectx K env (interp_expr e env))
-             (gState_recomp NotCtxDep σr (sR_state σ))).
+    trans (reify (gReifiers_sReifier rs) (interp_ectx K env (interp_expr e env))
+             (gState_recomp σr (sR_state σ))).
     { f_equiv. by rewrite interp_comp. }
     inversion Hst; simplify_eq; cbn-[gState_recomp].
-    - trans (reify (gReifiers_sReifier NotCtxDep rs) (INPUT (interp_ectx K env ◎ Ret)) (gState_recomp NotCtxDep σr (sR_state σ))).
+    - trans (reify (gReifiers_sReifier rs) (INPUT (interp_ectx K env ◎ Ret)) (gState_recomp σr (sR_state σ))).
       {
         repeat f_equiv; eauto.
         rewrite hom_INPUT.
@@ -639,19 +632,19 @@ Section interp.
       rewrite ofe_iso_21.
       simpl.
       reflexivity.
-    - trans (reify (gReifiers_sReifier NotCtxDep rs) (interp_ectx K env (OUTPUT n0)) (gState_recomp NotCtxDep σr (sR_state σ))).
+    - trans (reify (gReifiers_sReifier rs) (interp_ectx K env (OUTPUT n0)) (gState_recomp σr (sR_state σ))).
       {
         do 3 f_equiv; eauto.
         rewrite get_ret_ret//.
       }
-      trans (reify (gReifiers_sReifier NotCtxDep rs) (OUTPUT_ n0 (interp_ectx K env (Ret 0))) (gState_recomp NotCtxDep σr (sR_state σ))).
+      trans (reify (gReifiers_sReifier rs) (OUTPUT_ n0 (interp_ectx K env (Ret 0))) (gState_recomp σr (sR_state σ))).
       {
         do 2 f_equiv; eauto.
         by rewrite hom_OUTPUT_.
       }
       rewrite reify_vis_eq_ctx_indep //; last first.
       {
-        epose proof (@subReifier_reify sz NotCtxDep reify_io rs _ IT _ (inr (inl ())) n0 _ σ (update_output n0 σ) σr) as H.
+        epose proof (@subReifier_reify sz _ reify_io rs _ IT _ (inr (inl ())) n0 _ σ (update_output n0 σ) σr) as H.
         simpl in H.
         simpl.
         erewrite <-H; last reflexivity.
@@ -663,11 +656,11 @@ Section interp.
       reflexivity.
   Qed.
 
-  Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest NotCtxDep sR_idx rs ♯ IT) n m (env : interp_scope S) :
+  Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m (env : interp_scope S) :
     prim_step e1 σ1 e2 σ2 (n,m) →
-    ssteps (gReifiers_sReifier NotCtxDep rs)
-              (interp_expr e1 env) (gState_recomp NotCtxDep σr (sR_state σ1))
-              (interp_expr e2 env) (gState_recomp NotCtxDep σr (sR_state σ2)) n.
+    ssteps (gReifiers_sReifier rs)
+              (interp_expr e1 env) (gState_recomp σr (sR_state σ1))
+              (interp_expr e2 env) (gState_recomp σr (sR_state σ2)) n.
   Proof.
     Opaque gState_decomp gState_recomp.
     inversion 1; simplify_eq/=.

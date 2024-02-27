@@ -1,10 +1,10 @@
 (** Unary (Kripke) logical relation for the affine lang *)
-Require Import iris.algebra.gmap.
 From gitrees Require Export gitree program_logic greifiers.
 From gitrees.examples.affine_lang Require Import lang.
 From gitrees.effects Require Import store.
 From gitrees.lib Require Import pairs.
 From gitrees.utils Require Import finite_sets.
+
 
 Inductive typed : forall {S : Set}, (S → ty) → expr S → ty → Prop :=
 (** functions *)
@@ -525,15 +525,15 @@ Lemma logrel1_adequacy cr Σ R `{!Cofe R, !SubOfe natO R, !SubOfe unitO R, !SubO
   (α : interp_scope ∅ -n>  IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ} `{H3: !heapG rs R Σ},
       (£ cr ⊢ valid1 rs notStuck (λne _: unitO, True)%I □ α τ)%I) →
-  ssteps (gReifiers_sReifier NotCtxDep rs) (α ı_scope) st β st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
+  ssteps (gReifiers_sReifier rs) (α ı_scope) st β st' k →
+  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
    ∨ (∃ βv, (IT_of_V βv ≡ β)%stdpp).
 Proof.
   intros Hlog Hst.
   destruct (IT_to_V β) as [βv|] eqn:Hb.
   { right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. }
   left.
-  cut ((∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
+  cut ((∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
       ∨ (∃ e, (β ≡ Err e)%stdpp ∧ notStuck e)).
   { intros [?|He]; first done.
     destruct He as [? [? []]]. }
@@ -549,9 +549,9 @@ Proof.
   iMod (new_heapG rs σ) as (H3) "H".
   iAssert (has_substate σ ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
   { unfold has_substate, has_full_state.
-    assert (of_state NotCtxDep rs (IT (gReifiers_ops rs) _) st ≡
-            of_idx NotCtxDep rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)
-            ⋅ of_idx NotCtxDep rs (IT (gReifiers_ops rs) _) sR_idx (sR_state ios))%stdpp as ->; last first.
+    assert (of_state rs (IT (gReifiers_ops rs) _) st ≡
+            of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)
+            ⋅ of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state ios))%stdpp as ->; last first.
     { rewrite -own_op. done. }
     unfold sR_idx. simpl.
     intro j.
@@ -580,8 +580,8 @@ Definition R := sumO locO (sumO unitO natO).
 
 Lemma logrel1_safety e τ (β : IT (gReifiers_ops rs) R) st st' k :
   typed □ e τ →
-  ssteps (gReifiers_sReifier NotCtxDep rs) (interp_expr rs e ı_scope) st β st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier NotCtxDep rs) β st' β1 st1)
+  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) st β st' k →
+  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
    ∨ (∃ βv, (IT_of_V βv ≡ β)%stdpp).
 Proof.
   intros Hty Hst.
