@@ -31,8 +31,9 @@ Notation iProp := (iProp Σ).
 Ltac shift_hom :=
   match goal with
   | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x)
-                               (ofe_mor_car _ _ (?k2 ?t) (IT_of_V ?e))) _ _ _) =>
-      assert ((ofe_mor_car _ _ (λne x, k1 x) (k2 t (IT_of_V e))) ≡ (λne x, k1 (k2 x (IT_of_V e))) t) as -> by done
+                               (ofe_mor_car _ _ (?k2 ?t) ?e)) _ _ _) =>
+      assert (AsVal e) by apply _;
+      assert ((ofe_mor_car _ _ (λne x, k1 x) (k2 t e)) ≡ (λne x, k1 (k2 x e)) t) as -> by done
   | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x) (?k2 ?t)) _ _ _) =>
       assert ((ofe_mor_car _ _ (λne x, k1 x) (k2 t)) ≡ (λne x, k1 (k2 x)) t) as -> by done
   | |- envs_entails _ (wp _ (?k ?t) _ _ _) =>
@@ -69,45 +70,38 @@ Proof.
 
   (* then, shift *)
   do 2 shift_hom.
-  iApply (wp_shift with "Hσ").
-  { rewrite laterO_map_Next. done. }
-  iIntros "!>_ Hσ".
-  simpl.
+  iApply (wp_shift with "Hσ"); first by rewrite laterO_map_Next.
+  iIntros "!>_ Hσ". simpl.
 
   (* the rest *)
-  rewrite -(IT_of_V_Ret 6) get_val_ITV'. simpl.
+  rewrite  (@get_val_ITV _ _ _ (Ret 6)). simpl.
   rewrite get_fun_fun. simpl.
   do 2 shift_hom.
   iApply (wp_app_cont with "Hσ"); first done.
   iIntros "!> _ Hσ". simpl.
+
   rewrite later_map_Next -Tick_eq.
   iApply wp_tick. iNext.
-  rewrite IT_of_V_Ret NATOP_Ret. simpl.
-  rewrite -(IT_of_V_Ret 9).
+  rewrite NATOP_Ret. simpl.
   iApply (wp_pop_cons with "Hσ").
-  iIntros "!> _ Hσ".
-  simpl.
-  do 2 shift_hom.
-  rem_hom k.                    (* so that it does't simpl *)
-  rewrite -(IT_of_V_Ret 5) get_val_ITV'. simpl.
+  iIntros "!> _ Hσ". simpl.
+
+  do 2 shift_hom. rem_hom k.                    (* so that it does't simpl *)
+  rewrite (@get_val_ITV _ _ _ (Ret 5)). simpl.
   rewrite get_fun_fun. simpl. subst k.
   iApply (wp_app_cont with "Hσ"); first done.
   iIntros "!> _ Hσ". simpl.
+
   rewrite later_map_Next -Tick_eq.
   iApply wp_tick. iNext.
-  rewrite (IT_of_V_Ret 5) NATOP_Ret. simpl.
-  rewrite -(IT_of_V_Ret 8).
-  iApply (wp_pop_cons with "Hσ").
-  iIntros "!> _ Hσ".
-  simpl.
-  do 2 shift_hom.               (* otherwise can't do the next rewrite *)
-  rewrite (IT_of_V_Ret 8).
-  simpl. rewrite IT_of_V_Ret NATOP_Ret.
-  simpl. rewrite -(IT_of_V_Ret 17).
+  rewrite NATOP_Ret. simpl.
   iApply (wp_pop_cons with "Hσ").
   iIntros "!> _ Hσ". simpl.
-  rewrite IT_of_V_Ret NATOP_Ret.
-  simpl. rewrite -(IT_of_V_Ret 18).
+
+  rewrite NATOP_Ret. simpl.
+  iApply (wp_pop_cons with "Hσ").
+  iIntros "!> _ Hσ". simpl.
+  rewrite NATOP_Ret. simpl.
   iApply (wp_pop_end with "Hσ").
   iIntros "!> _ _".
   iApply wp_val. done.

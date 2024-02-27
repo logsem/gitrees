@@ -262,30 +262,29 @@ Section weakestpre.
     - iApply "Ha".
   Qed.
 
-  (** XXX: Formulate the rules using AsVal *)
-  Lemma wp_pop_end (v : ITV)
+  Lemma wp_pop_end (e : IT) `{!AsVal e}
     Φ s :
     has_substate [] -∗
-    ▷ (£ 1 -∗ has_substate [] -∗ WP@{rs} IT_of_V v @ s {{ Φ }}) -∗
-    WP@{rs} 𝒫 (IT_of_V v) @ s {{ Φ }}.
+    ▷ (£ 1 -∗ has_substate [] -∗ WP@{rs} e @ s {{ Φ }}) -∗
+    WP@{rs} 𝒫 e @ s {{ Φ }}.
   Proof.
     iIntros "Hs Ha".
     rewrite get_val_ITV. simpl.
-    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ ((Next $ IT_of_V v)) with "Hs").
+    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ ((Next $ e)) with "Hs").
     - simpl. reflexivity.
     - reflexivity.
     - done.
   Qed.
 
-  Lemma wp_pop_cons (σ : state) (v : ITV) (k : IT -n> IT)
+  Lemma wp_pop_cons (σ : state) (e : IT) `{!AsVal e} (k : IT -n> IT)
     Φ s :
     has_substate ((laterO_map k) :: σ) -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k $ IT_of_V v @ s {{ Φ }}) -∗
-    WP@{rs} 𝒫 (IT_of_V v) @ s {{ Φ }}.
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k e @ s {{ Φ }}) -∗
+    WP@{rs} 𝒫 e @ s {{ Φ }}.
   Proof.
     iIntros "Hs Ha".
     rewrite get_val_ITV. simpl.
-    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ ((laterO_map k (Next $ IT_of_V v))) with "Hs").
+    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ ((laterO_map k (Next e))) with "Hs").
     - simpl. reflexivity.
     - reflexivity.
     - done.
