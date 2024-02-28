@@ -38,6 +38,7 @@ theories/lib/iter.v
 
 theories/examples/delim_lang/lang.v
 theories/examples/delim_lang/interp.v
+theories/examples/delim_lang/tactics.v
 theories/examples/delim_lang/example.v
 
 theories/examples/input_lang_callcc/lang.v
