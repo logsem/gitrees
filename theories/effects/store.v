@@ -1,3 +1,4 @@
+(** Higher-order store effect *)
 From iris.algebra Require Import gmap excl auth gmap_view.
 From iris.proofmode Require Import classes tactics.
 From iris.base_logic Require Import algebra.

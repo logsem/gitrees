@@ -7,7 +7,7 @@ Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env
 
 (* for namespace sake *)
 Module io_lang.
-  Definition state := input_lang.lang.state.
+  Definition state := io_tape.state.
   Definition ty := input_lang.lang.ty.
   Definition expr := input_lang.lang.expr.
   Definition tyctx {S : Set} := S → ty.

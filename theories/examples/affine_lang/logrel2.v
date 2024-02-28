@@ -467,7 +467,7 @@ End glue.
 
 Local Definition rs : gReifiers NotCtxDep 2
   := gReifiers_cons reify_store
-       (gReifiers_cons input_lang.interp.reify_io gReifiers_nil).
+       (gReifiers_cons reify_io gReifiers_nil).
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 

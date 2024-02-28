@@ -1,7 +1,7 @@
 (** Unary (Kripke) logical relation for the affine lang *)
 From gitrees Require Export gitree program_logic greifiers.
 From gitrees.examples.affine_lang Require Import lang.
-From gitrees.effects Require Import store.
+From gitrees.effects Require Import io_tape store.
 From gitrees.lib Require Import pairs.
 From gitrees.utils Require Import finite_sets.
 
@@ -51,7 +51,7 @@ Section logrel.
   Context {sz : nat}.
   Variable rs : gReifiers NotCtxDep sz.
   Context `{!subReifier reify_store rs}.
-  Context `{!subReifier input_lang.interp.reify_io rs}.
+  Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
@@ -516,7 +516,7 @@ Arguments compat_destruct {_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _}.
 Arguments compat_replace {_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _}.
 
 Local Definition rs : gReifiers NotCtxDep 2 :=
-  gReifiers_cons reify_store (gReifiers_cons input_lang.interp.reify_io gReifiers_nil).
+  gReifiers_cons reify_store (gReifiers_cons reify_io gReifiers_nil).
 
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 

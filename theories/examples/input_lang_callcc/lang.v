@@ -1,4 +1,4 @@
-From gitrees Require Export prelude.
+From gitrees Require Export prelude effects.io_tape.
 Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
 
 Inductive nat_op := Add | Sub | Mult.
@@ -298,22 +298,6 @@ Proof.
 Qed.
 
 (*** Operational semantics *)
-
-Record state := State {
-                   inputs : list nat;
-                   outputs : list nat;
-                 }.
-#[export] Instance state_inhabited : Inhabited state := populate (State [] []).
-
-Definition update_input (s : state) : nat * state :=
-  match s.(inputs) with
-  | [] => (0, s)
-  | n::ns =>
-      (n, {| inputs := ns; outputs := s.(outputs) |})
-  end.
-Definition update_output (n:nat) (s : state) : state :=
-  {| inputs := s.(inputs); outputs := n::s.(outputs) |}.
-
 
 Inductive head_step {S} : expr S → state → expr S → state → ectx S → nat * nat → Prop :=
 | BetaS e1 v2 σ K :
