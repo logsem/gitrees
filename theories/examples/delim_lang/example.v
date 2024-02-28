@@ -28,7 +28,7 @@ Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
 Notation iProp := (iProp Σ).
 
 
-Ltac shift_hom :=
+Ltac wp_ctx :=
   match goal with
   | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x)
                                (ofe_mor_car _ _ (?k2 ?t) ?e)) _ _ _) =>
@@ -36,25 +36,19 @@ Ltac shift_hom :=
       assert ((ofe_mor_car _ _ (λne x, k1 x) (k2 t e)) ≡ (λne x, k1 (k2 x e)) t) as -> by done
   | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x) (?k2 ?t)) _ _ _) =>
       assert ((ofe_mor_car _ _ (λne x, k1 x) (k2 t)) ≡ (λne x, k1 (k2 x)) t) as -> by done
+  | |- envs_entails _ (wp _ (ofe_mor_car _ _ (?k ?t) ?e) _ _ _) =>
+      assert (AsVal e) by apply _;
+      assert (k t e ≡ (λne x, k x e) t) as -> by done
   | |- envs_entails _ (wp _ (?k ?t) _ _ _) =>
       assert (k t ≡ (λne x, k x) t) as -> by done
   end.
 
-Ltac rem_hom k :=
+Ltac name_ctx k :=
   match goal with
   | |- envs_entails _ (wp _ (ofe_mor_car _ _ ?k1 _) _ _ _) =>
       remember k1 as k
   end.
 
-(* Ltac shift_natop_l := *)
-(*   match goal with *)
-(*   | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x) *)
-(*                                (ofe_mor_car _ _ *)
-(*                                   (ofe_mor_car _ _ *)
-(*                                      (NATOP (do_natop lang.Add)) ?t) (IT_of_V ?e))) _ _ _) => *)
-(*       assert ((ofe_mor_car _ _ (λne x, k1 x) (NATOP (do_natop lang.Add) t (IT_of_V e))) ≡ *)
-(*                 (λne x, k1 (NATOP (do_natop lang.Add) x (IT_of_V e))) t) as -> by done *)
-(*   end. *)
 
 Lemma wp_t (s : gitree.weakestpre.stuckness) :
   has_substate σ -∗
@@ -64,19 +58,19 @@ Proof.
   iIntros "Hσ".
   cbn.
   (* first, reset *)
-  do 2 shift_hom.
+  do 2 wp_ctx.
   iApply (wp_reset with "Hσ").
   iIntros "!> _ Hσ". simpl.
 
   (* then, shift *)
-  do 2 shift_hom.
+  do 2 wp_ctx.
   iApply (wp_shift with "Hσ"); first by rewrite laterO_map_Next.
   iIntros "!>_ Hσ". simpl.
 
   (* the rest *)
-  rewrite  (@get_val_ITV _ _ _ (Ret 6)). simpl.
+  rewrite (get_val_ret _ 6). simpl.
   rewrite get_fun_fun. simpl.
-  do 2 shift_hom.
+  do 2 wp_ctx.
   iApply (wp_app_cont with "Hσ"); first done.
   iIntros "!> _ Hσ". simpl.
 
@@ -86,8 +80,8 @@ Proof.
   iApply (wp_pop_cons with "Hσ").
   iIntros "!> _ Hσ". simpl.
 
-  do 2 shift_hom. rem_hom k.                    (* so that it does't simpl *)
-  rewrite (@get_val_ITV _ _ _ (Ret 5)). simpl.
+  do 2 wp_ctx. name_ctx k.                    (* so that it does't simpl *)
+  rewrite (get_val_ret _ 5). simpl.
   rewrite get_fun_fun. simpl. subst k.
   iApply (wp_app_cont with "Hσ"); first done.
   iIntros "!> _ Hσ". simpl.
