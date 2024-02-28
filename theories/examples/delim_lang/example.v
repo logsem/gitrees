@@ -1,5 +1,5 @@
 From gitrees Require Import gitree lang_generic.
-From gitrees.examples.delim_lang Require Import lang interp.
+From gitrees.examples.delim_lang Require Import lang interp tactics.
 From iris.proofmode Require Import base classes tactics environments.
 From iris.base_logic Require Import algebra.
 
@@ -9,8 +9,6 @@ Example p : expr Empty_set :=
   ((#1) + (reset ((#3) + (shift/cc ((($0) @k #5) + (($0) @k #6)))))).
 
 Local Definition rs : gReifiers _ _ := gReifiers_cons reify_delim gReifiers_nil.
-(* Local Definition Hrs : subReifier reify_delim rs. *)
-(* Proof. unfold rs. apply subReifier_here. Qed. *)
 
 Notation F := (gReifiers_ops rs).
 Context {R} `{!Cofe R}.
@@ -26,28 +24,6 @@ Definition σ := snd ts.
 
 Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
 Notation iProp := (iProp Σ).
-
-
-Ltac wp_ctx :=
-  match goal with
-  | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x)
-                               (ofe_mor_car _ _ (?k2 ?t) ?e)) _ _ _) =>
-      assert (AsVal e) by apply _;
-      assert ((ofe_mor_car _ _ (λne x, k1 x) (k2 t e)) ≡ (λne x, k1 (k2 x e)) t) as -> by done
-  | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x) (?k2 ?t)) _ _ _) =>
-      assert ((ofe_mor_car _ _ (λne x, k1 x) (k2 t)) ≡ (λne x, k1 (k2 x)) t) as -> by done
-  | |- envs_entails _ (wp _ (ofe_mor_car _ _ (?k ?t) ?e) _ _ _) =>
-      assert (AsVal e) by apply _;
-      assert (k t e ≡ (λne x, k x e) t) as -> by done
-  | |- envs_entails _ (wp _ (?k ?t) _ _ _) =>
-      assert (k t ≡ (λne x, k x) t) as -> by done
-  end.
-
-Ltac name_ctx k :=
-  match goal with
-  | |- envs_entails _ (wp _ (ofe_mor_car _ _ ?k1 _) _ _ _) =>
-      remember k1 as k
-  end.
 
 
 Lemma wp_t (s : gitree.weakestpre.stuckness) :
