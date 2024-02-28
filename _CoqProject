@@ -29,12 +29,13 @@ theories/gitree.v
 theories/program_logic.v
 
 theories/effects/store.v
+theories/effects/callcc.v
 theories/effects/io_tape.v
 
 theories/lib/pairs.v
 theories/lib/while.v
 theories/lib/factorial.v
-theories/lib/iter.v
+ theories/lib/iter.v
 
 theories/examples/delim_lang/lang.v
 theories/examples/delim_lang/interp.v
