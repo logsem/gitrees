@@ -432,30 +432,103 @@ Definition meta_fill {S} (mk : Mcont S) e :=
   fold_left (λ e k, fill k e) mk e.
 
 (*** Type system *)
-(* Type system from [Filinski, Danvy 89] : A Functional Abstraction of Typed Contexts *)
+(* Type system from "Subtyping Delimited Continuations" (Materzok, Biernacki) *)
 
 Coercion Val : val >-> expr.
 
 Inductive ty :=
 | Tnat : ty
-| Tarr : ty -> ty -> ty -> ty -> ty
-| TarrCont : ty -> ty -> ty -> ty -> ty.
+| Tarr : ty -> annot -> ty -> ty
+| TarrCont : ty -> annot -> ty -> ty
+with annot :=
+| Aeps : annot
+| Acons : ty -> annot -> ty -> annot -> annot
+with type := T : ty -> annot -> type.
+
+Declare Custom Entry types.
+
+Notation "[[ t ]]" := t (t custom types at level 2).
+Notation "t , s" := (T t s) (in custom types at level 1).
+
+Notation "'N'" := Tnat (in custom types at level 0).
+Notation "t --> σ t'" := (Tarr t σ t') (in custom types at level 2, no associativity).
+Notation "t '-k>' σ t'" := (TarrCont t σ t') (in custom types at level 2, no associativity).
+
+Notation "'ε'" := Aeps (in custom types at level 0).
+Notation "[ t s ] t1 s1" := (Acons t s t1 s1) (in custom types at level 0).
+Notation "[ t ] t1 " := (Acons t Aeps t1 Aeps) (in custom types at level 0).
+
+Notation "( t )" := t (in custom types, t at level 2).
+Notation "{ t }" := t (in custom types, t constr).
+Notation "t" := t (in custom types at level 0, t ident).
+
+Check [[  (N --> [N] N N) , [ N ] N ]].
 
 
-(* Notation "'T' τ '/' α '->' σ '/' β" := (Tarr τ α σ β) (at level 99, only parsing). *)
-(* Notation "τ '/' α '→k' σ '/' β" := (TarrCont τ α σ β) (at level 60). *)
+Inductive sub_ty : ty -> ty -> Prop :=
+| sub_nat :
+  sub_ty Tnat Tnat
+| sub_arr τ1 τ1' τ2 τ2' σ1 σ2 :
+  sub_ty τ2' τ1' ->
+  sub_type [[τ1, σ1]] [[τ2, σ2]] ->
+  sub_ty [[τ1' --> σ1 τ1]] [[τ2' --> σ2 τ2]]
+| sub_arr_cont τ1 τ1' τ2 τ2' σ1 σ2 :
+  sub_ty τ2' τ1' ->
+  sub_type [[τ1, σ1]] [[τ2, σ2]] ->
+  sub_ty [[τ1' -k> σ1 τ1]] [[τ2' -k> σ2 τ2]]
+with sub_annot : annot -> annot -> Prop :=
+| sub_eps_eps :
+  sub_annot Aeps Aeps
+| sub_eps_cons τ σ τ' σ' :
+  sub_type [[τ, σ]] [[τ', σ']] ->
+  sub_annot Aeps [[[τ σ] τ' σ']]
+| sub_cons τ1 σ1 τ1' σ1' τ2 σ2 τ2' σ2' :
+  sub_type [[τ2, σ2]] [[τ1, σ1]] ->
+  sub_type [[τ1', σ1']] [[τ2', σ2']] ->
+  sub_annot [[[τ1 σ1] τ1' σ1']] [[[τ2 σ2] τ2' σ2']]
+with sub_type : type -> type -> Prop :=
+| sub_T τ τ' σ σ' :
+  sub_ty τ τ' ->
+  sub_annot σ σ' ->
+  sub_type [[τ, σ]] [[τ', σ']].
 
-(* Reserved Notation " Γ , α ⊢ e : τ , β" *)
-(*   (at level 90, e at next level, τ at level 20, no associativity). *)
+Notation "t ≤ t'" := (sub_ty t t') (at level 70).
+Notation "s ≤ s'" := (sub_annot s s') (at level 70).
+Notation "t ≤ t'" := (sub_type t t') (at level 70).
 
-(* Inductive typed {S : Set} (Γ : S -> ty) : ty -> expr S -> ty -> ty -> Prop := *)
+Reserved Notation "Γ '⊢' e ':' t" (at level 40, e at level 99, no associativity).
 
-(* | typed_Lit α n : *)
-(*   Γ, α ⊢ (LitV n) : Tnat, α *)
+Inductive typed {S : Set} (Γ : S -> ty) : expr S -> type -> Prop :=
 
-(* | typed_Rec (δ σ τ α β : ty) (e : expr (inc (inc S))) : *)
-(*     (Γ ▹ (Tarr  σ α τ β) ▹ σ) , α ⊢ e : τ , β -> *)
-(*     Γ,δ ⊢ (RecV e) : (Tarr σ α τ β) , δ *)
+| typed_sub τ σ τ' σ' e :
+  [[τ, σ]] ≤ [[τ', σ']] ->
+  Γ ⊢ e : [[τ, σ]] ->
+  Γ ⊢ e : [[τ', σ']]
+
+| typed_Lit n :
+  Γ ⊢ (LitV n) : [[N, ε]]
+
+| typed_Var (τx : ty) (v : S) :
+  Γ v = τx →
+  typed Γ (Var v) [[τx, ε]]
+
+| typed_Rec τ1 τ2 σ e :
+  (Γ ▹ [[τ1 --> σ τ2]] ▹ τ1) ⊢ e : [[τ2, σ]] ->
+  Γ ⊢ (RecV e) : [[(τ1 --> σ τ2), ε]]
+
+| typed_Cont ty k :
+  typed_cont Γ k ty ->
+  Γ ⊢ (ContV k) : ty
+
+| typed_App (τ1 τ1' τ2 τ2' τ3' τ4' : ty) σ1 σ2 σ3 σ4 f e :
+  Γ ⊢ f : [[ (τ1 --> [τ1' σ1] τ4' σ4 τ2) , [τ4' σ4] τ3' σ3 ]] ->
+  Γ ⊢ e : [[ τ1 , [τ3' σ3] τ2' σ2]] ->
+  Γ ⊢ (App f e) : [[ τ2 , [τ1' σ1] τ2' σ2]]
+
+| typed_AppCont (τ1 τ1' τ2 τ2' τ3' τ4' : ty) σ1 σ2 σ3 σ4 f e :
+  Γ ⊢ f : [[ (τ1 -k> [τ1' σ1] τ4' σ4 τ2) , [τ4' σ4] τ3' σ3 ]] ->
+  Γ ⊢ e : [[ τ1 , [τ3' σ3] τ2' σ2]] ->
+  Γ ⊢ (AppCont f e) : [[ τ2 , [τ1' σ1] τ2' σ2]]
 
 (* | typed_Cont (δ σ τ α : ty) (k : cont S) : *)
 (*   typed_cont Γ α k (TarrCont σ α τ α) α -> *)
@@ -472,7 +545,21 @@ Inductive ty :=
 (*   typed_cont Γ α K  *)
 (*   typed_cont Γ α (IfK e1 e2 K) (TarrCont Tnat ε τ' ε) α *)
 
-(* where "Γ , α ⊢ e : τ , β" := (typed Γ α e τ β). *)
+(* from the fact that shift k e = shift0 k (reset e) (in the paper) *)
+| typed_Shift (e : expr (inc S)) τ1 τ2 σ1 τ3 σ2 τ' τ'' σ'' :
+  (Γ ▹ [[τ1 -k> σ1 τ2]]) ⊢ e : [[τ' , [τ' ([τ'' σ''] τ'' σ'')] τ3 σ2]] ->
+  Γ ⊢ (Shift e) : [[τ1 , [τ2 σ1] τ3 σ2]]
+
+| typed_Reset e τ τ' τ'' σ'' σ :
+  Γ ⊢ e : [[τ' , [τ' ([τ'' σ''] τ'' σ'')] τ σ]] ->
+  Γ ⊢ (Reset e) : [[τ, σ]]
+
+with typed_cont {S : Set} (Γ : S -> ty) : cont S -> type -> Prop :=
+
+| typed_end τ :
+  typed_cont Γ END [[ (τ -k> ε τ), ε ]]
+
+where "Γ ⊢ e : τ " := (typed Γ e τ).
 
 (* | typed_Val (τ : ty) (v : val S)  : *)
 (*   typed_val Γ v τ → *)

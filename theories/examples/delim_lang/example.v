@@ -6,7 +6,7 @@ From iris.base_logic Require Import algebra.
 Open Scope syn_scope.
 
 Example p : expr Empty_set :=
-  ((#1) + (reset ((#3) + (shift/cc ((($0) @k #5) + (($0) @k #6)))))).
+  ((#7) + (reset ((#7) * (shift/cc ((($0) @k #2) + (($0) @k #3)))))).
 
 Local Definition rs : gReifiers _ _ := gReifiers_cons reify_delim gReifiers_nil.
 
@@ -28,7 +28,7 @@ Notation iProp := (iProp Σ).
 
 Lemma wp_t (s : gitree.weakestpre.stuckness) :
   has_substate σ -∗
-  WP@{rs} t @ s {{βv, βv ≡ RetV 18}}.
+  WP@{rs} t @ s {{βv, βv ≡ RetV 42}}.
 Proof.
   Opaque SHIFT APP_CONT.
   iIntros "Hσ".
@@ -44,7 +44,7 @@ Proof.
   iIntros "!>_ Hσ". simpl.
 
   (* the rest *)
-  rewrite (get_val_ret _ 6). simpl.
+  rewrite (get_val_ret _ 3). simpl.
   rewrite get_fun_fun. simpl.
   do 2 wp_ctx.
   iApply (wp_app_cont with "Hσ"); first done.
@@ -57,7 +57,7 @@ Proof.
   iIntros "!> _ Hσ". simpl.
 
   do 2 wp_ctx. name_ctx k.                    (* so that it does't simpl *)
-  rewrite (get_val_ret _ 5). simpl.
+  rewrite (get_val_ret _ 2). simpl.
   rewrite get_fun_fun. simpl. subst k.
   iApply (wp_app_cont with "Hσ"); first done.
   iIntros "!> _ Hσ". simpl.
