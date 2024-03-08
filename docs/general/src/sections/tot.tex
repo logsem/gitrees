@@ -1,0 +1,121 @@
+Our goal is to define a weak bisimularity relation of top of guarded
+interaction trees. However, there is a subtlety that prevents us from
+that. Consider a relation defined by guarded recursion.
+
+\begin{align*}
+\end{align*}
+
+But now, if we unveil semantics of the classical topos of trees,
+on top of which Iris is built, we can always find a number, for
+which that fixpoint relates any guarded interaction tree to
+the `bottom' tree defined as $\MU a \col \latert \IT. \Tau(a)$.
+Indeed, for a given $n$ that forces the formula, consider instantiating
+the existential with $n + 1$. Now, the relation trivially holds, as after
+`stripping' $n$ laters, we end up with a proposition that trivially holds.
+
+If we instead consider Transfinite Iris that is meant by allowing us to
+force formulas using elements from sets with bigger cardinalities, we
+could resolve the problem. However, in this case we lose ability
+to define guarded interaction trees as a solution to the recursive domain
+equation. Hand-waving proof: the solution to a general recursive domain equation,
+given by a locally contractive functor $F \col \ftrcat{\COFEs~\opCat \times \COFEs}{\COFEs}$ with a given element of $F(\One, \One)$ (given by $\One \toby{\mathsf{base}} F(\One, \One)$) is defined as co(limit) of
+the following diagram (of type $\ftrcat{\omega}{\COFEs}$).
+\begin{align*}
+  F_n & \col \COFEs \\
+  F_0 & \cceq \One \\
+  F_{n + 1} & \cceq F(F_n, F_n) \\
+  e_n & \col F_n \toby{} F_{n + 1} \\
+  p_n & \col F_{n + 1} \toby{} F_n \\
+  e_0 & \cceq \mathsf{base} \\
+  e_{n + 1} & \cceq F(p_n, e_n) \\
+  p_0 & \cceq \; ! \\
+  p_{n + 1} & \cceq F(e_n, p_n)
+\end{align*}
+
+\[
+  F_0 \stackrel[p_o]{e_0}{\rightleftarrows}
+  F_1 \stackrel[p_1]{e_1}{\rightleftarrows}
+  \ \cdots \
+  \stackrel[p_{n - 1}]{e_{n - 1}}{\rightleftarrows} F_n
+\]
+
+It is all nice and cool until we consider if we can take a limit of
+$F_n$. Consider an arbitrary equalizing pair of arrows in $\COFEs$:
+\parpair{X}{Y}{f}{g}. We want to find a unique ($E \col \COFEs$, $E
+\toby{e} X$), s.t. $\forall x \col E. f(e(x)) \equiv g(e(x))$. In a
+transfinite setting, it means that $e$ should be continuous (i.e., $e
+(\mathsf{blim}_{\leftarrow \beta_i})$ should be preserved), however,
+we have no guarantees that $E$, formed as a set-based equalizer, has all
+bounded limits.
+
+We argue that working in $\psh{\lambda}$, where $\lambda$ --- an
+arbitrary limit ordinal, is enough and sufficient for our goal. First,
+sheaf condition (which we need for fixpoints) for $F \col
+\psh{\lambda}$ is simple to handle:
+\begin{align*} F(\lt{\beta_i}) \equiv \lt{F(\beta_i)}
+\end{align*}
+
+Second, the notion of distance and local contractivity scales well
+for $\lambda$-indexed (pre)sheaves. Let us debacle it.
+Classically, $F$ is contractive, if $\Exists G. F \equiv G \circ \Next$.
+\begin{align*}
+  \latert & \col \psh{\lambda} \rightarrow \psh{\lambda} \\
+  \latert~X~0 & \cceq \One \\
+  \latert~X~(n + 1) & \cceq X~n \\
+  \latert~X~(\lt{\beta_i}) & \cceq X~(\lt{\beta_i})
+\end{align*}
+\begin{align*}
+  \Next & \col X \rightarrow \latert X \\
+  \Next_o & \cceq \; ! \\
+  \Next_{n + 1} & \cceq \mathsf{restr}^{n + 1}_{n} \\
+  \Next_{\lt{\beta_i}} & \cceq \imath
+\end{align*}
+
+We define $x \stackrel{n}{\equiv} y \cceq \All (n \toby{\delta} n'). x(n') \equiv y(n')$.
+$F$ is contractive iff $x \stackrel{n}{\equiv} y \implies F(x) \stackrel{n + 1}{\equiv} F(y)$.
+Let us show that our notion of being contractive is sufficient:
+$(\All (n' < n). x(n') \equiv y(n')) \implies (\All (n' < n + 1). G(\Next(x))(n') \equiv G(\Next(y))(n'))$. We show it by induction on $n'$.
+% \begin{itemize}
+%   \item[$n' = 0$.] $G(\star) \equiv G(\star)$.
+%   \item[$n' = n'' + 1$.] Ists.
+%   \item[$\lt{\beta_i}$.]
+% \end{itemize}
+
+What is done:
+\begin{itemize}
+\item Cartesian close structure of $\psh{\cat{C}}$.
+\item Completeness and cocompleteness of $\psh{\cat{C}}$.
+\item Wrappers around Kripke-Joyal semantics for $\psh{\cat{C}}$ that
+we intend to use as internal language.
+\item $\latert$, $\later$, $\Next$ for $\psh{\omega}$, including
+fixpoints, L\"ob induction.
+\item A machinery to piggy-back on Iris framework by using
+$\psh{\omega}$ instead of $\COFEs$. (Includes bi-instance for internal logic.)
+\item Half-finished solver for recursive domain equations for
+$\psh{\omega}$.
+\end{itemize}
+
+What remains to be done:
+\begin{itemize}
+\item Half-finish the solver for recursive domain equations for
+$\psh{\omega}$.
+\item Port $\psh{\omega}$-specific parts t $\psh{\lambda}$, where
+$\lambda$ --- an arbitrary limit ordinal.
+\item Port guarded interaction trees to $\psh{\lambda}$.
+\end{itemize}
+
+What are some open problems:
+\begin{itemize}
+\item What flavor of ordinals we should use? Ideally, it should have
+good induction scheme.
+\end{itemize}
+
+% \begin{tikzcd}
+%   A \arrow[d, "g"] \arrow[r, "f"] & B \arrow[r, "\alpha"] \arrow[d, "\gamma"] & D \arrow[d, "\beta"] \\
+%   C \arrow[rru, "h"] & B' \arrow[r, "\lambda"] & D'
+% \end{tikzcd}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "../main"
+%%% End:

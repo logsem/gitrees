@@ -1,0 +1,40 @@
+\newcommand{\col}{\mathrel{:}}
+\newcommand{\cceq}{\col\col=}
+
+\newcolumntype{L}{>{$}l<{$}}
+\newcommand\GrmContinue{\multicolumn{2}{l}{}}
+\NewDocumentEnvironment{grammar}{}{
+  \medskip
+  \begin{tabular}{lL@{\ \ $\cceq$\ \ }L}
+}{
+  \end{tabular}
+  \medskip
+}
+
+\newcommand{\syn}[1]{{\mathsf{#1}}}
+\newcommand{\synds}{\syn{.}~}
+
+\newcommand{\tarr}[2]{{#1}\mathop{\syn{\to}}{#2}}
+\newcommand{\tnat}{\mathbb{N}}
+\newcommand{\tcont}[1]{\mathit{cont}({#1})}
+
+\newcommand{\callcc}[2]{\langkw{call/cc}~(\syn{{#1}}\synds{#2})}
+\newcommand{\cont}[1]{\langkw{cont}~{#1}}
+\newcommand{\throw}[2]{\langkw{throw}~{#1}~\langkw{to}~{#2}}
+\newcommand{\natop}[2]{{#1}\oplus{#2}}
+
+\newcommand{\emptyK}{\square}
+
+\newcommand{\vlam}[2]{\syn{\lambda}\,{#1}\synds{#2}}
+
+\newcommand{\elet}[3]{\langkw{let}\,{#1} = {#2}\,\langkw{in}\,{#3}}
+\newcommand{\eapp}[2]{{#1}\;{#2}}
+
+\newcommand{\typeA}[3]{{#1}\vdash{#2}\col{#3}}
+
+\newcommand{\contr}[2]{{#1}\mapsto{#2}}
+\newcommand{\contrA}[3]{{#1}\mapsto_{#3}{#2}}
+\newcommand{\reds}[2]{{#1}\to{#2}}
+\newcommand{\redsstar}[2]{{#1}\to^{*}{#2}}
+
+\newcommand{\plug}[2]{{#1}[{#2}]}

@@ -1,0 +1,106 @@
+Now, if we want to reason about a language with control operations,
+such as $\iocclang$, we have to provide reifiers for its effects.
+However, in the current setup, we cannot do that. Consider
+$\callccGT(f)$. Before passing results of reification to the current
+continuation, it is supposed to take the said continuation, and pass
+it to $f$. Analogously, $\throwGT$ is not supposed to return results
+of reification at all. With that being said, we cannot define reifiers
+for $\callccGT$ and $\throwGT$. A solution to this problem is to make
+reifiers accept continuation as an extra parameter, as shown
+in~\cref{fig:different_reifiers}.
+
+There is, however, a tradeoff --- the lack of generic bind rule.
+
+\begin{mathpar}
+  \inferrule[wp-hom]
+  {f \in \Hom \and \wpre{\alpha}{\Ret \beta_v. \wpre{f(\beta_v)}{\Phi}}}
+  {\wpre{f(\alpha)}{\Phi}}
+\end{mathpar}
+
+The reason for that is the following two lemmas, required to prove that steps can be performed under an arbitrary \gitrees context (i.e., under homomorphic functions).
+
+\begin{lemma}
+  \label{lem:hom_istep}
+  Let $f$ be a homomorphism.
+  Then $(\alpha,\sigma)\istep(\beta,\sigma')$ implies
+  $(f(\alpha),\sigma)\istep(f(\beta),\sigma')$.
+\end{lemma}
+\begin{lemma}
+  \label{lem:hom_istep_inv}
+  Let $f$ be a homomorphism.
+  If $(f(\alpha), \sigma)\istep(\beta',\sigma')$ then either
+  \begin{itemize}
+  \item $\alpha$ is a \gitree-value, or;
+  \item there exists $\beta$ such that
+    $(\alpha,\sigma)\istep(\beta,\sigma')$ and $\later(f(\beta) = \beta')$.
+  \end{itemize}
+\end{lemma}
+
+Consider the second clauses of $\istep$ in both lemmas. By definition
+of homomorphic functions, the preserve $\Vis$ constructors by
+composition with their continuations. However, we cannot guarantee
+that results of reification stay the same with different
+continuations.
+
+However, we can recover the bind rule for effect signatures with only
+context independent effects, as reifiers for context independent
+effects do not depend upon continuations.
+
+Under the proposed modifications, it is possible to define reifiers
+for $\callccGT(f)$ and $\throwGT(e)(f)$, as shown
+in~\cref{fig:control_reifiers}. Reifiers for $\callccGT(f)$ and
+$\throwGT(e)(f)$ are straitforward. $\callccGT(f)$ applies the current
+continuation to $f$ `passing` it, and returns the result wrapped in
+the current continuation. $\throwGT(e)(f)$ simply applies the second
+argument to the first one, and ignores the current continuation
+entirely. In addition, we can show the following rules for the
+mentioned reifiers.
+
+\begin{lemma}{WP-throw.}
+  \label{lem:wp_throw}
+  $\sem{\sigma} \ast \later (\sem{\sigma} \wand \wpre{\eapp{f}{x}}{\Phi}) \vdash \wpre{\eapp{\kappa}{(\throwGT(\Next(x))(\Next(f)))}}{\Phi}$
+\end{lemma}
+
+\begin{lemma}{WP-callcc.}
+  \label{lem:wp_callcc}
+  $\sem{\sigma} \ast \later (\sem{\sigma} \wand \wpre{\eapp{\kappa}{(\eapp{f}{\kappa})}}{\Phi}) \vdash \wpre{\eapp{\kappa}{(\callccGT(\Next \circ f))}}{\Phi}$
+\end{lemma}
+
+\begin{figure}
+  \[
+    r : \prod_{\idx \in E} \Ins_{\idx}(\latert \IT_E) \times \stateO \times (\Outs_{\idx}(\latert \IT_E \rightarrow \latert \IT_E)) \to \optionO(\latert \IT_E \times \stateO).
+  \]
+  \caption{New type for reifiers.}
+  \label{fig:different_reifiers}
+\end{figure}
+
+\begin{figure}
+  \begin{mathpar}
+    \infer
+    {r_i(x,\sigma,\kappa) = \Some(\beta, \sigma')}
+    {\reify(\Vis_i(x, k), \sigma) = (\Tau(\beta), \sigma')}
+    \and
+    \infer
+    {r_i(x,\sigma,\kappa) = \None}
+    {\reify(\Vis_i(x, k), \sigma) = (\Err(\RunTime), \sigma)}
+  \end{mathpar}
+  \caption{New definition of reify function.}
+  \label{fig:different_reify}
+\end{figure}
+
+\begin{figure}
+  \begin{align*}
+    r_{\mathtt{input}}((),(n\vec{n},\vec{m}),\kappa) &= \Some(\kappa~n, (\vec{n},\vec{m}))\\
+    r_{\mathtt{input}}((),(\epsilon,\vec{m}),\kappa) &= \None\\
+    r_{\mathtt{output}}(x,(\vec{n},\vec{m}),\kappa) &= \Some(\kappa~(), (\vec{n},x\vec{m}))\\
+    r_{\mathtt{callcc}} (i, \sigma, \kappa) &= \Some(\kappa~(i~\kappa), \sigma)\\
+    r_{\mathtt{throw}} (i, \sigma, \kappa) &= \Some((\pi_2~i)~(\pi_1~i), \sigma)
+  \end{align*}
+  \caption{Reifiers.}
+  \label{fig:control_reifiers}
+\end{figure}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "../main"
+%%% End:

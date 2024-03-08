@@ -1,0 +1,77 @@
+We aim to provide labeled transition systems corresponding
+to visible effects happening in programs written in guarded interaction
+trees. We pursue two aims. First, we want to study these LTSs as they are.
+Second, we want to have an ability to hide some effects in case they are
+invisible to external observers. Last, we want to be able to relate
+two or more LTSs corresponding to different programs to argue
+that they simulate each other up to possible hidden effects.
+Thus, we can study security properties of programs, and, moreover,
+obtain stronger reasoning principles for relating programs.
+
+\begin{figure}
+  \begin{align*}
+    E_{nondet} &\eqdef \{\mathtt{flip}\} \\
+    \Ins_{\mathtt{flip}}(X) &\eqdef \Tunit \\
+    \Outs_{\mathtt{flip}}(X) &\eqdef \Tbool \\
+    \mathtt{br}~x~y & \eqdef \Vis_{\mathtt{flip}}((), \Lam b. \IF b \{ x \} \{ y \}) \\
+    r_{\mathtt{flip}}((),b\vec{b},\kappa) &= \Some(\kappa~b, \vec{b})
+  \end{align*}
+  \caption{state is a coinductive list of booleans}
+\end{figure}
+
+\begin{align*}
+  \mathsf{spin} \cceq \MU a \col \latert \IT. \Tau(a) \equiv \Tick(\mathsf{spin})
+\end{align*}
+\begin{align*}
+  \mathsf{p} \cceq \WHILE{\true}{\OUTPUT~0} \equiv \OUTPUT~0 \SEQ \WHILE{\true}{\OUTPUT~0} \equiv \dots
+\end{align*}
+\begin{align*}
+  \mathsf{q} \cceq \mathsf{br}~\mathsf{spin}~\mathsf{p}
+\end{align*}
+
+\begin{align*}
+  (\alpha, \sigma) \prec^{\tau} (\beta, \sigma') & \cceq \alpha = \Tick(\beta) \wedge \sigma = \sigma' \\
+  (\alpha, \sigma) \prec^{i_{x}} (\beta, \sigma') & \cceq \Exists i\,x\,k. \alpha = \Vis_i(x,k)
+    \wedge \reify(\alpha,\sigma) = (\Tick(\beta),\sigma')
+\end{align*}
+
+\begin{figure}
+  \begin{tikzpicture}
+    \node[state] (1) {$\mathsf{q}$};
+    \node[state, below left of=1] (2) {$\mathsf{p}$};
+    \node[state, right of=2] (3) {$\mathsf{spin}$};
+    \draw (2) edge[above] node{$\mathsf{flip}_{\mathsf{false}}$} (1)
+    (3) edge[loop right] node{$\tau$} (3)
+    (1) edge[loop right] node{$\OUTPUT~0$} (1)
+    (2) edge[below] node{$\mathsf{flip}_{\mathsf{true}}$} (3);
+  \end{tikzpicture}
+  \caption{reifiers are the same}
+\end{figure}
+
+\begin{figure}
+  \begin{tikzpicture}
+    \node[state] (1) {$\mathsf{q}$};
+    \node[state, below left of=1] (2) {$\mathsf{p}$};
+    \node[state, right of=2] (3) {$\mathsf{spin}$};
+    \draw (2) edge[above] node{$\tau$} (1)
+    (3) edge[loop right] node{$\tau$} (3)
+    (1) edge[loop right] node{$\OUTPUT~0$} (1)
+    (2) edge[below] node{$\tau$} (3);
+  \end{tikzpicture}
+  \caption{some effects can be marked as hidden}
+\end{figure}
+
+\begin{figure}
+  \begin{tikzpicture}
+    \node[state] (1) {$\mathsf{q}$};
+    \node[state, below left of=1] (2) {$\mathsf{p}$};
+    \draw (2) edge[above] node{$\OUTPUT~0$} (1)
+    (1) edge[loop right] node{$\OUTPUT~0$} (1);
+  \end{tikzpicture}
+  \caption{wip}
+\end{figure}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "../main"
+%%% End:

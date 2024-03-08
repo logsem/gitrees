@@ -1,0 +1,108 @@
+Guarded Interaction trees (\gitrees) are constructed as a guarded
+recursive type parameterized over two input types: $E$ that provides
+an effect signature, which specifies effects that can occur, and their
+arity. $A$ specifies a ground type that allows addition of new
+primitive values. The type has five constructors: $\Rret$ --- wraps
+ground type expressions, $\Fun$ extends the domain to contain
+functions, $\Err$ constructor, $\Tau$ constructor that makes \gitrees
+into guarded domain, and $\Vis$ that accepts a function from inputs of
+some effect (that can involve \gitrees themselves, which allow us to
+represent higher-order effects), a function from outputs of the same
+effect to gitrees, which represents continuations of effects.
+
+\gitrees admit an operational semantics given reifiers for all effects
+in the signature. A reifier of an effect $i$ is a function of type
+shown in~\cref{fig:reifier_sig}. Assuming we have such reifiers for
+all effects, we write a function $\reify : \IT \times \stateO \to \IT
+\times \stateO$ that satisfies the equations in~\cref{fig:reify_def}.
+Note that reifiers don't take continuation into account. Now we can
+define a step to be either removing a single $\Tick$ (where $\Tick
+\eqdef \Tau \circ \Next$), or reification of the head effect.
+
+Let us now define a class of homomorphic functions, formally defined
+in~\cref{fig:hom}, to be functions that act as identities on errors,
+and preserve $\Tick$ and $\Vis$ constructors.
+
+Now, given $\istep$ representing operational semantics of \gitrees,
+and homomorphic functions, representing context of \gitrees. We can
+define program logic for a language of \gitrees, including important
+wp-bind and wp-reify rules (\cref{fig:wp_rules}), which allow to
+modular reasoning about \gitrees and effects respectfully.
+
+\begin{figure}[t]
+  \begin{align*}
+    \mathsf{guarded\ type}\ \IT_E(A) &{}= \Rret : A \to \IT_E\\
+                                     &\ \ALT \Fun : \latert (\IT_E(A) \to \IT_E(A)) \to \IT_E(A)\\
+                                     &\ \ALT \Err : \Error \to \IT_E(A)\\
+                                     &\ \ALT \Tau : \latert \IT_E(A) \to \IT_E(A) \\
+                                     &\ \ALT \Vis : \prod_{\idx \in \mathtt{I}} \big( \Ins_{\idx}(\latert \IT_E(A)) \times (\Outs_{\idx}(\latert \IT_E(A)) \to \latert \IT_E(A))\big) \to \IT_E(A)
+  \end{align*}
+
+  \caption{Guarded datatype of interaction trees.}
+  \label{fig:gitrees_def}
+\end{figure}
+
+\begin{figure}
+  \[
+    r : \prod_{\idx \in E} \Ins_{\idx}(\latert \IT_E) \times \stateO \to \optionO(\Outs_{\idx}(\latert\IT_E) \times \stateO).
+  \]
+  \caption{Signature of reifiers.}
+  \label{fig:reifier_sig}
+\end{figure}
+
+\begin{figure}
+  \begin{mathpar}
+    \infer
+    {r_i(x,\sigma) = \Some(y, \sigma') \and k\ y = \Next(\beta)}
+    {\reify(\Vis_i(x, k), \sigma) = (\Tick(\beta), \sigma')}
+    \and
+    \infer
+    {r_i(x,\sigma) = \None}
+    {\reify(\Vis_i(x, k), \sigma) = (\Err(\RunTime), \sigma)}
+  \end{mathpar}
+  \caption{Reification definition.}
+  \label{fig:reify_def}
+\end{figure}
+
+\begin{figure}
+  \[
+    (\alpha,\sigma) \istep (\beta,\sigma') \eqdef
+    \big(\alpha = \Tick(\beta) \wedge \sigma = \sigma' \big)
+    \vee \big(\Exists i\,x\,k. \alpha = \Vis_i(x,k)
+    \wedge \reify(\alpha,\sigma) = (\Tick(\beta),\sigma')\big)
+  \]
+  \caption{Operational semantics of Guarded interaction trees.}
+  \label{fig:opsem_gitrees}
+\end{figure}
+
+\begin{figure}
+  \begin{itemize}
+  \item $f(\Err(e)) = \Err(e)$;
+  \item $f(\Tick(\alpha)) = \Tick(f(\alpha))$;
+  \item $f(\Vis_i(x,k)) = \Vis_i(x, \latert f \circ k)$
+  \end{itemize}
+  \caption{Homomorphisms}
+  \label{fig:hom}
+\end{figure}
+
+\begin{figure}
+  \begin{mathpar}
+    \inferrule[wp-reify]
+    {\hasstate(\sigma) \and
+      \reify(\Vis_i(x,k), \sigma) = (\Tick(\beta), \sigma')
+      \and
+      \later\big(\hasstate(\sigma') \wand \wpre{\beta}{\Phi} \big)}
+    {\wpre{\Vis_i(x, k)}{\Phi}}
+    \and
+    \inferrule[wp-hom]
+    {f \in \Hom \and \wpre{\alpha}{\Ret \beta_v. \wpre{f(\beta_v)}{\Phi}}}
+    {\wpre{f(\alpha)}{\Phi}}
+  \end{mathpar}
+  \caption{Selected weakest precondition rules.}
+  \label{fig:wp_rules}
+\end{figure}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "../main"
+%%% End:

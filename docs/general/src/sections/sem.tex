@@ -1,0 +1,158 @@
+Now we are ready to provide a full denotational model for $\iocclang$
+in \gitrees in~\cref{fig:lang_sem}. Note that the types of
+continuations are slightly different in these signatures. However, we
+can use the later whenever we need the former by applicative structure
+of the later modality.
+
+To argue that the interpretation is reasonable, we show soundness and
+adequacy of this interpretation. To clarify, we want to show that our
+interpretation preserves operational steps, and, moreover, steps in
+the interpretation reflect on the operational level.
+
+Let us start with soundness.
+
+\begin{lemma}
+  \label{lem:ectx_hom}
+  $\All K\;\gamma. \sem{K}_\gamma \in \Hom$.
+\end{lemma}
+
+\begin{lemma}{Semantical substitution.}
+  \label{lem:semsubst}
+  $\sem{\plug{e}{\gamma}}_\rho = \sem{e}_{\sem{\_}_\rho \circ \gamma}$
+\end{lemma}
+
+\begin{lemma}{Soundness.}
+  \label{lem:soundness}
+  Let $\reds{\expr_1, \sigma_1}{\expr_2, \sigma_2}$
+  then $\Exists n. \sem{\expr_1}_\gamma, \sigma_1 \istep \Tick^n \sem{\expr_2}_\gamma, \sigma_2$.
+\end{lemma}
+\begin{proof}
+  By case analysis on operational steps.
+  \begin{description}
+  \item[Case 1: $\contr{\plug{K}{\throw{\val}{\cont{K'}}}, \sigma}{\plug{K'}{\val}, \sigma}$.]
+    Let us choose $n = 2$. \\
+    It suffices to show that $\sem{\plug{K}{\throw{\val}{\cont{K'}}}}_\gamma, \sigma \istep \Tick (\Tick (\sem{\plug{K'}{\val}}_\gamma))$.
+    By definition of interpretation,\\
+    $\sem{\plug{K}{\throw{\val}{\cont{K'}}}}_\gamma, \sigma$ is equivalent to $\eapp{\sem{K}_\gamma}{\getval (\Lam x. \getfun (\Lam f. \throwGT(x, f) (\sem{\cont{K'}}_\gamma)) (\sem{\val}_\gamma))}, \sigma$, which, by definition of $\sem{\cont{K'}}_\gamma$ and $\getfun, \getval \in \Hom$, is equivalent to\\
+    $\throwGT(\sem{\val}_\gamma, (\Next(\Lam x. \Tau(\APPsl{\sem{K'}_\gamma}{\Next(x)}))))$.
+    By definition of reify and reifier for $\throwGT$,
+    $\throwGT(\sem{\val}_\gamma, (\Next(\Lam x. \Tau(\APPsl{\sem{K'}_\gamma}{\Next(x)})))), \sigma \istep \Tau (\Next (\Tau (\Next (\eapp{\sem{K'}_\gamma}{\sem{v}_\gamma})))), \sigma$.
+  \item[Case 2: $\contr{\plug{K}{\callcc{\var}{\expr}}, \sigma}{\plug{K}{\subst{\expr}{\var}{\cont{K}}}, \sigma}$.]
+    Let us choose $n = 1$. \\
+    It suffices to show that $\sem{\plug{K}{\callcc{\var}{\expr}}}_\gamma, \sigma \istep \Tick \sem{\plug{K}{\subst{\expr}{\var}{\cont{K}}}}_\gamma, \sigma$.
+    By definition of reify and reifier for $\callccGT$,\\
+    $\sem{\plug{K}{\callcc{\var}{\expr}}}_\gamma, \sigma \istep \Tau(\eapp{\sem{K}_\gamma}{(\eapp{\Lam (f \col \latert \IT \rightarrow \latert \IT). \sem{\expr}_{\gamma[\var \mapsto \Fun (\Next (\Lam y. \Tau (f (\Next (y)))))]}}{\sem{K}_\gamma})}), \sigma$,
+    which is equivalent to $\Tick \sem{\plug{K}{\subst{\expr}{\var}{\cont{K}}}}_\gamma$
+    by~\cref{lem:semsubst}.
+  \end{description}
+\end{proof}
+
+To prove adequacy we define a context dependent logical relation
+in~\cref{fig:logrel}.
+
+Note that the proof of adequacy relies on the fact that
+interpretations of all evaluation contexts are homomorphisms, which
+allows us to use a limited version of the bind rule, shown in~\cref{lem:obs_bind}.
+
+\begin{lemma}{Observational equivalence bind rule.}
+  \label{lem:obs_bind}
+  \newline
+  Let $\alpha \sim_{\sem{\tau_1}}^{\Expr} \expr$ and $\kappa \sim_{\sem{\tau_1}}^{\Ectx} K$
+  then $\eapp{\kappa}{\alpha} \downarrow \plug{K}{\expr}$.
+\end{lemma}
+
+\begin{lemma}{Semantically valid expression head-step.}
+  \label{lem:step}
+  \newline
+  Let $\contrA{\expr_1, \sigma_1}{\expr_2, \sigma_2}{K}$ and $\alpha \sim_{R}^{\Expr} \plug{K}{\expr_2}$
+  then $\alpha \sim_{R}^{\Expr} \plug{K}{\expr_1}$.
+\end{lemma}
+
+\begin{lemma}{Fundamental lemma.}
+  \label{lem:fundamental}
+  \newline
+  Let $\typeA{\Gamma}{\expr}{\tau}$
+  then $\Gamma \vDash \expr \col \tau$.
+\end{lemma}
+\begin{proof}
+  By induction on typing derivation.
+  \begin{description}
+  \item[Case 1: $\typeA{\Gamma}{\throw{\expr_1}{\expr_2}}{\tau'}$.]
+    By induction hypothesis, $\Gamma \vDash \expr_1 \col \tau$ and $\Gamma \vDash \expr_2 \col \tcont{\tau}$.\\
+    By~\cref{lem:obs_bind} and definition of logical relation, it suffices to show\\
+    $\All (\rho, \gamma) \in \sem{\Gamma}\; \kappa \sim_{\sem{\tau'}}^\Ectx K. \eapp{\kappa}{\sem{\throw{\expr_1}{\expr_2}}_\rho} \downarrow \plug{K}{\throw{\plug{\expr_1}{\gamma}}{\plug{\expr_2}{\gamma}}}$.\\
+    By~\cref{lem:obs_bind} and induction hypothesis, it suffices to show\\
+    $\sem{\throw{\emptyK}{\expr_2}}_\rho \sim_{\sem{\tau}}^{\Ectx} \throw{\emptyK}{\plug{\expr_2}{\gamma}}$.\\
+    By~\cref{lem:obs_bind} and induction hypothesis, it suffices to show\\
+    $\throwGT(\beta\val_1)(\beta\val_2) \downarrow \throw{\val_1}{\val_2}$ for $(\val_1, \beta\val_1) \in \sem{\tau}$ and $(\val_2, \beta\val_2) \in \sem{\tcont{\tau}}$.\\
+    The statement holds by~\cref{lem:wp_throw} and definition of $\downarrow$.
+  \item[Case 2: $\typeA{\Gamma}{\callcc{\var}{\expr}}{\tau}$.]
+    By induction hypothesis, $\Gamma, x \col \tcont{\tau} \vDash e \col \tau$.\\
+    By definition of logical relation, it suffices to show\\
+    $\eapp{\kappa}{\sem{\throw{}{}}_\rho} \downarrow \plug{K}{\callcc{\var}{\plug{\expr}{\gamma \uparrow}}}$ for $(\rho, \gamma) \in \sem{\Gamma}$ and $\kappa \sim_{\sem{\tau}}^{\Ectx} K$,\\
+    which holds by~\cref{lem:wp_callcc}.
+  \end{description}
+\end{proof}
+
+\begin{lemma}{Adequacy.}
+  \label{lem:adequacy}
+  \newline
+  Let $\sem{\expr}_{\sem{\cdot}}, \sigma_1 \istep \Rret~n, \sigma_2$ and $\typeA{\cdot}{\expr}{\tnat}$
+  then $\expr, \sigma_1 \rightarrow^* n, \sigma_2$.
+\end{lemma}
+\begin{proof}
+  By fundamental lemma and adequacy of program logic.
+\end{proof}
+
+\begin{figure}
+  \begin{align*}
+    &\sem{\expr} \col (\Var \rightarrow \IT) \rightarrow \IT \\
+    &\sem{\var}_\gamma = \gamma(\var) \\
+    &\sem{\eapp{\expr_1}{\expr_2}}_\gamma = \APPs{\sem{\expr_1}_\gamma}{\sem{\expr_2}_\gamma} \\
+    &\sem{\natop{\expr_1}{\expr_2}}_\gamma = \NATOP_{\oplus}(\sem{\expr_1}_\gamma, \sem{\expr_2}_\gamma)\\
+    &\sem{\Input}_\gamma = \INPUT \\
+    &\sem{\Output e}_\gamma = \getnat(\sem{e}_\gamma, \OUTPUT) \\
+    &\sem{\If \expr_1 then \expr_2 \Else \expr_3}_\gamma = \IF(\sem{\expr_1}_\gamma, \sem{\expr_2}_\gamma, \sem{\expr_3}_\gamma) \\
+    &\sem{\callcc{\var}{\expr}}_{\gamma} = \callccGT(\Lam (f \col \latert \IT \rightarrow \latert \IT). \sem{\expr}_{\gamma[\var \mapsto \Fun (\Next (\Lam y. \Tau (f (\Next (y)))))]}) \\
+    &\sem{\throw{\expr_1}{\expr_2}}_{\gamma} = \getval (\Lam x. \getfun (\Lam f. \throwGT(x, f) (\sem{\expr_2}_\gamma)) (\sem{\expr_1}_\gamma)\\
+    \intertext{}
+    &\sem{\val} \col (\Var \rightarrow \IT) \rightarrow \IT \\
+    &\sem{n}_\gamma = \Rret(n) \\
+    &\sem{\Rec f \var = \expr}_\gamma = \fix_{\IT}(\Lam (t \col \latert \IT).
+      \Fun(\latert (\Lam \alpha\ v. \sem{\expr}_{\gamma[\var \mapsto v][f \mapsto \alpha]})(t)))\\
+    &\sem{\cont K}_\gamma = \Fun(\Next(\Lam x. \Tau(\APPsl{\sem{K}_\gamma}{\Next(x)})))\\
+    \intertext{}
+    &\sem{K} \col (\Var \rightarrow \IT) \rightarrow \IT \rightarrow \IT \\
+    &\sem{\emptyK}_\gamma = \imath \\
+    &\sem{\Output K}_\gamma = \Lam x. \getnat(\sem{K}_\gamma x, \OUTPUT) \\
+    &\sem{\If K then \expr_1 \Else \expr_2}_\gamma = \Lam x. \IF(\sem{K}_\gamma x, \sem{\expr_1}_\gamma, \sem{\expr_2}_\gamma) \\
+    &\sem{\eapp{K}{\val}}_\gamma = \Lam x. \APPs{\sem{K}_\gamma x}{\sem{\val}_\gamma} \\
+    &\sem{\eapp{\expr}{K}}_\gamma = \Lam x. \APPs{\sem{\expr}_\gamma}{\sem{K}_\gamma x} \\
+    &\sem{\natop{\expr}{K}}_\gamma = \Lam x. \NATOP_{\oplus}(\sem{\expr}_\gamma, \sem{K}_\gamma x) \\
+    &\sem{\natop{K}{\val}}_\gamma = \Lam x. \NATOP_{\oplus}(\sem{K}_\gamma x, \sem{\val}_\gamma) \\
+    &\sem{\throw{K}{\expr}}_\gamma = \Lam x. \getval (\Lam y. \getfun (\Lam f. \throwGT(y, f) (\sem{\expr}_\gamma)) (\sem{K}_\gamma x)\\
+    &\sem{\throw{\val}{K}}_\gamma = \Lam x. \getval (\Lam y. \getfun (\Lam f. \throwGT(y, f) (\sem{K}_\gamma x)) (\sem{\val}_\gamma)
+  \end{align*}
+  \caption{Denotational semantics of $\iocclang$}
+  \label{fig:lang_sem}
+\end{figure}
+
+\begin{figure}
+  \begin{align*}
+    \alpha \downarrow \expr &\eqdef \All \sigma. \sem{\sigma} \wand \wpre{\alpha}{\beta. \Exists \val\;\sigma'. \expr, \sigma \rightarrow^* \val, \sigma' \ast (\beta, \val) \in \sem{\tnat} \land \sem{\sigma'}}\\
+    \sim_R^{\Ectx} &\eqdef \setComp{(\kappa, K)}{\All (\beta \sim_R \val). \eapp{\kappa}{\beta} \downarrow \plug{K}{\val}}\\
+    \sim_R^{\Expr} &\eqdef \setComp{(\alpha, \expr)}{\All (\kappa \sim_R^{\Ectx} K). \eapp{\kappa}{\alpha} \downarrow \plug{K}{\expr}}\\
+    \sem{\tnat} &\eqdef \setComp{(\beta, \val)}{\Exists n. \beta = \Rret(n) \land \val = n}\\
+    \sem{\tarr{\tau_1}{\tau_2}} &\eqdef \setComp{(\Fun(f), \val)}{\All (\alpha, \val') \in \sem{\tau_1}. \APPs{f}{\alpha} \sim_{\sem{\tau_2}}^{\Expr} \eapp{\val}{\val'}}\\
+    \sem{\tcont{\tau}} &\eqdef \setComp{(\Fun(\Next(\Lam x. \Tau (\APPsl{\kappa}{\Next(x)}))), \cont{K})}{\kappa \sim_{\sem{\tau}}^{\Ectx} K}\\
+    \sem{\Gamma} &\eqdef \setComp{(\rho, \gamma)}{\All \var \col \tau \in \Gamma. \eapp{\rho}{\var} \sim_{\sem{\tau}}^{\Expr} \eapp{\gamma}{\var}}\\
+    \Gamma \vDash \expr \col \tau &\eqdef \All (\rho, \gamma) \in \sem{\Gamma}. \sem{\expr}_\rho \sim_{\sem{\tau}}^{\Expr} \plug{\expr}{\gamma})
+  \end{align*}
+\caption{Logical relation.}
+\label{fig:logrel}
+\end{figure}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "../main"
+%%% End:

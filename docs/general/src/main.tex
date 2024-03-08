@@ -1,0 +1,143 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage[square,numbers]{natbib}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{bussproofs}
+\usepackage{fancyvrb}
+\usepackage{booktabs}
+\usepackage{subcaption}
+\usepackage{todonotes}
+\usepackage{xcolor}
+\usepackage{tabularx}
+\usepackage{comment}
+\usepackage{mathtools}
+\usepackage{csquotes}
+\usepackage{mathpartir}
+\usepackage{stmaryrd}
+\usepackage{microtype}
+\usepackage{standalone}
+\usepackage{import}
+\usepackage{multicol}
+\usepackage{soul}
+\usepackage[capitalize,nameinlink,noabbrev]{cleveref}
+\usepackage[inline]{enumitem}
+\usepackage{cmll}
+\usepackage{amsfonts,amsmath,stmaryrd,amsthm,amssymb}
+\usepackage[T1]{fontenc}
+\usepackage[all]{xy}
+\usepackage{xspace}
+\usepackage{latexsym}
+\usepackage{bbm}
+\usepackage{mathrsfs}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage[all]{xy}
+\usepackage{stackrel}
+\usepackage{iris}
+\usepackage{syn}
+\usepackage{macro}
+
+\usepackage{tikz}
+\usepackage{tikz-cd}
+\usetikzlibrary{automata, positioning, arrows}
+
+\tikzset{
+  ->, % makes the edges directed
+  node distance=3cm, % specifies the minimum distance between two nodes. Change if necessary.
+  every state/.style={thick, fill=gray!10}, % sets the properties for each ’state’ node
+  initial text=$ $, % sets the text that appears on the start arrow
+}
+
+\setlength{\columnsep}{0pc}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{ltblue}{rgb}{0,0.4,0.4}
+\definecolor{dkviolet}{rgb}{0.3,0,0.5}
+
+\newtheoremstyle{break}
+  {\topsep}{\topsep}%
+  {\itshape}{}%
+  {\bfseries}{}%
+  {\newline}{}%
+
+\lstset{basicstyle=\ttfamily}
+
+\newcommand{\citets}[1]{\citeauthor{#1}'s~[\citeyear{#1}]}
+
+\bibliographystyle{abbrvnat}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[theorem]
+
+\newtheorem{lemma}[theorem]{Lemma}
+
+\theoremstyle{break}
+\newtheorem{definition}{Definition}[section]
+
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+
+\title{call/cc meets guarded interaction trees (note)}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\noindent
+
+\section*{Preface}
+Non-trivial control flow operations, such as call/cc, provide immense
+control over program execution but also make formal reasoning about
+programming languages supporting it more complicated. In this note, we
+provide denotational semantics of call/cc, defined in guarded
+interaction trees, and prove that this semantics reflects the expected
+operational behaviour.
+\label{global:sec:preface}
+
+\tableofcontents
+
+\clearpage
+
+\section{Introduction}
+\label{global:sec:intro}
+\input{sections/intro}
+
+\section{Guarded interaction trees}
+\label{global:sec:gitree}
+\input{sections/gitree}
+
+\section{Language}
+\label{global:sec:lang}
+\input{sections/lang}
+
+\section{Reifiers}
+\label{global:sec:reifier}
+\input{sections/reifier}
+
+\section{Semantics}
+\label{global:sec:sem}
+\input{sections/sem}
+
+% \section{LTS}
+% \label{global:sec:lts}
+% \input{sections/lts}
+
+% \section{Gitrees in topos of trees}
+% \label{global:sec:tot}
+% \input{sections/tot}
+
+\nocite{*}
+\bibliography{refs}
+
+\end{document}
+\endinput
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:

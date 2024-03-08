@@ -1,0 +1,151 @@
+In this section we describe our target language, $\iocclang$.
+
+$\iocclang$, presented in~\cref{fig:syn_lang}, is a lambda calculus
+with recursive functions, primitive natural numbers and operations on
+them, input/output operations, call/cc, and throw. In addition, it has
+first-order evaluation contexts.
+
+$\callcc{\var}{\expr}$ stands for a computation that takes the current
+evaluation context (i.e., the evaluation context, where the term is
+being evaluated), and binds it with $\var$ in $\expr$.
+$\throw{\expr_1}{\expr_2}$ takes two arguments, the first being any
+expression, and the second being an evaluation context.
+
+$\iocclang$ has a type system, shown in~\cref{fig:stat_sem_lang}, that
+includes natural numbers type, function type and a type or
+continuations that accept expressions of type $\tau$, represented by
+$\tcont{\tau}$.
+
+Operational semantics on this language is presented
+in~\cref{fig:dyn_sem_lang,fig:dyn_global_sem_lang}. It is separated
+into two relations. The first relation is for local reductions of
+primitive expressions, while the second one accounts for steps lifted
+to complete programs. Both relations are parameterized over
+configurations that contain expressions and states, where states are
+two lists of natural numbers, representing input and output tapes
+respectfully. In addition, the local relation is parameterized over
+evaluation context, which allows $\callcc{\var}{\expr}$ to capture the
+whole evaluation context.
+
+To give an interpretation of this language we need to provide an
+effect signature, and interpretations for all effectful computations
+that it exhibits.
+
+Let us start by the effect signature, shown
+in~\cref{fig:eff_sig_lang}. The language contains four different
+effects: $\mathtt{input}$, $\mathtt{output}$, $\mathtt{callcc}$,
+$\mathtt{throw}$. $\mathtt{input}$ doesn't require any arguments and
+yields back a natural number, so its input has type $\Tunit$, and its
+output has type $\Tnat$. Similar reasoning is also applicable to
+$\mathtt{output}$. $\mathtt{callcc}$ and $\mathtt{throw}$, on the
+other hand, require higher-order arguments. The behavior of
+$\callcc{\var}{\expr}$ is determined by its body that binds a
+continuation and utilizes it, so a natural approach is to require
+that its input is of type of its body, $(\latert X \rightarrow \latert
+X) \rightarrow \latert X$. Moreover, the result of
+$\callcc{\var}{\expr}$ is determined by its body, so its output is
+$\latert X$. $\throw{\expr_1}{\expr_2}$ requires an expression and a
+continuation, which are represented respectfully as $\latert X$ and
+$\latert (X \rightarrow X)$. As for the output,
+$\throw{\expr_1}{\expr_2}$ discard the current continuation, hence it
+is safe to assume that its continuation is a unique function out of
+the empty type.
+
+We write $\INPUT$, $\OUTPUT(n)$, $\callccGT(f)$, and $\throwGT(e)$ for
+the \gitrees defined in~\cref{fig:io_constructors}.
+
+\begin{figure}
+  \begin{grammar}
+    \text{types} & \tau & \tnat \mid \tarr{\tau_1}{\tau_2} \mid \tcont{\tau} \\
+    \text{expressions} & \expr & \val \mid \var \mid \eapp{\expr_1}{\expr_2} \mid \natop{\expr_1}{\expr_2} \mid \Input \mid \Output \expr \mid \If \expr_1 then \expr_2 \Else \expr_3 \\
+    \GrmContinue & \mid \callcc{\var}{\expr} \mid \throw{\expr_1}{\expr_2} \\
+    \text{values} & \val & n \mid \Rec f \var = \expr \mid \cont{K} \\
+    \text{evaluation contexts} & K & \emptyK \mid \Output K \mid \If K then \expr_1 \Else \expr_2 \mid \eapp{K}{\val} \mid \eapp{\expr}{K} \mid \natop{\expr}{K} \mid \natop{K}{\val} \\
+    \GrmContinue & \mid \throw{K}{\expr} \mid \throw{\val}{K}
+  \end{grammar}
+  \caption{Syntax of $\iocclang$.}
+  \label{fig:syn_lang}
+\end{figure}
+
+\begin{figure}
+  \begin{mathpar}
+    \inferrule{\var \col \tau \in \Gamma}{\typeA{\Gamma}{\var}{\tau}}
+    \and
+    \inferrule{\typeA{\Gamma, f \col \tarr{\tau_1}{\tau_2}, \var \col \tau_1}{\expr}{\tau_2}}{\typeA{\Gamma}{\Rec f \var = \expr}{\tarr{\tau_1}{\tau_2}}}
+    \and
+    \inferrule{\typeA{\Gamma}{\expr_1}{\tarr{\tau_1}{\tau_2}} \\ \typeA{\Gamma}{\expr_2}{\tau_1}}{\typeA{\Gamma}{\eapp{\expr_1}{\expr_2}}{\tau_2}}
+    \and
+    \inferrule{}{\typeA{\Gamma}{\Input}{\tnat}}
+    \and
+    \inferrule{\typeA{\Gamma}{\expr_1}{\tnat} \\ \typeA{\Gamma}{\expr_2}{\tau} \\ \typeA{\Gamma}{\expr_3}{\tau}}{\typeA{\Gamma}{\If \expr_1 then \expr_2 \Else \expr_3}{\tau}}
+    \and
+    \inferrule{\typeA{\Gamma}{\expr}{\tnat}}{\typeA{\Gamma}{\Output \expr}{\tnat}}
+    \and
+    \inferrule{}{\typeA{\Gamma}{n}{\tnat}}
+    \and
+    \inferrule{\typeA{\Gamma}{\expr_1}{\tnat} \\ \typeA{\Gamma}{\expr_2}{\tnat}}{\typeA{\Gamma}{\natop{\expr_1}{\expr_2}}{\tnat}}
+    \and
+    \inferrule{\typeA{\Gamma, \var \col \cont{\tau}}{\expr}{\tau}}{\typeA{\Gamma}{\callcc{\var}{\expr}}{\tau}}
+    \and
+    \inferrule{\typeA{\Gamma}{\expr_1}{\tau} \\ \typeA{\Gamma}{\expr_2}{\cont{\tau}}}{\typeA{\Gamma}{\throw{\expr_1}{\expr_2}}{\tau'}}
+  \end{mathpar}
+  \caption{Static semantics $\iocclang$.}
+  \label{fig:stat_sem_lang}
+\end{figure}
+
+\begin{figure}
+  \begin{mathpar}
+    \inferrule{}{\contrA{\eapp{\Rec f \var = \expr}{\val}, \sigma}{\subst{\subst{\expr}{f}{\Rec f \var = \expr}}{\var}{\val}, \sigma}{K}}
+    \and
+    \inferrule{}{\contrA{\If 0 then \expr_1 \Else \expr_2, \sigma}{\expr_2, \sigma}{K}}
+    \and
+    \inferrule{0 < n}{\contrA{\If n then \expr_1 \Else \expr_2, \sigma}{\expr_1, \sigma}{K}}
+    \and
+    \inferrule{\natop{n_1}{n_2} = n_3}{\contrA{\natop{n_1}{n_2}, \sigma}{n_3, \sigma}{K}}
+    \and
+    \inferrule{}{\contrA{\Input, (n\overline{n}, \overline{m})}{n, (\overline{n}, \overline{m})}{K}}
+    \and
+    \inferrule{}{\contrA{\Output m, (\overline{n}, \overline{m})}{0, (\overline{n}, m\overline{m})}{K}}
+    \and
+    \inferrule{}{\contrA{\callcc{\var}{\expr}, \sigma}{\subst{\expr}{\var}{\cont{K}}, \sigma}{K}}
+  \end{mathpar}
+  \caption{Dynamic semantics of $\iocclang$ (head-steps).}
+  \label{fig:dyn_sem_lang}
+\end{figure}
+
+\begin{figure}
+  \begin{mathpar}
+    \inferrule{}{\contr{\plug{K}{\throw{\val}{\cont{K'}}}, \sigma}{\plug{K'}{\val}, \sigma}}
+    \and
+    \inferrule{\contrA{\expr_1, \sigma_1}{\expr_2, \sigma_2}{K}}{\contr{\plug{K}{\expr_1}, \sigma_1}{\plug{K}{\expr_2}, \sigma_2}}
+  \end{mathpar}
+  \caption{Dynamic semantics of $\iocclang$ (global-steps).}
+  \label{fig:dyn_global_sem_lang}
+\end{figure}
+
+\begin{figure}
+  \begin{align*}
+    E_{io, callcc} &\eqdef \{\mathtt{input}, \mathtt{output}, \mathtt{callcc}, \mathtt{throw}\} &\\
+    \Ins_{\mathtt{input}}(X) &\eqdef \Tunit & \Outs_{\mathtt{input}}(X) &\eqdef \Tnat\\
+    \Ins_{\mathtt{output}}(X) &\eqdef \Tnat & \Outs_{\mathtt{ouput}}(X) &\eqdef \Tunit\\
+    \Ins_{\mathtt{callcc}}(X) &\eqdef ((\latert X \rightarrow \latert X) \rightarrow \latert X) & \Outs_{\mathtt{callcc}}(X) &\eqdef \latert X \\
+    \Ins_{\mathtt{throw}}(X) &\eqdef \latert X \times \latert (X \rightarrow X) & \Outs_{\mathtt{throw}}(X) &\eqdef O
+  \end{align*}
+  \caption{Effect signature for $\iocclang$.}
+  \label{fig:eff_sig_lang}
+\end{figure}
+
+\begin{figure}
+  \begin{align*}
+    \INPUT \eqdef \Vis_{\mathtt{input}}((), \Lam n. \Next(\Rret(\inr(n)))) && \OUTPUT(n) \eqdef \Vis_{\mathtt{output}}(n, \Lam x. \Next (\Rret(\inl(())))) \\
+    \callccGT(f) \eqdef \Vis_{\mathtt{callcc}}{(f, \imath)} &&
+                                                                                                                              \throwGT(e, f) \eqdef \Vis_{\mathtt{throw}}{(e, f, \mathrm{elim-0})}
+  \end{align*}
+  \caption{\gitrees for effects}
+  \label{fig:io_constructors}
+\end{figure}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "../main"
+%%% End:
