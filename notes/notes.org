@@ -1,0 +1,36 @@
+* what is done
+extension of reifiers in GITrees to allow to access continuation
+** language with call/cc + throw :
+- operational
+- interpretation into gitrees
+  - untyped terms
+- type system
+- soundness + adequacy (using logrel)
+  - soundness untyped
+  - adequacy typed
+- wp rules (for call/cc throw)
+  - used to prove adequacy/define logrel
+** delimited continuations
+- abstract machine operational sem
+- interpretation into gitrees
+  - untyped terms
+- soundness
+- wp rules (for shift/reset)
+  - used to prove a small example
+- some sketch of a type system
+  from [[https://www.tilk.eu/shift0/materzok-biernacki-icfp11.pdf][Subtyping Delimited Continuations]]
+
+* what's next?
+
+** TODO adequacy for shift/reset?
+- defining logical relation using a type system?
+  - [ ] type system
+  - [ ] logrel
+- OR untyped relation between confiugrations and
+  tree state
+  - [ ] relation
+
+** TODO more concrete example for shift/reset
+
+** TODO example on language interaction w/ continuations
+for example between λ_call/cc & a WHILE language w/ long jumps?

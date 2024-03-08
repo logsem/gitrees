@@ -432,8 +432,9 @@ Definition meta_fill {S} (mk : Mcont S) e :=
   fold_left (λ e k, fill k e) mk e.
 
 (*** Type system *)
-(* Type system from "Subtyping Delimited Continuations" (Materzok, Biernacki) *)
+(* Type system with subtyping from "Subtyping Delimited Continuations" (Materzok, Biernacki) *)
 
+Coercion ContV : cont >-> val.
 Coercion Val : val >-> expr.
 
 Inductive ty :=
@@ -496,7 +497,17 @@ Notation "t ≤ t'" := (sub_ty t t') (at level 70).
 Notation "s ≤ s'" := (sub_annot s s') (at level 70).
 Notation "t ≤ t'" := (sub_type t t') (at level 70).
 
+Fixpoint sub_ty_reflexive τ : sub_ty τ τ
+with sub_annot_reflexive σ : sub_annot σ σ
+with sub_type_reflexive t : sub_type t t.
+Proof.
+  - destruct τ; constructor; try constructor; done.
+  - destruct σ; constructor; try constructor; done.
+  - destruct t; constructor; try constructor; done.
+Qed.
+
 Reserved Notation "Γ '⊢' e ':' t" (at level 40, e at level 99, no associativity).
+Reserved Notation "Γ '⊢k' k ':' t" (at level 40, k at level 99, no associativity).
 
 Inductive typed {S : Set} (Γ : S -> ty) : expr S -> type -> Prop :=
 
@@ -520,46 +531,136 @@ Inductive typed {S : Set} (Γ : S -> ty) : expr S -> type -> Prop :=
   typed_cont Γ k ty ->
   Γ ⊢ (ContV k) : ty
 
+(* right to left eval *)
 | typed_App (τ1 τ1' τ2 τ2' τ3' τ4' : ty) σ1 σ2 σ3 σ4 f e :
   Γ ⊢ f : [[ (τ1 --> [τ1' σ1] τ4' σ4 τ2) , [τ4' σ4] τ3' σ3 ]] ->
   Γ ⊢ e : [[ τ1 , [τ3' σ3] τ2' σ2]] ->
   Γ ⊢ (App f e) : [[ τ2 , [τ1' σ1] τ2' σ2]]
 
+(* right to left eval *)
 | typed_AppCont (τ1 τ1' τ2 τ2' τ3' τ4' : ty) σ1 σ2 σ3 σ4 f e :
   Γ ⊢ f : [[ (τ1 -k> [τ1' σ1] τ4' σ4 τ2) , [τ4' σ4] τ3' σ3 ]] ->
   Γ ⊢ e : [[ τ1 , [τ3' σ3] τ2' σ2]] ->
   Γ ⊢ (AppCont f e) : [[ τ2 , [τ1' σ1] τ2' σ2]]
 
-(* | typed_Cont (δ σ τ α : ty) (k : cont S) : *)
-(*   typed_cont Γ α k (TarrCont σ α τ α) α -> *)
-(*   Γ,δ ⊢ (ContV k) : (TarrCont σ α τ α) , δ *)
+(* right to left eval *)
+| typed_NatOp op e1 e2 τ τ1 τ' σ σ1 σ' :
+  Γ ⊢ e2 : [[N, [τ1 σ1] τ' σ']] ->
+  Γ ⊢ e1 : [[N, [τ σ] τ1 σ1]] ->
+  Γ ⊢ (NatOp op e1 e2) : [[N, [τ σ] τ' σ']]
 
-(* with typed_cont {S : Set} (Γ : S -> ty) : ty -> cont S -> ty -> ty -> Prop := *)
+| typed_If eb et ef τ τ1 τ2 τ3 σ1 σ2 σ3:
+  Γ ⊢ eb : [[N, [τ3 σ3] τ2 σ2]] ->
+  Γ ⊢ et : [[τ, [τ1 σ1] τ3 σ3]] -> (* both branches should be evaluated in the same context, after *)
+  Γ ⊢ ef : [[τ, [τ1 σ1] τ3 σ3]] -> (* the condition. *)
+  Γ ⊢ (If eb et ef) : [[τ, [τ1 σ1] τ2 σ2]]
 
-(* | typed_END τ α δ : *)
-(*   typed_cont Γ δ END (TarrCont τ α τ α) δ *)
-
-(* | typed_IfK τ τ' α ε e1 e2 : *)
-(*   Γ, α ⊢ e1 : τ, α -> *)
-(*   Γ, α ⊢ e2 : τ, α -> *)
-(*   typed_cont Γ α K  *)
-(*   typed_cont Γ α (IfK e1 e2 K) (TarrCont Tnat ε τ' ε) α *)
-
-(* from the fact that shift k e = shift0 k (reset e) (in the paper) *)
-| typed_Shift (e : expr (inc S)) τ1 τ2 σ1 τ3 σ2 τ' τ'' σ'' :
-  (Γ ▹ [[τ1 -k> σ1 τ2]]) ⊢ e : [[τ' , [τ' ([τ'' σ''] τ'' σ'')] τ3 σ2]] ->
+(* since shift k e = shift0 k (reset e) (in the paper) *)
+| typed_Shift (e : expr (inc S)) τ1 τ2 σ1 τ3 σ2 τ' :
+  (Γ ▹ [[τ1 -k> σ1 τ2]]) ⊢ e : [[τ' , [τ' ε] τ3 σ2]] ->
   Γ ⊢ (Shift e) : [[τ1 , [τ2 σ1] τ3 σ2]]
 
-| typed_Reset e τ τ' τ'' σ'' σ :
-  Γ ⊢ e : [[τ' , [τ' ([τ'' σ''] τ'' σ'')] τ σ]] ->
+| typed_Reset e τ τ' σ :
+  Γ ⊢ e : [[τ' , [τ' ε] τ σ]] ->
   Γ ⊢ (Reset e) : [[τ, σ]]
+
+where "Γ ⊢ e : τ" := (typed Γ e τ)
 
 with typed_cont {S : Set} (Γ : S -> ty) : cont S -> type -> Prop :=
 
-| typed_end τ :
-  typed_cont Γ END [[ (τ -k> ε τ), ε ]]
+| typed_END τ :
+  Γ ⊢k END : [[ (τ -k> ε τ), ε ]]
 
-where "Γ ⊢ e : τ " := (typed Γ e τ).
+(* K[◻ v] *)
+| typed_AppLK (v : val S) K τ' τ τ1 τ2 σ1 σ2 :
+  Γ ⊢ v : [[τ', ε]] ->
+  Γ ⊢k K : [[(τ -k> σ1 τ1), ε]] ->
+  Γ ⊢k (AppLK v K) : [[((τ' --> [τ1 σ1] τ2 σ2 τ) -k> σ2 τ2), ε]]
+
+(* K[e ◻] *)
+| typed_AppRK (e : expr S) K τ' τ τ1 τ2 τ3 σ3 σ1 σ2 :
+  Γ ⊢ e : [[(τ' --> [τ1 σ1] τ3 σ3 τ), [τ3 σ3] τ2 σ2]] ->
+  Γ ⊢k K : [[(τ -k> σ1 τ1), ε]] ->
+  Γ ⊢k (AppRK e K) : [[(τ' -k> σ2 τ2), ε]]
+
+| typed_AppContLK (v : val S) K τ' τ τ1 τ2 σ1 σ2 :
+  Γ ⊢ v : [[τ', ε]] ->
+  Γ ⊢k K : [[(τ -k> σ1 τ1), ε]] ->
+  Γ ⊢k (AppLK v K) : [[((τ' -k> [τ1 σ1] τ2 σ2 τ) -k> σ2 τ2), ε]]
+
+| typed_AppContRK (e : expr S) K τ' τ τ1 τ2 τ3 σ3 σ1 σ2 :
+  Γ ⊢ e : [[(τ' -k> [τ1 σ1] τ3 σ3 τ), [τ3 σ3] τ2 σ2]] ->
+  Γ ⊢k K : [[(τ -k> σ1 τ1), ε]] ->
+  Γ ⊢k (AppRK e K) : [[(τ' -k> σ2 τ2), ε]]
+
+(* K[◻ + v] *)
+| typed_NatOpLK (v : val S) op K τ1 σ1 :
+  Γ ⊢ v : [[N, ε]] ->
+  Γ ⊢k K : [[(N -k> σ1 τ1), ε]] ->
+  Γ ⊢k (NatOpLK op v K) : [[(N -k> σ1 τ1), ε]]
+
+| typed_NatOpRK (e : val S) op K τ1 τ2 σ1 σ2 :
+  Γ ⊢ e : [[N, [τ1 σ1] τ2 σ2]] ->
+  Γ ⊢k K : [[(N -k> σ1 τ1), ε]] ->
+  Γ ⊢k (NatOpRK op e K) : [[(N -k> σ2 τ2), ε]]
+
+| typed_IfK (et ef : expr S) K τ τ1 τ2 σ1 σ2 :
+  Γ ⊢ et : [[τ, [τ1 σ1] τ2 σ2]] ->
+  Γ ⊢ ef : [[τ, [τ1 σ1] τ2 σ2]] ->
+  Γ ⊢k K : [[(τ -k> σ1 τ1), ε]] ->
+  Γ ⊢k (IfK et ef K) : [[(N -k> σ2 τ2), ε]]
+
+where "Γ ⊢k k : τ" := (typed_cont Γ k τ).
+
+
+
+Lemma typed_cont_compat {S : Set} : forall (k : cont S) Γ τ' τ σ,
+    Γ ⊢k k : [[(τ' -k> σ τ), ε]] <->
+      (Γ ▹ τ') ⊢ Reset (fill (shift (Inc := inc) k : cont (inc S)) (Var VZ)) : [[τ, σ]].
+Proof.
+  split; revert Γ k τ' τ σ.
+  - induction k; intros; simpl; eauto.
+    + inversion H; subst. eapply typed_Reset with τ.
+      eapply typed_sub; last eapply typed_Var; last done.
+      simpl. constructor; first eapply sub_ty_reflexive.
+      constructor. eapply sub_type_reflexive.
+    + inversion H; subst.
+      specialize (IHk _ _ _ _ H8).
+      eapply typed_Reset with τ1.
+
+
+
+      eapply typed_sub; last eapply typed_If.
+
+
+Lemma test1 : forall (Γ : ∅ -> ty) τ τ1 σ1 τ2 σ2 τ' (v : val $ inc ∅) (K : val $ inc ∅),
+    (Γ ▹ [[τ' --> [τ1 σ1] τ2 σ2 τ]]) ⊢ K : [[(τ --> σ1 τ1), ε]] ->
+    (Γ ▹ [[τ' --> [τ1 σ1] τ2 σ2 τ]]) ⊢ v : [[τ', ε]] ->
+    (Γ ▹ [[τ' --> [τ1 σ1] τ2 σ2 τ]]) ⊢
+       (Reset (App K
+          (App (Var VZ) v))) :
+        [[ τ2, σ2]].
+Proof.
+  intros.
+  apply typed_Reset with τ1.
+  eapply typed_App.
+  - eapply typed_sub; last eapply H.
+    eapply sub_T.
+    + eapply sub_arr; first eapply sub_ty_reflexive.
+      eapply sub_T; first eapply sub_ty_reflexive.
+      admit.
+    + constructor. admit.
+  - eapply typed_App.
+    + eapply typed_sub; last eapply typed_Var; last done.
+      constructor; try eapply sub_ty_reflexive; eauto.
+      constructor. eapply sub_type_reflexive.
+    + eapply typed_sub; last done. eapply sub_T; last constructor; eauto.
+      * apply sub_ty_reflexive.
+      * apply sub_type_reflexive.
+        Unshelve.
+        ** apply [[N]].
+        ** apply [[ε]].
+    done.
 
 (* | typed_Val (τ : ty) (v : val S)  : *)
 (*   typed_val Γ v τ → *)
