@@ -57,8 +57,6 @@ Notation op_reset := (inr (inl ())).
 Notation op_pop := (inr (inr (inl ()))).
 Notation op_app_cont := (inr (inr (inr (inl ())))).
 
-
-
 Section reifiers.
 
   Context {X} `{!Cofe X}.
