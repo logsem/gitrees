@@ -146,6 +146,19 @@ Section weakestpre.
   Definition has_substate {sR : sReifier a} `{!stateG Σ} `{!subReifier sR rs}
     (σ : sReifier_state sR ♯ IT) : iProp Σ :=
     (own stateG_name (◯ (of_idx sR_idx (sR_state σ))))%I.
+  #[export] Instance has_substate_ne {sR : sReifier a} `{!stateG Σ}
+    `{!subReifier sR rs} : NonExpansive (has_substate).
+  Proof.
+    intros ????.
+    unfold has_substate.
+    do 2 f_equiv.
+    intros i.
+    unfold of_idx, weakestpre.of_idx.
+    destruct (decide (i = sR_idx)).
+    - subst; simpl.
+      now do 3 f_equiv.
+    - reflexivity.
+  Qed.
 
   #[export] Instance state_interp_ne `{!stateG Σ} : NonExpansive state_interp.
   Proof. solve_proper. Qed.

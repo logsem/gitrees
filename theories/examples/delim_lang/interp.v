@@ -1,316 +1,11 @@
-(* From Equations Require Import Equations. *)
 From gitrees Require Import gitree lang_generic.
+From gitrees.effects Require Import delim.
 From gitrees.examples.delim_lang Require Import lang.
 From iris.algebra Require Import list.
 From iris.proofmode Require Import classes tactics.
 From iris.base_logic Require Import algebra.
 
 Require Import Binding.Lib Binding.Set.
-
-
-(** * State, corresponding to a meta-continuation *)
-Definition stateF : oFunctor := (listOF (▶ ∙ -n> ▶ ∙))%OF.
-
-#[local] Instance state_inhabited : Inhabited (stateF ♯ unitO).
-Proof. apply _. Qed.
-
-#[local] Instance state_cofe X `{!Cofe X} : Cofe (stateF ♯ X).
-Proof. apply _. Qed.
-
-(* We store a list of meta continuations in the state. *)
-
-
-(** * Signatures *)
-
-Program Definition shiftE : opInterp :=
-  {|
-    Ins := ((▶ ∙ -n> ▶ ∙) -n> ▶ ∙);
-    Outs := (▶ ∙);
-  |}.
-
-Program Definition resetE : opInterp :=
-  {|
-    Ins := (▶ ∙);
-    Outs := (▶ ∙);
-  |}.
-
-(* to apply the head of the meta continuation *)
-Program Definition popE : opInterp :=
-  {|
-    Ins := (▶ ∙);
-    Outs := Empty_setO;
-  |}.
-
-(* apply continuation, pushes outer context in meta *)
-Program Definition appContE : opInterp :=
-  {|
-    Ins := (▶ ∙ * (▶ (∙ -n> ∙)));
-    Outs := ▶ ∙;
-  |} .
-
-Definition delimE := @[shiftE; resetE; popE;appContE].
-
-
-
-Notation op_shift := (inl ()).
-Notation op_reset := (inr (inl ())).
-Notation op_pop := (inr (inr (inl ()))).
-Notation op_app_cont := (inr (inr (inr (inl ())))).
-
-
-
-Section reifiers.
-
-  Context {X} `{!Cofe X}.
-  Notation state := (stateF ♯ X).
-
-
-  Definition reify_shift : ((laterO X -n> laterO X) -n> laterO X) *
-                              state * (laterO X -n> laterO X) →
-                            option (laterO X * state) :=
-    λ '(f, σ, k), Some ((f k): laterO X, σ : state).
-  #[export] Instance reify_shift_ne :
-    NonExpansive (reify_shift :
-      prodO (prodO ((laterO X -n> laterO X) -n> laterO X) state)
-        (laterO X -n> laterO X) →
-      optionO (prodO (laterO X) state)).
-  Proof. intros ?[[]][[]][[]]. simpl in *. repeat f_equiv; auto. Qed.
-
-  Definition reify_reset : (laterO X) * state * (laterO X -n> laterO X) →
-                           option (laterO X * state) :=
-    λ '(e, σ, k), Some (e, (k :: σ)).
-  #[export] Instance reify_reset_ne :
-    NonExpansive (reify_reset :
-        prodO (prodO (laterO X) state) (laterO X -n> laterO X) →
-        optionO (prodO (laterO X) state)).
-  Proof. intros ?[[]][[]][[]]. simpl in *. by repeat f_equiv. Qed.
-
-
-  Definition reify_pop : (laterO X) * state * (Empty_setO -n> laterO X) →
-                           option (laterO X * state) :=
-    λ '(e, σ, _),
-      match σ with
-      | [] => Some (e, σ)
-      | k' :: σ' => Some (k' e, σ')
-      end.
-  #[export] Instance reify_pop_ne :
-    NonExpansive (reify_pop :
-        prodO (prodO (laterO X) state) (Empty_setO -n> laterO X) →
-        optionO (prodO (laterO X) state)).
-  Proof. intros ?[[]][[]][[]]. simpl in *. by repeat f_equiv. Qed.
-
-
-  Definition reify_app_cont : ((laterO X * (laterO (X -n> X))) * state * (laterO X -n> laterO X)) →
-                              option (laterO X * state) :=
-  λ '((e, k'), σ, k),
-    Some (((laterO_ap k' : laterO X -n> laterO X) e : laterO X), k::σ : state).
-  #[export] Instance reify_app_cont_ne :
-    NonExpansive (reify_app_cont :
-        prodO (prodO (prodO (laterO X) (laterO (X -n> X))) state)
-          (laterO X -n> laterO X) →
-        optionO (prodO (laterO X) (state))).
-  Proof.
-    intros ?[[[]]][[[]]]?. rewrite /reify_app_cont.
-    repeat f_equiv; apply H.
-  Qed.
-
-End reifiers.
-
-Canonical Structure reify_delim : sReifier CtxDep.
-Proof.
-  simple refine {|
-             sReifier_ops := delimE;
-             sReifier_state := stateF
-           |}.
-  intros X HX op.
-  destruct op as [ | [ | [ | [| []]]]]; simpl.
-  - simple refine (OfeMor (reify_shift)).
-  - simple refine (OfeMor (reify_reset)).
-  - simple refine (OfeMor (reify_pop)).
-  - simple refine (OfeMor (reify_app_cont)).
-Defined.
-
-
-
-Section constructors.
-  Context {E : opsInterp} {A} `{!Cofe A}.
-  Context {subEff0 : subEff delimE E}.
-  Context {subOfe0 : SubOfe natO A}.
-  Context {subOfe1 : SubOfe unitO A}.
-  Notation IT := (IT E A).
-  Notation ITV := (ITV E A).
-
-
-
-  (** ** POP *)
-
-  Program Definition POP : IT -n> IT :=
-    λne e, Vis (E:=E) (subEff_opid op_pop)
-             (subEff_ins (F:=delimE) (op:=op_pop) (Next e))
-             (Empty_setO_rec _ ◎ (subEff_outs (F:=delimE) (op:=op_pop))^-1).
-  Solve All Obligations with solve_proper.
-
-  Notation 𝒫 := (get_val POP).
-
-  (** ** RESET *)
-
-  Program Definition RESET_ : (laterO IT -n> laterO IT) -n>
-                                laterO IT -n>
-                                IT :=
-    λne k e, Vis (E:=E) (subEff_opid op_reset)
-               (subEff_ins (F := delimE) (op := op_reset) (laterO_map 𝒫 e))
-               (k ◎ subEff_outs (F := delimE) (op := op_reset)^-1).
-  Solve Obligations with solve_proper.
-
-  Program Definition RESET : laterO IT -n> IT :=
-    RESET_ idfun.
-
-  (** ** SHIFT *)
-
-  Program Definition SHIFT_ : ((laterO IT -n> laterO IT) -n> laterO IT) -n>
-                                (laterO IT -n> laterO IT) -n>
-                                IT :=
-    λne f k, Vis (E:=E) (subEff_opid op_shift)
-             (subEff_ins (F:=delimE) (op:=op_shift) ((laterO_map $ 𝒫) ◎ f))
-             (k ◎ (subEff_outs (F:=delimE) (op:=op_shift))^-1).
-  Solve All Obligations with solve_proper.
-
-  Program Definition SHIFT : ((laterO IT -n> laterO IT) -n> laterO IT) -n> IT :=
-    λne f, SHIFT_ f (idfun).
-  Solve Obligations with solve_proper.
-
-  Lemma hom_SHIFT_ k e f `{!IT_hom f} :
-    f (SHIFT_ e k) ≡ SHIFT_ e (laterO_map (OfeMor f) ◎ k).
-  Proof.
-    unfold SHIFT_.
-    rewrite hom_vis/=.
-    f_equiv. by intro.
-  Qed.
-
-
-  (** ** APP_CONT *)
-
-  Program Definition APP_CONT_ : laterO IT -n> (laterO (IT -n> IT)) -n>
-                                    (laterO IT -n> laterO IT) -n>
-                                    IT :=
-      λne e k k', Vis (E := E) (subEff_opid op_app_cont)
-                    (subEff_ins (F:=delimE) (op:=op_app_cont) (e, k))
-                    (k' ◎ (subEff_outs (F:=delimE) (op:=op_app_cont))^-1).
-  Solve All Obligations with solve_proper.
-
-  Program Definition APP_CONT : laterO IT -n> (laterO (IT -n> IT)) -n>
-                                  IT :=
-    λne e k, APP_CONT_ e k idfun.
-  Solve All Obligations with solve_proper.
-
-End constructors.
-
-Notation 𝒫 := (get_val POP).
-
-Section weakestpre.
-  Context {sz : nat}.
-  Variable (rs : gReifiers CtxDep sz).
-  Context {subR : subReifier reify_delim rs}.
-  Notation F := (gReifiers_ops rs).
-  Context {R} `{!Cofe R}.
-  Context `{!SubOfe natO R}.
-  Context `{!SubOfe unitO R}.
-  Notation IT := (IT F R).
-  Notation ITV := (ITV F R).
-  Notation state := (stateF ♯ IT).
-  Context `{!invGS Σ, !stateG rs R Σ}.
-  Notation iProp := (iProp Σ).
-
-  (** * The symbolic execution rules *)
-
-  (** ** SHIFT *)
-
-  Lemma wp_shift (σ : state) (f : (laterO IT -n> laterO IT) -n> laterO IT)
-    (k : IT -n> IT) β {Hk : IT_hom k} Φ s :
-    laterO_map 𝒫 (f (laterO_map k)) ≡ Next β →
-    has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} β @ s {{ Φ }}) -∗
-    WP@{rs} (k (SHIFT f)) @ s {{ Φ }}.
-  Proof.
-    iIntros (Hp) "Hs Ha".
-    unfold SHIFT. simpl.
-    rewrite hom_vis.
-    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ (laterO_map 𝒫 $ f (laterO_map k)) with "Hs").
-    {
-      simpl. do 2 f_equiv; last done. do 2 f_equiv.
-      rewrite ccompose_id_l. intro. simpl. by rewrite ofe_iso_21.
-    }
-    { exact Hp. }
-    iModIntro.
-    iApply "Ha".
-  Qed.
-
-  Lemma wp_reset (σ : state) (e : IT) (k : IT -n> IT) {Hk : IT_hom k}
-    Φ s :
-    has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate ((laterO_map k) :: σ) -∗
-       WP@{rs} 𝒫 e @ s {{ Φ }}) -∗
-    WP@{rs} k $ (RESET (Next e)) @ s {{ Φ }}.
-  Proof.
-    iIntros "Hs Ha".
-    unfold RESET. simpl. rewrite hom_vis.
-    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ (Next $ 𝒫 e) with "Hs").
-    - simpl. repeat f_equiv. rewrite ccompose_id_l.
-      trans ((laterO_map k) :: σ); last reflexivity.
-      f_equiv. intro. simpl. by rewrite ofe_iso_21.
-    - reflexivity.
-    - iApply "Ha".
-  Qed.
-
-  (** XXX: Formulate the rules using AsVal *)
-  Lemma wp_pop_end (v : ITV)
-    Φ s :
-    has_substate [] -∗
-    ▷ (£ 1 -∗ has_substate [] -∗ WP@{rs} IT_of_V v @ s {{ Φ }}) -∗
-    WP@{rs} 𝒫 (IT_of_V v) @ s {{ Φ }}.
-  Proof.
-    iIntros "Hs Ha".
-    rewrite get_val_ITV. simpl.
-    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ ((Next $ IT_of_V v)) with "Hs").
-    - simpl. reflexivity.
-    - reflexivity.
-    - done.
-  Qed.
-
-  Lemma wp_pop_cons (σ : state) (v : ITV) (k : IT -n> IT)
-    Φ s :
-    has_substate ((laterO_map k) :: σ) -∗
-    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} k $ IT_of_V v @ s {{ Φ }}) -∗
-    WP@{rs} 𝒫 (IT_of_V v) @ s {{ Φ }}.
-  Proof.
-    iIntros "Hs Ha".
-    rewrite get_val_ITV. simpl.
-    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ ((laterO_map k (Next $ IT_of_V v))) with "Hs").
-    - simpl. reflexivity.
-    - reflexivity.
-    - done.
-  Qed.
-
-  Lemma wp_app_cont (σ : state) (e : laterO IT) (k' : laterO (IT -n> IT))
-    (k : IT -n> IT) β {Hk : IT_hom k}
-    Φ s :
-    laterO_ap k' e ≡ Next β →
-    has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate ((laterO_map k) :: σ) -∗
-       WP@{rs} β @ s {{ Φ }}) -∗
-    WP@{rs} k (APP_CONT e k') @ s {{ Φ }}.
-  Proof.
-    iIntros (Hb) "Hs Ha".
-    unfold APP_CONT. simpl. rewrite hom_vis.
-    iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ (Next β) with "Hs").
-    - cbn-[laterO_ap]. rewrite Hb. do 2 f_equiv.
-      trans (laterO_map k :: σ); last reflexivity.
-      rewrite ccompose_id_l. f_equiv. intro. simpl. by rewrite ofe_iso_21.
-    - reflexivity.
-    - iApply "Ha".
-  Qed.
-
-End weakestpre.
 
 Section interp.
   Context {sz : nat}.
@@ -437,6 +132,22 @@ Section interp.
                                (k env))
                      (e env).
   Solve All Obligations with first [ solve_proper | solve_proper_please ].
+
+  (* Program Definition interp_app_cont {A} (k e : A -n> IT) : A -n> IT := *)
+  (*   λne env, get_val (λne x, get_fun *)
+  (*                              (λne (f : laterO (IT -n> IT)), *)
+  (*                                (Tau (laterO_ap f (Next x)))) *)
+  (*                              (k env)) *)
+  (*              (e env). *)
+  (* Next Obligation. *)
+  (*   intros. *)
+  (*   intros ???. *)
+  (*   f_equiv. *)
+  (*   now apply later_ap_ne. *)
+  (* Qed. *)
+  (* Next Obligation. solve_proper_please. Qed. *)
+  (* Next Obligation. solve_proper_please. Qed. *)
+
   Global Instance interp_app_cont_ne A : NonExpansive2 (@interp_app_cont A).
   Proof.
     intros n??????. rewrite /interp_app_cont. intro. simpl.
@@ -748,7 +459,6 @@ Section interp.
       apply hom_err.
   Qed.
 
-
   #[local] Instance interp_cont_hom_appr {S} (K : cont S)
     (e : expr S) env :
     IT_hom (interp_cont K env) ->
@@ -806,7 +516,6 @@ Section interp.
       f_equiv. by rewrite get_val_ITV.
     - rewrite get_val_ITV. simpl. rewrite get_fun_err. apply hom_err.
   Qed.
-
 
   #[local] Instance interp_cont_hom_natopr {S} (K : cont S)
     (e : expr S) op env :
@@ -866,6 +575,16 @@ Section interp.
       rewrite interp_val_ren.
       f_equiv.
       intros ?; simpl; reflexivity.
+    (* - rewrite get_val_ITV. *)
+    (*   simpl. *)
+    (*   rewrite get_fun_fun. *)
+    (*   simpl. *)
+    (*   rewrite <-Tick_eq. *)
+    (*   rewrite hom_tick. *)
+    (*   rewrite hom_tick. *)
+    (*   rewrite hom_tick. *)
+    (*   rewrite hom_tick. *)
+
     - subst.
       destruct n0; simpl.
       + by rewrite IF_False; last lia.
@@ -954,6 +673,33 @@ Section interp.
       | |- context G [ofe_mor_car _ _ (get_fun _)
                         (ofe_mor_car _ _ Fun ?f)] => set (fin := f)
       end.
+      (* unfold POP. *)
+      (* match goal with *)
+      (*   |- ofe_mor_car _ _ (ofe_mor_car _ _ _ ?a) _ ≡ _ => *)
+      (*     set (T := a) *)
+      (* end. *)
+      (* eassert (T ≡ _). *)
+      (* { *)
+      (*   subst T. *)
+      (*   rewrite get_val_ITV. *)
+      (*   simpl. *)
+      (*   rewrite get_fun_fun. *)
+      (*   subst fin. *)
+      (*   simpl. *)
+      (*   rewrite <-Tick_eq. *)
+      (*   (* rewrite hom_tick. *) *)
+      (*   (* rewrite hom_tick. *) *)
+      (*   (* rewrite hom_tick. *) *)
+      (*   (* rewrite hom_tick. *) *)
+      (*   reflexivity. *)
+      (* } *)
+      (* trans (reify (gReifiers_sReifier rs) *)
+      (*          (𝒫 (interp_cont k env (Tick (Tick (𝒫 (interp_cont k' env (interp_val v env))))))) *)
+      (*          (gState_recomp σr (sR_state σ))). *)
+      (* { *)
+      (*   now do 2 f_equiv. *)
+      (* } *)
+
       trans (reify (gReifiers_sReifier rs)
                (APP_CONT_ (Next (interp_val v env))
                   fin kk)
@@ -973,6 +719,7 @@ Section interp.
         repeat f_equiv; eauto. solve_proper.
       }
       f_equiv. by rewrite -!Tick_eq.
+      (* admit. *)
     - remember (map_meta_cont mk env) as σ.
       trans (reify (gReifiers_sReifier rs) (POP (interp_val v env))
                (gState_recomp σr (sR_state (laterO_map (𝒫 ◎ interp_cont k env) :: σ)))).
@@ -1034,20 +781,20 @@ Section interp.
       assert ((n', m').1 = n') as Hn' by done.
       rewrite <-Heqc2 in IHs.
       specialize (IHs s n' t2 t' σ2 σ' Hn' Heqc2 Ht').
-      inversion H0; subst;
-        try solve [specialize (interp_cred_no_reify env _ _ _ _ _ _ _ H0 Ht Heqc2) as Heq;
-                   specialize (interp_cred_no_reify_state env _ _ _ _ _ _ _ H0 Ht Heqc2) as <-;
+      inversion H2; subst;
+        try solve [specialize (interp_cred_no_reify env _ _ _ _ _ _ _ H2 Ht Heqc2) as Heq;
+                   specialize (interp_cred_no_reify_state env _ _ _ _ _ _ _ H2 Ht Heqc2) as <-;
                    simpl in Heq|-*; rewrite Heq; eapply IHs];
         try solve
           [eapply ssteps_many with t2 (gState_recomp σr (sR_state σ2)); last done;
-            specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H0 Ht Heqc2) as Heq;
+            specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H2 Ht Heqc2) as Heq;
             cbn in Ht; eapply sstep_reify; last done;
             inversion Ht; rewrite !hom_vis; done].
       + eapply ssteps_many with t2 (gState_recomp σr (sR_state σ2)); last done.
-        specialize (interp_cred_no_reify env _ _ _ _ _ _ _ H0 Ht Heqc2) as Heq.
-        specialize (interp_cred_no_reify_state env _ _ _ _ _ _ _ H0 Ht Heqc2) as <-.
+        specialize (interp_cred_no_reify env _ _ _ _ _ _ _ H2 Ht Heqc2) as Heq.
+        specialize (interp_cred_no_reify_state env _ _ _ _ _ _ _ H2 Ht Heqc2) as <-.
         simpl in Heq|-*; rewrite Heq. constructor; eauto.
-      + specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H0 Ht Heqc2) as Heq.
+      + specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H2 Ht Heqc2) as Heq.
         simpl in Heq|-*.
         change (2+n') with (1+(1+n')).
         eapply ssteps_many; last first.
@@ -1058,13 +805,13 @@ Section interp.
           rewrite get_val_ITV. simpl. rewrite get_fun_fun. simpl.
           rewrite !hom_vis. done.
       + eapply ssteps_many with t2 (gState_recomp σr (sR_state σ2)); last done.
-        specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H0 Ht Heqc2) as Heq.
+        specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H2 Ht Heqc2) as Heq.
         cbn in Ht; inversion Ht. subst. rewrite get_val_ITV. simpl.
         eapply sstep_reify; simpl in Heq; last first.
         * rewrite -Heq. f_equiv. f_equiv. rewrite get_val_ITV. simpl. done.
         * f_equiv. reflexivity.
       + eapply ssteps_many with t2 (gState_recomp σr (sR_state σ2)); last done.
-        specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H0 Ht Heqc2) as Heq.
+        specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H2 Ht Heqc2) as Heq.
         cbn in Ht; inversion Ht. subst. rewrite get_val_ITV. simpl.
         eapply sstep_reify; simpl in Heq; last first.
         * rewrite -Heq. repeat f_equiv. by rewrite get_val_ITV.
