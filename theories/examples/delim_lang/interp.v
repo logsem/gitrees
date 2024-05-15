@@ -25,7 +25,7 @@ Section interp.
     NonExpansive (λ x : IT, Tau (laterO_map κ (Next x))).
   Proof.
     solve_proper.
-  Qed.
+  Defined.
 
   (** * Interpreting individual operators *)
 
@@ -41,7 +41,7 @@ Section interp.
     interp_scope S -n> IT :=
     λne env, SHIFT (λne (k : laterO IT -n> laterO IT),
                       Next (e (extend_scope env (λit x, Tau (k (Next x)))))).
-  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Defined.
   Next Obligation.
     solve_proper_prepare.
     repeat f_equiv.
@@ -56,7 +56,6 @@ Section interp.
     intros [| a]; simpl; last solve_proper.
     repeat f_equiv.
   Qed.
-
 
   (** ** NATOP *)
   Program Definition interp_natop {A} (op : nat_op) (t1 t2 : A -n> IT) : A -n> IT :=
@@ -817,6 +816,17 @@ Section interp.
         * rewrite -Heq. repeat f_equiv. by rewrite get_val_ITV.
         * f_equiv. reflexivity.
   Qed.
+
+  (* Lemma soundness_head_step {S : Set} (env : interp_scope S) (C C' : expr S) *)
+  (*   (t t' : IT) (σ σ' : state) (σr : gState_rest sR_idx rs ♯ IT) n : *)
+  (*   head_step C C' (n, 1) -> *)
+  (*   reify (gReifiers_sReifier rs) *)
+  (*     (interp_expr C env) (gState_recomp σr (sR_state σ)) *)
+  (*     ≡ (gState_recomp σr (sR_state σ'), Tick_n n $ interp_expr C' env). *)
+  (* Proof. *)
+  (*   intros H. *)
+  (*   inversion H; subst; simpl. *)
+  (* Admitted. *)
 
 End interp.
 #[global] Opaque SHIFT_ RESET_ POP APP_CONT_.
