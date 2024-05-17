@@ -138,7 +138,7 @@ Section logrel.
 
   Lemma wp_shift (σ : stateF ♯ IT) (f : (laterO IT -n> laterO IT) -n> laterO IT)
     (k : IT -n> IT) β {Hk : IT_hom k} Φ :
-    laterO_map 𝒫 (f (laterO_map k)) ≡ Next β →
+    (f (laterO_map k)) ≡ Next β →
     has_cont_stack σ -∗
     ▷ (£ 1 -∗ has_cont_stack σ -∗ WP β {{ Φ }}) -∗
     WP (k (SHIFT f)) {{ Φ }}.
@@ -155,7 +155,7 @@ Section logrel.
     Φ :
     has_cont_stack σ -∗
     ▷ (£ 1 -∗ has_cont_stack ((laterO_map k) :: σ) -∗
-       WP 𝒫 e {{ Φ }}) -∗
+       WP e {{ Φ }}) -∗
     WP k $ (RESET (Next e)) {{ Φ }}.
   Proof.
     iIntros "(Hs & G) Ha".
@@ -169,7 +169,7 @@ Section logrel.
     now subst F.
   Qed.
 
-  Lemma wp_pop_end (v : IT)
+  Lemma wp_pop_apply_end (v : IT)
     {HV : AsVal v}
     Φ :
     has_cont_stack [] -∗
@@ -177,14 +177,14 @@ Section logrel.
     WP 𝒫 v {{ Φ }}.
   Proof.
     iIntros "(Hs & G) Ha".
-    iApply (wp_pop_end with "Hs").
+    iApply (wp_pop_apply_end' with "Hs").
     iNext.
     iIntros "HCr Hs".
     iApply ("Ha" with "HCr").
     now iFrame.
   Qed.
 
-  Lemma wp_pop_cons (σ : stateF ♯ IT) (v : IT) (k : IT -n> IT)
+  Lemma wp_pop_apply_cons (σ : stateF ♯ IT) (v : IT) (k : IT -n> IT)
     {HV : AsVal v}
     Φ :
     has_cont_stack ((laterO_map k) :: σ) -∗
@@ -192,7 +192,7 @@ Section logrel.
     WP 𝒫 v {{ Φ }}.
   Proof.
     iIntros "(Hs & (_ & G)) Ha".
-    iApply (wp_pop_cons with "Hs").
+    iApply (wp_pop_apply_cons' with "Hs").
     iNext.
     iIntros "HCr Hs".
     iApply ("Ha" with "HCr").
@@ -227,7 +227,7 @@ Section logrel.
   Definition logrel_ectx (V W : ITV -n> iProp) (κ : HOM) : iProp :=
     (□ ∀ (βv : ITV) σ,
        has_cont_stack σ
-       -∗ V βv -∗ WP (`κ (IT_of_V βv)) {{ βv, W βv ∗ has_cont_stack σ }})%I.
+       -∗ V βv -∗ WP (`κ (IT_of_V βv)) {{ βv, W βv }})%I.
   Local Instance logrel_ectx_ne :
     ∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n) logrel_ectx.
   Proof. solve_proper. Qed.
@@ -238,7 +238,7 @@ Section logrel.
       (∀ (κ : HOM) (σ : stateF ♯ IT),
          logrel_ectx τ α κ
          -∗ has_cont_stack σ
-         -∗ WP (`κ βe) {{ βv, β βv ∗ has_cont_stack σ }})%I.
+         -∗ WP (`κ βe) {{ βv, β βv }})%I.
   Next Obligation. solve_proper. Qed.
   Local Instance logrel_expr_ne
     : (∀ n, Proper (dist n
@@ -300,59 +300,495 @@ Section logrel.
   Program Definition 𝒫_HOM : @HOM sz CtxDep R _ _ := exist _ 𝒫 _.
   Next Obligation. apply _. Qed.
 
-  Lemma 𝒫_logrel_cont τ : ⊢ logrel_ectx (interp_ty τ) (interp_ty τ) 𝒫_HOM.
+  Lemma HOM_id_logrel_ectx τ : ⊢ logrel_ectx (interp_ty τ) (interp_ty τ) HOM_id.
   Proof.
-    iLöb as "IH".
     iModIntro.
     iIntros (αv σ) "G #H".
-    destruct σ as [| ? σ].
-    - iApply (wp_pop_end with "G").
-      iNext.
-      iIntros "_ G".
-      iApply wp_val.
-      iModIntro.
-      by iFrame "H".
-      (* by iExists []. *)
-    - admit.
+    by iApply wp_val.
+  Qed.
+
+  Inductive head_step {S} : expr S → expr S → nat * nat → Prop :=
+  (* this rule is a bit unneccessary,
+     filling ctx with stuff is taken care of in the last rule *)
+  | BetaEContS k v :
+    head_step
+      (AppCont (Val $ ContV k) (Val v))
+      (fill k (Val v))
+      (1, 1)
+  | ResetPureS v :
+    head_step
+      (Reset (Val v))
+      (Val v)
+      (2, 1)
+  | ResetEffS e (E : cont S) :
+    head_step
+      (Reset (fill E (Shift e)))
+      (Reset (subst (F := expr) (Inc := inc) e
+                (Val (RecV (Reset
+                              (fill (shift (Inc := inc) (shift (Inc := inc) E))
+                                 (Var VZ)))))))
+      (3, 1)
+  .
+
+  Program Definition shift_interp_new {S : Set} (env : @interp_scope F R _ S)
+    (e : @interp_scope F R _ (inc S) -n> IT) :=
+    SHIFT (laterO_map 𝒫 ◎ (λne (k : laterO IT -n> laterO IT),
+               (Next (e (extend_scope env (λit x, Tau (k (Next x)))))))).
+  Next Obligation. solve_proper. Defined.
+  Next Obligation.
+    solve_proper_prepare.
+    do 2 f_equiv.
+    intros [| ?]; simpl.
+    - do 2 f_equiv.
+      intros ?; simpl.
+      f_equiv.
+      done.
+    - reflexivity.
+  Qed.
+
+  Program Definition reset_interp_new {S} (e : S -n> IT) : S -n> IT :=
+    λne env, RESET (laterO_map 𝒫 (Next $ e env)).
+  Solve All Obligations with solve_proper.
+
+  Opaque interp_cont.
+  (* continuation stack modification can be changed *)
+  Lemma soundness_head_step_sanity_check1 {S : Set} (env : interp_scope S) K E
+    (e : expr S)
+    (σ : stateF ♯ IT) (σr : gState_rest sR_idx rs ♯ IT) :
+    reify (gReifiers_sReifier rs)
+      ((interp_cont _ K) env
+         (* can be as well *)
+         (* (reset_interp_new (interp_expr rs e) env) *)
+         (RESET (later_map E (Next (interp_expr rs e env))))
+      )
+      ((gState_decomp' sR_idx ^-1) (sR_state σ, σr))
+      ≡ ((gState_decomp' sR_idx ^-1)
+           (sR_state (laterO_map ((interp_cont _ K) env) :: σ), σr)
+        , Tick (E (interp_expr rs e env))).
+  Proof.
+    Opaque POP_CONTINUE.
+    set (Ksem := interp_cont rs K env).
+    set (Vsem := interp_expr rs e env).
+    simpl.
+    rewrite later_map_Next.
+    unfold RESET.
+    trans (reify (gReifiers_sReifier rs)
+             ((RESET_ (laterO_map Ksem)
+                 (Next (E Vsem))))
+             ((gState_decomp' sR_idx ^-1) (sR_state σ, σr))).
+    { f_equiv; last done.
+      f_equiv.
+      rewrite hom_vis.
+      Transparent RESET_.
+      simpl.
+      do 2 f_equiv; first solve_proper.
+      by rewrite ccompose_id_l.
+    }
+    rewrite reify_vis_eq_ctx_dep//; last first.
+    {
+      epose proof (@subReifier_reify sz CtxDep reify_delim rs _ IT _ (op_reset)
+                     (Next (E Vsem))
+                     (Next (E Vsem))
+                     (laterO_map Ksem)
+                     σ (laterO_map Ksem :: σ) σr) as Hr.
+      simpl in Hr|-*.
+      erewrite <-Hr; last done.
+      repeat f_equiv; last done.
+      solve_proper.
+    }
+    f_equiv.
+    rewrite <-Tick_eq.
+    reflexivity.
+  Qed.
+
+  Lemma soundness_head_step_sanity_check2 {S : Set} (env : interp_scope S) K
+    (e : expr (inc S))
+    (σ : stateF ♯ IT) (σr : gState_rest sR_idx rs ♯ IT) :
+    reify (gReifiers_sReifier rs)
+      ((interp_cont _ K) env
+         (shift_interp_new env (interp_expr _ e)))
+      ((gState_decomp' sR_idx ^-1) (sR_state σ, σr))
+      ≡ ((gState_decomp' sR_idx ^-1)
+           (sR_state σ, σr)
+        , Tick (𝒫 ((interp_expr _ e)
+                  (extend_scope env
+                     (λit x : IT, Tau (later_map (interp_cont rs K env) (Next x))))))).
+  Proof.
+    Opaque extend_scope.
+    set (Ksem := interp_cont rs K env).
+    set (Esem := interp_expr rs e).
+    simpl.
+    unfold shift_interp_new.
+    unfold SHIFT.
+    cbn [ofe_mor_car].
+    set (b := OfeMor _).
+    trans (reify (gReifiers_sReifier rs)
+             (SHIFT_ (laterO_map 𝒫 ◎ b) (laterO_map Ksem))
+             ((gState_decomp' sR_idx ^-1) (sR_state σ, σr))).
+    { subst b.
+      f_equiv; last done.
+      f_equiv.
+      rewrite hom_vis.
+      Transparent SHIFT_.
+      simpl.
+      do 2 f_equiv; first solve_proper.
+      by rewrite ccompose_id_l.
+    }
+
+    rewrite reify_vis_eq_ctx_dep//; last first.
+    {
+      epose proof (@subReifier_reify sz CtxDep reify_delim rs _ IT _ (op_shift)
+                     (laterO_map 𝒫 ◎ b)
+                     ((laterO_map 𝒫 ◎ b) (laterO_map Ksem))
+                     (laterO_map Ksem)
+                     σ σ σr) as Hr.
+      simpl in Hr|-*.
+      erewrite <-Hr; last done.
+      repeat f_equiv; last done.
+      solve_proper.
+    }
+    f_equiv.
+    rewrite <-Tick_eq.
+    simpl.
+    reflexivity.
+  Qed.
+
+  Lemma soundness_head_step_sanity_check3 {S : Set} (env : @interp_scope F R _ S)
+    (K : IT -n> IT)
+    (e : expr S)
+    (σ : stateF ♯ IT) (σr : gState_rest sR_idx rs ♯ IT) :
+    reify (gReifiers_sReifier rs) (PEEK_APPLY (interp_expr _ e env))
+      ((gState_decomp' sR_idx ^-1) (sR_state (laterO_map K :: σ), σr))
+      ≡ (gState_recomp σr (sR_state (laterO_map K :: σ)), Tick (K (interp_expr _ e env))).
+  Proof.
+    set (Esem := interp_expr rs e env).
+    rewrite reify_vis_eq_ctx_dep//; last first.
+    {
+      epose proof (@subReifier_reify sz CtxDep reify_delim rs _ IT _ (op_peek_apply)
+                     (Next Esem)
+                     (Next (K Esem))
+                     (Empty_setO_rec _)
+                     (laterO_map K :: σ) (laterO_map K :: σ) σr) as Hr.
+      simpl in Hr|-*.
+      erewrite <-Hr; first last.
+      - rewrite later_map_Next.
+        reflexivity.
+      - repeat f_equiv.
+        solve_proper.
+    }
+    f_equiv.
+    rewrite <-Tick_eq.
+    reflexivity.
+  Qed.
+
+  Lemma soundness_head_step_sanity_check4 {S : Set} (env : @interp_scope F R _ S)
+    (K : IT -n> IT)
+    (e : expr S)
+    (σ : stateF ♯ IT) (σr : gState_rest sR_idx rs ♯ IT) :
+    reify (gReifiers_sReifier rs) (POP_APPLY (interp_expr _ e env))
+      ((gState_decomp' sR_idx ^-1) (sR_state (laterO_map K :: σ), σr))
+      ≡ (gState_recomp σr (sR_state σ), Tick (K (interp_expr _ e env))).
+  Proof.
+    set (Esem := interp_expr rs e env).
+    rewrite reify_vis_eq_ctx_dep//; last first.
+    {
+      epose proof (@subReifier_reify sz CtxDep reify_delim rs _ IT _ (op_pop_apply)
+                     (Next Esem)
+                     (Next (K Esem))
+                     (Empty_setO_rec _)
+                     (laterO_map K :: σ) σ σr) as Hr.
+      simpl in Hr|-*.
+      erewrite <-Hr; first last.
+      - rewrite later_map_Next.
+        reflexivity.
+      - repeat f_equiv.
+        solve_proper.
+    }
+    f_equiv.
+    rewrite <-Tick_eq.
+    reflexivity.
+  Qed.
+
+  (* note that here, strictly speaking, we simplify things a bit:
+     in the full calculus there should be two rules
+     1. Ectx_step for "dirty" contexts and classical lambda terms
+     2. Ectx_step for combination of "dirty" context, reset and "pure" context
+        for reset-shift rule
+   *)
+  Inductive prim_step {S} (e1 : expr S)  (e2 : expr S) (n : nat * nat) : Prop:=
+    Ectx_step (K : cont S) e1' e2' :
+      e1 = fill K e1' → e2 = fill K e2' →
+      head_step e1' e2' n → prim_step e1 e2 n.
+
+  Inductive prim_steps {S} : expr S → expr S → nat * nat → Prop :=
+  | prim_steps_zero e :
+    prim_steps e e (0, 0)
+  | prim_steps_abit e1 e2 e3 n1 m1 n2 m2 :
+    prim_step e1 e2 (n1, m1) →
+    prim_steps e2 e3 (n2, m2) →
+    prim_steps e1 e3 (n1 + n2, m1 + m2)%nat
+  .
+
+  Notation "'⟦' e '⟧' γ" := (interp_expr rs e γ) (at level 50, only printing).
+  Notation "'⟦' v '⟧' γ" := (interp_val rs v γ) (at level 50, only printing).
+  Notation "'⟦' K '⟧' γ" := (interp_cont rs K γ) (at level 50, only printing).
+  Notation "e '⟶' e' '/' n" := (prim_step e e' n) (at level 50, only printing).
+  Notation "e '⟶*' e' '/' n" := (prim_steps e e' n) (at level 50, only printing).
+  Notation "e '→' e' '/' n" := (head_step e e' n) (at level 50, only printing).
+
+  Lemma soundness {S} (e1 e2 : expr S) σ (σr : gState_rest sR_idx rs ♯ IT) n m
+    (env : interp_scope S) :
+    prim_step e1 e2 (n, m) →
+    ∃ σ', ssteps (gReifiers_sReifier rs)
+            (interp_expr _ e1 env) (gState_recomp σr (sR_state σ))
+            (interp_expr _ e2 env) (gState_recomp σr (sR_state σ')) n.
+  Proof.
+    Opaque gState_decomp gState_recomp.
+    inversion 1; simplify_eq/=.
+    inversion H2; subst; simpl.
+    - exists σ.
+      change 1 with (Nat.add 1 0). econstructor; last first.
+      { apply ssteps_zero; reflexivity. }
+      eapply sstep_reify.
+      {
+        rewrite interp_comp. simpl.
+        fold (@interp_val sz rs _ R _ _ _ v).
+        rewrite get_val_ITV.
+        simpl.
+        rewrite get_fun_fun.
+        simpl.
+        rewrite hom_vis.
+        reflexivity.
+      }
+      (* skip *)
+      admit.
+    - exists σ.
+      change 2 with (Nat.add 1 1). econstructor.
+      + eapply sstep_reify.
+        {
+          rewrite interp_comp. simpl.
+          fold (@interp_val sz rs _ R _ _ _ v).
+          rewrite hom_vis.
+          reflexivity.
+        }
+        assert ((interp_expr rs (K ⟪ reset v ⟫) env)
+                = ((interp_cont _ K) env
+                     (reset_interp_new (interp_expr rs v) env)
+                     (* (RESET (later_map ℛ *)
+                     (*           (Next (interp_expr rs v env)))) *))) as ->.
+        {
+          (* fill + different reset *)
+          admit.
+        }
+        rewrite soundness_head_step_sanity_check1.
+        reflexivity.
+      + change 1 with (Nat.add 1 0). econstructor; last first.
+        { apply ssteps_zero; reflexivity. }
+        eapply sstep_reify.
+        {
+          Transparent POP_APPLY.
+          unfold POP_APPLY.
+          rewrite get_val_ITV.
+          cbn [ofe_mor_car].
+          reflexivity.
+        }
+        assert ((interp_expr rs v env)
+                = (interp_val rs v env)) as ->.
+        { reflexivity. }
+        pose proof (@get_val_ITV _ _ _ (interp_val _ v env) _ POP_APPLY).
+        epose proof (soundness_head_step_sanity_check4 env (interp_cont _ K env) v σ σr).
+        (* peek_apply + get val *)
+        admit.
+    - exists σ.
+      change 3 with (Nat.add 1 2). econstructor.
+      + eapply sstep_reify.
+        {
+          rewrite interp_comp. simpl.
+          fold (@interp_expr sz rs _ R _ _ _ (E ⟪ shift/cc e ⟫)).
+          rewrite hom_vis.
+          reflexivity.
+        }
+        assert ((interp_expr rs (K ⟪ reset (E ⟪ shift/cc e ⟫) ⟫) env)
+                = ((interp_cont _ K) env
+               (reset_interp_new (interp_expr rs (E ⟪ shift/cc e ⟫)) env)
+                     (* (RESET (later_map ℛ *)
+                     (*           (Next (interp_expr rs (E ⟪ shift/cc e ⟫) env)))) *))) as ->.
+        {
+          (* fill + different reset *)
+          admit.
+        }
+        rewrite soundness_head_step_sanity_check1.
+        reflexivity.
+      + change 2 with (Nat.add 1 1). econstructor.
+        * rewrite interp_comp.
+          assert (interp_expr _ (shift/cc e) env = shift_interp_new env (interp_expr _ e)) as ->.
+          {
+            (* different shift *)
+            admit.
+          }
+          unfold shift_interp_new.
+          unfold SHIFT.
+          cbn [ofe_mor_car].
+          set (b := OfeMor _).
+          assert ((𝒫 ((interp_cont _ E env) (SHIFT_ (laterO_map 𝒫 ◎ b) idfun)))
+                    ≡ (𝒫 (SHIFT_ (laterO_map 𝒫 ◎ b) (laterO_map (interp_cont _ E env))))) as ->.
+          { subst b.
+            f_equiv.
+            rewrite hom_vis.
+            Transparent SHIFT_.
+            simpl.
+            do 2 f_equiv; first solve_proper.
+            by rewrite ccompose_id_l.
+          }
+          assert ((𝒫 (SHIFT_ (laterO_map 𝒫 ◎ b) (laterO_map (interp_cont _ E env))))
+                    ≡ (SHIFT_ (laterO_map 𝒫 ◎ b) (laterO_map (𝒫 ◎ (interp_cont _ E env))))) as ->.
+          {
+            rewrite get_val_vis.
+            unfold SHIFT_.
+            simpl.
+            f_equiv.
+            intros ?; simpl.
+            rewrite later_map_compose.
+            reflexivity.
+          }
+          eapply sstep_reify.
+          {
+            unfold SHIFT_.
+            cbn [ofe_mor_car].
+            reflexivity.
+          }
+          rewrite reify_vis_eq_ctx_dep//; last first.
+          {
+            epose proof (@subReifier_reify sz CtxDep reify_delim rs _ IT _ (op_shift)
+                           (laterO_map 𝒫 ◎ b)
+                           ((laterO_map 𝒫 ◎ b) (laterO_map (𝒫 ◎ (interp_cont _ E env))))
+                           (laterO_map (𝒫 ◎ (interp_cont _ E env)))
+                           (laterO_map (interp_cont _ K env) :: σ)
+                           (laterO_map (interp_cont _ K env) :: σ) σr) as Hr.
+            simpl in Hr|-*.
+            erewrite <-Hr; last done.
+            repeat f_equiv; last done.
+            - solve_proper_prepare.
+              destruct x, y.
+              simpl.
+              f_equiv.
+              + apply H0.
+              + f_equiv; last apply H0.
+                reflexivity.
+            - reflexivity.
+          }
+          f_equiv.
+          -- reflexivity.
+          -- rewrite <-Tick_eq.
+             reflexivity.
+        * Opaque SHIFT_.
+          Opaque RESET_.
+          Opaque extend_scope.
+          change 1 with (Nat.add 1 0). econstructor; last first.
+          { apply ssteps_zero; reflexivity. }
+
+          simpl (ofe_mor_car _ _ idfun).
+          cbn [ofe_mor_car].
+
+          (* rewrite interp_comp. *)
+          set (c := subst _ _).
+          rewrite later_map_Next.
+          cbn [later_car].
+
+          assert ((interp_expr rs (K ⟪ reset c ⟫) env)
+                  = ((interp_cont _ K) env
+                 (reset_interp_new (interp_expr rs c) env)
+                       (* (RESET (later_map ℛ *)
+                       (*           (Next (interp_expr rs c env)))) *))) as ->.
+          {
+            (* fill + different reset *)
+            admit.
+          }
+          unfold reset_interp_new.
+          cbn [ofe_mor_car].
+          unfold RESET.
+
+          (* subst c.
+             term_simpl.
+             rewrite interp_expr_subst.
+           *)
+
+          (*
+             missing reset outside
+             missing reset inside
+             -ctrl-
+             instead of
+             +ctrl+
+             (1st represents delimiter outside, 2nd represents delimiter inside
+           *)
+
+        admit.
   Admitted.
 
+  Program Definition interp_reset {S} (e : S -n> IT) : S -n> IT :=
+    λne env, RESET (laterO_map 𝒫 (Next $ e env)).
+  Solve All Obligations with solve_proper.
+
+  Program Definition interp_shift {S} (e : @interp_scope F R _ (inc S) -n> IT) :
+    interp_scope S -n> IT :=
+    λne env, SHIFT (laterO_map 𝒫 ◎ (λne (k : laterO IT -n> laterO IT),
+                        (Next (e (extend_scope env (λit x, Tau (k (Next x)))))))).
+  Solve All Obligations with try solve_proper.
+  Next Obligation.
+    solve_proper_prepare.
+    repeat f_equiv.
+    intros ?; simpl.
+    f_equiv.
+    apply H.
+  Qed.
+  Next Obligation.
+    solve_proper_prepare.
+    do 3 f_equiv.
+    intros ?; simpl.
+    do 2 f_equiv.
+    intros [| ?]; simpl.
+    - solve_proper.
+    - solve_proper.
+  Qed.
+
+  Local Instance aaaaaa {S : Set} (e : @interp_scope F R _ S -n> IT) :
+    NonExpansive ((λ env, RESET (laterO_map 𝒫 (Next $ e env)))).
+  Proof. solve_proper. Qed.
+
   Lemma compat_reset {S : Set} (Γ : S -> ty) e τ' τ A :
-        ⊢ valid Γ e τ' τ' τ -∗ valid Γ (interp_reset rs e) τ A A.
+    ⊢ valid Γ e τ' τ' τ
+      -∗ valid Γ (λne env, RESET (laterO_map 𝒫 (Next $ e env))) τ A A.
   Proof.
     iIntros "#H".
     iModIntro.
     iIntros (γ) "#Henv".
     iIntros (κ σ) "#Hκ Hσ".
     iApply (wp_reset with "Hσ").
+    simpl.
     iNext.
     iIntros "_ Hσ".
+    (* iApply (delim.wp_pop_apply_cons with "[Hσ] "). *)
+    (* - admit. *)
+    (* -  *)
     iSpecialize ("H" $! γ with "Henv").
-    iSpecialize ("H" $! HOM_id (laterO_map (`κ) :: σ) with "[] Hσ").
-    - iModIntro.
-      iIntros (βv σ') "Hσ' #H".
-      iApply wp_val.
-      iModIntro.
-      by iFrame "H".
-      (* by iExists σ'. *)
-    - simpl.
-      admit.
   Admitted.
 
+  (* breaks here, reset is still morally correct, as it is just a delimiter *)
   Lemma compat_shift {S : Set} (Γ : S -> ty) e τ' α τ β :
     ⊢ valid (Γ ▹ (Tcont τ α)) e τ' τ' β
-      -∗ valid Γ (interp_shift _ e) τ α β.
+      -∗ valid Γ (interp_shift e) τ α β.
   Proof.
     iIntros "#H".
     iModIntro.
     iIntros (γ) "#Henv".
     iIntros (κ σ) "#Hκ Hσ".
-    assert (interp_shift rs e γ ≡ idfun $ interp_shift rs e γ) as ->.
-    { reflexivity. }
+    (* assert (interp_shift e γ ≡ idfun $ interp_shift e γ) as ->. *)
+    (* { reflexivity. } *)
     iApply (wp_shift with "Hσ").
     { apply (laterO_map_Next 𝒫). }
     {
       iNext.
-      iIntros "HCr Hσ'".
+      iIntros "_ Hσ'".
       set (F := Next _).
       set (γ' := extend_scope γ _).
       iSpecialize ("H" $! γ' with "[Hκ]").
@@ -362,7 +798,7 @@ Section logrel.
           iIntros (Pα σ') "#Hκ' Hσ".
           iApply ("Hκ'" $! (FunV F) σ' with "Hσ").
           iExists κ.
-          iSplit; first (iPureIntro; reflexivity).
+          iSplit; first (* (iPureIntro; reflexivity). *) admit.
           iModIntro.
           iModIntro.
           iIntros (βv σ'') "Hσ'' #HHH".
@@ -370,12 +806,12 @@ Section logrel.
         + iIntros (a).
           iModIntro.
           iApply "Henv".
-      - iSpecialize ("H" $! 𝒫_HOM σ).
-        iSpecialize ("H" with "[] Hσ'").
-        + iApply 𝒫_logrel_cont.
-        + iApply "H".
+      - iSpecialize ("H" $! HOM_id σ with "[] Hσ'").
+        + iApply HOM_id_logrel_ectx.
+        + simpl.
+          admit.
     }
-  Qed.
+  Admitted.
 
   Lemma compat_var {S : Set} (Γ : S -> ty) (x : S) α :
     ⊢ valid Γ (interp_var x) (Γ x) α α.
@@ -394,10 +830,9 @@ Section logrel.
     iApply (wp_wand with "[Hκ Hσ]").
     - iApply ("Hκ" $! (RetV n) σ with "Hσ").
       iExists _; by iPureIntro.
-    - iIntros (v) "(#H & G)".
+    - iIntros (v) "#H".
       iModIntro.
       iFrame "H".
-      iFrame "G".
   Qed.
 
   Lemma logrel_of_val τ v α :
@@ -407,10 +842,9 @@ Section logrel.
     iIntros (κ σ) "#Hκ Hσ".
     iApply (wp_wand with "[Hκ Hσ]").
     - by iApply ("Hκ" $! v σ with "Hσ").
-    - iIntros (w) "(#G & F)".
+    - iIntros (w) "#G".
       iModIntro.
       iFrame "G".
-      iFrame "F".
   Qed.
 
   Lemma compat_recV {S : Set} (Γ : S -> ty)
@@ -593,9 +1027,8 @@ Section logrel.
       rewrite <- Tick_eq.
       iApply wp_tick.
       iNext.
-      (* iApply ("Hv" $! w (laterO_map (`κ) :: σ''') with "Hσ Hw"). *)
-      admit.
-  Admitted.
+      iApply ("Hv" $! w (laterO_map (`κ) :: σ''') with "Hσ Hw").
+  Qed.
 
   Program Definition NatOpRSCtx_HOM {S : Set} (op : nat_op)
     (α : @interp_scope F R _ S -n> IT) (env : @interp_scope F R _ S)
@@ -658,7 +1091,6 @@ Section logrel.
 
     iDestruct "Hw" as "(%n & #HEQ1)".
     iDestruct "Hv" as "(%n' & #HEQ2)".
-
     (* iApply ("Hκ" $! (RetV (do_natop op n n')) σ'' with "Hσ"). *)
     (* iExists _. *)
     (* iPureIntro. *)
