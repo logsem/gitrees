@@ -21,11 +21,9 @@ Section interp.
   Context `{!invGS Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
 
-  Global Instance denot_cont_ne (κ : IT -n> IT) :
-    NonExpansive (λ x : IT, Tau (laterO_map κ (Next x))).
-  Proof.
-    solve_proper.
-  Qed.
+  Global Instance denot_cont_ne (κ : later IT -n> later IT) :
+    NonExpansive (λ x : IT, Tau (κ (Next x))).
+  Proof. solve_proper. Defined.
 
   (** * Interpreting individual operators *)
 
@@ -41,7 +39,7 @@ Section interp.
     interp_scope S -n> IT :=
     λne env, SHIFT (λne (k : laterO IT -n> laterO IT),
                       Next (e (extend_scope env (λit x, Tau (k (Next x)))))).
-  Next Obligation. solve_proper. Qed.
+  Next Obligation. intros; apply denot_cont_ne. Defined.
   Next Obligation.
     solve_proper_prepare.
     repeat f_equiv.
@@ -56,7 +54,6 @@ Section interp.
     intros [| a]; simpl; last solve_proper.
     repeat f_equiv.
   Qed.
-
 
   (** ** NATOP *)
   Program Definition interp_natop {A} (op : nat_op) (t1 t2 : A -n> IT) : A -n> IT :=
