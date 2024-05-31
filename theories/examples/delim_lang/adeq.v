@@ -789,7 +789,6 @@ Section logrel.
     intros; apply _.
   Qed.
 
-  (* bla-bla done *)
   Lemma compat_natop_r {S : Set} (Γ : S → ty) α τ
     op t (E : interp_scope S -n> IT -n> IT)
     `{∀ γ, IT_hom (E γ)}
@@ -822,10 +821,46 @@ Section logrel.
     iIntros (m') "Hm Hst".
     simpl.
 
+    iDestruct "Hw" as "(%n & #HEQ1)".
+    iDestruct "Hv" as "(%n' & #HEQ2)".
     iSpecialize ("H" $! γ with "Hγ").
-  Admitted.
+    iSpecialize ("H" $! (RetV (do_natop op n n')) with "[]").
+    {
+      iExists _.
+      iPureIntro.
+      reflexivity.
+    }
+    iSpecialize ("H" $! m' with "Hm Hst").
+    rewrite IT_of_V_Ret.
 
-  (* bla-bla done *)
+    iAssert ((NATOP (do_natop op) (IT_of_V w) (IT_of_V v))
+               ≡ (Ret (do_natop op n n')))%I as "#HEQ".
+    {
+      iRewrite "HEQ2".
+      rewrite IT_of_V_Ret.
+      iAssert ((IT_of_V w) ≡ IT_of_V (RetV n))%I as "#HEQ1'".
+      {
+        iApply f_equivI.
+        iApply "HEQ1".
+      }
+      rewrite IT_of_V_Ret.
+      iAssert (NATOP (do_natop op) (IT_of_V w) (Ret n')
+                 ≡ NATOP (do_natop op) (Ret n) (Ret n'))%I as "#HEQ2''".
+      {
+        unshelve iApply (f_equivI (λne x, NATOP (do_natop op) x (Ret n'))).
+        { solve_proper. }
+        { solve_proper. }
+        iApply "HEQ1'".
+      }
+      iRewrite "HEQ2''".
+      rewrite NATOP_Ret.
+      done.
+    }
+    iRewrite "HEQ".
+    simpl.
+    iApply "H".
+  Qed.
+
   Lemma compat_natop_l {S : Set} (Γ : S → ty) α τ
     op (t : interp_scope S -n> IT) (E : interp_scope S -n> IT -n> IT)
     `{∀ γ, IT_hom (E γ)}
@@ -861,7 +896,44 @@ Section logrel.
     simpl.
 
     iSpecialize ("H" $! γ with "Hγ").
-  Admitted.
+
+    iDestruct "Hw" as "(%n & #HEQ1)".
+    iDestruct "Hv" as "(%n' & #HEQ2)".
+    iSpecialize ("H" $! (RetV (do_natop op n' n)) with "[]").
+    {
+      iExists _.
+      iPureIntro.
+      reflexivity.
+    }
+    iSpecialize ("H" $! m' with "Hm Hst").
+    rewrite IT_of_V_Ret.
+
+    iAssert ((NATOP (do_natop op) (IT_of_V v) (IT_of_V w))
+               ≡ (Ret (do_natop op n' n)))%I as "#HEQ".
+    {
+      iRewrite "HEQ1".
+      rewrite IT_of_V_Ret.
+      iAssert ((IT_of_V v) ≡ IT_of_V (RetV n'))%I as "#HEQ2'".
+      {
+        iApply f_equivI.
+        iApply "HEQ2".
+      }
+      rewrite IT_of_V_Ret.
+      iAssert (NATOP (do_natop op) (IT_of_V v) (Ret n)
+                 ≡ NATOP (do_natop op) (Ret n') (Ret n))%I as "#HEQ2''".
+      {
+        unshelve iApply (f_equivI (λne x, NATOP (do_natop op) x (Ret n))).
+        { solve_proper. }
+        { solve_proper. }
+        iApply "HEQ2'".
+      }
+      iRewrite "HEQ2''".
+      rewrite NATOP_Ret.
+      done.
+    }
+    iRewrite "HEQ".
+    iApply "H".
+  Qed.
 
   (* Lemma compat_app_l {S : Set} (Γ : S → ty) τ α c d e *)
   (*   (* (t : interp_scope S -n> ITVO) *) t *)
