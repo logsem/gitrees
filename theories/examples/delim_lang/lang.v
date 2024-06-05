@@ -33,8 +33,8 @@ with val {X : Set} :=
 with cont {X : Set} :=
 | END : cont
 | IfK (e1 : expr) (e2 : expr) : cont -> cont
-| AppLK (v : val) : cont -> cont (* ◻ v *)
-| AppRK (e : expr) : cont -> cont (* e ◻ *)
+| AppRK (v : val) : cont -> cont (* v ◻ *)
+| AppLK (e : expr) : cont -> cont (* ◻ e *)
 | AppContLK (v : val) : cont -> cont (* ◻ v *)
 | AppContRK (e : expr) : cont -> cont (* e ◻ *)
 | NatOpLK (op : nat_op) (v : val) : cont -> cont (* ◻ + v *)
@@ -80,8 +80,8 @@ with kmap {A B : Set} (f : A [→] B) (K : cont A) : cont B :=
    match K with
    | END => END
    | IfK e1 e2 k => IfK (emap f e1) (emap f e2) (kmap f k)
-   | AppLK v k => AppLK (vmap f v) (kmap f k)
-   | AppRK e k => AppRK (emap f e) (kmap f k)
+   | AppLK v k => AppLK (emap f v) (kmap f k)
+   | AppRK e k => AppRK (vmap f e) (kmap f k)
    | AppContLK v k => AppContLK (vmap f v) (kmap f k)
    | AppContRK e k => AppContRK (emap f e) (kmap f k)
    | NatOpLK op v k => NatOpLK op (vmap f v) (kmap f k)
@@ -126,8 +126,8 @@ with kbind {A B : Set} (f : A [⇒] B) (K : cont A) : cont B :=
    match K with
    | END => END
    | IfK e1 e2 k => IfK (ebind f e1) (ebind f e2) (kbind f k)
-   | AppLK v k => AppLK (vbind f v) (kbind f k)
-   | AppRK e k => AppRK (ebind f e) (kbind f k)
+   | AppLK v k => AppLK (ebind f v) (kbind f k)
+   | AppRK e k => AppRK (vbind f e) (kbind f k)
    | AppContLK v k => AppContLK (vbind f v) (kbind f k)
    | AppContRK e k => AppContRK (ebind f e) (kbind f k)
    | NatOpLK op v k => NatOpLK op (vbind f v) (kbind f k)
@@ -309,8 +309,8 @@ Fixpoint fill {X : Set} (K : cont X) (e : expr X) : expr X :=
   match K with
   | IfK e1 e2 K => fill K (If e e1 e2)
   | END => e
-  | AppLK v K => fill K (App e (Val v))
-  | AppRK el K => fill K (App el e)
+  | AppRK v K => fill K (App (Val v) e)
+  | AppLK el K => fill K (App e el)
   | AppContLK v K => fill K (AppCont e (Val v))
   | AppContRK el K => fill K (AppCont el e)
   | NatOpLK op v K => fill K (NatOp op e (Val v))
@@ -339,8 +339,8 @@ Fixpoint cont_compose {S} (K1 K2 : cont S) : cont S :=
   match K2 with
   | END => K1
   | IfK e1 e2 K => IfK e1 e2 (cont_compose K1 K)
-  | AppLK v K => AppLK v (cont_compose K1 K)
-  | AppRK e K => AppRK e (cont_compose K1 K)
+  | AppLK e K => AppLK e (cont_compose K1 K)
+  | AppRK v K => AppRK v (cont_compose K1 K)
   | AppContLK v K => AppContLK v (cont_compose K1 K)
   | AppContRK e K => AppContRK e (cont_compose K1 K)
   | NatOpLK op v K => NatOpLK op v (cont_compose K1 K)
@@ -378,10 +378,10 @@ Variant config {S} : Type :=
 Reserved Notation "c '===>' c' / nm"
   (at level 40, c', nm at level 30).
 
-Variant Cred {S : Set} : config (* * state S *) -> config (* * state S *) -> (nat * nat) -> Prop :=
-
-  (* init *)
-  | Ceval_init : forall (e : expr S) (* σ *),
+Variant Cred {S : Set} : config (* * state S *) -> config (* * state S *)
+                         -> (nat * nat) -> Prop :=
+(* init *)
+| Ceval_init : forall (e : expr S) (* σ *),
   (Cexpr e(* , σ *)) ===> (Ceval e END [](* , σ *)) / (0,0)
 
 (* eval *)
@@ -389,7 +389,7 @@ Variant Cred {S : Set} : config (* * state S *) -> config (* * state S *) -> (na
   (Ceval (Val v) k mk(* , σ *)) ===> (Ccont k v mk(* , σ *)) / (0,0)
 
 | Ceval_app : forall e0 e1 k mk (* σ *),
-  (Ceval (App e0 e1) k mk(* , σ *)) ===> (Ceval e1 (AppRK e0 k) mk(* , σ *)) / (0,0)
+  (Ceval (App e0 e1) k mk(* , σ *)) ===> (Ceval e0 (AppLK e1 k) mk(* , σ *)) / (0,0)
 
 | Ceval_app_cont : forall e0 e1 k mk (* σ *),
   (Ceval (AppCont e0 e1) k mk(* , σ *)) ===> (Ceval e1 (AppContRK e0 k) mk(* , σ *)) / (0,0)
@@ -411,14 +411,14 @@ Variant Cred {S : Set} : config (* * state S *) -> config (* * state S *) -> (na
 | Ccont_end : forall v mk (* σ *),
   (Ccont END v mk(* , σ *)) ===> (Cmcont mk v(* , σ *)) / (0,0)
 
-| Ccont_appr : forall e v k mk (* σ *),
-  (Ccont (AppRK e k) v mk(* , σ *)) ===> (Ceval e (AppLK v k) mk(* , σ *)) / (0, 0)
+| Ccont_appl : forall e v k mk (* σ *),
+  (Ccont (AppLK e k) v mk(* , σ *)) ===> (Ceval e (AppRK v k) mk(* , σ *)) / (0, 0)
 
 | Ccont_app_contr : forall e v k mk (* σ *),
   (Ccont (AppContRK e k) v mk(* , σ *)) ===> (Ceval e (AppContLK v k) mk(* , σ *)) / (0, 0)
 
-| Ccont_appl : forall e v k mk (* σ *),
-  (Ccont (AppLK v k) (RecV e) mk(* , σ *)) ===>
+| Ccont_appr : forall e v k mk (* σ *),
+  (Ccont (AppRK (RecV e) k) v mk(* , σ *)) ===>
     (Ceval (subst (Inc := inc)
               (subst (F := expr) (Inc := inc) e
                  (Val (shift (Inc := inc) v)))
@@ -547,12 +547,12 @@ Global Instance AppNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsS
   __app e₁ e₂ := App (__asSynExpr e₁) (__asSynExpr e₂)
   }.
 
-Global Instance AppNotationLK {S : Set} : AppNotation (cont S) (val S) (cont S) := {
-  __app K v := cont_compose K (AppLK v END)
+Global Instance AppNotationRK {S : Set} : AppNotation (cont S) (val S) (cont S) := {
+  __app K v := cont_compose K (AppRK v END)
   }.
 
-Global Instance AppNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppNotation (F S) (cont S) (cont S) := {
-  __app e K := cont_compose K (AppRK (__asSynExpr e) END)
+Global Instance AppNotationLK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppNotation (F S) (cont S) (cont S) := {
+  __app e K := cont_compose K (AppLK (__asSynExpr e) END)
   }.
 
 Class AppContNotation (A B C : Type) := { __app_cont : A -> B -> C }.

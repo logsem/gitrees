@@ -5,7 +5,7 @@ From iris.algebra Require Import list.
 From iris.proofmode Require Import classes tactics.
 From iris.base_logic Require Import algebra.
 
-(* TODO: typing rules, if, compat for contexts, binary relation *)
+(* TODO: typing rules, compat for contexts, binary relation *)
 
 Require Import Binding.Lib Binding.Set Binding.Env.
 
@@ -18,68 +18,75 @@ Inductive ty :=
 
 Declare Scope types.
 
-(* Notation "τ '∕' α '→' σ '∕' β" := (Tarr τ α σ β) (at level 60) : types. *)
-(* Notation "'Cont' τ σ" := (Tcont τ σ) (at level 60) : types. *)
+Notation "τ '∕' α '→' σ '∕' β" := (Tarr τ α σ β) (at level 60) : types.
+Notation "'Cont' τ σ" := (Tcont τ σ) (at level 60) : types.
 
-(* Reserved Notation "Γ ';' α '⊢ₑ' e ':' τ ';' β" *)
-(*   (at level 90, e at next level, τ at level 20, no associativity). *)
+Reserved Notation "Γ ';' α '⊢ₑ' e ':' τ ';' β"
+  (at level 90, e at next level, τ at level 20, no associativity).
 
-(* Reserved Notation "Γ ';' α '⊢ᵥ' e ':' τ ';' β" *)
-(*   (at level 90, e at next level, τ at level 20, no associativity). *)
+Reserved Notation "Γ ';' α '⊢ᵥ' e ':' τ ';' β"
+  (at level 90, e at next level, τ at level 20, no associativity).
 
-(* Reserved Notation "Γ ';' α '⊢ᵪ' e ':' τ ';' β" *)
-(*   (at level 90, e at next level, τ at level 20, no associativity). *)
+Reserved Notation "Γ '⊢ᵪ' e ':' τ '⤞' σ"
+  (at level 90, e at next level, τ at level 20, no associativity).
 
-(* TODO: pure stuff has ∀ σ deeper inside *)
-(* Inductive typed_expr {S : Set} (Γ : S -> ty) : ty -> expr S -> ty -> ty -> Prop := *)
-(* | typed_Val v α τ β : *)
-(*   (Γ; α ⊢ᵥ v : τ; β) → *)
-(*   (Γ; α ⊢ₑ v : τ; β) *)
-(* | typed_Var x τ α : *)
-(*   (Γ x = τ) → *)
-(*   (Γ; α ⊢ₑ (Var x) : τ; α) *)
-(* | typed_App e₁ e₂ γ α β δ σ τ : *)
-(*   (Γ; γ ⊢ₑ e₁ : (Tarr σ α τ β); δ) → *)
-(*   (Γ; β ⊢ₑ e₂ : σ; γ) → *)
-(*   (Γ; α ⊢ₑ (App e₁ e₂) : τ; δ) *)
-(* | typed_AppCont e₁ e₂ α β δ σ τ : *)
-(*   (Γ; δ ⊢ₑ e₁ : (Tcont τ α); β) → *)
-(*   (Γ; σ ⊢ₑ e₂ : τ; δ) → *)
-(*   (Γ; σ ⊢ₑ (AppCont e₁ e₂) : α; β) *)
-(* | typed_NatOp o e₁ e₂ α β : *)
-(*   (Γ; α ⊢ₑ e₁ : Tnat; β) → *)
-(*   (Γ; α ⊢ₑ e₂ : Tnat; β) → *)
-(*   (Γ; α ⊢ₑ NatOp o e₁ e₂ : Tnat; β) *)
-(* | typed_If e e₁ e₂ α β σ τ : *)
-(*   (Γ; σ ⊢ₑ e : Tnat; β) → *)
-(*   (Γ; α ⊢ₑ e₁ : τ; σ) → *)
-(*   (Γ; α ⊢ₑ e₂ : τ; σ) → *)
-(*   (Γ; α ⊢ₑ (if e then e₁ else e₂) : τ; β) *)
-(* | typed_Shift (e : @expr (inc S)) τ α σ β : *)
-(*   (Γ ▹ (Tcont τ α); σ ⊢ₑ e : σ; β) → *)
-(*   (Γ; α ⊢ₑ Shift e : τ; β) *)
-(* | typed_Reset e α σ τ : *)
-(*   (Γ; σ ⊢ₑ e : σ; τ) → *)
-(*   (Γ; α ⊢ₑ reset e : τ; α) *)
-(* where "Γ ';' α '⊢ₑ' e ':' τ ';' β" := (typed_expr Γ α e τ β) : types *)
-(* with typed_val {S : Set} (Γ : S -> ty) : ty -> val S -> ty -> ty -> Prop := *)
-(* | typed_LitV n α : *)
-(*   (Γ; α ⊢ᵥ #n : Tnat; α) *)
-(* | typed_RecV (e : expr (inc (inc S))) (δ σ τ α β : ty) : *)
-(*   ((Γ ▹ (Tarr σ α τ β) ▹ σ); α ⊢ₑ e : τ; β) -> *)
-(*   (Γ; δ ⊢ᵥ (RecV e) : (Tarr σ α τ β); δ) *)
-(* | typed_ContV (k : cont S) τ α β : *)
-(*   (Γ; α ⊢ᵪ k : τ; β) → *)
-(*   (Γ; α ⊢ᵥ (ContV k) : τ; β) *)
-(* where "Γ ';' α '⊢ᵥ' e ':' τ ';' β" := (typed_val Γ α e τ β) : types *)
-(* with typed_cont {S : Set} (Γ : S -> ty) : ty -> cont S -> ty -> ty -> Prop := *)
-(* | typed_END τ δ : *)
-(*   (Γ; δ ⊢ᵪ END : (Tcont τ τ); δ) *)
-(* | typed_IfK e₁ e₂ α β δ A k τ : *)
-(*   (Γ; α ⊢ₑ e₁ : τ; β) -> *)
-(*   (Γ; α ⊢ₑ e₂ : τ; β) -> *)
-(*   (Γ; β ⊢ᵪ k : Tcont τ A; δ) -> *)
-(*   (Γ; α ⊢ᵪ IfK e₁ e₂ k : Tcont Tnat A; δ) *)
+Inductive typed_expr {S : Set} (Γ : S -> ty) : ty -> expr S -> ty -> ty -> Prop :=
+| typed_Val v α τ β :
+  (Γ; α ⊢ᵥ v : τ; β) →
+  (Γ; α ⊢ₑ v : τ; β)
+| typed_Var x τ α :
+  (Γ x = τ) →
+  (Γ; α ⊢ₑ (Var x) : τ; α)
+| typed_App e₁ e₂ γ α β δ σ τ :
+  (Γ; γ ⊢ₑ e₁ : (Tarr σ α τ β); δ) →
+  (Γ; β ⊢ₑ e₂ : σ; γ) →
+  (Γ; α ⊢ₑ (App e₁ e₂) : τ; δ)
+| typed_AppCont e₁ e₂ α β δ σ τ :
+  (Γ; σ ⊢ₑ e₁ : (Tcont τ α); δ) →
+  (Γ; δ ⊢ₑ e₂ : τ; β) →
+  (Γ; σ ⊢ₑ (AppCont e₁ e₂) : α; β)
+| typed_NatOp o e₁ e₂ α β γ :
+  (Γ; α ⊢ₑ e₁ : Tnat; β) →
+  (Γ; β ⊢ₑ e₂ : Tnat; γ) →
+  (Γ; α ⊢ₑ NatOp o e₁ e₂ : Tnat; γ)
+| typed_If e e₁ e₂ α β σ τ :
+  (Γ; β ⊢ₑ e : Tnat; α) →
+  (Γ; σ ⊢ₑ e₁ : τ; β) →
+  (Γ; σ ⊢ₑ e₂ : τ; β) →
+  (Γ; σ ⊢ₑ (if e then e₁ else e₂) : τ; α)
+| typed_Shift (e : @expr (inc S)) τ α σ β :
+  (Γ ▹ (Tcont τ α); σ ⊢ₑ e : σ; β) →
+  (Γ; α ⊢ₑ Shift e : τ; β)
+| typed_Reset e α σ τ :
+  (Γ; σ ⊢ₑ e : σ; τ) →
+  (Γ; α ⊢ₑ reset e : τ; α)
+where "Γ ';' α '⊢ₑ' e ':' τ ';' β" := (typed_expr Γ α e τ β) : types
+with typed_val {S : Set} (Γ : S -> ty) : ty -> val S -> ty -> ty -> Prop :=
+| typed_LitV n α :
+  (Γ; α ⊢ᵥ #n : Tnat; α)
+| typed_RecV (e : expr (inc (inc S))) (δ σ τ α β : ty) :
+  ((Γ ▹ (Tarr σ α τ β) ▹ σ); α ⊢ₑ e : τ; β) ->
+  (Γ; δ ⊢ᵥ (RecV e) : (Tarr σ α τ β); δ)
+| typed_ContV (k : cont S) τ σ α :
+  (Γ ⊢ᵪ k : τ ⤞ σ) →
+  (Γ; α ⊢ᵥ (ContV k) : (Tcont τ σ); α)
+where "Γ ';' α '⊢ᵥ' e ':' τ ';' β" := (typed_val Γ α e τ β) : types
+with typed_cont {S : Set} (Γ : S -> ty) : cont S -> ty -> ty -> Prop :=
+| typed_END τ :
+  (Γ ⊢ᵪ END : τ ⤞ τ)
+| typed_IfK k e₁ e₂ α β τ :
+  (Γ; α ⊢ₑ e₁ : τ; β) ->
+  (Γ; α ⊢ₑ e₂ : τ; β) ->
+  (Γ ⊢ᵪ k : τ ⤞ α) ->
+  (Γ ⊢ᵪ IfK e₁ e₂ k : Tnat ⤞ β)
+| typed_NatOpLK op v k α τ :
+  (Γ; τ ⊢ᵥ v : Tnat; α) ->
+  (Γ ⊢ᵪ k : Tnat ⤞ τ) ->
+  (Γ ⊢ᵪ NatOpLK op v k : Tnat ⤞ α)
+| typed_NatOpRK op e k α τ :
+  (Γ; τ ⊢ₑ e : Tnat; α) ->
+  (Γ ⊢ᵪ k : Tnat ⤞ τ) ->
+  (Γ ⊢ᵪ NatOpRK op e k : Tnat ⤞ α)
 (* (* | typed_AppLK v k α β σ δ τ' τ : *) *)
 (* (*   (Γ; α ⊢ᵥ v : τ'; β) -> *) *)
 (* (*   (Γ; β ⊢ᵪ k : Tcont σ τ; δ) -> *) *)
@@ -90,16 +97,41 @@ Declare Scope types.
 (* (*   (Γ; τ ⊢ᵪ AppContLK v k : τ; τ) *) *)
 (* (* | typed_AppContRK e k τ : *) *)
 (* (*   (Γ; τ ⊢ᵪ AppContRK e k : τ; τ) *) *)
-(* | typed_NatOpLK op v k α β δ τ : *)
-(*   (Γ; α ⊢ᵥ v : Tnat; β) -> *)
-(*   (Γ; β ⊢ᵪ k : Tcont Tnat τ; δ) -> *)
-(*   (Γ; α ⊢ᵪ NatOpLK op v k : Tcont Tnat τ; δ) *)
-(* | typed_NatOpRK op e k α β δ τ : *)
-(*   (Γ; α ⊢ₑ e : Tnat; β) -> *)
-(*   (Γ; β ⊢ᵪ k : Tcont Tnat τ; δ) -> *)
-(*   (Γ; α ⊢ᵪ NatOpRK op e k : Tcont Tnat τ; δ) *)
-(* where "Γ ';' α '⊢ᵪ' e ':' τ ';' β" := (typed_cont Γ α e τ β) : types *)
-(* . *)
+where "Γ '⊢ᵪ' e ':' τ '⤞' σ" := (typed_cont Γ e τ σ) : types
+.
+
+Module Example.
+  Open Scope types.
+
+  Lemma typ_example1 α :
+    empty_env; α ⊢ₑ ((#1) +
+                          (reset
+                             ((#3)
+                              + (shift/cc ((($0) @k #5) + (($0) @k #6))))))
+    : Tnat; α.
+  Proof.
+    eapply typed_NatOp.
+    - apply typed_Val.
+      apply typed_LitV.
+    - eapply typed_Reset.
+      eapply typed_NatOp.
+      + apply typed_Val.
+        apply typed_LitV.
+      + eapply typed_Shift.
+        eapply typed_NatOp.
+        * eapply typed_AppCont.
+          -- apply typed_Var.
+             reflexivity.
+          -- apply typed_Val.
+             apply typed_LitV.
+        * eapply typed_AppCont.
+          -- apply typed_Var.
+             reflexivity.
+          -- apply typed_Val.
+             apply typed_LitV.
+  Qed.
+
+End Example.
 
 Open Scope stdpp_scope.
 
@@ -506,23 +538,44 @@ Section logrel.
     apply _.
   Qed.
 
-  Program Definition AppRSCtx_HOM {S : Set}
+  Program Definition AppLSCtx_HOM {S : Set}
     (α : @interp_scope F R _ S -n> IT)
     (env : @interp_scope F R _ S)
-    : HOM := exist _ (interp_apprk rs α (λne env, idfun) env) _.
+    : HOM := exist _ (interp_applk rs α (λne env, idfun) env) _.
   Next Obligation.
     intros; simpl.
     apply _.
   Qed.
 
-  Program Definition AppLSCtx_HOM {S : Set}
+  Transparent LET.
+  Program Definition AppRSCtx_HOM {S : Set}
     (β : IT) (env : @interp_scope F R _ S)
     (Hv : AsVal β)
-    : HOM := exist _ (interp_applk rs (constO β) (λne env, idfun) env) _.
+    : HOM := exist _ (interp_apprk rs (constO β) (λne env, idfun) env) _.
   Next Obligation.
     intros; simpl.
-    apply _.
+    simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - solve_proper_please.
+    - rewrite get_val_ITV.
+      simpl.
+      rewrite get_val_ITV.
+      simpl.
+      rewrite get_val_tick.
+      reflexivity.
+    - rewrite get_val_ITV.
+      simpl.
+      rewrite get_val_vis.
+      do 3 f_equiv.
+      intro; simpl.
+      rewrite get_val_ITV.
+      simpl.
+      reflexivity.
+    - rewrite get_val_ITV.
+      simpl.
+      rewrite get_val_err.
+      reflexivity.
   Qed.
+  Opaque LET.
 
   Lemma compat_nat_op {S : Set} (Γ : S → ty)
     D E F e1 e2 op :
@@ -610,11 +663,15 @@ Section logrel.
     iApply "Hκ".
   Qed.
 
+  (* | typed_App e₁ e₂ γ α β δ σ τ : *)
+  (* (Γ; γ ⊢ₑ e₁ : (Tarr σ α τ β); δ) → *)
+  (* (Γ; β ⊢ₑ e₂ : σ; γ) → *)
+  (* (Γ; α ⊢ₑ (App e₁ e₂) : τ; δ) *)
   Lemma compat_app {S : Set} (Γ : S → ty)
-    A B C D E F e1 e2 :
-    ⊢ valid Γ e1 (Tarr A C B E) E F
-      -∗ valid Γ e2 A F D
-      -∗ valid Γ (interp_app rs e1 e2) B C D.
+    ξ α β δ η τ e1 e2 :
+    ⊢ valid Γ e1 (Tarr η α τ β) ξ δ
+      -∗ valid Γ e2 η β ξ
+      -∗ valid Γ (interp_app rs e1 e2) τ α δ.
   Proof.
     iIntros "#H #G".
     iModIntro.
@@ -623,18 +680,23 @@ Section logrel.
     iIntros (σ) "Hσ Hst".
     rewrite /interp_app //=.
 
-    pose (κ' := (AppRSCtx_HOM e1 γ)).
-    assert ((e1 γ ⊙ (e2 γ)) = ((`κ') (e2 γ))) as ->.
-    { simpl; unfold AppRSCtx. reflexivity. }
-    assert ((`κ) ((`κ') (e2 γ)) = ((`κ) ◎ (`κ')) (e2 γ)) as ->.
+    pose (κ' := (AppLSCtx_HOM e2 γ)).
+    match goal with
+    | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
+        set (F := b)
+    end.
+    assert (LET (e1 γ) F = ((`κ') (e1 γ))) as ->.
+    { simpl; unfold AppLSCtx. reflexivity. }
+    clear F.
+    assert ((`κ) ((`κ') (e1 γ)) = ((`κ) ◎ (`κ')) (e1 γ)) as ->.
     { reflexivity. }
     pose (sss := (HOM_compose κ κ')).
     assert ((`κ ◎ `κ') = (`sss)) as ->.
     { reflexivity. }
 
-    iSpecialize ("G" $! γ with "Hγ").
-    iSpecialize ("G" $! sss).
-    iApply ("G" with "[H] Hσ Hst").
+    iSpecialize ("H" $! γ with "Hγ").
+    iSpecialize ("H" $! sss).
+    iApply ("H" with "[H] Hσ Hst").
 
     iIntros (w).
     iModIntro.
@@ -643,18 +705,22 @@ Section logrel.
     subst sss.
     subst κ'.
     simpl.
+    rewrite LET_Val.
+    cbn [ofe_mor_car].    
 
-    pose (κ'' := (AppLSCtx_HOM (IT_of_V w) γ _)).
-    assert (((`κ) (e1 γ ⊙ (IT_of_V w))) = (((`κ) ◎ (`κ'')) (e1 γ))) as ->.
+    match goal with
+    | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
+        set (F := b)
+    end.
+    pose (κ'' := exist _ (LETCTX F) (LETCTX_Hom F) : HOM).
+    assert (((`κ) (LET (e2 γ) F)) = (((`κ) ◎ (`κ'')) (e2 γ))) as ->.
     { reflexivity. }
     pose (sss := (HOM_compose κ κ'')).
     assert ((`κ ◎ `κ'') = (`sss)) as ->.
     { reflexivity. }
-
-    iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! sss).
-    iApply ("H" with "[] Hm Hst").
-
+    iSpecialize ("G" $! γ with "Hγ").
+    iSpecialize ("G" $! sss).
+    iApply ("G" with "[H] Hm Hst").
     iIntros (v).
     iModIntro.
     iIntros "#Hv".
@@ -662,19 +728,22 @@ Section logrel.
     subst sss.
     subst κ''.
     simpl.
+    rewrite LET_Val.
+    subst F.
+    cbn [ofe_mor_car].    
 
-    iDestruct "Hv" as "(%n' & #HEQ & Hv)".
-    iSpecialize ("Hv" $! w with "Hw").
-    iSpecialize ("Hv" $! κ with "Hκ").
-    iSpecialize ("Hv" $! m'' with "Hm Hst").
-    iAssert ((IT_of_V v ⊙ (IT_of_V w))
-               ≡ (Fun n' ⊙ (IT_of_V w)))%I as "#HEQ'".
+    iDestruct "Hw" as "(%n' & #HEQ & Hw)".
+    iSpecialize ("Hw" $! v with "Hv").
+    iSpecialize ("Hw" $! κ with "Hκ").
+    iSpecialize ("Hw" $! m'' with "Hm Hst").
+    iAssert ((IT_of_V w ⊙ (IT_of_V v))
+               ≡ (Fun n' ⊙ (IT_of_V v)))%I as "#HEQ'".
     {
-      iApply (f_equivI (λne x, (x ⊙ (IT_of_V w)))).
+      iApply (f_equivI (λne x, (x ⊙ (IT_of_V v)))).
       iApply "HEQ".
     }
     iRewrite "HEQ'".
-    iApply "Hv".
+    iApply "Hw".
   Qed.
 
   Lemma compat_appcont {S : Set} (Γ : S -> ty) e1 e2 τ α δ β σ :
@@ -775,7 +844,58 @@ Section logrel.
         iIntros "_ Hst".
         iApply ("Hκ" with "Hp Hm Hst").
       }
+  Qed.
 
+  Lemma compat_if {S : Set} (Γ : S -> ty) e e₁ e₂ τ σ α β :
+        ⊢ valid Γ e Tnat β α
+          -∗ valid Γ e₁ τ σ β
+          -∗ valid Γ e₂ τ σ β
+          -∗ valid Γ (interp_if rs e e₁ e₂) τ σ α.
+  Proof.
+    iIntros "#H #G #J".
+    iModIntro.
+    iIntros (γ) "#Henv".
+    iIntros (κ) "#Hκ".
+    iIntros (σ') "Hm Hst".
+    unfold interp_if.
+    cbn [ofe_mor_car].
+    pose (κ' := (IFSCtx_HOM (e₁ γ) (e₂ γ))).
+    assert ((IF (e γ) (e₁ γ) (e₂ γ)) = ((`κ') (e γ))) as -> by reflexivity.
+    assert ((`κ) ((`κ') (e γ)) = ((`κ) ◎ (`κ')) (e γ))
+      as -> by reflexivity.
+    pose (sss := (HOM_compose κ κ')).
+    rewrite (HOM_compose_ccompose κ κ' sss)//.
+
+    iSpecialize ("H" $! γ with "Henv").
+    iSpecialize ("H" $! sss).
+    iApply ("H" with "[] Hm Hst").
+
+    iIntros (v).
+    iModIntro.
+    iIntros "#Hv".
+    iIntros (σ'') "Hm Hst".
+    iDestruct "Hv" as "(%n & #Hv)".
+    iRewrite "Hv".
+    rewrite IT_of_V_Ret.
+    subst sss.
+    subst κ'.
+    simpl.
+    unfold IFSCtx.
+    destruct (decide (0 < n)) as [H|H].
+    - rewrite IF_True//.
+      iApply ("G" $! γ with "Henv [Hκ] Hm Hst").
+      iIntros (w).
+      iModIntro.
+      iIntros "#Hw".
+      iIntros (σ''') "Hm Hst".
+      iApply ("Hκ" with "Hw Hm Hst").
+    - rewrite IF_False//; last lia.
+      iApply ("J" $! γ with "Henv [Hκ] Hm Hst").
+      iIntros (w).
+      iModIntro.
+      iIntros "#Hw".
+      iIntros (σ''') "Hm Hst".
+      iApply ("Hκ" with "Hw Hm Hst").
   Qed.
 
   Program Definition valid_ectx {S : Set}
@@ -787,6 +907,15 @@ Section logrel.
             -∗ logrel_ectx (interp_ty τ) (interp_ty α) (exist _ (e γ) _))%I.
   Next Obligation.
     intros; apply _.
+  Qed.
+
+  Lemma compat_end {S : Set} (Γ : S → ty) τ
+    : ⊢ valid_ectx Γ (interp_cont rs END) τ τ.
+  Proof.
+    iIntros (γ).
+    iModIntro.
+    iIntros "#H".
+    iApply compat_HOM_id.
   Qed.
 
   Lemma compat_natop_r {S : Set} (Γ : S → ty) α τ
@@ -935,41 +1064,52 @@ Section logrel.
     iApply "H".
   Qed.
 
-  (* Lemma compat_app_l {S : Set} (Γ : S → ty) τ α c d e *)
-  (*   (* (t : interp_scope S -n> ITVO) *) t *)
-  (*   (E : interp_scope S -n> IT -n> IT) *)
-  (*   `{∀ γ, IT_hom (E γ)} *)
-  (*   (* `{∀ γ, AsVal (t γ)} *) *)
-  (*   `{∀ γ, IT_hom (interp_app_contlk _ t E γ)} : *)
-  (*   ⊢ valid_ectx Γ E τ α *)
-  (*     -∗ valid Γ t c d e *)
-  (*     -∗ valid_ectx Γ (interp_app_contlk _ t E) τ α. *)
-  (* Proof.     *)
-  (*   iIntros "#H #G". *)
-  (*   iIntros (γ). *)
-  (*   assert (AsVal (t γ)); first admit. *)
-  (*   iModIntro. *)
-  (*   iIntros "#Hγ". *)
-  (*   iIntros (v). *)
-  (*   iModIntro. *)
-  (*   iIntros "#Hv". *)
-  (*   iIntros (m) "Hm Hst". *)
-  (*   simpl. *)
-  (*   rewrite get_val_ITV. *)
-  (*   simpl. *)
-  (*   iSpecialize ("H" $! γ with "Hγ"). *)
-  (*   iSpecialize ("H" $! v with "Hv"). *)
-  (*   iSpecialize ("H" $! m with "Hm Hst"). *)
-  (*   simpl. *)
+  Lemma compat_ifk {S : Set} (Γ : S -> ty)
+    (E : interp_scope S -n> IT -n> IT)
+    e₁ e₂
+    `{∀ γ, IT_hom (E γ)}
+    `{∀ γ, IT_hom (interp_ifk rs e₁ e₂ E γ)}
+    (τ α β : ty) :
+    ⊢ valid_ectx Γ E τ α
+      -∗ valid Γ e₁ τ α β
+      -∗ valid Γ e₂ τ α β
+      -∗ valid_ectx Γ (interp_ifk rs e₁ e₂ E) Tnat β.
+  Proof.
+    iIntros "#H #G #J".
+    iModIntro.
+    iIntros (γ) "#Henv".
+    iSpecialize ("H" $! γ with "Henv").
 
-  (* Lemma compat_app_r {S : Set} (Γ : S → ty) τ α c d e t *)
+    iIntros (v).
+    iModIntro.
+    iIntros "#Hv".
+    iIntros (σ'') "Hm Hst".
+    iDestruct "Hv" as "(%n & #Hv)".
+    iRewrite "Hv".
+    rewrite IT_of_V_Ret.
+    simpl.
+    destruct (decide (0 < n)) as [?|?].
+    - rewrite IF_True//.
+      iSpecialize ("G" $! γ with "Henv").
+      unshelve iSpecialize ("G" $! (exist _ (E γ) _)).
+      { apply _. }
+      iApply ("G" with "H Hm Hst").
+    - rewrite IF_False//; last lia.
+      iSpecialize ("J" $! γ with "Henv").
+      unshelve iSpecialize ("J" $! (exist _ (E γ) _)).
+      { apply _. }
+      iApply ("J" with "H Hm Hst").
+  Qed.
+
+  (* Lemma compat_appk_r {S : Set} (Γ : S → ty) τ α c d e t *)
   (*   (E : interp_scope S -n> IT -n> IT) *)
   (*   `{∀ γ, IT_hom (E γ)} *)
   (*   `{∀ γ, IT_hom (interp_app_contrk _ t E γ)} : *)
   (*   ⊢ valid_ectx Γ E τ α *)
   (*     -∗ valid Γ t c d e *)
-  (*     -∗ valid_ectx Γ (interp_app_contrk _ t E) τ α.   *)
+  (*     -∗ valid_ectx Γ (interp_app_contrk _ t E) τ α. *)
   (* Proof. *)
+  (*   Opaque interp_app_cont. *)
   (*   iIntros "#H #G". *)
   (*   iIntros (γ). *)
   (*   iModIntro. *)
@@ -979,13 +1119,140 @@ Section logrel.
   (*   iIntros "#Hv". *)
   (*   iIntros (m) "Hm Hst". *)
   (*   simpl. *)
-  (*   rewrite get_val_ITV. *)
+
+  (*   pose (κ'' := (AppContLSCtx_HOM (IT_of_V v) γ _)). *)
+  (*   set (F := (E γ) _). *)
+  (*   assert (F ≡ (((E γ) ◎ (`κ'')) (t γ))) as ->. *)
+  (*   { *)
+  (*     subst F. simpl. Transparent interp_app_cont. simpl. *)
+  (*     f_equiv. *)
+  (*     rewrite ->2 get_val_ITV. *)
+  (*     simpl. *)
+  (*     reflexivity. *)
+  (*   } *)
+  (*   pose (sss := (HOM_compose (exist _ (E γ) (H _)) κ'')). *)
+  (*   assert (((E γ) ◎ `κ'') = (`sss)) as ->. *)
+  (*   { reflexivity. } *)
+
+  (*   iSpecialize ("G" $! γ with "Hγ"). *)
+  (*   iSpecialize ("G" $! sss). *)
+  (*   iApply ("G" with "[] [] Hst"); *)
+  (*     last admit. *)
+  (*   iIntros (w). *)
+  (*   iModIntro. *)
+  (*   iIntros "#Hw". *)
+  (*   iIntros (m') "Hm Hst".     *)
+  (* Admitted. *)
+
+  (* Lemma compat_appk_l {S : Set} (Γ : S → ty) τ α c d e *)
+  (*   (t : interp_scope S -n> IT) *)
+  (*   (E : interp_scope S -n> IT -n> IT) *)
+  (*   `{∀ γ, IT_hom (E γ)} *)
+  (*   `{∀ γ, AsVal (t γ)} *)
+  (*   `{∀ γ, IT_hom (interp_app_contlk _ t E γ)} : *)
+  (*   ⊢ valid_ectx Γ E τ α *)
+  (*     -∗ valid Γ t c d e *)
+  (*     -∗ valid_ectx Γ (interp_app_contlk _ t E) τ α. *)
+  (* Proof. *)
+  (*   Opaque interp_app_cont. *)
+  (*   iIntros "#H #G". *)
+  (*   iIntros (γ). *)
+  (*   assert (AsVal (t γ)). *)
+  (*   { apply _. } *)
+  (*   iModIntro. *)
+  (*   iIntros "#Hγ". *)
+  (*   iIntros (v). *)
+  (*   iModIntro. *)
+  (*   iIntros "#Hv". *)
+  (*   iIntros (m) "Hm Hst". *)
   (*   simpl. *)
-  (*   iSpecialize ("H" $! γ with "Hγ"). *)
-  (*   iSpecialize ("H" $! v with "Hv"). *)
-  (*   iSpecialize ("H" $! m with "Hm Hst"). *)
-  (*   simpl. *)
-  (* Qed. *)
+
+  (* Admitted. *)
+
+  Lemma compat_cont {S : Set} (Γ : S -> ty) τ σ
+    (k : interp_scope S -n> IT -n> IT)
+    `{∀ γ : interp_scope S, IT_hom (k γ)}
+    : ⊢ valid_ectx Γ k τ σ
+        -∗ ∀ α, valid Γ (interp_cont_val rs k) (Tcont τ σ) α α.
+  Proof.
+    iIntros "#H".
+    iIntros (α γ).
+    iModIntro.
+    iIntros "#Hγ".
+    iIntros (κ) "Hκ".
+    iIntros (m) "Hm Hst".
+    iSpecialize ("H" $! γ with "Hγ").
+    unfold interp_cont_val.
+    simpl.
+    match goal with
+    | |- context G [ofe_mor_car _ _ Fun ?a] =>
+        set (F := a)
+    end.
+    iSpecialize ("Hκ" $! (FunV F)).
+    iApply ("Hκ" with "[] Hm Hst").
+    iExists (exist _ (k γ) (H _)).
+    iSplit.
+    - subst F.
+      Transparent IT_of_V.
+      simpl.
+      iPureIntro.
+      do 2 f_equiv.
+      intros ?; simpl.
+      rewrite later_map_Next.
+      rewrite Tick_eq.
+      reflexivity.
+    - iModIntro.
+      iApply "H".
+  Qed.
+
+  Open Scope types.
+
+  Lemma fundamental_expr {S : Set} (Γ : S -> ty) τ α β e :
+    Γ; α ⊢ₑ e : τ; β → ⊢ valid Γ (interp_expr rs e) τ α β
+  with fundamental_val {S : Set} (Γ : S -> ty) τ α β v :
+    Γ; α ⊢ᵥ v : τ; β → ⊢ valid Γ (interp_val rs v) τ α β
+  with fundamental_cont {S : Set} (Γ : S -> ty) τ σ κ :
+    Γ ⊢ᵪ κ : τ ⤞ σ → ⊢ valid_ectx Γ (interp_cont rs κ) τ σ.
+  Proof.
+    - intros H.
+      destruct H.
+      + by apply fundamental_val.
+      + subst; iApply compat_var.
+      + iApply compat_app;
+          by iApply fundamental_expr.
+      + iApply compat_appcont;
+          by iApply fundamental_expr.
+      + iApply compat_nat_op;
+          by iApply fundamental_expr.
+      + iApply compat_if;
+          by iApply fundamental_expr.
+      + iApply compat_shift;
+          by iApply fundamental_expr.
+      + iApply (compat_reset with "[]");
+          by iApply fundamental_expr.
+    - intros H.
+      destruct H.
+      + iApply compat_nat.
+      + iApply (compat_recV with "[]");
+          by iApply fundamental_expr.
+      + iPoseProof (fundamental_cont _ _ _ _ _ H) as "H".
+        iDestruct (compat_cont with "H") as "G".
+        iSpecialize ("G" $! α).
+        iApply "G".
+    - intros H.
+      destruct H.
+      + iApply compat_end.
+      + iApply compat_ifk;
+          [ by iApply fundamental_cont
+          | by iApply fundamental_expr
+          | by iApply fundamental_expr].
+      + iApply compat_natop_l;
+          [ by iApply fundamental_cont
+          | by iApply fundamental_val].
+      + iApply compat_natop_r;
+          [ by iApply fundamental_cont
+          | by iApply fundamental_expr].
+  Qed.
 
 End logrel.
 
