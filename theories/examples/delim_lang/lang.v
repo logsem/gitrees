@@ -478,7 +478,8 @@ where "c ===> c' / nm" := (Cred c c' nm).
 Arguments Mcont S%bind : clear implicits.
 Arguments config S%bind : clear implicits.
 
-Inductive steps {S} : config S (* * state S *) -> config S (* * state S *) -> (nat * nat) -> Prop :=
+Inductive steps {S} : config S (* * state S *) -> config S (* * state S *) ->
+                      (nat * nat) -> Prop :=
 | steps_zero : forall c,
   steps c c (0, 0)
 | steps_many : forall c1 c2 c3 n m n' m' n'' m'',
@@ -513,25 +514,31 @@ Global Instance AsSynExprExpr : AsSynExpr expr := {
 
 Class OpNotation (A B C D : Type) := { __op : A -> B -> C -> D }.
 
-Global Instance OpNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : OpNotation (F S) nat_op (G S) (expr S) := {
+Global Instance OpNotationExpr {S : Set} {F G : Set -> Type}
+  `{AsSynExpr F, AsSynExpr G} : OpNotation (F S) nat_op (G S) (expr S) := {
   __op e₁ op e₂ := NatOp op (__asSynExpr e₁) (__asSynExpr e₂)
   }.
 
-Global Instance OpNotationLK {S : Set} : OpNotation (cont S) (nat_op) (val S) (cont S) := {
+Global Instance OpNotationLK {S : Set} :
+  OpNotation (cont S) (nat_op) (val S) (cont S) := {
   __op K op v := cont_compose K (NatOpLK op v END)
   }.
 
-Global Instance OpNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : OpNotation (F S) (nat_op) (cont S) (cont S) := {
+Global Instance OpNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} :
+  OpNotation (F S) (nat_op) (cont S) (cont S) := {
   __op e op K := cont_compose K (NatOpRK op (__asSynExpr e) END)
   }.
 
 Class IfNotation (A B C D : Type) := { __if : A -> B -> C -> D }.
 
-Global Instance IfNotationExpr {S : Set} {F G H : Set -> Type} `{AsSynExpr F, AsSynExpr G, AsSynExpr H} : IfNotation (F S) (G S) (H S) (expr S) := {
+Global Instance IfNotationExpr {S : Set} {F G H : Set -> Type}
+  `{AsSynExpr F, AsSynExpr G, AsSynExpr H} :
+  IfNotation (F S) (G S) (H S) (expr S) := {
   __if e₁ e₂ e₃ := If (__asSynExpr e₁) (__asSynExpr e₂) (__asSynExpr e₃)
   }.
 
-Global Instance IfNotationK {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} :
+Global Instance IfNotationK {S : Set} {F G : Set -> Type}
+  `{AsSynExpr F, AsSynExpr G} :
   IfNotation (cont S) (F S) (G S) (cont S) := {
   __if K e₂ e₃ := cont_compose K (IfK (__asSynExpr e₂) (__asSynExpr e₃) END)
   }.
@@ -543,29 +550,35 @@ Global Instance ResetNotationExpr {S : Set} {F : Set -> Type} `{AsSynExpr F} :
 
 Class AppNotation (A B C : Type) := { __app : A -> B -> C }.
 
-Global Instance AppNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : AppNotation (F S) (G S) (expr S) := {
+Global Instance AppNotationExpr {S : Set} {F G : Set -> Type}
+  `{AsSynExpr F, AsSynExpr G} : AppNotation (F S) (G S) (expr S) := {
   __app e₁ e₂ := App (__asSynExpr e₁) (__asSynExpr e₂)
   }.
 
-Global Instance AppNotationRK {S : Set} : AppNotation (cont S) (val S) (cont S) := {
+Global Instance AppNotationRK {S : Set} :
+  AppNotation (cont S) (val S) (cont S) := {
   __app K v := cont_compose K (AppRK v END)
   }.
 
-Global Instance AppNotationLK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppNotation (F S) (cont S) (cont S) := {
+Global Instance AppNotationLK {S : Set} {F : Set -> Type} `{AsSynExpr F} :
+  AppNotation (F S) (cont S) (cont S) := {
   __app e K := cont_compose K (AppLK (__asSynExpr e) END)
   }.
 
 Class AppContNotation (A B C : Type) := { __app_cont : A -> B -> C }.
 
-Global Instance AppContNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G} : AppContNotation (F S) (G S) (expr S) := {
+Global Instance AppContNotationExpr {S : Set} {F G : Set -> Type}
+  `{AsSynExpr F, AsSynExpr G} : AppContNotation (F S) (G S) (expr S) := {
   __app_cont e₁ e₂ := AppCont (__asSynExpr e₁) (__asSynExpr e₂)
   }.
 
-Global Instance AppContNotationLK {S : Set} : AppContNotation (cont S) (val S) (cont S) := {
+Global Instance AppContNotationLK {S : Set} :
+  AppContNotation (cont S) (val S) (cont S) := {
   __app_cont K v := cont_compose K (AppContLK v END)
   }.
 
-Global Instance AppContNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : AppContNotation (F S) (cont S) (cont S) := {
+Global Instance AppContNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} :
+  AppContNotation (F S) (cont S) (cont S) := {
   __app_cont e K := cont_compose K (AppContRK (__asSynExpr e) END)
   }.
 
@@ -610,8 +623,10 @@ Global Instance AppContNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F} : A
 
 Notation of_val := Val (only parsing).
 
-Notation "x '⋆' y" := (__app x%syn y%syn) (at level 40, y at next level, left associativity) : syn_scope.
-Notation "x '@k' y" := (__app_cont x%syn y%syn) (at level 40, y at next level, left associativity) : syn_scope.
+Notation "x '⋆' y" := (__app x%syn y%syn) (at level 40, y at next level
+                          , left associativity) : syn_scope.
+Notation "x '@k' y" := (__app_cont x%syn y%syn) (at level 40, y at next level
+                           , left associativity) : syn_scope.
 Notation "x '+' y" := (__op x%syn Add y%syn) : syn_scope.
 Notation "x '-' y" := (__op x%syn Sub y%syn) : syn_scope.
 Notation "x '*' y" := (__op x%syn Mult y%syn) : syn_scope.
