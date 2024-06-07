@@ -488,6 +488,30 @@ Inductive steps {S} : config S (* * state S *) -> config S (* * state S *) ->
   steps c2 c3 (n', m') ->
   steps c1 c3 (n'', m'').
 
+Definition stepEx {S} : config S → config S → Prop :=
+  λ a b, ∃ nm, Cred a b nm.
+
+Definition stepsEx {S} : config S → config S → Prop :=
+  λ a b, ∃ nm, steps a b nm.
+
+Lemma stepsExNow {S} : ∀ (a : config S), stepsEx a a.
+Proof.
+  intros a.
+  exists (0, 0).
+  constructor.
+Qed.
+
+Lemma stepsExCons {S} (a b c : config S) :
+  stepEx a b → stepsEx b c → stepsEx a c.
+Proof.
+  intros [[n m] H] [[n' m'] G].
+  exists (n + n', m + m').
+  econstructor;
+    [reflexivity | reflexivity | |].
+  - apply H.
+  - apply G.
+Qed.
+
 Definition meta_fill {S} (mk : Mcont S) e :=
   fold_left (λ e k, fill k e) mk e.
 
