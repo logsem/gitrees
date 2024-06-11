@@ -1,6 +1,6 @@
 From gitrees Require Import gitree lang_generic hom.
 From gitrees.effects Require Import delim.
-From gitrees.examples.delim_lang Require Import lang interp.
+From gitrees.examples.delim_lang Require Import lang interp typing hom.
 From iris.algebra Require Import list.
 From iris.proofmode Require Import classes tactics.
 From iris.base_logic Require Import algebra.
@@ -8,99 +8,6 @@ From iris.base_logic Require Import algebra.
 Require Import Binding.Lib Binding.Set Binding.Env.
 
 Open Scope syn.
-
-Inductive ty :=
-| Tnat : ty
-| Tarr : ty -> ty -> ty -> ty -> ty
-| Tcont : ty → ty → ty.
-
-Declare Scope types.
-
-Notation "τ '∕' α '→' σ '∕' β" := (Tarr τ α σ β) (at level 60) : types.
-Notation "'Cont' τ σ" := (Tcont τ σ) (at level 60) : types.
-
-Reserved Notation "Γ ';' α '⊢ₑ' e ':' τ ';' β"
-  (at level 90, e at next level, τ at level 20, no associativity).
-
-Reserved Notation "Γ ';' α '⊢ᵥ' e ':' τ ';' β"
-  (at level 90, e at next level, τ at level 20, no associativity).
-
-Reserved Notation "Γ '⊢ᵪ' e ':' τ '⤞' σ"
-  (at level 90, e at next level, τ at level 20, no associativity).
-
-Inductive typed_expr {S : Set} (Γ : S -> ty) : ty -> expr S -> ty -> ty -> Prop :=
-| typed_Val v α τ β :
-  (Γ; α ⊢ᵥ v : τ; β) →
-  (Γ; α ⊢ₑ v : τ; β)
-| typed_Var x τ α :
-  (Γ x = τ) →
-  (Γ; α ⊢ₑ (Var x) : τ; α)
-| typed_App e₁ e₂ γ α β δ σ τ :
-  (Γ; γ ⊢ₑ e₁ : (Tarr σ α τ β); δ) →
-  (Γ; β ⊢ₑ e₂ : σ; γ) →
-  (Γ; α ⊢ₑ (App e₁ e₂) : τ; δ)
-| typed_AppCont e₁ e₂ α β δ σ τ :
-  (Γ; σ ⊢ₑ e₁ : (Tcont τ α); δ) →
-  (Γ; δ ⊢ₑ e₂ : τ; β) →
-  (Γ; σ ⊢ₑ (AppCont e₁ e₂) : α; β)
-| typed_NatOp o e₁ e₂ α β γ :
-  (Γ; α ⊢ₑ e₁ : Tnat; β) →
-  (Γ; β ⊢ₑ e₂ : Tnat; γ) →
-  (Γ; α ⊢ₑ NatOp o e₁ e₂ : Tnat; γ)
-| typed_If e e₁ e₂ α β σ τ :
-  (Γ; β ⊢ₑ e : Tnat; α) →
-  (Γ; σ ⊢ₑ e₁ : τ; β) →
-  (Γ; σ ⊢ₑ e₂ : τ; β) →
-  (Γ; σ ⊢ₑ (if e then e₁ else e₂) : τ; α)
-| typed_Shift (e : @expr (inc S)) τ α σ β :
-  (Γ ▹ (Tcont τ α); σ ⊢ₑ e : σ; β) →
-  (Γ; α ⊢ₑ Shift e : τ; β)
-| typed_Reset e α σ τ :
-  (Γ; σ ⊢ₑ e : σ; τ) →
-  (Γ; α ⊢ₑ reset e : τ; α)
-where "Γ ';' α '⊢ₑ' e ':' τ ';' β" := (typed_expr Γ α e τ β) : types
-with typed_val {S : Set} (Γ : S -> ty) : ty -> val S -> ty -> ty -> Prop :=
-| typed_LitV n α :
-  (Γ; α ⊢ᵥ #n : Tnat; α)
-| typed_RecV (e : expr (inc (inc S))) (δ σ τ α β : ty) :
-  ((Γ ▹ (Tarr σ α τ β) ▹ σ); α ⊢ₑ e : τ; β) ->
-  (Γ; δ ⊢ᵥ (RecV e) : (Tarr σ α τ β); δ)
-where "Γ ';' α '⊢ᵥ' e ':' τ ';' β" := (typed_val Γ α e τ β) : types
-.
-
-Module Example.
-  Open Scope types.
-
-  Lemma typ_example1 α :
-    empty_env; α ⊢ₑ ((#1) +
-                          (reset
-                             ((#3)
-                              + (shift/cc ((($0) @k #5) + (($0) @k #6))))))
-    : Tnat; α.
-  Proof.
-    eapply typed_NatOp.
-    - apply typed_Val.
-      apply typed_LitV.
-    - eapply typed_Reset.
-      eapply typed_NatOp.
-      + apply typed_Val.
-        apply typed_LitV.
-      + eapply typed_Shift.
-        eapply typed_NatOp.
-        * eapply typed_AppCont.
-          -- apply typed_Var.
-             reflexivity.
-          -- apply typed_Val.
-             apply typed_LitV.
-        * eapply typed_AppCont.
-          -- apply typed_Var.
-             reflexivity.
-          -- apply typed_Val.
-             apply typed_LitV.
-  Qed.
-
-End Example.
-
 Open Scope stdpp_scope.
 
 Section logrel.
@@ -345,43 +252,6 @@ Section logrel.
     iApply ("Hss" with "HE HF Hσ").
   Qed.
 
-  Lemma step_pack {S : Set} (a b : config S) :
-    ∀ nm, Cred a b nm → stepEx a b.
-  Proof.
-    intros nm H.
-    by exists nm.
-  Qed.
-
-  Lemma steps_pack {S : Set} (a b : config S) :
-    ∀ nm, steps a b nm → stepsEx a b.
-  Proof.
-    intros nm H.
-    by exists nm.
-  Qed.
-
-  Lemma step_det {S : Set} (c c' c'' : config S)
-    : stepEx c c' → stepEx c c'' → c' = c''.
-  Proof.
-    intros [nm H].
-    revert c''.
-    inversion H; subst; intros c'' [nm' G];
-      inversion G; subst; simplify_eq; reflexivity.
-  Qed.
-
-  Lemma steps_det_val {S : Set} (c c' : config S) (v : val S)
-    : stepsEx c (Cret v) → stepEx c c' → stepsEx c' (Cret v).
-  Proof.
-    intros [n H].
-    revert c'.
-    inversion H; subst; intros c' G.
-    - destruct G as [? G].
-      inversion G.
-    - erewrite (step_det c c' c2).
-      + by eapply steps_pack.
-      + assumption.
-      + by eapply step_pack.
-  Qed.
-
   Lemma compat_reset {S : Set} (Γ : S -> ty) e (e' : exprO S) σ τ :
     ⊢ valid Γ e e' σ σ τ -∗ (∀ α, valid Γ (interp_reset rs e) (reset e') τ α α).
   Proof.
@@ -451,7 +321,7 @@ Section logrel.
   Qed.
 
   Lemma compat_shift {S : Set} (Γ : S -> ty) e (e' : exprO (inc S)) σ α τ β :
-    ⊢ valid (Γ ▹ (Tcont τ α)) e e' σ σ β -∗ valid Γ (interp_shift _ e) (Shift e') τ α β.
+    ⊢ valid (Γ ▹ (τ ⤑ α)) e e' σ σ β -∗ valid Γ (interp_shift _ e) (shift/cc e') τ α β.
   Proof.
     iIntros "#H".
     iModIntro.
@@ -521,7 +391,7 @@ Section logrel.
   Qed.
 
   Lemma compat_nat {S : Set} (Γ : S → ty) n α :
-    ⊢ valid Γ (interp_nat rs n) (LitV n) Tnat α α.
+    ⊢ valid Γ (interp_nat rs n) (#n) ℕ α α.
   Proof.
     iModIntro.
     iIntros (γ γ') "#Hγ".
@@ -533,8 +403,8 @@ Section logrel.
 
   Lemma compat_recV {S : Set} (Γ : S -> ty)
     τ1 α τ2 β e (e' : expr (inc (inc S))) :
-    ⊢ valid ((Γ ▹ (Tarr τ1 α τ2 β) ▹ τ1)) e e' τ2 α β
-      -∗ (∀ θ, valid Γ (interp_rec rs e) (RecV e') (Tarr τ1 α τ2 β) θ θ).
+    ⊢ valid (Γ ▹ τ1 ∕ α → τ2 ∕ β ▹ τ1) e e' τ2 α β
+      -∗ (∀ θ, valid Γ (interp_rec rs e) (rec e') (τ1 ∕ α → τ2 ∕ β) θ θ).
   Proof.
     iIntros "#H".
     iIntros (θ).
@@ -650,104 +520,11 @@ Section logrel.
     reflexivity.
   Qed.
 
-  Program Definition AppContRSCtx_HOM {S : Set}
-    (α : @interp_scope F R _ S -n> IT)
-    (env : @interp_scope F R _ S)
-    : HOM := exist _ (interp_app_contrk rs α (λne env, idfun) env) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
-
-  Program Definition AppContLSCtx_HOM {S : Set}
-    (β : IT) (env : @interp_scope F R _ S)
-    (Hv : AsVal β)
-    : HOM := exist _ (interp_app_contlk rs (constO β) (λne env, idfun) env) _.
-  Next Obligation.
-    intros; simpl.
-    simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - intros ???.
-      do 2 f_equiv.
-      intros ?; simpl.
-      solve_proper.
-    - rewrite get_val_ITV.
-      rewrite get_val_ITV.
-      simpl.
-      rewrite get_fun_tick.
-      reflexivity.
-    - rewrite get_val_ITV.
-      simpl. rewrite get_fun_vis. simpl.
-      f_equiv.
-      intros ?; simpl.
-      apply later_map_ext.
-      intros ?; simpl.
-      rewrite get_val_ITV.
-      simpl.
-      reflexivity.
-    - rewrite get_val_ITV. simpl. rewrite get_fun_err. reflexivity.
-  Qed.
-
-  Program Definition NatOpRSCtx_HOM {S : Set} (op : nat_op)
-    (α : @interp_scope F R _ S -n> IT) (env : @interp_scope F R _ S)
-    : HOM := exist _ (interp_natoprk rs op α (λne env, idfun) env) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
-
-  Program Definition NatOpLSCtx_HOM {S : Set} (op : nat_op)
-    (α : IT) (env : @interp_scope F R _ S)
-    (Hv : AsVal α)
-    : HOM := exist _ (interp_natoplk rs op (constO α) (λne env, idfun) env) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
-
-  Program Definition AppLSCtx_HOM {S : Set}
-    (α : @interp_scope F R _ S -n> IT)
-    (env : @interp_scope F R _ S)
-    : HOM := exist _ (interp_applk rs α (λne env, idfun) env) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
-
-  Transparent LET.
-  Program Definition AppRSCtx_HOM {S : Set}
-    (β : IT) (env : @interp_scope F R _ S)
-    (Hv : AsVal β)
-    : HOM := exist _ (interp_apprk rs (constO β) (λne env, idfun) env) _.
-  Next Obligation.
-    intros; simpl.
-    simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - solve_proper_please.
-    - rewrite get_val_ITV.
-      simpl.
-      rewrite get_val_ITV.
-      simpl.
-      rewrite get_val_tick.
-      reflexivity.
-    - rewrite get_val_ITV.
-      simpl.
-      rewrite get_val_vis.
-      do 3 f_equiv.
-      intro; simpl.
-      rewrite get_val_ITV.
-      simpl.
-      reflexivity.
-    - rewrite get_val_ITV.
-      simpl.
-      rewrite get_val_err.
-      reflexivity.
-  Qed.
-  Opaque LET.
-
   Lemma compat_nat_op {S : Set} (Γ : S → ty)
-    D E F e1 e2 (e1' e2' : exprO S) op :
-    ⊢ valid Γ e1 e1' Tnat E F
-      -∗ valid Γ e2 e2' Tnat F D
-      -∗ valid Γ (interp_natop rs op e1 e2) (NatOp op e1' e2') Tnat E D.
+    D E F e1 e2 (e1' e2' : expr S) op :
+    ⊢ valid Γ e1 e1' ℕ E F
+      -∗ valid Γ e2 e2' ℕ F D
+      -∗ valid Γ (interp_natop rs op e1 e2) (NatOp op e1' e2') ℕ E D.
   Proof.
     iIntros "#H #G".
     iModIntro.
@@ -879,7 +656,7 @@ Section logrel.
 
   Lemma compat_app {S : Set} (Γ : S → ty)
     ξ α β δ η τ e1 e2 (e1' e2' : expr S) :
-    ⊢ valid Γ e1 e1' (Tarr η α τ β) ξ δ
+    ⊢ valid Γ e1 e1' (η ∕ α → τ ∕ β) ξ δ
       -∗ valid Γ e2 e2' η β ξ
       -∗ valid Γ (interp_app rs e1 e2) (e1' e2') τ α δ.
   Proof.
@@ -1002,9 +779,9 @@ Section logrel.
   Qed.
 
   Lemma compat_appcont {S : Set} (Γ : S -> ty) e1 e2 (e1' e2' : expr S) τ α δ β σ :
-    valid Γ e1 e1' (Tcont τ α) σ δ
+    valid Γ e1 e1' (τ ⤑ α) σ δ
     -∗ valid Γ e2 e2' τ δ β
-    -∗ valid Γ (interp_app_cont _ e1 e2) (AppCont e1' e2') α σ β.
+    -∗ valid Γ (interp_app_cont _ e1 e2) (e1' @k e2') α σ β.
   Proof.
     iIntros "#H #G".
     iModIntro.
@@ -1167,12 +944,12 @@ Section logrel.
     apply Q.
   Qed.
 
-  Lemma compat_if {S : Set} (Γ : S -> ty) e e' e₁ e₁' e₂ e₂' τ σ α β :
-        ⊢ valid Γ e e' Tnat β α
+  Lemma compat_if {S : Set} (Γ : S -> ty) e e₁ e₂ (e' e₁' e₂' : expr S) τ σ α β :
+        ⊢ valid Γ e e' ℕ β α
           -∗ valid Γ e₁ e₁' τ σ β
           -∗ valid Γ e₂ e₂' τ σ β
           -∗ valid Γ (interp_if rs e e₁ e₂)
-               (if (e' : expr S) then (e₁' : expr S) else (e₂' : expr S)) τ σ α.
+               (if e' then e₁' else e₂') τ σ α.
   Proof.
     iIntros "#H #G #J".
     iModIntro.
@@ -1450,7 +1227,7 @@ Proof.
 Qed.
 
 Theorem adequacy (e : expr ∅) (k : nat) σ n :
-  (typed_expr empty_env Tnat e Tnat Tnat) →
+  (typed_expr □ Tnat e Tnat Tnat) →
   ssteps (gReifiers_sReifier rs) (𝒫 (interp_expr rs e ı_scope)) ([], ())
     (Ret k : IT _ natO) σ n →
   ∃ mm, steps (Cexpr e) (Cret $ LitV k) mm.

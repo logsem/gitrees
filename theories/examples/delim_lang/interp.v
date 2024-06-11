@@ -112,50 +112,22 @@ Section interp.
   Qed.
 
   (** ** APP *)
-  (* Program Definition interp_app {A} (t1 t2 : A -n> IT) : A -n> IT := *)
-  (*   λne env, get_fun *)
-  (*              (λne (f : laterO (IT -n> IT)), *)
-  (*                get_val (λne x, Tau (laterO_ap f (Next x))) (t2 env)) (t1 env). *)
-  (* Next Obligation. *)
-  (*   solve_proper. *)
-  (* Qed. *)
-  (* Next Obligation. *)
-  (*   intros ????????. *)
-  (*   apply get_val_ne. *)
-  (*   intros ?; simpl. *)
-  (*   f_equiv. *)
-  (*   apply Next_contractive. *)
-  (*   destruct n as [| ?]. *)
-  (*   - apply dist_later_0. *)
-  (*   - apply dist_later_S in H. *)
-  (*     apply dist_later_S. *)
-  (*     by f_equiv. *)
-  (* Qed. *)
-  (* Next Obligation. *)
-  (*   solve_proper_please. *)
-  (* Qed. *)
   Program Definition interp_app {A} (t1 t2 : A -n> IT) : A -n> IT :=
     λne env,
       LET (t1 env) $ λne f,
-      LET (t2 env) $ λne x,    
+      LET (t2 env) $ λne x,
       APP' f x.
   Solve All Obligations with solve_proper_please.
-    
+
   Global Instance interp_app_ne A : NonExpansive2 (@interp_app A).
-  Proof. 
+  Proof.
     solve_proper_prepare.
     f_equiv.
     - by f_equiv.
     - intro; simpl.
       by do 2 f_equiv.
   Qed.
-  (* Proof. *)
-  (*   solve_proper_prepare. *)
-  (*   do 2 f_equiv; last done. *)
-  (*   intro; simpl. *)
-  (*   by f_equiv. *)
-  (* Qed.   *)
-  Typeclasses Opaque interp_app.  
+  Typeclasses Opaque interp_app.
 
   (** ** APP_CONT *)
 
@@ -208,12 +180,6 @@ Section interp.
     intro; simpl.
     by do 2 f_equiv.
   Qed.
-  (* Next Obligation. *)
-  (*   solve_proper_prepare. *)
-  (*   do 3 f_equiv. *)
-  (*   intro; simpl. *)
-  (*   by f_equiv. *)
-  (* Qed. *)
   Next Obligation.
     solve_proper_prepare.
     f_equiv; first solve_proper.
@@ -221,12 +187,6 @@ Section interp.
     intro; simpl.
     solve_proper.
   Qed.
-  (* Next Obligation. *)
-  (*   solve_proper_prepare. *)
-  (*   do 2 f_equiv; [done |  | by f_equiv]. *)
-  (*   f_equiv. *)
-  (*   by intro; simpl. *)
-  (* Qed. *)
 
   Program Definition interp_applk {A} (q : A -n> IT) (K : A -n> IT -n> IT) :
     A -n> IT -n> IT :=
@@ -237,20 +197,11 @@ Section interp.
   Next Obligation.
     solve_proper.
   Qed.
-  (* Next Obligation. *)
-  (*   intros ????????. *)
-  (*   do 3 f_equiv. *)
-  (*   intro; simpl. *)
-  (*   done. *)
-  (* Qed. *)
   Next Obligation.
     solve_proper_prepare.
     f_equiv; first solve_proper.
     f_equiv; first solve_proper.
-  Qed.  
-  (* Next Obligation. *)
-  (*   solve_proper_please. *)
-  (* Qed. *)
+  Qed.
 
   Program Definition interp_app_contrk {A} (q : A -n> IT) (K : A -n> IT -n> IT) :
     A -n> IT -n> IT :=
@@ -397,17 +348,15 @@ Section interp.
       + f_equiv; first by rewrite interp_expr_ren.
         intro; simpl.
         f_equiv; by rewrite interp_expr_ren.
-        (* f_equiv; last by rewrite interp_expr_ren. *)
-        (* f_equiv. intro. simpl. by f_equiv. *)
       + f_equiv; last by rewrite interp_expr_ren.
         f_equiv. intro. simpl. by f_equiv.
       + f_equiv; last eauto. f_equiv. intro. simpl.
         rewrite !laterO_map_Next.
         repeat f_equiv.
         rewrite interp_expr_ren.
-        f_equiv.        
+        f_equiv.
         intros [| ?]; simpl; first done.
-        reflexivity.        
+        reflexivity.
     - destruct e; simpl.
       + reflexivity.
       + clear -interp_expr_ren.
@@ -433,15 +382,11 @@ Section interp.
         f_equiv; first by rewrite interp_val_ren.
         intro; simpl.
         reflexivity.
-        (* intro. simpl. f_equiv; eauto. f_equiv; eauto. f_equiv. *)
-        (* intro. simpl. by repeat f_equiv. *)
       + intro. simpl. f_equiv; eauto.
         f_equiv.
         intro; simpl.
         f_equiv.
         by rewrite interp_expr_ren.
-        (* intro. simpl. f_equiv; eauto. do 2 f_equiv. *)
-        (* intro. simpl. by repeat f_equiv. *)
       + simpl. intro. simpl. f_equiv; eauto. f_equiv; eauto. f_equiv. intro. simpl. by repeat f_equiv.
       + simpl. intro. simpl. f_equiv; eauto. f_equiv; eauto. f_equiv. intro. simpl. by repeat f_equiv.
   Qed.
@@ -451,11 +396,10 @@ Section interp.
   Proof. elim : K e env; eauto.
          - intros. simpl. rewrite H. f_equiv. simpl.
            f_equiv.
-           intro; simpl.           
+           intro; simpl.
            reflexivity.
-           (* do 2 f_equiv. intro. simpl. by repeat f_equiv. *)
          - intros. simpl. rewrite H. f_equiv. simpl.
-           do 2 f_equiv. intro. simpl. by repeat f_equiv.         
+           do 2 f_equiv. intro. simpl. by repeat f_equiv.
   Qed.
 
   Program Definition sub_scope {S S'} (δ : S [⇒] S') (env : interp_scope S')
@@ -488,13 +432,12 @@ Section interp.
       + f_equiv; first by rewrite interp_expr_subst.
         intro; simpl.
         f_equiv; first by rewrite interp_expr_subst.
-      (* f_equiv; last eauto. f_equiv. intro. simpl. by repeat f_equiv. *)
       + f_equiv; last eauto. f_equiv. intro. simpl. by repeat f_equiv.
       + f_equiv; last eauto. f_equiv. intro. simpl.
         rewrite !laterO_map_Next.
         repeat f_equiv.
         rewrite interp_expr_subst.
-        f_equiv.        
+        f_equiv.
         intros [| ?]; simpl; first done.
         rewrite interp_expr_ren.
         f_equiv.
@@ -528,13 +471,11 @@ Section interp.
         f_equiv; first by rewrite interp_cont_subst.
         f_equiv; first by rewrite interp_val_subst.
         intro; simpl; reflexivity.
-      (* simpl. intro. simpl. f_equiv; eauto. f_equiv; eauto. f_equiv. intro. simpl. by repeat f_equiv. *)
       + intro; simpl.
         f_equiv; first by rewrite interp_cont_subst.
         f_equiv.
         intro; simpl.
         f_equiv; first by rewrite interp_expr_subst.
-      (* simpl. intro. simpl. f_equiv; eauto. f_equiv; eauto. f_equiv. intro. simpl. by repeat f_equiv. *)
       + simpl. intro. simpl. f_equiv; eauto. f_equiv; eauto. f_equiv. intro. simpl. by repeat f_equiv.
       + simpl. intro. simpl. f_equiv; eauto. f_equiv; eauto. f_equiv. intro. simpl. by repeat f_equiv.
   Qed.
@@ -563,7 +504,7 @@ Section interp.
       by rewrite -hom_vis.
     - trans (interp_cont K env (Err e)); first (f_equiv; apply IF_Err).
       apply hom_err.
-  Qed.  
+  Qed.
 
   Transparent LET.
   #[local] Instance interp_cont_hom_appr {S} (K : cont S)
@@ -817,32 +758,6 @@ Section interp.
       | |- context G [ofe_mor_car _ _ (get_fun _)
                         (ofe_mor_car _ _ Fun ?f)] => set (fin := f)
       end.
-      (* unfold POP. *)
-      (* match goal with *)
-      (*   |- ofe_mor_car _ _ (ofe_mor_car _ _ _ ?a) _ ≡ _ => *)
-      (*     set (T := a) *)
-      (* end. *)
-      (* eassert (T ≡ _). *)
-      (* { *)
-      (*   subst T. *)
-      (*   rewrite get_val_ITV. *)
-      (*   simpl. *)
-      (*   rewrite get_fun_fun. *)
-      (*   subst fin. *)
-      (*   simpl. *)
-      (*   rewrite <-Tick_eq. *)
-      (*   (* rewrite hom_tick. *) *)
-      (*   (* rewrite hom_tick. *) *)
-      (*   (* rewrite hom_tick. *) *)
-      (*   (* rewrite hom_tick. *) *)
-      (*   reflexivity. *)
-      (* } *)
-      (* trans (reify (gReifiers_sReifier rs) *)
-      (*          (𝒫 (interp_cont k env (Tick (Tick (𝒫 (interp_cont k' env (interp_val v env))))))) *)
-      (*          (gState_recomp σr (sR_state σ))). *)
-      (* { *)
-      (*   now do 2 f_equiv. *)
-      (* } *)
 
       trans (reify (gReifiers_sReifier rs)
                (APP_CONT_ (Next (interp_val v env))
@@ -863,7 +778,6 @@ Section interp.
         repeat f_equiv; eauto. solve_proper.
       }
       f_equiv. by rewrite -!Tick_eq.
-      (* admit. *)
     - remember (map_meta_cont mk env) as σ.
       trans (reify (gReifiers_sReifier rs) (POP (interp_val v env))
                (gState_recomp σr (sR_state (laterO_map (𝒫 ◎ interp_cont k env) :: σ)))).
