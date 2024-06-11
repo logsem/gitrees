@@ -24,7 +24,7 @@ theories/gitree/reify.v
 theories/gitree/greifiers.v
 theories/gitree/reductions.v
 theories/gitree/weakestpre.v
-theories/gitree/hom.v
+theories/hom.v
 theories/gitree.v
 
 theories/program_logic.v
