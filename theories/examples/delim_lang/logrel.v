@@ -1227,7 +1227,7 @@ Proof.
 Qed.
 
 Theorem adequacy (e : expr ∅) (k : nat) σ n :
-  (typed_expr □ Tnat e Tnat Tnat) →
+  (empty_env; ℕ ⊢ₑ e : ℕ; ℕ)%type →
   ssteps (gReifiers_sReifier rs) (𝒫 (interp_expr rs e ı_scope)) ([], ())
     (Ret k : IT _ natO) σ n →
   ∃ mm, steps (Cexpr e) (Cret $ LitV k) mm.
