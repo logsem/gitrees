@@ -4,12 +4,9 @@ Require Import Binding.Lib Binding.Set Binding.Env.
 Open Scope stdpp_scope.
 
 Section hom.
-  Context {sz : nat}.
-  Context {a : is_ctx_dep}.
   Context {A : ofe}.
   Context {CA : Cofe A}.
-  Context {rs : gReifiers a sz}.
-  Notation F := (gReifiers_ops rs).
+  Context {F : opsInterp}.
   Notation IT := (IT F A).
   Notation ITV := (ITV F A).
 

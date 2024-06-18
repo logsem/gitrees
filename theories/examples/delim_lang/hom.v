@@ -32,10 +32,7 @@ Section hom.
   Next Obligation.
     intros; simpl.
     simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - intros ???.
-      do 2 f_equiv.
-      intros ?; simpl.
-      solve_proper.
+    - solve_proper_please.
     - rewrite get_val_ITV.
       rewrite get_val_ITV.
       simpl.

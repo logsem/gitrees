@@ -762,7 +762,7 @@ Section interp.
       trans (reify (gReifiers_sReifier rs)
                (APP_CONT_ (Next (interp_val v env))
                   fin kk)
-            (gState_recomp σr (sR_state (σ)))).
+            (gState_recomp σr (sR_state σ))).
       {
         repeat f_equiv. rewrite get_val_ITV. simpl. rewrite get_fun_fun. simpl.
         rewrite !hom_vis. f_equiv. subst kk. rewrite ccompose_id_l. intro. simpl.
