@@ -49,6 +49,30 @@ Section reifier_coercion.
     intros.
     repeat intro; repeat f_equiv; assumption.
   Qed.
+
+  Program Definition sReifier_NotCtxDep_min (r : sReifier NotCtxDep)
+    : ∀ a, sReifier a := λ a,
+    (* match a with *)
+    (* | NotCtxDep => r *)
+    (* | CtxDep => sReifier_NotCtxDep_CtxDep r *)
+    (* end. *)
+    {|
+      sReifier_ops := sReifier_ops _ r;
+      sReifier_state := sReifier_state _ r;
+      sReifier_re x xc op :=
+        match a with
+        | NotCtxDep => sReifier_re _ r op
+        | CtxDep =>
+            (λne y, (optionO_map (prodO_map y.2 idfun)
+                       (sReifier_re _ r op (y.1.1, y.1.2))))
+        end;
+      sReifier_inhab := sReifier_inhab _ r;
+      sReifier_cofe := sReifier_cofe _ r;
+    |}.
+  Next Obligation.
+    intros.
+    repeat intro; repeat f_equiv; assumption.
+  Qed.
 End reifier_coercion.
 
 Section reifier_cofe_inst.

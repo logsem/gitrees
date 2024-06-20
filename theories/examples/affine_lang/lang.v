@@ -213,7 +213,7 @@ Section affine.
     end.
 
   Lemma wp_Thunk (β:IT) s (Φ:ITV → iProp) `{!NonExpansive Φ} :
-    ⊢ heap_ctx -∗
+    ⊢ heap_ctx rs -∗
       ▷ (∀ l, pointsto l (Ret 0) -∗ Φ (thunkedV β l)) -∗
       WP@{rs} Thunk β @ s {{ Φ }}.
   Proof.

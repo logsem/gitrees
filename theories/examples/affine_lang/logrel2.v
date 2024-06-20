@@ -127,7 +127,7 @@ Section glue.
 
   Lemma compat_glue_from_affine_bool α :
     valid2 □ α tBool ⊢
-      heap_ctx -∗ io_valid □ α Tnat.
+      heap_ctx rs -∗ io_valid □ α Tnat.
   Proof.
     iIntros "H #Hctx".
     iIntros (σ ss) "Hs Hss".
@@ -143,7 +143,7 @@ Section glue.
 
   Lemma compat_glue_from_affine_nat α :
     valid2 □ α tInt ⊢
-      heap_ctx -∗ io_valid □ α Tnat.
+      heap_ctx rs -∗ io_valid □ α Tnat.
   Proof.
     iIntros "H #Hctx".
     iIntros (σ ss) "Hs Hss".
@@ -157,7 +157,7 @@ Section glue.
 
   Lemma compat_glue_from_affine_unit α :
     valid2 □ α tUnit ⊢
-      heap_ctx -∗ io_valid □ (constO (glue_from_affine _ ty_conv_unit (α ı_scope))) Tnat.
+      heap_ctx rs -∗ io_valid □ (constO (glue_from_affine _ ty_conv_unit (α ı_scope))) Tnat.
   Proof.
     iIntros "H #Hctx".
     iIntros (σ ss) "Hs Hss".
@@ -174,9 +174,9 @@ Section glue.
     (∀ α, io_valid □ α τ1'
             ⊢ valid2 □ (constO (glue_to_affine (α ı_scope))) τ1) →
     (∀ α,  valid2 □ (constO α) τ2
-             ⊢ heap_ctx -∗ io_valid □ (constO (glue_from_affine α)) τ2') →
+             ⊢ heap_ctx rs -∗ io_valid □ (constO (glue_from_affine α)) τ2') →
     valid2 □ (constO α) (tArr τ1 τ2)
-    ⊢ heap_ctx -∗
+    ⊢ heap_ctx rs -∗
       io_valid □
          (constO (glue_from_affine_fun _ glue_from_affine glue_to_affine α))
          (Tarr (Tarr Tnat τ1') τ2').
@@ -288,7 +288,7 @@ Section glue.
     (∀ α, io_valid □ α τ2'
             ⊢ valid2 Ω (constO (glue_to_affine (α ı_scope))) τ2) →
     (∀ α,  valid2 □ (constO α) τ1
-             ⊢ heap_ctx -∗ io_valid □ (constO (glue_from_affine α)) τ1') →
+             ⊢ heap_ctx rs -∗ io_valid □ (constO (glue_from_affine α)) τ1') →
     io_valid □ α (Tarr (Tarr Tnat τ1') τ2')
       ⊢ valid2 Ω
       (constO (glue_to_affine_fun _ glue_from_affine glue_to_affine (α ı_scope)))
@@ -422,7 +422,7 @@ Section glue.
     io_valid □ α τ1' ⊢ valid2 Ω (constO (glue_to_affine _ Hconv (α ı_scope))) τ1
   with glue_from_affine_compatibility (τ1 : ty) (τ1' : io_lang.ty)
     (Hconv : ty_conv τ1 τ1') (α : IT) :
-    valid2 □ (constO α) τ1 ⊢ heap_ctx -∗ io_valid □ (constO (glue_from_affine _ Hconv α)) τ1'.
+    valid2 □ (constO α) τ1 ⊢ heap_ctx rs -∗ io_valid □ (constO (glue_from_affine _ Hconv α)) τ1'.
   Proof.
     - destruct Hconv.
       + by iApply compat_glue_to_affine_bool.
