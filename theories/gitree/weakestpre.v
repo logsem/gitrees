@@ -890,6 +890,165 @@ Section weakestpre_specific.
     by apply (subReifier_reify (a := NotCtxDep)).
   Qed.
 
+  Global Instance subEffCtxIndep a (rs : gReifiers a n)
+    sR
+    `{!subReifier (sReifier_NotCtxDep_min sR a) rs}
+    : subEff (sReifier_ops sR) (F rs).
+  Proof.
+    (* destruct a. *)
+    (* - apply _. *)
+    - refine subReifier_subEff.
+  Defined.
+
+  Lemma wp_subreify_ctx_indep_lift (rs : gReifiers CtxDep n)
+    `{!@stateG _ CtxDep rs A _ Σ} E1 s Φ sR
+    `{!subReifier (sReifier_NotCtxDep_CtxDep sR) rs}
+    (op : opid (sReifier_ops sR))
+    (x : Ins (sReifier_ops sR op) ♯ IT rs)
+    (y : Outs (sReifier_ops sR op) ♯ IT rs)
+    (k : Outs (F rs (subEff_opid op)) ♯ IT rs -n> laterO (IT rs))
+    (σ σ' : sReifier_state sR ♯ IT rs) β :
+    sReifier_re sR op (x, σ) ≡ Some (y, σ') →
+    k (subEff_outs y) ≡ Next β →
+    has_substate rs σ
+    -∗ ▷ (£ 1 -∗ has_substate rs σ' -∗ wp rs β s E1 Φ)
+    -∗ wp rs (Vis (subEff_opid op) (subEff_ins x) k) s E1 Φ.
+  Proof.
+    intros HSR Hk.
+    iIntros "Hlst H".
+    iApply (wp_reify with "Hlst H").
+    intros rest.
+    rewrite Tick_eq. rewrite -Hk.
+    rewrite reify_vis_eq_ctx_dep //.
+    rewrite Hk.
+    Opaque prodO_map.
+    rewrite <-(@subReifier_reify n CtxDep (sReifier_NotCtxDep_CtxDep sR) rs _
+                (IT rs) _ op x (Next β) (k ◎ subEff_outs) σ σ').
+    {
+      simpl.
+      do 3 f_equiv.
+      intro; simpl.
+      by rewrite ofe_iso_12.
+    }
+    simpl.
+    match goal with
+    | |- context G [?a <$> ?b] =>
+        assert (a <$> b ≡ a <$> (Some (y, σ'))) as ->
+    end.
+    {
+      f_equiv.
+      apply HSR.
+    }
+    simpl.
+    Transparent prodO_map.
+    simpl.
+    rewrite Hk.
+    reflexivity.
+  Qed.
+
+  Lemma wp_subreify_ctx_indep_lift' a (rs : gReifiers a n)
+    `{!@stateG _ a rs A _ Σ} E1 s Φ sR
+    `{!subReifier (sReifier_NotCtxDep_min sR a) rs}
+    (op : opid (sReifier_ops sR))
+    (x : Ins (sReifier_ops sR op) ♯ IT rs)
+    (y : Outs (sReifier_ops sR op) ♯ IT rs)
+    (k : Outs (F rs (subEff_opid op)) ♯ IT rs -n> laterO (IT rs))
+    (σ σ' : sReifier_state sR ♯ IT rs) β :
+    sReifier_re sR op (x, σ) ≡ Some (y, σ') →
+    k (subEff_outs y) ≡ Next β →
+    has_substate rs σ
+    -∗ ▷ (£ 1 -∗ has_substate rs σ' -∗ wp rs β s E1 Φ)
+    -∗ wp rs (Vis (subEff_opid op) (subEff_ins x) k) s E1 Φ.
+  Proof.
+    destruct a.
+    - simpl in *|-.
+      intros HSR Hk.
+      iIntros "Hlst H".
+      iApply wp_subreify_ctx_dep'.
+      iModIntro.
+      iExists σ.
+      simpl in *|-.
+      iExists (k (subEff_outs y)).
+      iExists σ'.
+      iExists β.
+      iFrame "Hlst".
+      iSplit.
+      + Opaque prodO_map.
+        simpl.
+        rewrite Hk.
+        rewrite HSR.
+        Transparent prodO_map.
+        simpl.
+        rewrite Hk.
+        done.
+      + iSplit; first done.
+        iNext.
+        iIntros "H1 H2".
+        iModIntro.
+        iApply ("H" with "[$]").
+        iFrame "H2".
+    - simpl in *|-.
+      intros HSR Hk.
+      iIntros "Hlst H".
+      assert ((sReifier_NotCtxDep_min sR NotCtxDep)
+              = sR) as HEQ.
+      {
+        unfold sReifier_NotCtxDep_min.
+        destruct sR.
+        reflexivity.
+      }
+      iApply (wp_reify with "Hlst H").
+      intros rest.
+      rewrite Tick_eq. rewrite -Hk.
+      rewrite reify_vis_eq_ctx_indep //.
+      rewrite <-(@subReifier_reify n NotCtxDep (sReifier_NotCtxDep_min sR _) rs _
+                  (IT rs) _ op x y σ σ' rest); first by f_equiv.
+      simpl.
+      apply HSR.
+  Qed.
+
+  Lemma wp_subreify_ctx_indep_lift'' a (rs : gReifiers a n)
+    `{!@stateG _ a rs A _ Σ} E1 E2 s Φ sR
+    `{!subReifier (sReifier_NotCtxDep_min sR a) rs}
+    (op : opid (sReifier_ops sR)) (x : Ins (sReifier_ops sR op) ♯ (IT rs))
+    (k : Outs (F rs (subEff_opid op)) ♯ IT rs -n> laterO (IT rs)) :
+    (|={E1,E2}=> ∃ σ y σ' β, has_substate rs σ ∗
+                              sReifier_re sR op (x, σ) ≡ Some (y, σ')
+                            ∗ k (subEff_outs y) ≡ Next β
+                            ∗ ▷ (£ 1 -∗ has_substate rs σ' ={E2,E1}=∗ wp rs β s E1 Φ))
+    -∗ wp rs (Vis (subEff_opid op) (subEff_ins x) k) s E1 Φ.
+  Proof.
+    destruct a.
+    - iIntros "H".
+      iApply wp_reify_idx_ctx_dep.
+      iMod "H" as (σ y σ' β) "[Hlst [#Hreify [#Hk H]]]".
+      iModIntro.
+      iExists (sR_state σ), (k (subEff_outs y)).
+      iExists _, β.
+      iSplitL "Hlst".
+      { iFrame "Hlst". }
+      iSplitR "Hk H"; first last.
+      {
+        iFrame "Hk".
+        iApply "H".
+      }
+      epose proof (subReifier_reify_idxI_ctx_dep (Σ := Σ)
+                     (sReifier_NotCtxDep_min sR CtxDep) op x (k (subEff_outs y))
+                     (k ◎ subEff_outs) σ σ') as G.
+      assert (k ≡ k ◎ ofe_iso_1 subEff_outs ◎ subEff_outs ^-1) as ->.
+      { intro; simpl; by rewrite ofe_iso_12. }
+      iApply G.
+      Opaque prodO_map.
+      simpl.
+      iRewrite "Hreify".
+      Transparent prodO_map.
+      simpl.
+      iPureIntro.
+      do 3 f_equiv.
+      reflexivity.
+    - iApply wp_subreify_ctx_indep'.
+  Qed.
+
 End weakestpre_specific.
 
 Section weakestpre_bind.

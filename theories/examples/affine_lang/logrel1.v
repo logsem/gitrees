@@ -105,9 +105,9 @@ Section logrel.
 
   Notation ssubst_valid := (ssubst_valid_fin1 rs ty (λ x, protected (interp_ty x)) expr_pred).
 
-  Definition valid1 {S : Set} `{!EqDecision S} `{!Finite S} (Ω : S → ty)
+  Program Definition valid1 {S : Set} `{!EqDecision S} `{!Finite S} (Ω : S → ty)
     (α : interp_scope S -n> IT) (τ : ty) : iProp :=
-    ∀ ss, heap_ctx
+    ∀ ss, heap_ctx rs
           -∗ (ssubst_valid Ω ss)
           -∗ expr_pred (α ss) (interp_ty τ).
 

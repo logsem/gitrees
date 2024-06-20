@@ -128,10 +128,10 @@ End constructors.
 
 Section wp.
   Context {n : nat}.
-  Variable (rs : gReifiers NotCtxDep n).
-  Context {R} `{!Cofe R}.
-  Context `{!SubOfe unitO R}.
-
+  Context {a : is_ctx_dep}.
+  Variable (rs : gReifiers a n).
+  Context {R} {CR : Cofe R}.
+  Context {SO : SubOfe unitO R}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
@@ -157,7 +157,7 @@ Section wp.
     iModIntro. iExists sg. by iFrame.
   Qed.
 
-  Context `{!subReifier reify_store rs}.
+  Context `{!subReifier (sReifier_NotCtxDep_min reify_store a) rs}.
   Context `{!invGS_gen HasLc Σ, !stateG rs R Σ}.
   Notation iProp := (iProp Σ).
 
@@ -169,6 +169,10 @@ Section wp.
                         (∃ σ, £ 1 ∗ has_substate σ ∗ own heapG_name (●V σ))%I.
   Definition pointsto (l : loc) (α : IT) : iProp :=
     own heapG_name $ gmap_view_frag l (DfracOwn 1) (Next α).
+  Global Instance pointsto_proper l : Proper ((≡) ==> (≡)) (pointsto l).
+  Proof. solve_proper. Qed.
+  Global Instance pointsto_ne l : NonExpansive (pointsto l).
+  Proof. solve_proper. Qed.
 
   Lemma istate_alloc α l σ :
     σ !! l = None →
@@ -225,7 +229,7 @@ Section wp.
   Proof.
     iIntros (Hee) "#Hcxt H".
     unfold READ. simpl.
-    iApply wp_subreify_ctx_indep'. simpl.
+    iApply wp_subreify_ctx_indep_lift''.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
     { set_solver. }
@@ -281,7 +285,7 @@ Section wp.
     WP@{rs} WRITE l β @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
-    iApply wp_subreify_ctx_indep'. simpl.
+    iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
     { set_solver. }
@@ -327,7 +331,7 @@ Section wp.
     WP@{rs} ALLOC α k @ s {{ Φ }}.
   Proof.
     iIntros "Hh H".
-    iApply wp_subreify_ctx_indep'. simpl.
+    iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
@@ -355,7 +359,7 @@ Section wp.
     WP@{rs} DEALLOC l @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
-    iApply wp_subreify_ctx_indep'. simpl.
+    iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
     { set_solver. }
@@ -395,9 +399,9 @@ Section wp.
 
 End wp.
 
-Arguments heapG {_} rs R {_} Σ.
-Arguments heapPreG {_} rs R {_} Σ.
-Arguments heapΣ {_} rs R {_}.
-Arguments heap_ctx {_ _ _ _ _ _ _ _ _}.
-Arguments pointsto {_ _ _ _ _ _} _ _.
+Arguments heapG {_} {_} rs R {_} Σ.
+Arguments heapPreG {_} {_} rs R {_} Σ.
+Arguments heapΣ {_} {_} rs R {_}.
+Arguments heap_ctx {_ _} rs {_ _ _ _ _ _ _}.
+Arguments pointsto {_ _ _ _ _ _ _} _ _.
 #[global]  Opaque ALLOC READ WRITE DEALLOC.

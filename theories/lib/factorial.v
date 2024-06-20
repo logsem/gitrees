@@ -34,7 +34,7 @@ Section fact.
         (READ acc).
 
   Lemma wp_fact_imp_bod n m acc ℓ :
-    heap_ctx -∗
+    @heap_ctx n' NotCtxDep rs R _ _ Σ _ _ _ -∗
     pointsto acc (Ret m) -∗ pointsto ℓ (Ret n) -∗
     WP@{rs} fact_imp_body acc ℓ {{ _, pointsto acc (Ret (m * fact n)) }}.
   Proof.
@@ -96,7 +96,7 @@ Section fact.
   Qed.
 
   Lemma wp_fact_imp (n : nat) :
-    heap_ctx ⊢ WP@{rs} fact_imp ⊙ (Ret n) {{  βv, βv ≡ RetV (fact n)  }}.
+    @heap_ctx n' NotCtxDep rs R _ _ Σ _ _ _ ⊢ WP@{rs} fact_imp ⊙ (Ret n) {{  βv, βv ≡ RetV (fact n)  }}.
   Proof.
     iIntros "#Hctx".
     iApply wp_lam. iNext.
@@ -123,7 +123,7 @@ Section fact.
   Program Definition fact_io : IT :=
     INPUT $ λne n, fact_imp ⊙ (Ret n).
   Lemma wp_fact_io (n : nat) :
-    heap_ctx ∗ has_substate (State [n] [])
+    @heap_ctx n' NotCtxDep rs R _ _ Σ _ _ _ ∗ has_substate (State [n] [])
     ⊢ WP@{rs} get_ret OUTPUT fact_io  {{ _, has_substate (State [] [fact n]) }}.
   Proof.
     iIntros "[#Hctx Htape]".
