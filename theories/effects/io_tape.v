@@ -1,4 +1,4 @@
-(** I/O on a tape effect *)
+(** * I/O on a tape effect *)
 From gitrees Require Import prelude gitree.
 
 Record state := State {
