@@ -1,3 +1,4 @@
+(** Interpretation of delim_lang into gitrees *)
 From gitrees Require Import gitree lang_generic.
 From gitrees.effects Require Import delim.
 From gitrees.examples.delim_lang Require Import lang.
