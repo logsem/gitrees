@@ -16,6 +16,11 @@ Section hom.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
+  Program Definition 𝒫_HOM : HOM (A:=natO) := exist _ 𝒫 _.
+  Next Obligation.
+    apply _.
+  Qed.
+
   Program Definition AppContRSCtx_HOM {S : Set}
     (α : @interp_scope F R _ S -n> IT)
     (env : @interp_scope F R _ S)

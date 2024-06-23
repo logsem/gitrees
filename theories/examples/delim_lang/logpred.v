@@ -213,11 +213,6 @@ Section logrel.
     iApply "H".
   Qed.
 
-  Program Definition 𝒫_HOM : @HOM sz CtxDep R _ rs := exist _ 𝒫 _.
-  Next Obligation.
-    apply _.
-  Qed.
-
   Lemma compat_shift {S : Set} (Γ : S -> ty) e σ α τ β :
     ⊢ valid (Γ ▹ (Tcont τ α)) e σ σ β -∗ valid Γ (interp_shift _ e) τ α β.
   Proof.

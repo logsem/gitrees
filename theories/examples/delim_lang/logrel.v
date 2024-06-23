@@ -314,11 +314,6 @@ Section logrel.
     assumption.
   Qed.
 
-  Program Definition 𝒫_HOM : @HOM sz CtxDep R _ rs := exist _ 𝒫 _.
-  Next Obligation.
-    apply _.
-  Qed.
-
   Lemma compat_shift {S : Set} (Γ : S -> ty) e (e' : exprO (inc S)) σ α τ β :
     ⊢ valid (Γ ▹ (τ ⤑ α)) e e' σ σ β -∗ valid Γ (interp_shift _ e) (shift/cc e') τ α β.
   Proof.

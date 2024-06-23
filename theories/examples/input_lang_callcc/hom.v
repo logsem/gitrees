@@ -1,5 +1,4 @@
-(** In this module, we package up IT homomorphism in a sigma type, and
-we will use it as a domain for logical relations on continuations *)
+(** Particular homomorphisms for the call/cc lang *)
 From gitrees Require Import gitree lang_generic.
 From gitrees Require Export hom.
 From gitrees.examples.input_lang_callcc Require Import lang interp.
@@ -74,8 +73,8 @@ Section hom.
   Qed.
 
   Program Definition OutputSCtx_HOM {S : Set}
-    (env : @interp_scope F A _ S)
-    : @HOM _ _ A _ _ := exist _ ((interp_outputk rs (λne env, idfun) env)) _.
+    (env : @interp_scope F A _ S) : HOM (A:=natO)
+    := exist _ ((interp_outputk rs (λne env, idfun) env)) _.
   Next Obligation.
     intros; simpl.
     apply _.
