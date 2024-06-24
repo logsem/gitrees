@@ -1,4 +1,21 @@
-(** * Representation of delimited continuations *)
+(** * Representation of delimited continuations
+
+This representation is inspired by the abstract machine semantics for
+the CPS hierarchy, and is designed with manipualtion of
+meta-continuations in mind.
+
+We consider shift/reset, appcont operations, as well as the explicit
+"pop" operation. The "state" for delimited continuations is a
+meta-continuation: a stack of continuations corresponding to different
+delimiters. Every time we do "reset" we push the current continuation
+onto the stack, thus making the contiuation outside "reset" not
+visible to the operations inside it. The "shift" operation behaves
+similarly to call/cc by capturing the current continuation (which was
+already delimited by reset). Finally, when we exit the scope of reset,
+we need to restore the previous continuation which was pushed onto the
+stack. For this, we explicitly use the "pop" operation.
+
+ *)
 From gitrees Require Import prelude gitree.
 From iris.algebra Require Import list.
 

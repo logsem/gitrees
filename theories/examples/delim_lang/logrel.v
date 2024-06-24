@@ -1,3 +1,4 @@
+(** Logical relation for adequacy wrt the machine semantics *)
 From gitrees Require Import gitree lang_generic hom.
 From gitrees.effects Require Import delim.
 From gitrees.examples.delim_lang Require Import lang interp typing hom.
