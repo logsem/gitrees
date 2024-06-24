@@ -52,6 +52,15 @@ Section logrel.
   Solve All Obligations with solve_proper.
   Fail Next Obligation.
 
+  (** The configuration of the abstract machine (e, k, m) corresponds
+   to the "denotational configuration" tuple (t, κ, σ).
+
+   The meta-continuation is stored in the state and the top-level
+   current continuation is explicitly invoked.
+
+   At the top-level the refinement is explicitly about fully-evaluated
+   terms which compute to natural numbers. *)
+
   Definition obs_ref' {S : Set}
     (t : IT) (κ : HOM) (σ : stateF ♯ IT)
     (e : exprO S) (k : contO S) (m : mcontO S)
@@ -77,11 +86,8 @@ Section logrel.
                      -n> exprO S -n> contO S -n> mcontO S -n> iProp :=
     λne x y z a b c, obs_ref' x y z a b c.
   Solve All Obligations with try solve_proper.
-  Next Obligation.
-    intros.
-    intros ????????; simpl.
-    solve_proper.
-  Qed.
+  Next Obligation. solve_proper_please. Qed.
+
 
   Definition logrel_mcont' {S : Set}
     (P : ITV -n> valO S -n> iProp) (F : stateF ♯ IT) (m : mcontO S) :=
@@ -196,14 +202,7 @@ Section logrel.
                     -∗ ∀ F F', logrel_mcont δ F F'
                             -∗ obs_ref e E F e' E' F')%I.
   Solve All Obligations with try solve_proper.
-  Next Obligation.
-    intros; intros ????; simpl.
-    do 2 (f_equiv; intro; simpl).
-    f_equiv.
-    do 2 (f_equiv; intro; simpl).
-    f_equiv.
-    solve_proper.
-  Qed.
+  Next Obligation. solve_proper_please. Qed.
 
   Definition logrel {S : Set} (τ α β : ty) : IT -n> exprO S -n> iProp
     := logrel_expr (interp_ty τ) (interp_ty α) (interp_ty β).
@@ -219,7 +218,7 @@ Section logrel.
     (e' : exprO S)
     (τ α σ : ty) : iProp :=
     (□ ∀ γ (γ' : S [⇒] Empty_set), ssubst_valid Γ γ γ'
-          -∗ @logrel Empty_set τ α σ (e γ) (bind (F := expr) γ' e'))%I.
+          -∗ logrel τ α σ (e γ) (bind (F := expr) γ' e'))%I.
 
   Lemma compat_HOM_id {S : Set} P :
     ⊢ @logrel_ectx S P P HOM_id END.
@@ -313,11 +312,6 @@ Section logrel.
     eapply (steps_many _ _ _ 1 1 a b (a + 1)%nat (b + 1)%nat);
       [ lia | lia | apply Ceval_reset |].
     assumption.
-  Qed.
-
-  Program Definition 𝒫_HOM : @HOM sz CtxDep R _ rs := exist _ 𝒫 _.
-  Next Obligation.
-    apply _.
   Qed.
 
   Lemma compat_shift {S : Set} (Γ : S -> ty) e (e' : exprO (inc S)) σ α τ β :

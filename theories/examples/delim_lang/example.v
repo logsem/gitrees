@@ -1,3 +1,4 @@
+(** * Example of a program in delim_lang and its symbolic execution *)
 From gitrees Require Import gitree lang_generic.
 From gitrees.effects Require Import delim.
 From gitrees.examples.delim_lang Require Import lang interp.
@@ -6,6 +7,8 @@ From iris.base_logic Require Import algebra.
 
 Open Scope syn_scope.
 
+(** The program captures the inner continuation, invokes it with 5 and
+6, and adds the results to 1. The result is 1+(3+5)+(3+6)=18 *)
 Example p : expr Empty_set :=
   ((#1) + (reset ((#3) + (shift/cc ((($0) @k #5) + (($0) @k #6)))))).
 

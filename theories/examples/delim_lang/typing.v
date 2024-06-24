@@ -1,3 +1,8 @@
+(** * Type sytem for delim-lang
+
+The system is based on
+ O. Danvy and A. Filinski. A functional abstraction of typed contexts.
+*)
 From gitrees.examples.delim_lang Require Import lang.
 
 Require Import Binding.Lib Binding.Set Binding.Env.

@@ -1,3 +1,8 @@
+(** * delim-lang: a language with shift/reset and the abstract machine semantics
+
+Based on Malgorzata Biernacka; Dariusz Biernacki; Olivier Danvy
+An Operational Foundation for Delimited Continuations in the CPS Hierarchy
+ *)
 From gitrees Require Export prelude.
 From stdpp Require Import gmap.
 Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.

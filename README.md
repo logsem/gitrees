@@ -30,7 +30,7 @@ to the code structure.
 - `examples/input_lang/` -- formalization of the language with io, the soundness and adequacy
 - `examples/affine_lang/` -- formalization of the affine language, type safety of the language interoperability
 - `examples/input_lang_callcc/` -- formalization of the language with io, throw and call/cc, the soundness and adequacy
-- `examples/delim_lang/` -- formalization shift/reset effects, of a language with delimited continuations and its soundness
+- `examples/delim_lang/` -- formalization of the language with shift/reset and its soundness/adequacy wrt abstract machine semantics
 - `prelude.v` -- some stuff that is missing from Iris
 - `lang_generic.v` -- generic facts about languages with binders and their interpretations, shared by `input_lang` and `affine_lang`
 

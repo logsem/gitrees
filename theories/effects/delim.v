@@ -1,3 +1,4 @@
+(** * Representation of delimited continuations *)
 From gitrees Require Import prelude gitree.
 From iris.algebra Require Import list.
 
@@ -14,26 +15,29 @@ Proof. apply _. Qed.
 
 (** * Signatures *)
 
+(** Bind the innermost continuation *)
 Program Definition shiftE : opInterp :=
   {|
     Ins := ((▶ ∙ -n> ▶ ∙) -n> ▶ ∙);
     Outs := (▶ ∙);
   |}.
 
+(** Delimit the continuation *)
 Program Definition resetE : opInterp :=
   {|
     Ins := (▶ ∙);
     Outs := (▶ ∙);
   |}.
 
-(* to apply the head of the meta continuation *)
+(** Explicitly pop a continuation from the meta-continuation and jump
+to it *)
 Program Definition popE : opInterp :=
   {|
     Ins := (▶ ∙);
     Outs := Empty_setO;
   |}.
 
-(* apply continuation, pushes outer context in meta *)
+(** Applies continuation, pushes outer context in meta *)
 Program Definition appContE : opInterp :=
   {|
     Ins := (▶ ∙ * (▶ (∙ -n> ∙)));
