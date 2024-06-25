@@ -4,7 +4,9 @@ synopsis: "Guarded Interaction Trees"
 version: "dev"
 maintainer: "Logsem"
 authors: "Logsem"
-license: "BSD"
+homepage: "https://github.com/logsem/gitrees"
+bug-reports: "https://github.com/logsem/gitrees/issues"
+license: "MIT"
 build: [make "-j%{jobs}%"]
 install: [make "install"]
 remove: ["rm" "-rf" "%{lib}%/coq/user-contrib/gitrees"]
