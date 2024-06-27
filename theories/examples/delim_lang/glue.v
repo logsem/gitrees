@@ -57,8 +57,8 @@ Section typing.
 
   Inductive typed_glued
     : forall {S : Set}, (S → ty) → expr S → ty → Type :=
-| typed_GlueNat {S : Set} (Ω : S → ty) α e :
-  embed_lang.typed_expr □ α e α ℕ →
+| typed_GlueNat {S : Set} (Ω : S → ty) e :
+  (∀ α, embed_lang.typed_expr □ α e ℕ α) →
   typed_glued Ω (Embed e) tNat
 | typed_VarG {S : Set} (Ω : S → ty) (v : S) :
   typed_glued Ω (Var v) (Ω v)
@@ -173,8 +173,9 @@ Section interp.
       := App (LamV (Alloc (Var VZ)))
            (Embed (gitrees.examples.delim_lang.example.p)).
 
-    Lemma p_typ : embed_lang.typed_expr □ ℕ example.p ℕ ℕ.
+    Lemma p_typ : ∀ α, embed_lang.typed_expr □ α example.p ℕ α.
     Proof.
+      intros.
       repeat econstructor.
     Qed.
 
@@ -182,7 +183,7 @@ Section interp.
       typed_glued □ test_pr1 (tRef tNat).
     Proof.
       repeat econstructor.
-      constructor. (* ??? wtf ??? *)
+      constructor.
     Qed.
 
     Lemma test_helper_prop1 :
@@ -941,9 +942,8 @@ Section sets.
   Qed.
 
   Lemma compat_glueNat {S : Set} (Ω : S → ty)
-    (τ : embed_lang.ty)
     (e : lang.expr ∅)
-    (t : embed_lang.typed_expr □ τ e τ ℕ)
+    (t : ∀ τ, embed_lang.typed_expr □ τ e ℕ τ)
     : ⊢ validG Ω (interp_expr rs (Embed e)) tNat.
   Proof.
     iModIntro.
@@ -960,7 +960,7 @@ Section sets.
     iNext.
     iIntros "? R".
 
-    iPoseProof (logpred.fundamental_expr rs □ τ τ ℕ e t) as "#G".
+    iPoseProof (logpred.fundamental_expr rs □ ℕ ℕ ℕ e (t ℕ)) as "#G".
     unshelve iSpecialize ("G" $! ı_scope _).
     { iIntros ([]). }
     iSpecialize ("G" $! HOM_id with "[]").
@@ -1089,156 +1089,248 @@ Proof.
   eauto with iFrame.
 Qed.
 
-Section faulty_glue.
-  Context {sz : nat}.
-  Variable rs : gReifiers CtxDep sz.
-  Context `{!subReifier reify_delim rs}.
-  Context `{!subReifier (sReifier_NotCtxDep_min reify_store CtxDep) rs}.
-  Notation F := (gReifiers_ops rs).
-  Context {R} `{!Cofe R}.
-  Context `{!SubOfe natO R}.
-  Context `{!SubOfe unitO R}.
-  Context `{!SubOfe locO R}.
-  Notation IT := (IT F R).
-  Notation ITV := (ITV F R).
+(* Section faulty_glue. *)
+(*   Context {sz : nat}. *)
+(*   Variable rs : gReifiers CtxDep sz. *)
+(*   Context `{!subReifier reify_delim rs}. *)
+(*   Context `{!subReifier (sReifier_NotCtxDep_min reify_store CtxDep) rs}. *)
+(*   Notation F := (gReifiers_ops rs). *)
+(*   Context {R} `{!Cofe R}. *)
+(*   Context `{!SubOfe natO R}. *)
+(*   Context `{!SubOfe unitO R}. *)
+(*   Context `{!SubOfe locO R}. *)
+(*   Notation IT := (IT F R). *)
+(*   Notation ITV := (ITV F R). *)
 
-  Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
-  Notation iProp := (iProp Σ).
+(*   Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}. *)
+(*   Notation iProp := (iProp Σ). *)
 
-  Program Fixpoint faulty_interp_expr {S} (e : expr S) : interp_scope S -n> IT :=
-    match e with
-    | Var x => interp_var x
-    | App n m => interp_app rs (faulty_interp_expr n) (faulty_interp_expr m)
-    | LamV e => interp_lam rs (faulty_interp_expr e)
-    | NatOp op n m => interp_natop rs op (faulty_interp_expr n) (faulty_interp_expr m)
-    | Alloc e => interp_alloc rs (faulty_interp_expr e)
-    | Assign n m => interp_assign rs (faulty_interp_expr n) (faulty_interp_expr m)
-    | Deref e => interp_deref rs (faulty_interp_expr e)
-    | LocV l => interp_loc rs l
-    | UnitV => interp_unit rs
-    | LitV n => interp_nat rs n
-    | Embed e => constO $ (embed_lang.interp_closed  _ e)
-    end.
+(*   Program Fixpoint faulty_interp_expr {S} (e : expr S) : interp_scope S -n> IT := *)
+(*     match e with *)
+(*     | Var x => interp_var x *)
+(*     | App n m => interp_app rs (faulty_interp_expr n) (faulty_interp_expr m) *)
+(*     | LamV e => interp_lam rs (faulty_interp_expr e) *)
+(*     | NatOp op n m => interp_natop rs op (faulty_interp_expr n) (faulty_interp_expr m) *)
+(*     | Alloc e => interp_alloc rs (faulty_interp_expr e) *)
+(*     | Assign n m => interp_assign rs (faulty_interp_expr n) (faulty_interp_expr m) *)
+(*     | Deref e => interp_deref rs (faulty_interp_expr e) *)
+(*     | LocV l => interp_loc rs l *)
+(*     | UnitV => interp_unit rs *)
+(*     | LitV n => interp_nat rs n *)
+(*     | Embed e => constO $ (embed_lang.interp_closed  _ e) *)
+(*     end. *)
 
-  Definition escape : embed_lang.expr ∅ :=
-    (shift/cc (# 42))%syn.
+(*   Definition escape : embed_lang.expr ∅ := *)
+(*     ((shift/cc (($ 0) @k (# 42))))%syn. *)
 
-  Definition buggy : expr ∅
-    := App (LamV UnitV) (Alloc (Embed escape)).
+(*   Definition buggy : expr ∅ *)
+(*     := App (LamV UnitV) (Alloc (Embed escape)). *)
 
-  Lemma typ_buggy : typed_glued □ buggy tUnit.
-  Proof.
-    repeat econstructor.
-    Unshelve.
-    apply ℕ.
-  Qed.
+(*   Lemma typ_buggy : typed_glued □ buggy tUnit. *)
+(*   Proof. *)
+(*     repeat econstructor. *)
+(*   Qed. *)
 
-  Lemma faulty_spec_buggy :
-    ⊢ heap_ctx rs
-      -∗ has_substate ([] : delim.stateF ♯ IT)
-      -∗ WP@{rs} 𝒫 (faulty_interp_expr buggy ı_scope) @ notStuck
-           {{ βv, βv ≡ RetV 42
-                  ∗ has_substate ([] : delim.stateF ♯ IT)}}.
-  Proof.
-    Opaque escape.
-    iIntros "T H".
-    cbn.
-    Transparent LET.
-    unfold LET.
-    simpl.
-    do 5 example.shift_hom.
-    iApply (wp_shift with "H").
-    { rewrite laterO_map_Next. done. }
-    iIntros "!>_ H".
-    simpl.
-    iApply (wp_pop_end with "H").
-    iIntros "!>_ H".
-    simpl.
-    iApply wp_val.
-    iModIntro.
-    by iSplit.
-  Qed.
+(*   Lemma faulty_spec_buggy : *)
+(*     ⊢ heap_ctx rs *)
+(*       -∗ has_substate ([] : delim.stateF ♯ IT) *)
+(*       -∗ WP@{rs} 𝒫 (faulty_interp_expr buggy ı_scope) @ notStuck *)
+(*            {{ βv, βv ≡ RetV () *)
+(*                   ∗ has_substate ([] : delim.stateF ♯ IT)}}. *)
+(*   Proof. *)
+(*     Opaque escape. *)
+(*     iIntros "T H". *)
+(*     cbn. *)
+(*     Transparent LET. *)
+(*     unfold LET. *)
+(*     simpl. *)
+(*     do 5 example.shift_hom. *)
+(*     iApply (wp_shift with "H"). *)
+(*     { rewrite laterO_map_Next. done. } *)
+(*     iIntros "!>_ H". *)
+(*     simpl. *)
+(*     rewrite get_val_ret. *)
+(*     simpl. *)
+(*     rewrite get_fun_fun. *)
+(*     simpl. *)
+(*     iApply (wp_app_cont with "H"). *)
+(*     { rewrite laterO_map_Next. done. } *)
+(*     iIntros "!>_ H". *)
+(*     simpl. *)
+(*     rewrite later_map_Next. *)
+(*     simpl. *)
+(*     rewrite <-Tick_eq. *)
+(*     iApply wp_tick. *)
+(*     iNext. *)
+(*     rewrite get_val_ret. *)
+(*     simpl.         *)
+(*     rewrite hom_vis. *)
+(*     match goal with *)
+(*     | |- context G [Vis _ _ ?a] => *)
+(*         set (k := a); *)
+(*         eassert (k ≡ NextO ◎ (_ ◎ (Ret ◎ (subEff_outs ^-1))))%stdpp as HEQ *)
+(*     end. *)
+(*     { *)
+(*       intro; simpl. *)
+(*       rewrite later_map_Next. *)
+(*       f_equiv. *)
+(*       reflexivity. *)
+(*     } *)
+(*     rewrite HEQ. *)
+(*     match goal with *)
+(*     | HEQ : (_ ≡ NextO ◎ ?a)%stdpp |- _ => *)
+(*         set (k' := a) *)
+(*     end. *)
+(*     match goal with *)
+(*     | |- context G [wp _ ?a] => *)
+(*         assert (a ≡ (ALLOC (Ret 42) (𝒫 ◎ k' ◎ subEff_outs)))%stdpp as -> *)
+(*     end. *)
+(*     { *)
+(*       Transparent ALLOC. *)
+(*       unfold ALLOC. *)
+(*       rewrite hom_vis. *)
+(*       simpl. *)
+(*       f_equiv; simpl. *)
+(*       intro; simpl. *)
+(*       rewrite later_map_Next. *)
+(*       do 4 (rewrite get_val_ITV; simpl). *)
+(*       do 2 (rewrite APP'_Fun_l; simpl). *)
+(*       reflexivity. *)
+(*     } *)
+(*     Opaque ALLOC. *)
+(*     simpl. *)
+(*     clear HEQ k. *)
+(*     iApply (wp_alloc with "T"); first solve_proper. *)
+(*     iIntros "!> !> %l Hl". *)
+(*     simpl. *)
+(*     rewrite get_val_ret. *)
+(*     simpl. *)
+(*     rewrite get_val_fun. *)
+(*     simpl. *)
+(*     rewrite APP'_Fun_l. *)
+(*     simpl. *)
+(*     rewrite <-Tick_eq. *)
+(*     rewrite hom_tick. *)
+(*     iApply wp_tick. *)
+(*     iNext. *)
+(*     iApply (wp_pop_cons with "H"). *)
+(*     iIntros "!> _ H". *)
+(*     iApply (wp_pop_end with "H"). *)
+(*     iIntros "!> _ H". *)
+(*     iApply wp_val. *)
+(*     iModIntro. *)
+(*     by iSplit. *)
+(*   Qed. *)
 
-  Lemma correct_spec_buggy :
-    ⊢ heap_ctx rs
-      -∗ has_substate ([] : delim.stateF ♯ IT)
-      -∗ WP@{rs} 𝒫 (interp_expr rs buggy ı_scope) @ notStuck
-           {{ βv, βv ≡ RetV ()
-                  ∗ has_substate ([] : delim.stateF ♯ IT)}}.
-  Proof.
-    Opaque escape.
-    iIntros "T H".
-    cbn.
-    Transparent LET.
-    unfold LET.
-    simpl.
-    do 5 example.shift_hom.
-    iApply (wp_reset with "H").
-    iIntros "!>_ H".
-    simpl.
-    iApply (wp_shift with "H").
-    { rewrite laterO_map_Next. done. }
-    iIntros "!>_ H".
-    simpl.
-    iApply (wp_pop_cons with "H").
-    iIntros "!>_ H".
-    simpl.
-    rewrite get_val_ITV.
-    simpl.
-    rewrite hom_vis.
-    match goal with
-    | |- context G [Vis _ _ ?a] =>
-        set (k := a);
-        eassert (k ≡ NextO ◎ (_ ◎ (Ret ◎ (subEff_outs ^-1))))%stdpp as HEQ
-    end.
-    {
-      intro; simpl.
-      rewrite later_map_Next.
-      f_equiv.
-      reflexivity.
-    }
-    rewrite HEQ.
-    match goal with
-    | HEQ : (_ ≡ NextO ◎ ?a)%stdpp |- _ =>
-        set (k' := a)
-    end.
-    match goal with
-    | |- context G [wp _ ?a] =>
-        assert (a ≡ (ALLOC (Ret 42) (𝒫 ◎ k' ◎ subEff_outs)))%stdpp as ->
-    end.
-    {
-      Transparent ALLOC.
-      unfold ALLOC.
-      rewrite hom_vis.
-      simpl.
-      f_equiv; simpl.
-      intro; simpl.
-      rewrite later_map_Next.
-      do 4 (rewrite get_val_ITV; simpl).
-      do 2 (rewrite APP'_Fun_l; simpl).
-      reflexivity.
-    }
-    Opaque ALLOC.
-    simpl.
-    clear HEQ k.
-    iApply (wp_alloc with "T"); first solve_proper.
-    iIntros "!> !> %l Hl".
-    simpl.
-    rewrite get_val_ret.
-    simpl.
-    rewrite get_val_fun.
-    simpl.
-    rewrite APP'_Fun_l.
-    simpl.
-    rewrite <-Tick_eq.
-    rewrite hom_tick.
-    iApply wp_tick.
-    iNext.
-    iApply (wp_pop_end with "H").
-    iIntros "!> _ H".
-    iApply wp_val.
-    iModIntro.
-    by iSplit.
-  Qed.
+(*   Lemma correct_spec_buggy : *)
+(*     ⊢ heap_ctx rs *)
+(*       -∗ has_substate ([] : delim.stateF ♯ IT) *)
+(*       -∗ WP@{rs} 𝒫 (interp_expr rs buggy ı_scope) @ notStuck *)
+(*            {{ βv, βv ≡ RetV () *)
+(*                   ∗ has_substate ([] : delim.stateF ♯ IT)}}. *)
+(*   Proof. *)
+(*     Opaque escape. *)
+(*     iIntros "T H". *)
+(*     cbn. *)
+(*     Transparent LET. *)
+(*     unfold LET. *)
+(*     simpl. *)
+(*     do 5 example.shift_hom. *)
+(*     iApply (wp_reset with "H"). *)
+(*     iIntros "!>_ H". *)
+(*     simpl. *)
+(*     unfold embed_lang.interp_closed. *)
+(*     simpl. *)
+(*     Transparent escape. *)
+(*     unfold escape. *)
+(*     simpl. *)
+(*     do 1 example.shift_hom. *)
+(*     (* iApply (wp_reset with "H"). *) *)
+(*     (* iIntros "!>_ H". *) *)
+(*     (* simpl. *) *)
+(*     (* do 1 example.shift_hom. *) *)
+(*     iApply (wp_shift with "H"). *)
+(*     { rewrite laterO_map_Next. done. } *)
+(*     iIntros "!>_ H". *)
+(*     simpl. *)
 
-End faulty_glue.
+(*     rewrite get_val_ret. *)
+(*     simpl. *)
+(*     rewrite get_fun_fun. *)
+(*     simpl. *)
+(*     iApply (wp_app_cont with "H"). *)
+(*     { rewrite laterO_map_Next. done. } *)
+(*     iIntros "!>_ H". *)
+(*     simpl. *)
+(*     rewrite later_map_Next. *)
+(*     simpl. *)
+(*     rewrite <-Tick_eq. *)
+(*     iApply wp_tick. *)
+(*     iNext. *)
+
+(*     iApply (wp_pop_cons with "H"). *)
+(*     iIntros "!>_ H". *)
+(*     simpl. *)
+(*     iApply (wp_pop_cons with "H"). *)
+(*     iIntros "!> _ H". *)
+(*     simpl. *)
+(*     rewrite get_val_ret. *)
+(*     simpl. *)
+(*     simpl. *)
+(*     rewrite hom_vis. *)
+(*     match goal with *)
+(*     | |- context G [Vis _ _ ?a] => *)
+(*         set (k := a); *)
+(*         eassert (k ≡ NextO ◎ (_ ◎ (Ret ◎ (subEff_outs ^-1))))%stdpp as HEQ *)
+(*     end. *)
+(*     { *)
+(*       intro; simpl. *)
+(*       rewrite later_map_Next. *)
+(*       f_equiv. *)
+(*       reflexivity. *)
+(*     } *)
+(*     rewrite HEQ. *)
+(*     match goal with *)
+(*     | HEQ : (_ ≡ NextO ◎ ?a)%stdpp |- _ => *)
+(*         set (k' := a) *)
+(*     end. *)
+(*     match goal with *)
+(*     | |- context G [wp _ ?a] => *)
+(*         assert (a ≡ (ALLOC (Ret 42) (𝒫 ◎ k' ◎ subEff_outs)))%stdpp as -> *)
+(*     end. *)
+(*     { *)
+(*       Transparent ALLOC. *)
+(*       unfold ALLOC. *)
+(*       rewrite hom_vis. *)
+(*       simpl. *)
+(*       f_equiv; simpl. *)
+(*       intro; simpl. *)
+(*       rewrite later_map_Next. *)
+(*       do 4 (rewrite get_val_ITV; simpl). *)
+(*       do 2 (rewrite APP'_Fun_l; simpl). *)
+(*       reflexivity. *)
+(*     } *)
+(*     Opaque ALLOC. *)
+(*     simpl. *)
+(*     clear HEQ k. *)
+(*     iApply (wp_alloc with "T"); first solve_proper. *)
+(*     iIntros "!> !> %l Hl". *)
+(*     simpl. *)
+(*     rewrite get_val_ret. *)
+(*     simpl. *)
+(*     rewrite get_val_fun. *)
+(*     simpl. *)
+(*     rewrite APP'_Fun_l. *)
+(*     simpl. *)
+(*     rewrite <-Tick_eq. *)
+(*     rewrite hom_tick. *)
+(*     iApply wp_tick. *)
+(*     iNext. *)
+(*     iApply (wp_pop_end with "H"). *)
+(*     iIntros "!> _ H". *)
+(*     iApply wp_val. *)
+(*     iModIntro. *)
+(*     by iSplit. *)
+(*   Qed. *)
+
+(* End faulty_glue. *)
