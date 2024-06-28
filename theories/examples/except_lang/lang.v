@@ -318,6 +318,211 @@ Fixpoint unwind {S : Set} (err : exc) (k : cont S) :=
                         else unwind err K'
   end.
 
+Theorem unwind_decompose {S : Set} (err : exc) (K : cont S) (h : expr (inc S)) (K2 : cont S) : unwind err K = Some (h, K2) ↔ ∃ (K1 : cont S), (K = cont_compose (CatchK err h K2) K1
+                                                                                                                                               ∧ (∀ K3 K4 h', K1 ≠ cont_compose (CatchK err h' K4) K3 )
+                                                                                                                                              ).
+Proof.
+  induction K.
+  - split.
+    + intros. done.
+    + intros (? & ? & ?).
+      destruct x;
+      done.
+  - split.
+    + intros H.
+      apply IHK in H.
+      destruct H as (K1 & HK1 & HNC).
+      exists (IfK e₁ e₂ K1).
+      simpl.
+      rewrite HK1.
+      split; first done.
+      intros.
+      destruct K3; try done.
+      simpl.
+      intros [=-> -> ->].
+      specialize (HNC K3 K4 h').
+      by apply HNC.
+      
+    + intros (K1 & HK1 & HNC).
+      destruct K1; try done.
+      simpl.
+      apply IHK.
+      injection HK1 as <- <- ->.
+      eexists.
+      split; first done.
+      intros K3 K4 h' ->.
+      specialize (HNC (IfK e₁ e₂ K3) K4 h').
+      by apply HNC.
+      
+   - split.
+    + intros H.
+      apply IHK in H.
+      destruct H as (K1 & HK1 & HNC).
+      exists (AppLK v K1).
+      simpl.
+      rewrite HK1.
+      split; first done.
+      intros.
+      destruct K3; try done.
+      simpl.
+      intros [=-> ->].
+      specialize (HNC K3 K4 h').
+      by apply HNC.
+      
+    + intros (K1 & HK1 & HNC).
+      destruct K1; try done.
+      simpl.
+      apply IHK.
+      injection HK1 as <- ->.
+      eexists.
+      split; first done.
+      intros K3 K4 h' ->.
+      specialize (HNC (AppLK v K3) K4 h').
+      by apply HNC.
+   - split.
+    + intros H.
+      apply IHK in H.
+      destruct H as (K1 & HK1 & HNC).
+      exists (AppRK e K1).
+      simpl.
+      rewrite HK1.
+      split; first done.
+      intros.
+      destruct K3; try done.
+      simpl.
+      intros [=-> ->].
+      specialize (HNC K3 K4 h').
+      by apply HNC.
+      
+    + intros (K1 & HK1 & HNC).
+      destruct K1; try done.
+      simpl.
+      apply IHK.
+      injection HK1 as <- ->.
+      eexists.
+      split; first done.
+      intros K3 K4 h' ->.
+      specialize (HNC (AppRK e K3) K4 h').
+      by apply HNC.
+   - split.
+    + intros H.
+      apply IHK in H.
+      destruct H as (K1 & HK1 & HNC).
+      exists (NatOpLK op v K1).
+      simpl.
+      rewrite HK1.
+      split; first done.
+      intros.
+      destruct K3; try done.
+      simpl.
+      intros [=-> -> ->].
+      specialize (HNC K3 K4 h').
+      by apply HNC.
+      
+    + intros (K1 & HK1 & HNC).
+      destruct K1; try done.
+      simpl.
+      apply IHK.
+      injection HK1 as <- <- ->.
+      eexists.
+      split; first done.
+      intros K3 K4 h' ->.
+      specialize (HNC (NatOpLK op v K3) K4 h').
+      by apply HNC.
+   - split.
+    + intros H.
+      apply IHK in H.
+      destruct H as (K1 & HK1 & HNC).
+      exists (NatOpRK op e K1).
+      simpl.
+      rewrite HK1.
+      split; first done.
+      intros.
+      destruct K3; try done.
+      simpl.
+      intros [=-> -> ->].
+      specialize (HNC K3 K4 h').
+      by apply HNC.
+      
+    + intros (K1 & HK1 & HNC).
+      destruct K1; try done.
+      simpl.
+      apply IHK.
+      injection HK1 as <- <- ->.
+      eexists.
+      split; first done.
+      intros K3 K4 h' ->.
+      specialize (HNC (NatOpRK op e K3) K4 h').
+      by apply HNC.
+   - split.
+    + intros H.
+      apply IHK in H.
+      destruct H as (K1 & HK1 & HNC).
+      exists (ThrowK err0 K1).
+      simpl.
+      rewrite HK1.
+      split; first done.
+      intros.
+      destruct K3; try done.
+      simpl.
+      intros [=-> ->].
+      specialize (HNC K3 K4 h').
+      by apply HNC.
+      
+    + intros (K1 & HK1 & HNC).
+      destruct K1; try done.
+      simpl.
+      apply IHK.
+      injection HK1 as <- ->.
+      eexists.
+      split; first done.
+      intros K3 K4 h' ->.
+      specialize (HNC (ThrowK err0 K3) K4 h').
+      by apply HNC.
+ 
+   - split.
+     + intros H.
+       simpl in H.
+       destruct (eq_dec err err0) as [-> | Hdiff].
+       * injection H as -> ->.
+         exists END.
+         split; first done.
+         intros K3 K4 h'.
+         destruct K3, K4; done.
+       * apply IHK in H.
+         destruct H as (K1 & HK1 & HNC).
+         exists (CatchK err0 h0 K1).
+         simpl.
+         rewrite HK1.
+         split; first done.
+         intros K3 K4 h'.
+         destruct K3; try done; simpl; intros [=<- <- ->]; first done.
+         by eapply HNC. 
+         
+     + intros (K1 & HK1 & HNC).
+       destruct K1; try done.
+       * simpl. 
+         destruct (eq_dec err err0) as [-> | C].
+         { simpl in HK1. by injection HK1 as -> ->. }
+         apply IHK.
+         injection HK1 as <- <-.
+         by contradict C.
+       * injection HK1 as <- <- ->.
+         simpl.
+         destruct (eq_dec err err0) as [-> | Herr].
+         {
+           exfalso.
+           specialize (HNC END K1 h0).
+           by apply HNC.
+         }
+         apply IHK.
+         exists K1.
+         split; first done.
+         intros K3 K4 h' ->.
+         specialize (HNC (CatchK err0 h0 K3)).
+         by eapply HNC.
+Qed.
+      
 Variant config {S : Set} : Type :=
   | Cexpr : expr S → config
   | Ccont : cont S → val S → config

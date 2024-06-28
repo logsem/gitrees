@@ -224,6 +224,23 @@ Module interp (Errors : ExcSig).
       by rewrite interp_rec_unfold.
   Qed.
 
+  Program Definition interp_handler {S} (h : expr (inc S)) : interp_scope S -n> laterO IT -n> laterO IT :=
+    λne env, laterO_map (λne x, (interp_expr h) (extend_scope env x)).
+  Next Obligation.
+    solve_proper_prepare.
+    f_equiv.
+    intros []; simpl; solve_proper.
+  Qed.
+  Next Obligation.
+    solve_proper_prepare.
+    repeat f_equiv.
+    intro.
+    simpl.
+    f_equiv.
+    intros [];
+      simpl; done.
+    Qed.
+  
   Program Fixpoint split_cont {S} (K : cont S) : interp_scope S → ((IT -n> IT) * (listO (excO * (laterO IT -n> laterO IT) * (laterO IT -n> laterO IT) )))%type :=
     λ env, 
     match K with
@@ -245,22 +262,12 @@ Module interp (Errors : ExcSig).
                        (f ◎ (λne t, THROW err t), lst)
     | CatchK err h K' => let (f, lst) := split_cont K' env in
                          (get_val (λne t, get_val (λne _, t) (_POP err)), (err,
-                                       laterO_map
-                                         (λne x, (interp_expr h)
-                                                   (extend_scope env x)
-                                         ), laterO_map f)
+                                      interp_handler h env  , laterO_map f)
                                   ::lst)
     end.
   Solve All Obligations with try solve_proper.
   Next Obligation.
     solve_proper_please.
-  Qed.
-  Next Obligation.
-  Proof.
-    solve_proper_prepare.
-    f_equiv.
-    intros [];
-      done.
   Qed.
 
   Global Instance split_cont_ne  {S} {K : cont S} : NonExpansive (split_cont K).
@@ -624,7 +631,155 @@ Module interp (Errors : ExcSig).
           by intro. *)
   Qed.
 
-  
+  Lemma split_cont_decomp {S} K K1 K2 p t p1 t1 env h err f k:
+    split_cont K env = (p,t) →
+    split_cont K1 env = (p1,t1) →
+    K = cont_compose (CatchK err h K1) K2 →
+    (∀ K4 K3 h', K2 <> @cont_compose S (CatchK err h' K3) K4) →
+    f = interp_handler h env →
+    k = laterO_map p1 → 
+    ∃pre, t = pre ++ (err,f,k)::t1 ∧ Forall (λ '(err', _ ,_ ), err <> err' ) pre.
+  Proof.
+    generalize dependent K1.
+    generalize dependent p.
+    generalize dependent t.
+    generalize dependent p1.
+    generalize dependent t1.
+    generalize dependent K2.
+    generalize dependent f.
+    generalize dependent env.
+    generalize dependent h.
+      
+    induction K; intros.
+    - destruct K2; discriminate.
+    - destruct K2; try discriminate.
+      injection H1 as <- <- ->.
+      simpl in H.
+      destruct (split_cont (cont_compose (CatchK err h K1) K2) env) as [g u] eqn:Heq.
+      injection H as <- <-.
+      eapply (IHK h env _ _ _ _ u g _ Heq H0 eq_refl).
+      Unshelve.
+      2, 3 : done.
+      intros K4 K3 h' C.
+      rewrite C in H2.
+      eapply (H2 (IfK e₁ e₂ K4)).
+      simpl.
+      reflexivity.
+    - destruct K2; try discriminate.
+      injection H1 as <- ->.
+      simpl in H.
+      destruct (split_cont (cont_compose (CatchK err h K1) K2) env) as [g u] eqn:Heq.
+      injection H as <- <-.
+      eapply (IHK h env _ _ _ _ u g _ Heq H0 eq_refl).
+      Unshelve.
+      2, 3 : done.
+      intros K4 K3 h' C.
+      rewrite C in H2.
+      eapply (H2 (AppLK v K4)).
+      simpl.
+      reflexivity.
+    - destruct K2; try discriminate.
+      injection H1 as <- ->.
+      simpl in H.
+      destruct (split_cont (cont_compose (CatchK err h K1) K2) env) as [g u] eqn:Heq.
+      injection H as <- <-.
+      eapply (IHK h env _ _ _ _ u g _ Heq H0 eq_refl).
+      Unshelve.
+      2, 3 : done.
+      intros K4 K3 h' C.
+      rewrite C in H2.
+      eapply (H2 (AppRK e K4)).
+      simpl.
+      reflexivity.
+    - destruct K2; try discriminate.
+      injection H1 as <- <- ->.
+      simpl in H.
+      destruct (split_cont (cont_compose (CatchK err h K1) K2) env) as [g u] eqn:Heq.
+      injection H as <- <-.
+      eapply (IHK h env _ _ _ _ u g _ Heq H0 eq_refl).
+      Unshelve.
+      2, 3 : done.
+      intros K4 K3 h' C.
+      rewrite C in H2.
+      eapply (H2 (NatOpLK op v K4)).
+      simpl.
+      reflexivity.
+    - destruct K2; try discriminate.
+      injection H1 as <- <- ->.
+      simpl in H.
+      destruct (split_cont (cont_compose (CatchK err h K1) K2) env) as [g u] eqn:Heq.
+      injection H as <- <-.
+      eapply (IHK h env _ _ _ _ u g _ Heq H0 eq_refl).
+      Unshelve.
+      2, 3 : done.
+      intros K4 K3 h' C.
+      rewrite C in H2.
+      eapply (H2 (NatOpRK op e K4)).
+      simpl.
+      reflexivity.      
+    - destruct K2; try discriminate.
+      injection H1 as <- ->.
+      simpl in H.
+      destruct (split_cont (cont_compose (CatchK err h K1) K2) env) as [g u] eqn:Heq.
+      injection H as <- <-.
+      eapply (IHK h env _ _ _ _ u g _ Heq H0 eq_refl).
+      Unshelve.
+      2, 3 : done.
+      intros K4 K3 h' C.
+      rewrite C in H2.
+      eapply (H2 (ThrowK err0 K4)).
+      simpl.
+      reflexivity.
+
+     - destruct K2; try discriminate.
+     + injection H1 as <- <- ->.
+       simpl in H.
+       rewrite H0 in H.
+       injection H as <- <-.
+       eexists [].
+       rewrite H3 H4.
+       simpl.
+       done.
+     + injection H1 as <- <- ->.
+       simpl in H.
+       destruct (split_cont (cont_compose (CatchK err h0 K1) K2) env) as [g u] eqn:Heq.
+      injection H as <- <-.
+      epose proof (IHK h0 env _ _ _ _ u g _ Heq H0 _ _ _ _) as (pre & -> & Hfall).
+      eexists.
+      split.
+      { rewrite app_comm_cons. done. }
+      apply Forall_cons.
+      split; last done.
+      intros ->.
+      by eapply (H2 END).
+      Unshelve.
+      2, 4, 5 : done.
+       intros K4 K3 h' C.
+       rewrite C in H2.
+       eapply (H2 (CatchK err0 h K4) _).
+       simpl.
+       done.
+  Qed.
+
+  Lemma unwind_cut_when {S} : ∀ K K' env f t g t' err h,
+    split_cont K env = (f,t) →
+    split_cont K' env = (g,t') →
+    @unwind S err K = Some (h, K') →
+    cut_when (aux err) t = Some ((err,interp_handler h env,laterO_map g), t').
+  Proof.
+    intros K K' env f t g t' err h HsplitK HsplitK' Hwind.
+    apply unwind_decompose in Hwind as (K1 & -> & HK1).
+    pose proof (split_cont_decomp _ _ _ f t g t' env h err _ _ HsplitK HsplitK' eq_refl HK1 eq_refl eq_refl) as (pre & -> & Hfall).
+    eapply cut_when_first_occ.
+    { done. }
+    { simpl. destruct (eq_dec err err); done. }.
+    eapply Forall_impl.
+    { exact Hfall. }
+    intros [[err' ?] ?] ?.
+    simpl.
+    destruct (eq_dec err err'); done.
+  Qed.
+    
   Theorem soundness {S} : ∀ c c' e e' σr σ σ' (env : interp_scope S),
     interp_config c env = (e, σ) → 
     interp_config c' env = (e', σ') → 
@@ -712,7 +867,7 @@ Module interp (Errors : ExcSig).
       injection H1 as <- <-.
       exists 0.
       by constructor.
-     - simpl in H0, H1.
+    - simpl in H0, H1.
       destruct (split_cont k env) as [f t] eqn:Heq.
       assert (IT_hom f).
       { eapply split_cont_left_hom'. apply Heq. }
@@ -720,7 +875,7 @@ Module interp (Errors : ExcSig).
       injection H1 as <- <-.
       exists 0.
       by constructor.
-   - simpl in H0, H1.
+    - simpl in H0, H1.
       destruct (split_cont k env) as [g t] eqn:Heq.
       assert (IT_hom g) as Hg.
       { eapply split_cont_left_hom'. apply Heq. }
@@ -755,82 +910,135 @@ Module interp (Errors : ExcSig).
      + destruct i; simpl.
        * done.
        * done.
-   - simpl in H0, H1.
-     destruct (split_cont k env) as [g t] eqn:Heq.
-     assert (IT_hom g) as Hg.
-     { eapply split_cont_left_hom'. apply Heq. }
-     injection H0 as <- <-.
-     injection H1 as <- <-.
-     exists 0.
-     constructor; last done.
-     f_equiv.
-     destruct n.
-     + rewrite IF_False; last lia.
-       done.
-     + rewrite IF_True; last lia.
-       done.
-   - simpl in H0, H1.
-     destruct (split_cont k env) as [g t] eqn:Heq.
-     assert (IT_hom g) as Hg.
-     { eapply split_cont_left_hom'. apply Heq. }
-     injection H0 as <- <-.
-     injection H1 as <- <-.
-     exists 0.
-     constructor; done.
     - simpl in H0, H1.
-     destruct (split_cont k env) as [g t] eqn:Heq.
-     assert (IT_hom g) as Hg.
-     { eapply split_cont_left_hom'. apply Heq. }
+      destruct (split_cont k env) as [g t] eqn:Heq.
+      assert (IT_hom g) as Hg.
+      { eapply split_cont_left_hom'. apply Heq. }
      injection H0 as <- <-.
-     injection H1 as <- <-.
-     exists 0.
-     constructor; last done.
-     f_equiv.
-     destruct v1, v2.
-     2, 3, 4 : contradict H; done.
-     simpl in H.
-     injection H as <-.
-     simpl.
-     apply NATOP_Ret.
+      injection H1 as <- <-.
+      exists 0.
+      constructor; last done.
+      f_equiv.
+      destruct n.
+      + rewrite IF_False; last lia.
+        done.
+      + rewrite IF_True; last lia.
+        done.
     - simpl in H0, H1.
-     destruct (split_cont k env) as [g t] eqn:Heq.
-     assert (IT_hom g) as Hg.
-     { eapply split_cont_left_hom'. apply Heq. }
-     injection H0 as <- <-.
-     injection H1 as <- <-.
-     exists 1.
-     econstructor; last (constructor; done).
-     rewrite get_val_ITV /= get_val_vis.
-     eapply sstep_reify; first done.
-     rewrite reify_vis_eq_ctx_dep.
-        { rewrite Tick_eq. done. }
-        epose proof (@subReifier_reify _ _ _ _ _ _ _ (inr (inl ())) ?[x] (Next _) ?[k] ?[σ] ?[σ'] σr _) as Hry.
-        match goal with
-        | |- _ _ _ (_ ?x', (_ _ (_ (_ ?σ2) _)) , ?k1 ◎ (?k2 ◎ _)) ≡ _ =>  instantiate (x := x');
-                                                            instantiate (k := k1 ◎ k2);
-                                                            instantiate (σ := σ2)
-                                                        
-        end.
+      destruct (split_cont k env) as [g t] eqn:Heq.
+      assert (IT_hom g) as Hg.
+      { eapply split_cont_left_hom'. apply Heq. }
+      injection H0 as <- <-.
+      injection H1 as <- <-.
+      exists 0.
+      constructor; done.
+    - simpl in H0, H1.
+      destruct (split_cont k env) as [g t] eqn:Heq.
+      assert (IT_hom g) as Hg.
+      { eapply split_cont_left_hom'. apply Heq. }
+      injection H0 as <- <-.
+      injection H1 as <- <-.
+      exists 0.
+      constructor; last done.
+      f_equiv.
+      destruct v1, v2.
+      2, 3, 4 : contradict H; done.
+      simpl in H.
+      injection H as <-.
+      simpl.
+      apply NATOP_Ret.
+    - simpl in H0, H1.
+      destruct (split_cont k env) as [g t] eqn:Heq.
+      assert (IT_hom g) as Hg.
+      { eapply split_cont_left_hom'. apply Heq. }
+      injection H0 as <- <-.
+      injection H1 as <- <-.
+      exists 1.
+      econstructor; last (constructor; done).
+      rewrite get_val_ITV /= get_val_vis.
+      eapply sstep_reify; first done.
+      rewrite reify_vis_eq_ctx_dep.
+      { rewrite Tick_eq. done. }
+      epose proof (@subReifier_reify _ _ _ _ _ _ _ (inr (inl ())) ?[x] (Next _) ?[k] ?[σ] ?[σ'] σr _) as Hry.
+      match goal with
+      | |- _ _ _ (_ ?x', (_ _ (_ (_ ?σ2) _)) , ?k1 ◎ (?k2 ◎ _)) ≡ _ =>  instantiate (x := x');
+                                                                        instantiate (k := k1 ◎ k2);
+                                                                        instantiate (σ := σ2)
+                                                                                    
+      end.
+      Unshelve.
+      4 : { simpl. destruct (eq_dec err) as [? | ?]; done. }.
+      1 : { simpl in Hry|-*.
+            match goal with
+            | [Hry : _ ≡ ?r |- _ ] => transitivity r
+            end.
+            2 : { repeat f_equiv.
+                  Transparent laterO_map.
+                  simpl.
+                  Opaque laterO_map.
+                  f_equiv.
+                  apply get_val_ret.
+            }
+            
+            rewrite -Hry.
+            
+            repeat f_equiv; first by solve_proper.
+            intro. simpl. done.
+      }
+    - simpl in H0, H1.
+      (** (interp_expr (subst h (Val v)) env), t) **)
+      destruct (split_cont k env) as [g t] eqn:Heq.
+      destruct (split_cont k' env) as [g' t'] eqn:Heq'.
+      assert (IT_hom g) as Hg.
+      { eapply split_cont_left_hom'. apply Heq. }
+      injection H0 as <- <-.
+      injection H1 as <- <-.
+      exists 1.
+      econstructor; last by constructor.
+      rewrite get_val_ITV hom_vis.
+      eapply sstep_reify; first done.
+      rewrite reify_vis_eq_ctx_dep.
+      { rewrite Tick_eq. done. }
+      epose proof (@subReifier_reify _ _ _ _ _ _ _ (inr (inr (inl ()))) ?[x] (Next _) ?[k] ?[σ] t' σr _) as Hry.
+      match goal with
+      | |- _ _ _ (_ ?x', (_ _ (_ _ ?σ2)) , _) ≡ _ =>
+          instantiate (x := x');
+          instantiate (σ := σ2)
+      end.
+      Unshelve.
+      4 : { Opaque cut_when. simpl. 
+            apply (unwind_cut_when _ _ env _ _ _ _ _ _ Heq Heq') in H.
+            rewrite H.
+            simpl.
+            f_equiv.
+            rewrite laterO_map_Next.
+            simpl.
+            rewrite pair_equiv.
+            split; last done.
+            f_equiv.
+            trans (g' (interp_expr (subst h (Val v)) env)); last done.
+            f_equiv.
+            rewrite interp_expr_subst.
+            f_equiv.
+            intros []; done.
+      }
+      1 : {
+        simpl in Hry.
+        simpl.
+        rewrite -Hry.
+        repeat f_equiv; first solve_proper.
+        intro.
+        simpl.
+        instantiate (k := (laterO_map (λne y, g y)) ◎  (λne x, Empty_set_rect (λ _ : ∅, laterO IT) x)).
+        simpl.
+        done.
         Unshelve.
-        4 : { simpl. destruct (eq_dec err) as [? | ?]; done. }.
-        1 : { simpl in Hry|-*.
-              match goal with
-              | [Hry : _ ≡ ?r |- _ ] => transitivity r
-              end.
-              2 : { repeat f_equiv.
-                    Transparent laterO_map.
-                    simpl.
-                    Opaque laterO_map.
-                    f_equiv.
-                    apply get_val_ret.
-              }
+        intros n [].
+      }
+      
+  Qed.
 
-              rewrite -Hry.
-               
-              repeat f_equiv; first by solve_proper.
-              intro. simpl. done.
-        }
-    - (** TODO : THROW **)
+
      
   
 
