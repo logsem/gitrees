@@ -772,7 +772,7 @@ Module interp (Errors : ExcSig).
     pose proof (split_cont_decomp _ _ _ f t g t' env h err _ _ HsplitK HsplitK' eq_refl HK1 eq_refl eq_refl) as (pre & -> & Hfall).
     eapply cut_when_first_occ.
     { done. }
-    { simpl. destruct (eq_dec err err); done. }.
+    { simpl. destruct (eq_dec err err); done. }
     eapply Forall_impl.
     { exact Hfall. }
     intros [[err' ?] ?] ?.
@@ -839,7 +839,7 @@ Module interp (Errors : ExcSig).
                                                         
         end.
         Unshelve.
-        6 : { simpl. done. }.
+        6 : { simpl. done. }
         1 : { simpl in Hry|-*.
               erewrite <-Hry.
               repeat f_equiv; first by solve_proper.
@@ -967,7 +967,7 @@ Module interp (Errors : ExcSig).
                                                                                     
       end.
       Unshelve.
-      4 : { simpl. destruct (eq_dec err) as [? | ?]; done. }.
+      4 : { simpl. destruct (eq_dec err) as [? | ?]; done. }
       1 : { simpl in Hry|-*.
             match goal with
             | [Hry : _ ≡ ?r |- _ ] => transitivity r
@@ -1039,26 +1039,7 @@ Module interp (Errors : ExcSig).
   Qed.
 
 
-     
-  
-
-     
-
- 
-      
-
-      
-
-      
-     
-      
-
-          
-        
-        
-        
-        
-
+  (** BOOKMARK **)
   
   (** ** Interpretation of evaluation contexts induces homomorphism *)
 
