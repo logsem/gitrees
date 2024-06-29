@@ -529,36 +529,36 @@ Variant config {S : Set} : Type :=
   | Ceval : expr S → cont S → config
   | Cret : val S → config.
 
-Reserved Notation "c '===>' c'"
+Reserved Notation "c '===>' c' / n"
   (at level 40, c' at level 30).
 
-Variant Cred {S : Set} : config → config → Prop :=
-  | Cinit e : Cexpr e ===> Ceval e END 
-  | Cval v k : Ceval (Val v) k ===> Ccont k v
-  | Capp e0 e1 k : Ceval (App e0 e1) k ===> Ceval e1 (AppRK e0 k)
-  | Cop op e0 e1 k : Ceval (NatOp op e0 e1) k ===> Ceval e1 (NatOpRK op e0 k)
-  | Cif cd e1 e2 k : Ceval (If cd e1 e2) k ===> Ceval cd (IfK e1 e2 k)
-  | Ccatch err e h k : Ceval (Catch err e h) k ===> Ceval e (CatchK err h k)
-  | Cthrow err e k : Ceval (Throw err e) k ===> Ceval e (ThrowK err k)
-  | Cappr e v k : Ccont (AppRK e k) v ===> Ceval e (AppLK v k)
+Variant Cred {S : Set} : config → config → nat → Prop :=
+  | Cinit e : Cexpr e ===> Ceval e END / 0
+  | Cval v k : Ceval (Val v) k ===> Ccont k v / 0
+  | Capp e0 e1 k : Ceval (App e0 e1) k ===> Ceval e1 (AppRK e0 k) / 0
+  | Cop op e0 e1 k : Ceval (NatOp op e0 e1) k ===> Ceval e1 (NatOpRK op e0 k) / 0
+  | Cif cd e1 e2 k : Ceval (If cd e1 e2) k ===> Ceval cd (IfK e1 e2 k) / 0
+  | Ccatch err e h k : Ceval (Catch err e h) k ===> Ceval e (CatchK err h k) / 1
+  | Cthrow err e k : Ceval (Throw err e) k ===> Ceval e (ThrowK err k) / 0
+  | Cappr e v k : Ccont (AppRK e k) v ===> Ceval e (AppLK v k) / 0
   | Cappl f (v : val S) k : Ccont (AppLK v k) (RecV f) ===> Ceval
                         (subst (Inc := inc)
                            (subst (F := expr) (Inc := inc) f
                               (Val (shift (Inc := inc) v)))
-                           (Val (RecV f))) k
-  | Cifk n e1 e2 k : Ccont (IfK e1 e2 k) (LitV n) ===> Ceval (if (n =? 0) then e2 else e1) k
-  | Coprk op v e k : Ccont (NatOpRK op e k) v ===> Ceval e (NatOpLK op v k)
+                           (Val (RecV f))) k / 1
+  | Cifk n e1 e2 k : Ccont (IfK e1 e2 k) (LitV n) ===> Ceval (if (n =? 0) then e2 else e1) k / 0
+  | Coprk op v e k : Ccont (NatOpRK op e k) v ===> Ceval e (NatOpLK op v k) / 0
   | Coplk op v1 v2 v3 k : nat_op_interp op v1 v2 = Some v3 →
-                          Ccont (NatOpLK op v2 k) v1 ===> Ceval (Val v3) k
-  | Ccatchk err h v k : Ccont (CatchK err h k) v ===> Ceval (Val v) k
+                          Ccont (NatOpLK op v2 k) v1 ===> Ceval (Val v3) k / 0
+  | Ccatchk err h v k : Ccont (CatchK err h k) v ===> Ceval (Val v) k / 1
   | Cthrowk err h v k k' : unwind err k = Some (h,k') → 
-    Ccont (ThrowK err k) v ===> Ceval (subst (Inc := inc) h (Val v)) k'
+    Ccont (ThrowK err k) v ===> Ceval (subst (Inc := inc) h (Val v)) k' / 1
 
-where "c ===> c'" := (Cred c c').
+where "c ===> c' / n" := (Cred c c' n).
 
-Inductive steps {S : Set} : (@config S) → (@config S) → Prop :=
-| step0 c : steps c c
-| step_trans c c' c'' : c ===> c' → steps c' c'' → steps c c''
+Inductive steps {S : Set} : (@config S) → (@config S) → nat →  Prop :=
+| step0 c : steps c c 0
+| step_trans c c' c'' n n' : c ===> c' / n → steps c' c'' n' → steps c c'' (n + n')
 .
 
 (** Carbonara from heap lang *)

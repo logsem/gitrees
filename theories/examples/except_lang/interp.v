@@ -780,14 +780,13 @@ Module interp (Errors : ExcSig).
     destruct (eq_dec err err'); done.
   Qed.
     
-  Theorem soundness {S} : ∀ c c' e e' σr σ σ' (env : interp_scope S),
+  Theorem soundness {S} : ∀ c c' e e' σr σ σ' n (env : interp_scope S),
     interp_config c env = (e, σ) → 
     interp_config c' env = (e', σ') → 
-    c ===> c' →
-    ∃ n, 
-      ssteps (gReifiers_sReifier rs)
-              e (gState_recomp σr (sR_state σ))
-              e' (gState_recomp σr (sR_state σ')) n.
+    c ===> c' / n →
+    ssteps (gReifiers_sReifier rs)
+      e (gState_recomp σr (sR_state σ))
+      e' (gState_recomp σr (sR_state σ')) n.
   Proof.
     intros.
     revert H H0.
@@ -795,30 +794,25 @@ Module interp (Errors : ExcSig).
     - simpl in H0, H1.
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 0.
       constructor; done.
     - simpl in H0, H1.
       rewrite H0 in H1.
       injection H1 as <- <-.
-      exists 0.
       constructor; done.
     - simpl in H0, H1.
       destruct (split_cont k env) as [f t].
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 0.
       constructor; done.
     - simpl in H0, H1.
       destruct (split_cont k env) as [f t].
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 0.
       constructor; done.
     - simpl in H0, H1.
       destruct (split_cont k env) as [f t].
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 0.
       constructor; done.
     - simpl in H0, H1.
       destruct (split_cont k env) as [f t] eqn:Heq.
@@ -826,7 +820,6 @@ Module interp (Errors : ExcSig).
       { eapply split_cont_left_hom'. apply Heq. }
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 1.
       econstructor.
       + rewrite hom_vis.
         eapply sstep_reify; first done.
@@ -865,7 +858,6 @@ Module interp (Errors : ExcSig).
       { eapply split_cont_left_hom'. apply Heq. }
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 0.
       by constructor.
     - simpl in H0, H1.
       destruct (split_cont k env) as [f t] eqn:Heq.
@@ -873,7 +865,6 @@ Module interp (Errors : ExcSig).
       { eapply split_cont_left_hom'. apply Heq. }
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 0.
       by constructor.
     - simpl in H0, H1.
       destruct (split_cont k env) as [g t] eqn:Heq.
@@ -881,7 +872,6 @@ Module interp (Errors : ExcSig).
       { eapply split_cont_left_hom'. apply Heq. }
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 1.
       econstructor; last (econstructor; reflexivity).
       apply sstep_tick; last done.
       rewrite -hom_tick.
@@ -916,7 +906,6 @@ Module interp (Errors : ExcSig).
       { eapply split_cont_left_hom'. apply Heq. }
      injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 0.
       constructor; last done.
       f_equiv.
       destruct n.
@@ -930,7 +919,6 @@ Module interp (Errors : ExcSig).
       { eapply split_cont_left_hom'. apply Heq. }
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 0.
       constructor; done.
     - simpl in H0, H1.
       destruct (split_cont k env) as [g t] eqn:Heq.
@@ -938,7 +926,6 @@ Module interp (Errors : ExcSig).
       { eapply split_cont_left_hom'. apply Heq. }
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 0.
       constructor; last done.
       f_equiv.
       destruct v1, v2.
@@ -953,7 +940,6 @@ Module interp (Errors : ExcSig).
       { eapply split_cont_left_hom'. apply Heq. }
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 1.
       econstructor; last (constructor; done).
       rewrite get_val_ITV /= get_val_vis.
       eapply sstep_reify; first done.
@@ -961,10 +947,10 @@ Module interp (Errors : ExcSig).
       { rewrite Tick_eq. done. }
       epose proof (@subReifier_reify _ _ _ _ _ _ _ (inr (inl ())) ?[x] (Next _) ?[k] ?[σ] ?[σ'] σr _) as Hry.
       match goal with
-      | |- _ _ _ (_ ?x', (_ _ (_ (_ ?σ2) _)) , ?k1 ◎ (?k2 ◎ _)) ≡ _ =>  instantiate (x := x');
-                                                                        instantiate (k := k1 ◎ k2);
-                                                                        instantiate (σ := σ2)
-                                                                                    
+      | |- _ _ _ (_ ?x', (_ _ (_ (_ ?σ2) _)) , ?k1 ◎ (?k2 ◎ _)) ≡ _ =>
+          instantiate (x := x');
+          instantiate (k := k1 ◎ k2);
+          instantiate (σ := σ2)
       end.
       Unshelve.
       4 : { simpl. destruct (eq_dec err) as [? | ?]; done. }
@@ -993,7 +979,6 @@ Module interp (Errors : ExcSig).
       { eapply split_cont_left_hom'. apply Heq. }
       injection H0 as <- <-.
       injection H1 as <- <-.
-      exists 1.
       econstructor; last by constructor.
       rewrite get_val_ITV hom_vis.
       eapply sstep_reify; first done.
@@ -1038,11 +1023,10 @@ Module interp (Errors : ExcSig).
       
   Qed.
 
-
   (** BOOKMARK **)
   
   (** ** Interpretation of evaluation contexts induces homomorphism *)
-
+(*
   #[local] Instance interp_cont_hom_emp {S} env :
     IT_hom (interp_cont (EmptyIK : cont S) env).
   Proof.
@@ -1254,7 +1238,6 @@ Module interp (Errors : ExcSig).
       rewrite interp_comp.
       reflexivity.
   Qed.
-  *)
 
   Example test1 err : expr ∅ :=
     (try
@@ -1351,8 +1334,8 @@ Module interp (Errors : ExcSig).
          rewrite interp_comp /= get_ret_ret hom_OUTPUT_.
          eauto.
   Qed.
-   
-
+ *) *)
+  (**
   Section Examples.
     Context `{!invGS Σ, !stateG rs R Σ}.
 
@@ -1485,6 +1468,6 @@ Module interp (Errors : ExcSig).
     Qed.
       
   End Examples.
-  
+**)  
 End interp.
 #[global] Opaque INPUT OUTPUT_.
