@@ -3,7 +3,6 @@ From gitrees.effects Require Export callcc.
 From gitrees.examples.input_lang_callcc Require Import lang.
 Require Import Binding.Lib Binding.Set.
 
-(* XXX TODO: this duplicates wp_input and wp_output *)
 Section weakestpre.
   Context {sz : nat}.
   Variable (rs : gReifiers CtxDep sz).

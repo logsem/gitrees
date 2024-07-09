@@ -159,7 +159,6 @@ Section interp.
     λne env, Ret n.
 
   (** ** CONT *)
-  (** XXX DF: why do we need a tick here? Seems to be necessary for soundness *)
   Program Definition interp_cont_val {S} (K : S -n> (IT -n> IT)) : S -n> IT :=
     λne env, (λit x, Tick $ 𝒫 (K env x)).
   Solve All Obligations with solve_proper_please.

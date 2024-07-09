@@ -67,7 +67,6 @@ Section fact.
       iNext. iNext. iIntros "Hacc".
       iApply wp_val. iModIntro.
       simpl. unfold NatOpRSCtx.
-      (* TODO: look at this with amin *)
       iAssert (IT_of_V (E:=F) (RetV m) ≡ (Ret m))%I as "#Hm".
       { iPureIntro. apply (IT_of_V_Ret (B:=R)). }
       iRewrite "Hm".
