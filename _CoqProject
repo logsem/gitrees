@@ -48,6 +48,11 @@ theories/examples/delim_lang/logpred.v
 theories/examples/delim_lang/logrel.v
 theories/examples/delim_lang/glue.v
 
+theories/examples/lang_callcc/lang.v
+theories/examples/lang_callcc/interp.v
+theories/examples/lang_callcc/hom.v
+theories/examples/lang_callcc/logrel.v
+
 theories/examples/input_lang_callcc/lang.v
 theories/examples/input_lang_callcc/interp.v
 theories/examples/input_lang_callcc/hom.v
