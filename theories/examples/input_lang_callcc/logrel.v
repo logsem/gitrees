@@ -9,13 +9,13 @@ Section logrel.
   Context {sz : nat}.
   Variable (rs : gReifiers CtxDep sz).
   Context `{!subReifier reify_cont rs}.
-  Context `{!subReifier (sReifier_NotCtxDep_CtxDep reify_io) rs}.
+  Context `{!subReifier (sReifier_NotCtxDep_min reify_io CtxDep) rs}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F natO).
   Notation ITV := (ITV F natO).
   Context `{!invGS Σ, !stateG rs natO Σ}.
   Notation iProp := (iProp Σ).
-  Notation restO := (gState_rest (@sR_idx _ _ (sReifier_NotCtxDep_CtxDep reify_io)) rs ♯ IT).
+  Notation restO := (gState_rest (@sR_idx _ _ (sReifier_NotCtxDep_min reify_io CtxDep)) rs ♯ IT).
 
   Canonical Structure exprO S := leibnizO (expr S).
   Canonical Structure valO S := leibnizO (val S).
@@ -688,7 +688,7 @@ Proof.
   Transparent RetV. unfold RetV. simpl. done. Opaque RetV.
 Qed.
 Definition rs : gReifiers CtxDep 2 :=
-  gReifiers_cons (sReifier_NotCtxDep_CtxDep reify_io)
+  gReifiers_cons (sReifier_NotCtxDep_min reify_io CtxDep)
     (gReifiers_cons reify_cont gReifiers_nil).
 
 Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ} `{!statePreG rs natO Σ} {S}

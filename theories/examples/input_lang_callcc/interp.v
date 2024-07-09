@@ -7,7 +7,7 @@ Require Import Binding.Lib Binding.Set.
 Section weakestpre.
   Context {sz : nat}.
   Variable (rs : gReifiers CtxDep sz).
-  Context `{!subReifier (sReifier_NotCtxDep_CtxDep reify_io) rs}.
+  Context `{!subReifier (sReifier_NotCtxDep_min reify_io CtxDep) rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
@@ -28,10 +28,10 @@ Section weakestpre.
   Proof.
     iIntros (Hσ) "Hs Ha".
     rewrite hom_INPUT.
-    iApply (wp_subreify_ctx_dep with "Hs").
-    + simpl. rewrite Hσ. simpl. done.
-    + by rewrite ofe_iso_21.
-    + done.
+    iApply (wp_input with "Hs"); first done.
+    iNext.
+    iIntros "Hc Hs".
+    iApply ("Ha" with "Hc Hs").
   Qed.
   Lemma wp_output' (σ σ' : stateO) (n : nat) (κ : IT -n> IT)
      `{!IT_hom κ} Φ s :
@@ -42,10 +42,7 @@ Section weakestpre.
   Proof.
     iIntros (Hσ) "Hs Ha".
     rewrite /OUTPUT hom_OUTPUT_.
-    iApply (wp_subreify_ctx_dep with "Hs").
-    + simpl. by rewrite Hσ.
-    + done.
-    + done.
+    iApply (wp_output_ with "Hs Ha"); first done.
   Qed.
 
 End weakestpre.
@@ -54,7 +51,7 @@ Section interp.
   Context {sz : nat}.
   Variable (rs : gReifiers CtxDep sz).
   Context {subR1 : subReifier reify_cont rs}.
-  Context {subR2 : subReifier (sReifier_NotCtxDep_CtxDep reify_io) rs}.
+  Context {subR2 : subReifier (sReifier_NotCtxDep_min reify_io CtxDep) rs}.
   Context {R} `{CR : !Cofe R}.
   Context `{!SubOfe natO R}.
   Notation F := (gReifiers_ops rs).
@@ -704,7 +701,7 @@ Section interp.
       rewrite reify_vis_eq_ctx_dep //; first last.
       {
         apply (subReifier_reify
-                 (sReifier_NotCtxDep_CtxDep reify_io) rs (inl ())
+                 (sReifier_NotCtxDep_min reify_io CtxDep) rs (inl ())
                  () (Next (interp_ectx K env (Ret n0)))
                  (NextO ◎ (interp_ectx K env ◎ Ret)) σ σ' σr).
         simpl. rewrite H5. reflexivity.
@@ -726,7 +723,7 @@ Section interp.
       {
         simpl.
         pose proof (subReifier_reify
-                 (sReifier_NotCtxDep_CtxDep reify_io) rs (inr (inl ()))
+                 (sReifier_NotCtxDep_min reify_io CtxDep) rs (inr (inl ()))
                  n0 (Next (interp_ectx K env (Ret 0)))
                  (constO (Next (interp_ectx K env ((Ret 0))))) σ (update_output n0 σ) σr) as H.
         simpl in H. erewrite <-H; last reflexivity.
@@ -878,7 +875,7 @@ Section interp.
       match goal with
       | |- context G [(_, _, ?a)] => set (κ := a)
       end.
-      set (gσ := (gState_recomp σr (sR_state (σ2 : sReifier_state (sReifier_NotCtxDep_CtxDep reify_io) ♯ IT)))).
+      set (gσ := (gState_recomp σr (sR_state (σ2 : sReifier_state (sReifier_NotCtxDep_min reify_io CtxDep) ♯ IT)))).
       (* set (gσ := (gState_recomp σr (sR_state σ2))). *)
       set (ss := gState_decomp (@sR_idx _ _ _ _ subR1) gσ).
       pose (s1 := (sR_state^-1 ss.1)). simpl in gσ, s1.

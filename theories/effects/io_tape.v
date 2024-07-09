@@ -102,8 +102,9 @@ End constructors.
 
 Section weakestpre.
   Context {sz : nat}.
-  Variable (rs : gReifiers NotCtxDep sz).
-  Context {subR : subReifier reify_io rs}.
+  Context {a : is_ctx_dep}.
+  Variable (rs : gReifiers a sz).
+  Context {subR : subReifier (sReifier_NotCtxDep_min reify_io a) rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
@@ -120,25 +121,52 @@ Section weakestpre.
   Proof.
     intros Hs. iIntros "Hs Ha".
     unfold INPUT. simpl.
-    iApply (wp_subreify_ctx_indep with "Hs").
-    { simpl. rewrite Hs//=. }
-    { simpl. by rewrite ofe_iso_21. }
-    iModIntro. done.
+    iApply wp_subreify_ctx_indep_lift''.
+    iModIntro.
+    iExists σ, n, σ', (k n).
+    iFrame "Hs".
+    iSplit; first by rewrite -Hs.
+    iSplit; first by (simpl; rewrite ofe_iso_21).
+    iNext.
+    iIntros "Hc Hs !>".
+    iApply ("Ha" with "Hc Hs").
+  Qed.
+
+  Lemma wp_output_ (σ σ' : stateO) (n : nat) α Φ s :
+    update_output n σ = σ' →
+    has_substate σ -∗
+    ▷ (£ 1 -∗ has_substate σ' -∗ WP@{rs} α @ s {{ Φ }}) -∗
+    WP@{rs} (OUTPUT_ n α) @ s {{ Φ }}.
+  Proof.
+    intros Hs. iIntros "Hs Ha".
+    unfold OUTPUT. simpl.
+    iApply wp_subreify_ctx_indep_lift''.
+    iModIntro.
+    iExists σ, (), σ', α.
+    simpl.
+    iFrame "Hs".
+    iSplit; first by rewrite -Hs.
+    iSplit; first done.
+    iNext.
+    iIntros "H1 H2".
+    iModIntro.
+    by iApply ("Ha" with "H1 H2").
   Qed.
 
   Lemma wp_output (σ σ' : stateO) (n : nat) Φ s :
     update_output n σ = σ' →
-    has_substate σ -∗
-    ▷ (£ 1 -∗ has_substate σ' -∗ Φ (RetV 0)) -∗
-    WP@{rs} (OUTPUT n) @ s {{ Φ }}.
+    has_substate σ
+    -∗ ▷ (£ 1 -∗ has_substate σ' -∗ Φ (RetV 0))
+    -∗ WP@{rs} (OUTPUT n) @ s {{ Φ }}.
   Proof.
     intros Hs. iIntros "Hs Ha".
-    unfold OUTPUT. simpl.
-    iApply (wp_subreify_ctx_indep rs with "Hs").
-    { simpl. by rewrite Hs. }
-    { simpl. done. }
-    iModIntro. iIntros "H1 H2".
-    iApply wp_val. by iApply ("Ha" with "H1 H2").
+    unfold OUTPUT. cbn [ofe_mor_car].
+    iApply (wp_output_ with "Hs"); first done.
+    iNext.
+    iIntros "Hc Hs".
+    iApply wp_val.
+    iModIntro.
+    iApply ("Ha" with "Hc Hs").
   Qed.
 
 End weakestpre.

@@ -13,7 +13,7 @@ Section hom.
   Context {CA : Cofe A}.
   Context `{SubOfe natO A}.
   Context `{!subReifier reify_cont rs}.
-  Context `{!subReifier (sReifier_NotCtxDep_CtxDep reify_io) rs}.
+  Context `{!subReifier (sReifier_NotCtxDep_min reify_io CtxDep) rs}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F natO).
   Notation ITV := (ITV F natO).
