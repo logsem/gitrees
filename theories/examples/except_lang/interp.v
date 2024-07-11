@@ -239,8 +239,8 @@ Module interp (Errors : ExcSig).
     f_equiv.
     intros [];
       simpl; done.
-    Qed.
-  
+  Qed.
+
   Program Fixpoint split_cont {S} (K : cont S) : interp_scope S → ((IT -n> IT) * (listO (excO * (laterO IT -n> laterO IT) * (laterO IT -n> laterO IT) )))%type :=
     λ env, 
     match K with
@@ -1020,12 +1020,33 @@ Module interp (Errors : ExcSig).
         Unshelve.
         intros n [].
       }
-      
+    - simpl in H0, H1.
+      rewrite H0 in H1.
+      injection H1 as <- <-.
+      constructor; done.
   Qed.
 
+ Theorem stuck {S} : ∀ c c' e σr σ n (env : interp_scope S),
+    interp_config c env = (e, σ) → 
+    (∀ m e' σ', m > 0 → ¬ (ssteps (gReifiers_sReifier rs)
+      e (gState_recomp σr (sR_state σ))
+      e' (gState_recomp σr (sR_state σ')) m)) →
+      c ===> c' / n →
+      n = 0.
+   intros c c' e σr σ n env Hc Hst Hred.
+   destruct n; first done.
+   exfalso.
+   destruct (interp_config c' env) as (e', σ') eqn:Hc'.
+   eapply (soundness _ _ _ _ σr _ _ _ _ Hc Hc') in Hred.
+   specialize (Hst (Datatypes.S n) e' σ').
+   apply Hst; first lia.
+   apply Hred.
+ Qed.
+
   (** BOOKMARK **)
-  
   (** ** Interpretation of evaluation contexts induces homomorphism *)
+
+   
 (*
   #[local] Instance interp_cont_hom_emp {S} env :
     IT_hom (interp_cont (EmptyIK : cont S) env).
@@ -1333,8 +1354,7 @@ Module interp (Errors : ExcSig).
          Opaque OUTPUT_.
          rewrite interp_comp /= get_ret_ret hom_OUTPUT_.
          eauto.
-  Qed.
- *) *)
+  Qed. *) 
   (**
   Section Examples.
     Context `{!invGS Σ, !stateG rs R Σ}.
@@ -1468,6 +1488,6 @@ Module interp (Errors : ExcSig).
     Qed.
       
   End Examples.
-**)  
+**) *)  
 End interp.
 #[global] Opaque INPUT OUTPUT_.

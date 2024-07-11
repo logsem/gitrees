@@ -37,6 +37,7 @@ Module Lang (Errors : ExcSig).
   Arguments val X%bind : clear implicits.
   Arguments expr X%bind : clear implicits.
   Arguments cont X%bind : clear implicits.
+
   
   Local Open Scope bind_scope.
   
@@ -304,7 +305,7 @@ Fixpoint cont_compose {S} (K1 K2 : cont S) : cont S
      | CatchK err h K => CatchK err h (cont_compose K1 K)
      end.
 
-Fixpoint unwind {S : Set} (err : exc) (k : cont S) :=
+  Fixpoint unwind {S : Set} (err : exc) (k : cont S) :=
   match k with
   | END => None
   | IfK _ _ K' => unwind err K'
@@ -522,6 +523,20 @@ Proof.
          specialize (HNC (CatchK err0 h0 K3)).
          by eapply HNC.
 Qed.
+
+Lemma unwind_decompose_weak {S} :
+  ∀ (K K1 K2 : cont S) err h, K = cont_compose (CatchK err h K1) K2 →
+                              ∃ h' K3, unwind err K = Some (h', K3).
+  Proof.
+    intros K K1 K2.
+    revert K1.
+    induction K2; intros K1 err0 h0 ->; try (simpl; by eapply IHK2).
+    - simpl. destruct (eq_dec err0 err0); last done.
+      by eexists _,_.
+    - simpl. destruct (eq_dec err0 err).
+      + by eexists _,_.
+      + by eapply IHK2.
+  Qed.
       
 Variant config {S : Set} : Type :=
   | Cexpr : expr S → config
@@ -552,7 +567,8 @@ Variant Cred {S : Set} : config → config → nat → Prop :=
                           Ccont (NatOpLK op v2 k) v1 ===> Ceval (Val v3) k / 0
   | Ccatchk err h v k : Ccont (CatchK err h k) v ===> Ceval (Val v) k / 1
   | Cthrowk err h v k k' : unwind err k = Some (h,k') → 
-    Ccont (ThrowK err k) v ===> Ceval (subst (Inc := inc) h (Val v)) k' / 1
+                           Ccont (ThrowK err k) v ===> Ceval (subst (Inc := inc) h (Val v)) k' / 1
+  | Cend v : Ccont END v ===> Cret v / 0
 
 where "c ===> c' / n" := (Cred c c' n).
 
