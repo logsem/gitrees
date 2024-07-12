@@ -3,7 +3,6 @@ From gitrees.examples.except_lang Require Import lang.
 Require Import Binding.Lib Binding.Set Binding.Env.
 Require Import Coq.Program.Equality.
 
-
 Module Typing (Errors : ExcSig).
   Module _LANG := Lang Errors.
   Import _LANG.
@@ -14,7 +13,6 @@ Module Typing (Errors : ExcSig).
   | Bnat : bty
   | Barr : bty → bty → bty
   .
-
 
   (** Types indicating possible errors raised **)
   Inductive pty : Type :=
@@ -169,14 +167,9 @@ Module Typing (Errors : ExcSig).
   | typed_Lit Γ E v : (Γ ⊢ᵥ (LitV v) : ℕ ⇑ E)
                         
   | typed_Rec Γ E f σ τ α :
-    (σ ⟶ τ) ≲ α→
+    (σ ⟶ τ) ≲ α →
     (Γ ▹ (σ ⟶ τ) ▹ σ ⊢ₑ f : τ) →
     (Γ ⊢ᵥ (RecV f) : α ⇑ E)
-      
- (* | typed_wk Γ τ1 τ2 e :
-      τ1 ⪍ τ2 →
-      (Γ ⊢ₑ e : τ1) →
-      (Γ ⊢ₑ e : τ2) *)
       
   | typed_App E E1 E2 E3 Γ f v σ τ :
     (E1 ⊍ E2 ⊍ E3) ⪯ E →
@@ -211,8 +204,8 @@ Module Typing (Errors : ExcSig).
     (Γ ⊢ₑ Catch err v h : τ ⇑ E)
       
   where "Γ ⊢ₑ e : τ" := (typed Γ e τ)
-  and "Γ ⊢ᵥ v : τ"  := (Γ ⊢ₑ (Val v) : τ).
-  Print cont.
+                          and "Γ ⊢ᵥ v : τ"  := (Γ ⊢ₑ (Val v) : τ).
+  
   Reserved Notation "Γ '⊢ₖ' K ':' σ ⇒ τ"
     (at level 70
      , K at level 60
@@ -223,12 +216,6 @@ Module Typing (Errors : ExcSig).
 
   
   Inductive typ_cont {S : Set} : (S → pty) → cont S → ty → ty → Prop :=
-  (* | typed_Err_Wk E1 E2 E3 Γ e σ τ : E1 ⪯ E2 →
-                                  (Γ ; E1 ⊢ₖ e : σ ; E3 ⇒ τ) →
-                                  (Γ ; E2 ⊢ₖ e : σ ; E3 ⇒ τ) 
-  | typed_Err_St E1 E2 E3 Γ e σ τ :  E3 ⪯ E2 →
-                                  (Γ ; E1 ⊢ₖ e : σ ; E2 ⇒ τ) →
-                                  (Γ ; E1 ⊢ₖ e : σ ; E3 ⇒ τ) *)
   | typed_END Γ τ1 τ2 : τ1 ⪍ τ2 →
                         (Γ ⊢ₖ END : τ1 ⇒ τ2)
   | typed_IfK Γ e₁ e₂ K E1 E2 E3 E4 τ σ :
@@ -305,8 +292,6 @@ Module Typing (Errors : ExcSig).
       1, 2 : done.
       simpl.
       apply Hag.
-   (* + econstructor; try done.
-      by apply IHHty. *)
     + eapply typed_App.
       * eauto.
       * by apply IHHty1.
@@ -342,12 +327,6 @@ Module Typing (Errors : ExcSig).
     + constructor. by eapply le_pty_trans.
     + inversion H2. by constructor.
     + econstructor; first by eapply le_pty_trans. done.
-   (*   intros [|[|]].
-        1, 2 : done.
-        simpl.
-        apply Hag.
-        + econstruct or; try done.
-        by apply IHHty. *)
     + eapply typed_App.
       * eauto.
       * apply IHHty1.
@@ -379,7 +358,6 @@ Module Typing (Errors : ExcSig).
         constructor; last apply le_set_refl.
         done.
    Qed.
-(*
    
  Lemma weakening_sub {S: Set} :
     ∀ (Γ : S → pty) (Δ : S → pty) (e : expr S) τ,
@@ -391,87 +369,34 @@ Module Typing (Errors : ExcSig).
     induction Hty; intros.
     + constructor. eapply le_pty_trans; done.
     + by constructor.
-    + constructor. apply IHHty.
+    + econstructor; first done.
+      apply IHHty.
       intros [|[|]].
       1, 2 : term_simpl; apply le_pty_refl.
       simpl.
       apply Hag.
-    + econstructor; try done.
-      by apply IHHty.
-    + eapply typed_App.
+    + econstructor; first done.
       * by apply IHHty1.
       * by apply IHHty2.
-    + constructor.
+    + econstructor; first done.
       * by apply IHHty1.
       * by apply IHHty2.
-    + constructor.
+    + econstructor; first done.
       * by apply IHHty1.
       * by apply IHHty2.
       * by apply IHHty3.
     + eapply typed_Throw; try done.
       by apply IHHty.
-    + econstructor; first done.
+    + econstructor; try done.
       * apply IHHty1.
         intros [|].
         { term_simpl. apply le_pty_refl. }
         simpl. apply Hag.
       * by apply IHHty2.
    Qed.
-   *)
-  (*
-   Lemma weakening_errors {S} : ∀ Γ τ1 τ2 (e : expr S),
-    (Γ ⊢ₑ e : τ1) →
-    τ1 ⪍ τ2 →
-    (Γ ⊢ₑ e : τ2).
-  Proof.
-    intros. by eapply typed_wk.
-    revert S.
-    fix IHHty 7.
-    intros S Γ [τ1 E1] [τ2 E2] e Hty Hle.
-    inversion Hty; subst.
-    - constructor. inversion Hle. subst. by eapply le_pty_trans.
-    - inversion Hle. subst. inversion H2. subst. constructor.
-    - inversion Hle. subst. inversion H3. subst.
-      { done.
-      constructor.
-      eapply IHHty; last done.
-      eapply weakening_sub; first done.
-        intros [|[|]].
-        { done. }
-        { constructor. 
-
-    
-    intros Γ [τ1 E1] τ2 e Hty.
-    revert τ2.
-    induction Hty; intros [τ2 E2] Hτ.
-    - inversion Hτ. subst. constructor.
-    inversion Hty; subst.
-    - by constructor.
-    - by constructor.
-    - by constructor. 
-    - econstructor.
-      { inversion H3; subst.
-        + constructor.
-        
-      } (** eapply IHHty; last done. } **)
-      { by eapply IHHty. }
-    - constructor.
-      { by eapply IHHty. }
-      { by eapply IHHty. }
-    - constructor.
-      { by eapply IHHty. }
-      { by eapply IHHty. }
-      { by eapply IHHty. }
-    - econstructor; first done.
-      { by apply HE. }
-      by eapply IHHty.
-    - econstructor; first done.
-      { by eapply IHHty. }
-      { eapply IHHty; first done. intros x [|]; auto. }
-  Qed. 
-       *)
-  Lemma substitution_lemma {S : Set}:
-    ∀ (e : expr S) (E : exc → Prop) T Γ Δ (γ : S [⇒] T) τ, (Γ ⊢ₑ e : τ ⇑ E)
+   
+   Lemma substitution_lemma {S : Set}:
+     ∀ (e : expr S) (E : exc → Prop) T Γ Δ (γ : S [⇒] T) τ, (Γ ⊢ₑ e : τ ⇑ E)
                             → (∀ (x : S), Δ ⊢ₑ γ x : Γ x ⇑ ⋆)
                             → ( Δ  ⊢ₑ bind γ e : τ ⇑ E).
   Proof.
@@ -491,7 +416,7 @@ Module Typing (Errors : ExcSig).
           { constructor. apply le_pty_refl. }
           term_simpl.
           eapply (weakening (Δ ▹ σ ⟶ τ0)).
-          { eapply weakening; done.}
+          { eapply weakening; done. }
           done.
       + term_simpl.
         econstructor; first done.
@@ -517,7 +442,6 @@ Module Typing (Errors : ExcSig).
           { term_simpl. eapply weakening; last done. apply H1. }
         * by apply IHHty2.
   Qed.
-
   
   Lemma weakening_cont {S T : Set} :
     ∀ (Γ : S → pty) (Δ : T → pty) (δ : S [→] T) (K : cont S) σ τ,
@@ -755,52 +679,16 @@ Module Typing (Errors : ExcSig).
     intros K K1 K2 Γ σ τ HK.
     revert K1 K2.
     induction HK; intros K1 K2 Heq.
-    - destruct K1, K2 ; try discriminate.
-      eexists. split; econstructor; try done. apply le_ty_refl.
-    - destruct K2; try discriminate.
-      + simpl in Heq. subst.
-        eexists. split; econstructor; try done. apply le_ty_refl. 
-      + injection Heq. intros. subst.
-        destruct (IHHK K1 K2 eq_refl) as (α &  HK1 & HK2).
-        eexists. split; first done. by econstructor.
-    - destruct K2; try discriminate.
-      + simpl in Heq. subst.
-        eexists. split; econstructor; try done. apply le_ty_refl.
-      + injection Heq. intros. subst.
-        destruct (IHHK K1 K2 eq_refl) as (α0 & HK1 & HK2).
-        eexists. split; first done. by econstructor.
-    - destruct K2; try discriminate.
-      + simpl in Heq. subst.
-        eexists. split; econstructor; try done. apply le_ty_refl.
-      + injection Heq. intros. subst.
-        destruct (IHHK K1 K2 eq_refl) as (α0 & HK1 & HK2).
-        eexists. split; first done. by econstructor.
-    - destruct K2; try discriminate.
-      + simpl in Heq. subst.
-        eexists. split; econstructor; try done. apply le_ty_refl.
-      + injection Heq. intros. subst.
-        destruct (IHHK K1 K2 eq_refl) as (α & HK1 & HK2).
-        eexists. split; first done. by econstructor.
-    - destruct K2; try discriminate.
-      + simpl in Heq. subst.
-        eexists. split; econstructor; try done. apply le_ty_refl.
-      + injection Heq. intros. subst.
-        destruct (IHHK K1 K2 eq_refl) as (α & HK1 & HK2).
-        eexists. split; first done. by econstructor.
-    - destruct K2; try discriminate.
-      + simpl in Heq. subst.
-        eexists. split; econstructor; try done. apply le_ty_refl.
-      + injection Heq. intros. subst.
-        destruct (IHHK K1 K2 eq_refl) as (α0 & HK1 & HK2).
-        eexists. split; first done. by econstructor.
-    - destruct K2; try discriminate.
-      + simpl in Heq. subst.
-        eexists. split; econstructor; try done. apply le_ty_refl.
-      + injection Heq. intros. subst.
-        destruct (IHHK K1 K2 eq_refl) as (α0 & HK1 & HK2).
-        eexists. split; first done. by econstructor.
+    { destruct K1, K2 ; try discriminate.
+      eexists. split; econstructor; try done. apply le_ty_refl. }
+    all: destruct K2; try discriminate; [
+        simpl in Heq; subst;
+        eexists; split; econstructor; try done; apply le_ty_refl
+      | injection Heq; intros; subst;
+        destruct (IHHK K1 K2 eq_refl) as (α0 &  HK1 & HK2);
+        eexists; split; first done; by econstructor].
   Qed.
-
+  
   Lemma less_errors_catch {S} :
     ∀ (K : cont S) Γ σ τ E1 E2 err,
     (Γ ⊢ₖ K : (σ ⇑ E1) ⇒ (τ ⇑ E2)) →
@@ -808,27 +696,21 @@ Module Typing (Errors : ExcSig).
     ∃ K1 K2 h, K = cont_compose (CatchK err h K1) K2.
   Proof.
     intros K.
-    induction K; intros Γ σ τ E1 E2 err0 Hty [HE1 HE2]; inversion Hty; subst.
-    - contradict HE2. inversion H. subst. eauto.
-    - apply (IHK _ _ _ _ _ err0) in H9 as (K1 & K2 & h & ->); last eauto.
-      by exists K1, (IfK e₁ e₂ K2), h.
-    - apply (IHK _ _ _ _ _ err0) in H7 as (K1 & K2 & h & ->); last eauto.
-      by exists K1, (AppLK v K2), h.
-    - apply (IHK _ _ _ _ _ err0) in H7 as (K1 & K2 & h & ->); last eauto.
-      by exists K1, (AppRK e K2), h.
-    - apply (IHK _ _ _ _ _ err0) in H8 as (K1 & K2 & h & ->); last eauto.
-      by exists K1, (NatOpLK op v K2), h.
-    - apply (IHK _ _ _ _ _ err0) in H8 as (K1 & K2 & h & ->); last eauto.
-      by exists K1, (NatOpRK op e K2), h.
-    - apply (IHK _ _ _ _ _ err0) in H7 as (K1 & K2 & h & ->); last eauto.
-      by exists K1, (ThrowK err K2), h.
+    induction K; intros Γ σ τ E1 E2 err0 Hty [HE1 HE2]; inversion Hty; subst;
+      match goal with
+      | H : (Γ ⊢ₖ K : _ ⇒ _) |- ∃ _ _ _, (?C _) = _ =>
+          apply (IHK _ _ _ _ _ err0) in H as (K1 & K2 & h & ->);
+          [by exists K1, (C K2), h | eauto]
+      | _ => idtac
+      end.
+    - inversion H. subst. contradict HE2. eauto.
     - destruct (eq_dec err err0) as [-> | Hdiff].
       + by exists K, END, h.
       + apply (IHK _ _ _ _ _ err0) in H10 as (K1 & K2 & h0 & ->); last eauto.
         by exists K1, (CatchK err h K2), h0.
     Qed.
   
-  Lemma preservation {S} :
+  Lemma preservation_wk {S} :
     ∀ Γ τ1 (c c' : @config S) n,
     (Γ ⊢ᵢ c : τ1) →
     c ===> c' / n → 
@@ -924,6 +806,17 @@ Module Typing (Errors : ExcSig).
       + eapply le_ty_refl.
   Qed.
 
+ Lemma preservation {S} :
+    ∀ Γ τ1 (c c' : @config S) n,
+    (Γ ⊢ᵢ c : τ1) →
+    c ===> c' / n → 
+    (Γ ⊢ᵢ c' : τ1).
+  Proof.
+    intros.
+    apply (preservation_wk _ _ _ _ _ H) in H0 as (? & ? & ?).
+    destruct c'; by eapply weakening_error.
+  Qed. 
+  
   Lemma progress : ∀ (c : config) τ, (□ ⊢ᵢ c : τ ⇑ ⋆) → (∃ (v : val ∅), c = Cret v)  ∨ (∃ c' n, c ===> c' / n).
   Proof.
     intros c τ Hty.
@@ -947,7 +840,6 @@ Module Typing (Errors : ExcSig).
       2 : by inversion Hty.
       all : eexists _,_ ; try constructor.
     - left. eexists. done.
-  Qed. 
-      
-     
-    
+  Qed.
+
+End Typing.
