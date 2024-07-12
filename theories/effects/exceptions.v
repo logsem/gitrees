@@ -3,7 +3,8 @@ From iris.algebra Require Import list.
 
 Module Type ExcSig.
   Parameter E : Set.
-  Parameter eq_dec_E : ∀ (x y : E), {x = y} + {x <> y}.
+  Parameter eq_dec_E : EqDecision E.
+  Parameter countable_E : @Countable E eq_dec_E.
 End ExcSig.
 
 Module Exc (Errors : ExcSig).
@@ -11,11 +12,27 @@ Module Exc (Errors : ExcSig).
 
   Structure exc := Exc { value : E }.
   
-  Theorem eq_dec : ∀ (x y : exc), {x = y} + {x <> y}.
+  #[global] Instance eq_dec : EqDecision exc.
     intros [x] [y].
     destruct (eq_dec_E x y) as [<-|HDiff].
     - left. reflexivity.
     - right. intros Heq. injection Heq as <-. apply HDiff. reflexivity.
+  Defined.
+
+  #[global] Instance countable_exc : Countable exc.
+  Proof.
+    refine (Build_Countable _ _ ?[encode] ?[decode] _).
+    [encode] : { intros [e].
+                 exact ((@encode _ _ countable_E) e).
+    }
+    [decode] : { intros p.
+                 destruct ((@decode _ _ countable_E) p) as [e|].
+                 - exact (Some (Exc e)).
+                 - exact None.
+    }
+    intros [e].
+    simpl.
+    by rewrite (@decode_encode _ _ countable_E).
   Defined.
   
   Canonical Structure excO := leibnizO exc.
