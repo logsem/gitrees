@@ -50,17 +50,17 @@ Section logrel.
   Definition logrel_nat : ITV -n> iProp := λne x, logrel_nat' x.
 
   Definition obs_ref'
-    (t : IT) (κ : HOM) (σ : stateF ♯ IT)
+    (t : IT)
     : iProp :=
-    (has_substate σ -∗ WP (𝒫 (`κ t)) {{ βv, has_substate [] }})%I.
-  Local Instance obs_ref_ne : NonExpansive3 obs_ref'.
+    (WP t {{ βv, logrel_nat βv ∗ has_substate [] }})%I.
+  Local Instance obs_ref_ne : NonExpansive obs_ref'.
   Proof. solve_proper. Qed.
-  Program Definition obs_ref : IT -n> HOM -n> (stateF ♯ IT) -n> iProp :=
-    λne x y z, obs_ref' x y z.
+  Program Definition obs_ref : IT -n> iProp :=
+    λne x, obs_ref' x.
   Solve All Obligations with solve_proper.
 
   Definition logrel_mcont' (P : ITV -n> iProp) (F : stateF ♯ IT) :=
-    (∀ αv, P αv -∗ obs_ref (IT_of_V αv) HOM_id F)%I.
+    (∀ αv, P αv -∗ has_substate F -∗ obs_ref (𝒫 (IT_of_V αv)))%I.
   Local Instance logrel_mcont_ne : NonExpansive2 logrel_mcont'.
   Proof. solve_proper. Qed.
   Program Definition logrel_mcont : (ITV -n> iProp) -n> (stateF ♯ IT) -n> iProp
@@ -70,7 +70,7 @@ Section logrel.
   Program Definition logrel_ectx'
     (Pτ Pα : ITV -n> iProp) (κ : HOM)
     : iProp :=
-    (□ ∀ αv, Pτ αv -∗ ∀ σ, logrel_mcont Pα σ -∗ obs_ref (IT_of_V αv) κ σ)%I.
+    (□ ∀ αv, Pτ αv -∗ ∀ F, logrel_mcont Pα F -∗ has_substate F -∗ obs_ref (𝒫 (`κ (IT_of_V αv))))%I.
   Local Instance logrel_ectx_ne : NonExpansive3 logrel_ectx'.
   Proof. solve_proper. Qed.
   Program Definition logrel_ectx
@@ -94,7 +94,7 @@ Section logrel.
               ∧ □ ∀ (βv : ITV),
           Pτ βv -∗ ∀ (κ : HOM),
           logrel_ectx Pσ Pα κ -∗ ∀ σ,
-          logrel_mcont Pβ σ -∗ obs_ref (APP' (Fun f') (IT_of_V βv)) κ σ)%I.
+          logrel_mcont Pβ σ -∗ has_substate σ -∗ obs_ref (𝒫 (`κ (APP' (Fun f') (IT_of_V βv)))))%I.
   Local Instance logrel_arr_ne
     : (∀ n, Proper (dist n
                       ==> dist n
@@ -132,16 +132,21 @@ Section logrel.
   Program Definition logrel_expr (τ α δ : ITV -n> iProp) : IT -n> iProp
     := λne e, (∀ E, logrel_ectx τ α E
                     -∗ ∀ F, logrel_mcont δ F
-                            -∗ obs_ref e E F)%I.
+                            -∗ has_substate F
+                            -∗ obs_ref (𝒫 (`E e)))%I.
   Solve All Obligations with solve_proper.
 
   Definition logrel (τ α β : ty) : IT -n> iProp
     := logrel_expr (interp_ty τ) (interp_ty α) (interp_ty β).
 
+  Program Definition logrel_pure (τ : ty) : IT -n> iProp
+    := λne e, (∀ Φ, logrel_expr (interp_ty τ) Φ Φ e)%I.
+  Solve All Obligations with solve_proper.
+
   Program Definition ssubst_valid {S : Set}
     (Γ : S -> ty)
     (ss : interp_scope S) : iProp :=
-    (∀ x τ, □ logrel (Γ x) τ τ (ss x))%I.
+    (∀ x, □ logrel_pure (Γ x) (ss x))%I.
 
   Program Definition valid {S : Set}
     (Γ : S -> ty)
@@ -149,6 +154,13 @@ Section logrel.
     (τ α σ : ty) : iProp :=
     (□ ∀ γ, ssubst_valid Γ γ
           -∗ logrel τ α σ (e γ))%I.
+
+  Program Definition valid_pure {S : Set}
+    (Γ : S -> ty)
+    (e : interp_scope S -n> IT)
+    (τ : ty) : iProp :=
+    (□ ∀ γ, ssubst_valid Γ γ
+          -∗ logrel_pure τ (e γ))%I.
 
   Lemma compat_HOM_id P :
     ⊢ logrel_ectx P P HOM_id.
@@ -160,58 +172,66 @@ Section logrel.
     iApply ("Hσ" with "Pv HH").
   Qed.
 
-  Lemma logrel_of_val τ α v :
-    interp_ty α v -∗ logrel α τ τ (IT_of_V v).
+  Lemma logrel_of_val α v :
+    interp_ty α v -∗ logrel_pure α (IT_of_V v).
   Proof.
     iIntros "#H".
-    iIntros (κ) "Hκ".
-    iIntros (σ) "Hσ Hown".
-    iApply ("Hκ" with "H Hσ Hown").
+    iIntros (Φ κ) "#Hκ".
+    iIntros (σ) "Hst HH".
+    iSpecialize ("Hκ" $! v with "H").
+    iApply ("Hκ" with "Hst HH").
+  Qed.
+
+  Lemma compat_pure {S : Set} (Γ : S -> ty) e τ α :
+    ⊢ valid_pure Γ e τ
+      -∗ valid Γ e τ α α.
+  Proof.
+    iIntros "#H".
+    iModIntro.
+    iIntros (γ) "#Hγ".
+    iIntros (κ) "#Hκ".
+    iIntros (σ) "Hm Hst".
+    iSpecialize ("H" with "Hγ").
+    iApply ("H" with "[$Hκ] [$Hm] [$Hst]").
   Qed.
 
   Lemma compat_var {S : Set} (Γ : S -> ty) (x : S) :
-    ⊢ (∀ α, valid Γ (interp_var x) (Γ x) α α).
+    ⊢ (valid_pure Γ (interp_var x) (Γ x)).
   Proof.
-    iIntros (α).
     iModIntro.
     iIntros (γ) "#Hss".
-    iIntros (E) "HE".
-    iIntros (F) "HF".
-    iIntros "Hσ".
-    iApply ("Hss" with "HE HF Hσ").
+    iIntros (κ Ψ) "#Hκ".
+    iIntros (σ) "Hm Hst".
+    iApply ("Hss" with "[$Hκ] [$Hm] [$Hst]").
   Qed.
 
   Lemma compat_reset {S : Set} (Γ : S -> ty) e σ τ :
-    ⊢ valid Γ e σ σ τ -∗ (∀ α, valid Γ (interp_reset rs e) τ α α).
+    ⊢ valid Γ e σ σ τ -∗ (valid_pure Γ (interp_reset rs e) τ).
   Proof.
     iIntros "#H".
-    iIntros (α).
     iModIntro.
     iIntros (γ) "Hγ".
-    iIntros (κ) "Hκ".
+    iIntros (Ψ κ) "Hκ".
     iIntros (m) "Hm Hst".
     assert (𝒫 ((`κ) (interp_reset rs e γ))
               ≡ (𝒫 ◎ `κ) (interp_reset rs e γ)) as ->.
     { reflexivity. }
     iApply (wp_reset with "Hst").
-    iNext.
-    iIntros "_ Hst".
+    iIntros "!> _ Hst".
     iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! HOM_id (compat_HOM_id _) (laterO_map (𝒫 ◎ `κ) :: m)).
+    iSpecialize ("H" $! HOM_id (compat_HOM_id _)).
     iAssert (logrel_mcont (interp_ty τ) (laterO_map (𝒫 ◎ `κ) :: m))
-      with "[Hm Hκ]" as "Hm".
+      with "[Hκ Hm]" as "Hm'".
     {
-      iIntros (v) "Hv Hst".
-      iApply (wp_pop_cons with "Hst").
+      iIntros (v) "Hv GG".
+      iApply (wp_pop_cons with "GG").
       iNext.
       iIntros "_ Hst".
       iSpecialize ("Hκ" $! v with "Hv").
-      iSpecialize ("Hκ" $! m with "Hm").
-      iSpecialize ("Hκ" with "Hst").
-      iApply "Hκ".
+      iApply ("Hκ" with "Hm Hst").
     }
-    iSpecialize ("H" with "Hm Hst").
-    iApply "H".
+    iSpecialize ("H" with "Hm'").
+    iApply ("H" with "Hst").
   Qed.
 
   Lemma compat_shift {S : Set} (Γ : S -> ty) e σ α τ β :
@@ -240,13 +260,14 @@ Section logrel.
       - iModIntro.
         subst γ'.
         iIntros (E) "HE".
-        iIntros (F) "HF Hst".
+        iIntros (F) "Hm Hst".
         simpl.
         match goal with
         | |- context G [ofe_mor_car _ _ (`E) (ofe_mor_car _ _ Fun ?a)] =>
             set (f := a)
         end.
-        iApply ("HE" $! (FunV f) with "[Hκ] HF Hst").
+        iApply ("HE" $! (FunV f) with "[] Hm Hst").
+        simpl.
         iExists κ.
         iSplit.
         + subst f; iPureIntro.
@@ -256,11 +277,11 @@ Section logrel.
     }
     iSpecialize ("H" $! γ' with "Hγ'").
     iSpecialize ("H" $! HOM_id (compat_HOM_id _) m with "Hm Hst").
-    iApply "H".
+    by iApply "H".
   Qed.
 
-  Lemma compat_nat {S : Set} (Γ : S → ty) n α :
-    ⊢ valid Γ (interp_nat rs n) Tnat α α.
+  Lemma compat_nat {S : Set} (Γ : S → ty) n :
+    ⊢ valid_pure Γ (interp_nat rs n) Tnat.
   Proof.
     iModIntro.
     iIntros (γ) "#Hγ".
@@ -273,10 +294,9 @@ Section logrel.
   Lemma compat_recV {S : Set} (Γ : S -> ty)
     τ1 α τ2 β e :
     ⊢ valid ((Γ ▹ (Tarr τ1 α τ2 β) ▹ τ1)) e τ2 α β
-      -∗ (∀ θ, valid Γ (interp_rec rs e) (Tarr τ1 α τ2 β) θ θ).
+      -∗ (valid_pure Γ (interp_rec rs e) (Tarr τ1 α τ2 β)).
   Proof.
     iIntros "#H".
-    iIntros (θ).
     iModIntro.
     iIntros (γ) "#Hγ".
     set (f := (ir_unf rs e γ)).
@@ -298,6 +318,7 @@ Section logrel.
     rewrite /logrel.
     Opaque extend_scope.
     simpl.
+    unfold obs_ref'.
     rewrite hom_tick.
     rewrite hom_tick.
     iApply wp_tick.
@@ -305,11 +326,12 @@ Section logrel.
     iSpecialize ("H" $! γ' with "[Hw]").
     {
       iIntros (x).
-      destruct x as [| [| x]]; iIntros (ξ); iModIntro.
+      destruct x as [| [| x]]; iModIntro.
       * iApply logrel_of_val.
         iApply "Hw".
-      * iIntros (κ') "Hκ'".
-        iIntros (σ') "Hσ' Hst".
+      * iIntros (ξ).
+        iIntros (κ') "Hκ'".
+        iIntros (F) "Hst KK".
         Transparent extend_scope.
         simpl.
         iRewrite "Hf".
@@ -323,7 +345,7 @@ Section logrel.
           iIntros (σ'') "Hσ'' Hst".
           iApply ("IH" $! βv with "Hβv Hκ'' Hσ'' Hst").
         }
-        iApply ("Hκ'" $! σ' with "Hσ' Hst").
+        iApply ("Hκ'" with "Hst KK").
       * iApply "Hγ".
     }
     subst γ'.
@@ -373,7 +395,7 @@ Section logrel.
     iIntros (v).
     iModIntro.
     iIntros "#Hv".
-    iIntros (m'') "Hm Hst".
+    iIntros (m'' ) "Hm Hst".
     subst sss.
     subst κ'.
     simpl.
@@ -387,13 +409,11 @@ Section logrel.
       reflexivity.
     }
     iSpecialize ("Hκ" $! m'' with "Hm Hst").
-    rewrite IT_of_V_Ret.
-
     iAssert ((NATOP (do_natop op) (IT_of_V v) (IT_of_V w))
                ≡ (Ret (do_natop op n' n)))%I as "#HEQ".
     {
+      rewrite <-NATOP_Ret.
       iRewrite "HEQ1".
-      rewrite IT_of_V_Ret.
       iAssert ((IT_of_V v) ≡ IT_of_V (RetV n'))%I as "#HEQ2'".
       {
         iApply f_equivI.
@@ -408,8 +428,7 @@ Section logrel.
         { solve_proper. }
         iApply "HEQ2'".
       }
-      iRewrite "HEQ2''".
-      rewrite NATOP_Ret.
+      iRewrite - "HEQ2''".
       done.
     }
     iRewrite "HEQ".
@@ -454,9 +473,10 @@ Section logrel.
     subst sss.
     subst κ'.
     simpl.
+    unfold obs_ref'.
     rewrite LET_Val.
     cbn [ofe_mor_car].
-
+    iClear "H".
     match goal with
     | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
         set (F := b)
@@ -469,7 +489,7 @@ Section logrel.
     { reflexivity. }
     iSpecialize ("G" $! γ with "Hγ").
     iSpecialize ("G" $! sss).
-    iApply ("G" with "[H] Hm Hst").
+    iApply ("G" with "[Hκ] Hm Hst").
     iIntros (v).
     iModIntro.
     iIntros "#Hv".
@@ -477,6 +497,7 @@ Section logrel.
     subst sss.
     subst κ''.
     simpl.
+    unfold obs_ref'.
     rewrite LET_Val.
     subst F.
     cbn [ofe_mor_car].
@@ -527,9 +548,10 @@ Section logrel.
     subst κ'.
     Opaque interp_app_cont.
     simpl.
-
+    iClear "G".
     pose (κ'' := (AppContLSCtx_HOM (IT_of_V w) γ _)).
     set (F := (`κ) _).
+    unfold obs_ref'.
     assert (F ≡ (((`κ) ◎ (`κ'')) (e1 γ))) as ->.
     {
       subst F. simpl. Transparent interp_app_cont. simpl.
@@ -554,8 +576,9 @@ Section logrel.
     subst κ''.
     Opaque APP_CONT.
     simpl.
-
-    rewrite get_val_ITV.
+    unfold obs_ref'.
+    iClear "H".
+    rewrite get_val_ITV'.
     simpl.
 
     iDestruct "Hv" as "(%n' & #HEQ & #Hv)".
@@ -631,14 +654,16 @@ Section logrel.
     simpl.
     unfold IFSCtx.
     destruct (decide (0 < n)) as [H|H].
-    - rewrite IF_True//.
+    - unfold obs_ref'.
+      rewrite IF_True//.
       iApply ("G" $! γ with "Henv [Hκ] Hm Hst").
       iIntros (w).
       iModIntro.
       iIntros "#Hw".
       iIntros (σ''') "Hm Hst".
       iApply ("Hκ" with "Hw Hm Hst").
-    - rewrite IF_False//; last lia.
+    - unfold obs_ref'.
+      rewrite IF_False//; last lia.
       iApply ("J" $! γ with "Henv [Hκ] Hm Hst").
       iIntros (w).
       iModIntro.
@@ -652,12 +677,15 @@ Section logrel.
   Lemma fundamental_expr {S : Set} (Γ : S -> ty) τ α β e :
     Γ; α ⊢ₑ e : τ; β → ⊢ valid Γ (interp_expr rs e) τ α β
   with fundamental_val {S : Set} (Γ : S -> ty) τ α β v :
-    Γ; α ⊢ᵥ v : τ; β → ⊢ valid Γ (interp_val rs v) τ α β.
+    Γ; α ⊢ᵥ v : τ; β → ⊢ valid Γ (interp_val rs v) τ α β
+  with fundamental_expr_pure {S : Set} (Γ : S -> ty) τ e :
+    Γ ⊢ₚₑ e : τ → ⊢ valid_pure Γ (interp_expr rs e) τ
+  with fundamental_val_pure {S : Set} (Γ : S -> ty) τ v :
+    Γ ⊢ₚᵥ v : τ → ⊢ valid_pure Γ (interp_val rs v) τ.
   Proof.
     - intros H.
       destruct H.
       + by apply fundamental_val.
-      + subst; iApply compat_var.
       + iApply compat_app;
           by iApply fundamental_expr.
       + iApply compat_appcont;
@@ -668,6 +696,15 @@ Section logrel.
           by iApply fundamental_expr.
       + iApply compat_shift;
           by iApply fundamental_expr.
+      + iApply compat_pure;
+          by iApply fundamental_expr_pure.
+    - intros H.
+      destruct H.
+      iApply compat_pure;
+        by iApply fundamental_val_pure.
+    - intros H.
+      destruct H.
+      + subst; iApply compat_var.
       + iApply (compat_reset with "[]");
           by iApply fundamental_expr.
     - intros H.
@@ -684,11 +721,11 @@ Local Definition rs : gReifiers CtxDep 1 := gReifiers_cons reify_delim gReifiers
 Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
 Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}
-  `{!invGpreS Σ} `{!statePreG rs R Σ} τ
+  `{!invGpreS Σ} `{!statePreG rs R Σ}
   (α : interp_scope ∅ -n> IT (gReifiers_ops rs) R)
   (e : IT (gReifiers_ops rs) R) st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ},
-      (£ cr ⊢ valid rs □ α τ τ τ)%I) →
+      (£ cr ⊢ valid_pure rs □ α ℕ)%I) →
   ssteps (gReifiers_sReifier rs) (𝒫 (α ı_scope)) ([], ()) e st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) e st' β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ e).
@@ -733,14 +770,17 @@ Proof.
   }
   iSpecialize ("Hlog" $! ı_scope with "[]").
   { iIntros ([]). }
-  iSpecialize ("Hlog" $! HOM_id (compat_HOM_id _ _) [] with "[]").
+  unfold logrel_pure.
+  simpl.
+  iSpecialize ("Hlog" $! (logrel_nat rs) HOM_id (compat_HOM_id _ _) [] with "[]").
   {
     iIntros (αv) "HHH GGG".
     iApply (wp_pop_end with "GGG").
     iNext.
     iIntros "_ GGG".
     iApply wp_val.
-    by iModIntro.
+    iModIntro.
+    iFrame "HHH GGG".
   }
   subst st.
   iSpecialize ("Hlog" with "Hs").
@@ -748,4 +788,22 @@ Proof.
   iIntros (βv). simpl.
   iIntros "_".
   done.
+Qed.
+
+Lemma safety e σ (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k :
+  typed_pure_expr □ e ℕ →
+  ssteps (gReifiers_sReifier rs) (𝒫 (interp_expr rs e ı_scope)) ([], ()) β σ k →
+  (∃ β1 st1, sstep (gReifiers_sReifier rs) β σ β1 st1)
+   ∨ (∃ βv, IT_of_V βv ≡ β)%stdpp.
+Proof.
+  intros Htyped Hsteps.
+  pose (R := natO).
+  pose (Σ := gFunctors.app invΣ (gFunctors.app (stateΣ rs R) gFunctors.nil)).
+  assert (invGpreS Σ).
+  { apply _. }
+  assert (statePreG rs R Σ).
+  { apply _. }
+  eapply (logpred_adequacy 0 Σ); eauto.
+  intros ? ?. iIntros "_".
+  by iApply fundamental_expr_pure.
 Qed.

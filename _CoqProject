@@ -45,7 +45,7 @@ theories/examples/delim_lang/interp.v
 theories/examples/delim_lang/hom.v
 theories/examples/delim_lang/example.v
 theories/examples/delim_lang/logpred.v
-theories/examples/delim_lang/logrel.v
+# theories/examples/delim_lang/logrel.v
 theories/examples/delim_lang/glue.v
 
 theories/examples/lang_callcc/lang.v
