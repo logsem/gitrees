@@ -1,19 +1,12 @@
 From gitrees.examples.except_lang Require Import lang.
 
 Require Import Binding.Lib Binding.Set Binding.Env.
-Require Import Coq.Program.Equality.
 
 Module Typing (Errors : ExcSig).
   Module _LANG := Lang Errors.
   Import _LANG.
   Import _Exc.
   
-  (** Bare types **)
-  Inductive bty : Type :=
-  | Bnat : bty
-  | Barr : bty → bty → bty
-  .
-
   (** Types indicating possible errors raised **)
   Inductive pty : Type :=
   | Tnat : pty
@@ -89,38 +82,6 @@ Module Typing (Errors : ExcSig).
   
   (** Compatibility between types and bare types **)
 
-  Reserved Notation "τ ≅ σ"
-    (at level 20).
-
-  Reserved Notation "τ ≈ σ"
-    (at level 20).
-
-  Inductive compatp : bty → pty → Prop :=
-  | Comp_nat : Bnat ≅ ℕ
-  | Comp_arr σb σ τb τ : σb ≅ σ →
-                         τb ≈ τ →
-                         Barr σb τb ≅ (σ ⟶ τ)
-  with compat : bty → ty → Prop :=
-    Compat_Ty τb τ E : τb ≅ τ →
-                       τb ≈ Ty τ E
-  where "σ ≅ τ" := (compatp σ τ)
-  and "σ ≈ τ" := (compat σ τ).
-  
-  Lemma le_ty_compat τ1 τ2 σ (Hsub : τ1 ⪍ τ2) : (σ ≈ τ1 ↔ σ ≈ τ2)
-  with le_pty_compat τ1 τ2 σ (Hsub : τ1 ≲ τ2) : (σ ≅ τ1 ↔ σ ≅ τ2).
-  Proof.
-    - destruct τ1 as [τ1 E1].
-      destruct τ2 as [τ2 E2].
-      inversion Hsub. subst.
-      split; constructor; inversion H; subst; by eapply (le_pty_compat τ1).
-    - destruct τ1; inversion Hsub; subst; first done.
-      split; intros Hsim; inversion Hsim; subst; constructor.
-      + by eapply le_pty_compat.
-      + by eapply (le_ty_compat t).
-      + by eapply (le_pty_compat τ3).
-      + by eapply (le_ty_compat t).
-  Qed.
-  
   Notation "E ⊕ e" := (E ∪ {[e]})
                         (at level 20).
   Notation "E ⊖ e" := (E ∖ {[e]})
@@ -654,7 +615,7 @@ Module Typing (Errors : ExcSig).
         eexists; split; first done; by econstructor].
   Qed.
   
-  Lemma less_errors_catch {S} :
+  Lemma fewer_errors_catch {S} :
     ∀ (K : cont S) Γ σ τ E1 E2 err,
     (Γ ⊢ₖ K : (σ ⇑ E1) ⇒ (τ ⇑ E2)) →
     err ∈ E1 ∧ err ∉ E2 →
@@ -798,7 +759,7 @@ Module Typing (Errors : ExcSig).
            inversion H2; subst;
            inversion H1; subst).
       1-3, 5-9,13,17,18 : eexists _, _; by constructor.
-      6,7 :  eapply (less_errors_catch _ _ _ _ _ _ err) in H8 as (K1 & K2 & h & HK); try (split; set_solver);
+      6,7 :  eapply (fewer_errors_catch _ _ _ _ _ _ err) in H8 as (K1 & K2 & h & HK); try (split; set_solver);
         apply unwind_decompose_weak in HK as (? & ? & ?);
         eexists _,_;
         by constructor.
@@ -812,5 +773,26 @@ Module Typing (Errors : ExcSig).
       all : eexists _,_ ; try constructor.
     - left. eexists. done.
   Qed.
+
+  Example confEX (err1 : exc) (err2 : exc) : (@config ∅) :=
+    Ceval (Throw err1 (Throw err2 (Val (LitV 5)))) (CatchK err2 (Val (LitV 8)) END)
+.  
+Example typEX (err1 err2 : exc) (Hdiff : err1 <> err2) (Hty : ETy err2 = ℕ) : ∃ τ, (□ ⊢ᵢ (confEX err1 err2) : τ).
+Proof.
+  eexists.
+  econstructor; first last.
+  - econstructor; first last.
+    + econstructor; first last.
+      * econstructor.
+      * reflexivity.
+      * rewrite Hty. apply le_pty_refl.
+    + reflexivity.
+    + apply le_pty_refl.
+  - econstructor.
+  - reflexivity.
+  - apply le_pty_refl.
+    Unshelve.
+    all : exact (∅%stdpp).
+Qed.
 
 End Typing.

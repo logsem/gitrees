@@ -69,7 +69,7 @@ Module interp (Errors : ExcSig).
     (body : interp_scope (inc (inc S)) -n> IT) :
     interp_scope S -n> IT :=
     mmuu (interp_rec_pre body).
-
+  
   Program Definition ir_unf {S : Set}
     (body : interp_scope (inc (inc S)) -n> IT) env : IT -n> IT :=
     λne a, body (extend_scope

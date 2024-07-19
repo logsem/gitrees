@@ -638,48 +638,6 @@ Proof.
     rewrite /Inj; naive_solver.
 Qed.
 
-(*** Type system *)
-
-
-Inductive ty :=
-  | Tnat : ty | Tarr : ty → ty → ty.
-
-Context {ETy : exc → ty}.
-          
-Inductive typed {S : Set} (Γ : S -> ty) : expr S → ty → Prop :=
-| typed_Val (τ : ty) (v : val S)  :
-  typed_val Γ v τ →
-  typed Γ (Val v) τ
-| typed_Var (τ : ty) (v : S)  :
-  Γ v = τ →
-  typed Γ (Var v) τ
-| typed_App (τ1 τ2 : ty) e1 e2 :
-  typed Γ e1 (Tarr τ1 τ2) →
-  typed Γ e2 τ1 →
-  typed Γ (App e1 e2) τ2
-| typed_NatOp e1 e2 op :
-  typed Γ e1 Tnat →
-  typed Γ e2 Tnat →
-  typed Γ (NatOp op e1 e2) Tnat
-| typed_If e0 e1 e2 τ :
-  typed Γ e0 Tnat →
-  typed Γ e1 τ →
-  typed Γ e2 τ →
-  typed Γ (If e0 e1 e2) τ
-| typed_Throw err exp τ :
-  typed Γ exp (ETy err) → typed Γ (Throw err exp) τ
-| typed_Catch err exp cexp τ :
-  typed Γ exp τ →
-  typed (Γ ▹ (ETy err)) cexp τ →
-  typed Γ (Catch err exp cexp) τ 
-with typed_val {S : Set} (Γ : S -> ty) : val S → ty → Prop :=
-| typed_Lit n :
-  typed_val Γ (LitV n) Tnat
-| typed_RecV (τ1 τ2 : ty) (e : expr (inc (inc S))) :
-  typed (Γ ▹ (Tarr τ1 τ2) ▹ τ1) e τ2 →
-  typed_val Γ (RecV e) (Tarr τ1 τ2)
-.
-
 (** TODO LATER
 
 Declare Scope syn_scope.
