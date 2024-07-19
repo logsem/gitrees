@@ -112,33 +112,33 @@ Module Typing (Errors : ExcSig).
     (Γ ⊢ᵥ (RecV f) : α ⇑ E)
       
   | typed_App E E1 E2 E3 Γ f v σ τ :
-    (E1 ∪ E2 ∪ E3) ⊆ E →
+    (E1 ∪ E2 ∪ E3) = E →
     (Γ ⊢ₑ f : (σ ⟶ (τ ⇑ E1)) ⇑ E2) →
     (Γ ⊢ₑ v : σ ⇑ E3) →
     (Γ ⊢ₑ App f v : τ ⇑ E)
       
   | typed_Op Γ E E1 E2 op l r :
-    (E1 ∪ E2) ⊆ E →
+    (E1 ∪ E2) = E →
     (Γ ⊢ₑ l : ℕ ⇑ E1) →
     (Γ ⊢ₑ r : ℕ ⇑ E2) →
     (Γ ⊢ₑ NatOp op l r : ℕ ⇑ E)
       
   | typed_If Γ E E1 E2 E3 c t e τ :
-    (E1 ∪ E2 ∪ E3) ⊆ E→
+    (E1 ∪ E2 ∪ E3) = E→
     (Γ ⊢ₑ c : ℕ ⇑ E1) →
     (Γ ⊢ₑ t : τ ⇑ E2) →
     (Γ ⊢ₑ e : τ ⇑ E3) →
     (Γ ⊢ₑ If c t e : τ ⇑ E)
       
   | typed_Throw Γ E1 E2 err v σ τ :
-    σ ≲ ETy err →
-    (E1 ⊕ err) ⊆ E2 → 
+    σ = ETy err →
+    (E1 ⊕ err) = E2 → 
     (Γ ⊢ₑ v : σ ⇑ E1) → 
     (Γ ⊢ₑ Throw err v : τ ⇑ E2)
       
   | typed_Catch Γ E E1 E2 err h v σ τ :
-    ETy err ≲ σ →
-    (E1 ∪ (E2 ⊖ err)) ⊆ E →
+    ETy err = σ →
+    (E1 ∪ (E2 ⊖ err)) = E →
     (Γ ▹ σ ⊢ₑ h : τ ⇑ E1) →
     (Γ ⊢ₑ v : τ ⇑ E2) →
     (Γ ⊢ₑ Catch err v h : τ ⇑ E)
@@ -159,40 +159,40 @@ Module Typing (Errors : ExcSig).
   | typed_END Γ τ1 τ2 : τ1 ⪍ τ2 →
                         (Γ ⊢ₖ END : τ1 ⇒ τ2)
   | typed_IfK Γ e₁ e₂ K E1 E2 E3 E4 τ σ :
-    (E1 ∪ E2 ∪ E3) ⊆ E4 →
+    (E1 ∪ E2 ∪ E3) = E4 →
     (Γ ⊢ₑ e₁ : σ ⇑ E2) → 
     (Γ ⊢ₑ e₂ : σ ⇑ E3) →
     (Γ ⊢ₖ K : σ ⇑ E4 ⇒ τ) →
     (Γ ⊢ₖ IfK e₁ e₂ K : ℕ ⇑ E1 ⇒ τ)
   | typed_AppLK Γ E1 E2 E3 E4 v K σ τ α :
-    (E1 ∪ E2 ∪ E3) ⊆ E4 →
+    (E1 ∪ E2 ∪ E3) = E4 →
     (Γ ⊢ᵥ v : σ ⇑ E3) →
     (Γ ⊢ₖ K : τ ⇑ E4 ⇒ α) →
     (Γ ⊢ₖ AppLK v K : ((σ ⟶ (τ ⇑ E1)) ⇑ E2) ⇒ α)
   | typed_AppRK Γ E1 E2 E3 E4 e K σ τ α :
-    (E1 ∪ E2 ∪ E3) ⊆ E4 → 
+    (E1 ∪ E2 ∪ E3) = E4 → 
     (Γ ⊢ₑ e : (σ ⟶ (τ ⇑ E1)) ⇑ E2) →
     (Γ ⊢ₖ K : (τ ⇑ E4)  ⇒ α) →
     (Γ ⊢ₖ AppRK e K : (σ ⇑ E3) ⇒ α)
   | typed_NatOpLK Γ E1 E2 E3 op v K τ :
-    (E1 ∪ E2) ⊆ E3 → 
+    (E1 ∪ E2) = E3 → 
     (Γ ⊢ᵥ v : ℕ ⇑ E1) →
     (Γ ⊢ₖ K : (ℕ ⇑ E3) ⇒ τ) →
     (Γ ⊢ₖ NatOpLK op v K : (ℕ ⇑ E2) ⇒ τ)
   | typed_NatOpRK Γ E1 E2 E3 op e K τ :
-    (E1 ∪ E2) ⊆ E3 → 
+    (E1 ∪ E2) = E3 → 
     (Γ ⊢ₑ e : ℕ ⇑ E1) →
     (Γ ⊢ₖ K : ℕ ⇑ E3 ⇒ τ) →
     (Γ ⊢ₖ NatOpRK op e K : (ℕ ⇑ E2) ⇒ τ)
   | typed_ThrowK Γ E1 E2 err K σ τ α :
     σ ≲ ETy err →
-    (E1 ⊕ err) ⊆ E2 → 
+    (E1 ⊕ err) = E2 → 
     (Γ ⊢ₖ K : (τ ⇑ E2)  ⇒ α) →
     (Γ ⊢ₖ ThrowK err K : (σ ⇑ E1) ⇒ α)
   | typed_CatchK Γ E1 E2 E3 err h K σ τ τ' α :
     ETy err ≲ σ →
     τ' ≲ τ →
-    (E1 ∪ (E2 ⊖ err)) ⊆ E3 →
+    (E1 ∪ (E2 ⊖ err)) = E3 →
     (Γ ▹ σ ⊢ₑ h : (τ ⇑ E1)) →
     (Γ ⊢ₖ K : (τ ⇑ E3) ⇒ α) →
     (Γ ⊢ₖ CatchK err h K : (τ' ⇑ E2) ⇒ α)
@@ -267,30 +267,40 @@ Module Typing (Errors : ExcSig).
     + constructor. by eapply le_pty_trans.
     + inversion H2. by constructor.
     + econstructor; first by eapply le_pty_trans. done.
-    + eapply typed_App.
-      * by etrans.
+    + econstructor.
+      * instantiate (3 := E1).
+        instantiate (2 := E2).
+        instantiate (1 := Eσ').
+        set_solver.
       * apply IHHty1.
         constructor; last eauto.
         constructor; first apply le_pty_refl.
         by constructor.
-      * apply IHHty2, le_ty_refl.
+      * apply IHHty2. constructor; first apply le_pty_refl.
+        set_solver.
     + inversion H3. subst.
       econstructor.
-      * by etrans.
+      * instantiate (2 := E1). instantiate (1 := Eσ'). set_solver.
       * by apply IHHty1.
-      * by apply IHHty2.
+      * apply IHHty2. constructor; first by apply le_pty_refl. set_solver.
     + econstructor.
-      * by etrans.
+      * instantiate (3 := E1).
+        instantiate (2 := E2).
+        instantiate (1 := Eσ').
+        set_solver.
       * apply IHHty1, le_ty_refl.
       * apply IHHty2.
         by constructor.
-      * by apply IHHty3.
-    + eapply typed_Throw; try done.
-      by etrans.
+      * apply IHHty3. constructor; first done. set_solver.
+    + econstructor.
+      * done.
+      * instantiate (1 := Eσ'). set_solver.
+      * apply IHHty. constructor; first apply le_pty_refl. set_solver.
     + econstructor; first done.
-      * by etrans.
+      * instantiate (1 := E2). instantiate (1 := Eσ'). set_solver.
       * apply IHHty1.
-        by constructor.
+        constructor; first done.
+        set_solver.
       * apply IHHty2.
         by constructor.
    Qed.
@@ -438,7 +448,7 @@ Module Typing (Errors : ExcSig).
       constructor; first by apply le_pty_refl.
       set_solver.
     - inversion Hσ. subst. inversion H4. subst.
-      inversion H7. subst.
+      inversion H5. subst.
       econstructor; last apply IHHty.
       { set_solver. }
       3 : done.
@@ -459,13 +469,17 @@ Module Typing (Errors : ExcSig).
     - inversion Hσ. subst.
       inversion H4. subst.
       econstructor; last by apply IHHty.
-      { by apply union_mono_l. }
-      done.
+      { instantiate (1 := E1 ∪ E2). set_solver. }
+      eapply weakening_error; first done.
+      constructor; first by apply le_pty_refl.
+      set_solver.
     - inversion Hσ. subst.
       inversion H4. subst.
       econstructor; last by apply IHHty.
-      { by apply union_mono_l. }
-      done.
+      { instantiate (1 := E1 ∪ E2). set_solver. }
+      eapply weakening_error; first done.
+      constructor; first by apply le_pty_refl.
+      set_solver.
     - inversion Hσ. subst.
       econstructor; first by eapply le_pty_trans.
       { done. }
@@ -473,24 +487,17 @@ Module Typing (Errors : ExcSig).
       + constructor; first by apply le_pty_refl.
         set_solver.
       + done.
-    - inversion Hσ. subst.
+    - Print typed_CatchK.
+      inversion Hσ. subst.
       inversion Hτ. subst.
       econstructor.
       { done. }
       { by eapply le_pty_trans. }
-      { instantiate (1 := E3).
-        instantiate (1 := E1).
-        apply union_least.
-        - set_solver.
-        - apply (difference_mono_r _ _ (gmap.gset_singleton err)) in H8.
-          etrans; first apply H8.
-          etrans; last done.
-          apply union_subseteq_r.
-      }
+      { done. }
       { done. }
       apply IHHty; last done.
-      constructor; last done.
-      apply le_pty_refl.
+      constructor; first apply le_pty_refl.
+      set_solver.
   Qed. 
 
   Lemma fill_bind_bind {S T}: ∀ (δ : S [⇒] T) K e, fill (bind δ K) (bind δ e) = bind δ (fill K e).
@@ -562,15 +569,19 @@ Module Typing (Errors : ExcSig).
       apply IHK in Hty as (α & Hα & HK).
       inversion Hα; subst.
       eexists.
-      split; first done.
-      by econstructor.
+      split.
+      + done.
+      + econstructor.
+        * apply le_pty_refl.
+        * reflexivity.
+        * done.
     - simpl in Hty.
       apply IHK in Hty as (α & Hα & HK).
       inversion Hα; subst.
       eexists.
       split; first done.
       econstructor; try done.
-      apply le_pty_refl.
+      all:  apply le_pty_refl.
   Qed.
 
   Lemma fill_types {S : Set} :
@@ -582,11 +593,14 @@ Module Typing (Errors : ExcSig).
     intros K.
     induction K; intros e' Γ σ τ HK He'; inversion HK; subst.
     { term_simpl. by eapply weakening_error. }
-    4 : { simpl. eapply IHK; first done. econstructor; last done; last done. intros. set_solver. }
+    4 : { simpl. eapply IHK; first done. econstructor; last done; last done. set_solver. }
     all:  simpl;
     eapply IHK; try done;
       try econstructor; try done.
-    by eapply weakening_error.
+    2 : { eapply weakening_sub; first done. intros [|]; first done.
+          apply le_pty_refl.
+    }
+    all : by eapply weakening_error.
   Qed.
 
   Lemma compose_END_left {S} : ∀ (K : cont S), cont_compose END K = K.
@@ -657,7 +671,7 @@ Module Typing (Errors : ExcSig).
         apply decomp_types in Hty as (α & Hα & HK).
         inversion Hα. subst.
         inversion H3. subst.
-        inversion H6. subst.
+        inversion H4. subst.
         eapply (substitution_lemma _ _ _ (Γ ▹ (σ0 ⟶ τ1))).
         * eapply (substitution_lemma _ _ _ (Γ ▹ (σ0 ⟶ τ1) ▹ σ0)).
           -- eapply fill_types. 
@@ -668,7 +682,7 @@ Module Typing (Errors : ExcSig).
              }
              done.
              }
-             eapply weakening_error; first by apply H7.
+             eapply weakening_error; first by apply H6.
              eapply le_ty_trans; first done.
              constructor; first by apply le_pty_refl.
              set_solver.
@@ -677,8 +691,8 @@ Module Typing (Errors : ExcSig).
                change (Val (fmap ?δ ?v)) with (fmap δ (Val v)). 
                eapply weakening; last by instantiate (1 := Γ).
                inversion H5; subst.
-               + inversion H4. constructor.
-               + inversion H10. subst. inversion H4. subst. econstructor; last done.
+               + inversion H2. constructor.
+               + inversion H9. subst. inversion H2. subst. econstructor; last done.
                  constructor; first by eapply le_pty_trans.
                  by eapply le_ty_trans.
              }
@@ -721,7 +735,7 @@ Module Typing (Errors : ExcSig).
           -- intros [|]; term_simpl.
              { inversion Hα; subst.
                - inversion H2. rewrite -H in H3. inversion H3. subst. constructor.
-               - inversion H9. subst. inversion H2. rewrite -H6 in H3. subst.
+               - inversion H6. subst. inversion H2. rewrite -H5 in H3. subst.
                  inversion H3. subst.
                  econstructor; last done.
                  constructor.
@@ -763,11 +777,11 @@ Module Typing (Errors : ExcSig).
         apply unwind_decompose_weak in HK as (? & ? & ?);
         eexists _,_;
         by constructor.
-      + inversion H7.
-      + inversion H8. inversion H6.
-      + inversion H6.
-      + inversion H6.
-      + inversion H6.
+      + inversion H5.
+      + inversion H8. inversion H5.
+      + inversion H5.
+      + inversion H5.
+      + inversion H5.
     - destruct e; right.
       2 : by inversion Hty.
       all : eexists _,_ ; try constructor.
@@ -785,14 +799,15 @@ Proof.
     + econstructor; first last.
       * econstructor.
       * reflexivity.
-      * rewrite Hty. apply le_pty_refl.
+      * done.
     + reflexivity.
-    + apply le_pty_refl.
+    + reflexivity.
   - econstructor.
   - reflexivity.
-  - apply le_pty_refl.
+  - reflexivity.
     Unshelve.
     all : exact (∅%stdpp).
+    Show Proof.
 Qed.
 
 End Typing.
