@@ -331,17 +331,28 @@ Section sets.
                                   (at level 20, α, Φ at level 200,
                                     format "'WP'  α  {{  Φ  } }") : bi_scope.
 
-  Program Definition clwp : IT -> (ITV -> iProp) -> iProp :=
-    λ α Φ, (∀ (κ : HOM) (Ψ : ITV -> iProp), (∀ v, Φ v -∗ WP (`κ (IT_of_V v)) {{ Ψ }}) -∗ WP (`κ α) {{ Ψ }})%I.
+  Program Definition clwp : IT -> (ITV -n> iProp) -> iProp :=
+    λ α Φ, (∀ (κ : HOM) (Ψ : ITV -n> iProp), (∀ v, Φ v -∗ WP (`κ (IT_of_V v)) {{ Ψ }}) -∗ WP (`κ α) {{ Ψ }})%I.
 
-  Notation "'CLWP' α {{ β , Φ } }" := (clwp α (λ β, Φ))
+  Global Instance clwp_ne : NonExpansive2 clwp.
+  Proof.
+    solve_proper.
+  Qed.
+
+  Notation "'CLWP' α {{ β , Φ } }" := (clwp α (λne β, Φ))
                                         (at level 20, α, Φ at level 200,
                                           format "'CLWP'  α  {{  β ,  Φ  } }") : bi_scope.
   Notation "'CLWP' α {{ Φ } }" := (clwp α Φ)
                                     (at level 20, α, Φ at level 200,
                                       format "'CLWP'  α  {{  Φ  } }") : bi_scope.
 
-  Lemma clwp_bind (κ : HOM) e Φ :
+  Local Instance clwp_bind_ne (κ : HOM) (Φ : ITV -n> iProp)
+    : NonExpansive (λ βv, (CLWP (`κ (IT_of_V βv)) {{ Φ }})%I).
+  Proof.
+    solve_proper.
+  Qed.
+
+  Program Definition clwp_bind (κ : HOM) e (Φ : ITV -n> iProp) :
     CLWP e {{ βv, CLWP (`κ (IT_of_V βv)) {{ Φ }} }} ⊢ CLWP (`κ e) {{ Φ }}.
   Proof.
     iIntros "H %κ' %Ψ G".
@@ -370,12 +381,19 @@ Section sets.
 
   Program Definition obs_ref : (ITV -n> iProp) -n> IT -n> iProp :=
     λne Ψ α,
-       (WP α {{ βv, Ψ βv }})%I.
-  Next Obligation. solve_proper_please. Qed.
+       (CLWP α {{ βv, Ψ βv }})%I.
+  Next Obligation.
+    solve_proper.
+  Qed.
   Next Obligation.
     solve_proper_prepare.
-    do 2 f_equiv.
-    (* intro; simpl. *)
+    unfold clwp.
+    f_equiv; intro; simpl.
+    f_equiv; intro; simpl.
+    f_equiv.
+    by do 2 f_equiv.
+  Qed.
+  Next Obligation.
     solve_proper.
   Qed.
 
@@ -416,7 +434,17 @@ Section sets.
                    -∗ has_substate ([] : delim.stateF ♯ IT)
                    -∗ logrel_ectx V W κ
                    -∗ obs_ref W (`κ e))%I.
-  Solve All Obligations with solve_proper_please.
+  Next Obligation.
+    solve_proper_prepare.
+    f_equiv; intro; simpl.
+    f_equiv; intro; simpl.
+    do 3 f_equiv.
+    unfold clwp.
+    f_equiv; intro; simpl.
+    f_equiv; intro; simpl.
+    f_equiv.
+    solve_proper.
+  Qed.
 
   Program Definition ssubst_validG {S : Set}
     (Γ : S -> ty)
@@ -474,21 +502,22 @@ Section sets.
     iPoseProof (logpred.fundamental_expr_pure rs □ ℕ e t) as "#G".
     unshelve iSpecialize ("G" $! ı_scope _).
     { iIntros ([]). }
-
+    iIntros "%K %Ψ HH".
+    rewrite HOM_ccompose.
     iApply (wp_reset with "R").
     iIntros "!> Hc R".
     iSpecialize ("G" $! (logpred.logrel_nat rs) HOM_id with "[]").
     {
       iApply logpred.compat_HOM_id.
     }
-    iSpecialize ("G" $! [laterO_map (`κ)] W with "[] R").
+    iSpecialize ("G" $! [laterO_map (`K ◎ `κ)] Ψ with "[HH] R").
     {
       iIntros (v) "#E R".
       iApply (wp_pop_cons with "R").
       iIntros "!> Hc R".
+      iSpecialize ("W" with "E R").
+      iSpecialize ("W" $! K Ψ with "HH").
       iApply "W".
-      - iApply "E".
-      - iFrame.
     }
     iApply "G".
   Qed.
@@ -511,17 +540,22 @@ Section sets.
     end.
     unshelve eset (K := (exist _ (LETCTX F) _ : HOM)).
     { apply _. }
+    unfold clwp.
+    iIntros (Tκ TΨ) "TH".
     assert ((LET (β γ) F) ≡ `K (β γ))%stdpp as ->.
     { reflexivity. }
     rewrite HOM_ccompose.
     iSpecialize ("G" $! γ with "Hγ").
     iSpecialize ("G" $! (HOM_compose κ K)).
-    iApply ("G" with "Q R []").
+    iApply ("G" with "Q R []"); first last.
+    { iApply "TH". }
     iClear "G".
     iIntros (v).
     iModIntro.
     iIntros "#T R".
     simpl.
+    unfold clwp.
+    iIntros (Tκ' TΨ') "TH'".
     rewrite LET_Val.
     subst F K.
     simpl.
@@ -536,11 +570,14 @@ Section sets.
     rewrite HOM_ccompose.
     iSpecialize ("H" $! γ with "Hγ").
     iSpecialize ("H" $! (HOM_compose κ K)).
-    iApply ("H" with "Q R").
+    iApply ("H" with "Q R"); first last.
+    { iApply "TH'". }
     iIntros (w).
     iModIntro.
     iIntros "#Hw R".
     simpl.
+    unfold clwp.
+    iIntros (Tκ'' TΨ'') "TH''".
     rewrite LET_Val.
     subst F.
     simpl.
@@ -553,6 +590,7 @@ Section sets.
     iRewrite "HEQ'".
     iSpecialize ("Hw" $! v with "T").
     iApply ("Hw" $! κ W with "W R").
+    iApply "TH''".
   Qed.
 
   Lemma compat_alloc {S : Set}
@@ -580,16 +618,18 @@ Section sets.
     iIntros "#Hv R".
     subst K.
     simpl.
+    unfold clwp.
+    iIntros (Tκ TΨ) "TH".
     rewrite LET_Val.
     subst F.
     cbn [ofe_mor_car].
-    do 1 rewrite hom_vis.
+    do 2 rewrite hom_vis.
     iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ'') "[>Hlc [Hs Hh]]" "Hcl".
     iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
     set (l:=Loc.fresh (dom σ'')).
-    iExists σ'', l, _, ((`κ (Ret l))).
+    iExists σ'', l, _, (`Tκ (`κ (Ret l))).
     iFrame "Hs".
     simpl. change (Loc.fresh (dom σ'')) with l.
     iSplit; first done.
@@ -619,8 +659,8 @@ Section sets.
       iApply "HN".
     }
     iModIntro.
-    iApply "W".
-    iFrame.
+    iApply ("W" with "R").
+    iApply "TH".
   Qed.
 
   Lemma compat_assign {S : Set} {Ω : S → ty}
@@ -648,6 +688,8 @@ Section sets.
     iIntros "#Hv R".
     subst K.
     simpl.
+    unfold clwp.
+    iIntros (Tκ TΨ) "TH".
     rewrite LET_Val.
     subst F.
     simpl.
@@ -659,17 +701,19 @@ Section sets.
     { apply _. }
     iSpecialize ("H" $! γ with "Hγ").
     iSpecialize ("H" $! K with "Hheap R []"); first last.
-    { subst K; simpl; iApply "H". }
+    { subst K; simpl; iApply "H". iApply "TH". }
     iIntros (w).
     iModIntro.
     subst K F.
     simpl.
     iIntros "(%l & #HEQ & Hw) R".
     iRewrite "HEQ".
+    unfold clwp.
+    iIntros (Tκ' TΨ') "TH'".
     rewrite IT_of_V_Ret.
     rewrite get_ret_ret.
     simpl.
-    do 1 rewrite hom_vis.
+    do 2 rewrite hom_vis.
 
     iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ''') "[>Hlc [Hs Hh]]" "Hcl".
@@ -688,7 +732,7 @@ Section sets.
     destruct (Next_uninj x) as [α' Ha'].
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
-    iExists σ''', (), (<[l:=Next (IT_of_V v)]>σ'''), (`κ (Ret ())).
+    iExists σ''', (), (<[l:=Next (IT_of_V v)]>σ'''), (`Tκ' (`κ (Ret ()))).
     iFrame "Hs".
     iSimpl. repeat iSplit; [done | done | ].
     iNext. iIntros "Hlc".
@@ -706,7 +750,8 @@ Section sets.
     { iExists _. by iFrame. }
     iModIntro.
     rewrite <-IT_of_V_Ret.
-    by iApply ("Hκ" $! _ with "[] R").
+    iApply ("Hκ" with "[] R"); first done.
+    iApply "TH'".
   Qed.
 
   Lemma compat_deref {S : Set} (Ω : S → ty)
@@ -735,10 +780,12 @@ Section sets.
     simpl.
     iDestruct "Hw" as "(%l & #HEQ & Hw)".
     iRewrite "HEQ".
+    unfold clwp.
+    iIntros (Tκ TΨ) "TH".
     rewrite IT_of_V_Ret.
     rewrite get_ret_ret.
     simpl.
-    do 1 rewrite hom_vis.
+    do 2 rewrite hom_vis.
 
     iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ'') "[>Hlc [Hs Hh]]" "Hcl".
@@ -759,7 +806,7 @@ Section sets.
     { rewrite Hx. rewrite option_equivI.
       rewrite Hb'. by iNext. }
     iClear "Hlookup".
-    iExists σ'', (Next β'), σ'', ((`κ β')).
+    iExists σ'', (Next β'), σ'', (`Tκ (`κ β')).
     iFrame "Hs".
     iSimpl. repeat iSplit; [ | | ].
     { by rewrite Hx /= Hb'. }
@@ -782,6 +829,7 @@ Section sets.
     iModIntro.
     iRewrite "Hba".
     iApply ("Hκ" with "H R").
+    iApply "TH".
   Qed.
 
   Lemma compat_natop {S : Set}
@@ -852,9 +900,11 @@ Section sets.
       done.
     }
     iRewrite "HEQ''".
+    iIntros (Tκ TΨ) "TH".
     rewrite <-IT_of_V_Ret.
     iApply ("W" with "[] R").
-    by iExists _.
+    - by iExists _.
+    - iApply "TH".
   Qed.
 
   Lemma compat_lam {S : Set} (Ω : S → ty)
@@ -901,6 +951,8 @@ Section sets.
     unfold obs_ref.
     cbn [ofe_mor_car].
     iIntros "R".
+    iIntros (Tκ TΨ) "TH".
+    rewrite hom_tick.
     iApply wp_tick.
     iNext.
     unfold interp_exprG.
@@ -910,6 +962,7 @@ Section sets.
       cbn [ofe_mor_car].
       iApply "Hκ'".
     - iApply "H".
+      iApply "TH".
   Qed.
 
   Fixpoint fl {S : Set} (Ω : S → ty) (e : expr S) (τ : ty) (H : typed_glued Ω e τ)
@@ -940,8 +993,8 @@ Section sets.
     simpl.
     unfold logpred.logrel_mcont'.
     simpl.
-    iApply wp_val.
-    by iModIntro.
+    iIntros (Tκ TΨ) "TH".
+    by iApply "TH".
   Qed.
 
 End sets.
@@ -1012,6 +1065,12 @@ Proof.
   iSpecialize ("Hlog" $! HOM_id (interp_ty rs τ) with "Hinv Hcont []").
   { iApply compat_HOM_id.  }
   iModIntro.
+  iSpecialize ("Hlog" $! HOM_id (interp_ty rs τ) with "[]").
+  {
+    iIntros "%w Hw".
+    iApply wp_val.
+    by iModIntro.
+  }
   iApply (wp_wand with "Hlog").
   iIntros (?) "_".
   by iModIntro.
