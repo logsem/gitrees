@@ -487,8 +487,7 @@ Module Typing (Errors : ExcSig).
       + constructor; first by apply le_pty_refl.
         set_solver.
       + done.
-    - Print typed_CatchK.
-      inversion Hσ. subst.
+    - inversion Hσ. subst.
       inversion Hτ. subst.
       econstructor.
       { done. }
@@ -807,7 +806,6 @@ Proof.
   - reflexivity.
     Unshelve.
     all : exact (∅%stdpp).
-    Show Proof.
 Qed.
 
 End Typing.

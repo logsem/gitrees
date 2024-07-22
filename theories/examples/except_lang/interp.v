@@ -790,36 +790,36 @@ Module interp (Errors : ExcSig).
   Proof.
     intros.
     revert H H0.
-    induction H1; intros H0 H1. 
-    - simpl in H0, H1.
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+    inversion H1; intros HE0 HE1. 
+    - simpl in HE0, HE1.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       constructor; done.
-    - simpl in H0, H1.
-      rewrite H0 in H1.
-      injection H1 as <- <-.
+    - simpl in HE0, HE1.
+      rewrite HE0 in HE1.
+      injection HE1 as <- <-.
       constructor; done.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [f t].
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       constructor; done.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [f t].
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       constructor; done.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [f t].
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       constructor; done.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [f t] eqn:Heq.
       assert (IT_hom f).
       { eapply split_cont_left_hom'. apply Heq. }
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       econstructor.
       + rewrite hom_vis.
         eapply sstep_reify; first done.
@@ -852,31 +852,31 @@ Module interp (Errors : ExcSig).
           intro;
           simpl;
           done.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [f t] eqn:Heq.
       assert (IT_hom f).
       { eapply split_cont_left_hom'. apply Heq. }
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       by constructor.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [f t] eqn:Heq.
       assert (IT_hom f).
       { eapply split_cont_left_hom'. apply Heq. }
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       by constructor.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [g t] eqn:Heq.
       assert (IT_hom g) as Hg.
       { eapply split_cont_left_hom'. apply Heq. }
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       econstructor; last (econstructor; reflexivity).
       apply sstep_tick; last done.
       rewrite -hom_tick.
       f_equiv.
-      pose (interp_rec_unfold (interp_expr f) env) as H.
+      pose (interp_rec_unfold (interp_expr f) env) as HEq.
       assert (∀ x y z : IT, x ≡ y → x ⊙ z ≡ y ⊙ z) as APP'_equiv.
       { intros x y z Hxy.
         Transparent APP APP'.
@@ -887,7 +887,7 @@ Module interp (Errors : ExcSig).
         f_equiv.
         done.
      } 
-     rewrite (APP'_equiv _ _ _ H) APP_APP'_ITV APP_Fun Tick_eq /=.
+     rewrite (APP'_equiv _ _ _ HEq) APP_APP'_ITV APP_Fun Tick_eq /=.
      do 2 rewrite interp_expr_subst.
      do 3 f_equiv.
      intros [].
@@ -900,32 +900,32 @@ Module interp (Errors : ExcSig).
      + destruct i; simpl.
        * done.
        * done.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [g t] eqn:Heq.
       assert (IT_hom g) as Hg.
       { eapply split_cont_left_hom'. apply Heq. }
-     injection H0 as <- <-.
-      injection H1 as <- <-.
+     injection HE0 as <- <-.
+      injection HE1 as <- <-.
       constructor; last done.
       f_equiv.
-      destruct n.
+      destruct n0.
       + rewrite IF_False; last lia.
         done.
       + rewrite IF_True; last lia.
         done.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [g t] eqn:Heq.
       assert (IT_hom g) as Hg.
       { eapply split_cont_left_hom'. apply Heq. }
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       constructor; done.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [g t] eqn:Heq.
       assert (IT_hom g) as Hg.
       { eapply split_cont_left_hom'. apply Heq. }
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       constructor; last done.
       f_equiv.
       destruct v1, v2.
@@ -934,12 +934,12 @@ Module interp (Errors : ExcSig).
       injection H as <-.
       simpl.
       apply NATOP_Ret.
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       destruct (split_cont k env) as [g t] eqn:Heq.
       assert (IT_hom g) as Hg.
       { eapply split_cont_left_hom'. apply Heq. }
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       econstructor; last (constructor; done).
       rewrite get_val_ITV /= get_val_vis.
       eapply sstep_reify; first done.
@@ -971,14 +971,14 @@ Module interp (Errors : ExcSig).
             repeat f_equiv; first by solve_proper.
             intro. simpl. done.
       }
-    - simpl in H0, H1.
+    - simpl in HE0, HE1.
       (** (interp_expr (subst h (Val v)) env), t) **)
       destruct (split_cont k env) as [g t] eqn:Heq.
       destruct (split_cont k' env) as [g' t'] eqn:Heq'.
       assert (IT_hom g) as Hg.
       { eapply split_cont_left_hom'. apply Heq. }
-      injection H0 as <- <-.
-      injection H1 as <- <-.
+      injection HE0 as <- <-.
+      injection HE1 as <- <-.
       econstructor; last by constructor.
       rewrite get_val_ITV hom_vis.
       eapply sstep_reify; first done.
@@ -1018,11 +1018,11 @@ Module interp (Errors : ExcSig).
         simpl.
         done.
         Unshelve.
-        intros n [].
+        intros n0 [].
       }
-    - simpl in H0, H1.
-      rewrite H0 in H1.
-      injection H1 as <- <-.
+    - simpl in HE0, HE1.
+      rewrite HE0 in HE1.
+      injection HE1 as <- <-.
       constructor; done.
   Qed.
 

@@ -60,8 +60,7 @@ theories/examples/input_lang/logrel.v
 
 theories/examples/except_lang/lang.v
 theories/examples/except_lang/interp.v
-theories/examples/except_lang/logpred.v
-theories/examples/except_lang/logrel.v
+theories/examples/except_lang/typing.v
 
 theories/examples/affine_lang/lang.v
 theories/examples/affine_lang/logrel1.v
