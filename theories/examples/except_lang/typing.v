@@ -340,7 +340,27 @@ Module Typing (Errors : ExcSig).
         simpl. apply Hag.
       * by apply IHHty2.
    Qed.
-
+ 
+ Lemma weakening_sub_cont {S: Set} :
+    ∀ (Γ : S → pty) (Δ : S → pty) (K : cont S) σ τ,
+    (Γ ⊢ₖ K : σ ⇒ τ) →
+    (∀ x, Δ x ≲ Γ x) →
+    (Δ ⊢ₖ K : σ ⇒ τ).
+   Proof.
+    intros Γ Δ K σ τ Hty Hag.
+    induction Hty; intros.
+    + by constructor.
+    + econstructor; eauto; by eapply weakening_sub.
+    + econstructor; eauto; by eapply weakening_sub.
+    + econstructor; eauto; by eapply weakening_sub.
+    + econstructor; eauto; by eapply weakening_sub.
+    + econstructor; eauto; by eapply weakening_sub.
+    + econstructor; eauto; by eapply weakening_sub.
+    + econstructor; eauto. eapply weakening_sub; first done.
+      intros [|]; term_simpl.
+      { apply le_pty_refl. }
+      { apply Hag. }
+   Qed.
 
    Lemma substitution_lemma {S : Set}:
      ∀ (e : expr S) E T Γ Δ (γ : S [⇒] T) τ, (Γ ⊢ₑ e : τ ⇑ E)
@@ -787,9 +807,9 @@ Module Typing (Errors : ExcSig).
     - left. eexists. done.
   Qed.
 
-  Example confEX (err1 : exc) (err2 : exc) : (@config ∅) :=
-    Ceval (Throw err1 (Throw err2 (Val (LitV 5)))) (CatchK err2 (Val (LitV 8)) END)
-.  
+Example confEX (err1 : exc) (err2 : exc) : (@config ∅) :=
+  Ceval (Throw err1 (Throw err2 (Val (LitV 5)))) (CatchK err2 (Val (LitV 8)) END).
+  
 Example typEX (err1 err2 : exc) (Hdiff : err1 <> err2) (Hty : ETy err2 = ℕ) : ∃ τ, (□ ⊢ᵢ (confEX err1 err2) : τ).
 Proof.
   eexists.
