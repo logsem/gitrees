@@ -683,14 +683,14 @@ Module Typing (Errors : ExcSig).
   Proof.
     intros Γ τ c c' n Hty Hred.
     revert Γ τ Hty.
-    induction Hred; intros Γ [τ Eτ] Hty; simpl; eexists; try (split; try done; apply le_ty_refl).
+    inversion Hred; intros Γ [τ Eτ] Hty; simpl; eexists; try (split; try done; apply le_ty_refl).
     - simpl in *.
       split; last first.
       + do 2 rewrite fill_bind_subst.
         apply decomp_types in Hty as (α & Hα & HK).
         inversion Hα. subst.
+        inversion H6. subst.
         inversion H3. subst.
-        inversion H4. subst.
         eapply (substitution_lemma _ _ _ (Γ ▹ (σ0 ⟶ τ1))).
         * eapply (substitution_lemma _ _ _ (Γ ▹ (σ0 ⟶ τ1) ▹ σ0)).
           -- eapply fill_types. 
@@ -701,7 +701,7 @@ Module Typing (Errors : ExcSig).
              }
              done.
              }
-             eapply weakening_error; first by apply H6.
+             eapply weakening_error; first by apply H4.
              eapply le_ty_trans; first done.
              constructor; first by apply le_pty_refl.
              set_solver.
@@ -709,7 +709,7 @@ Module Typing (Errors : ExcSig).
              { unfold shift.
                change (Val (fmap ?δ ?v)) with (fmap δ (Val v)). 
                eapply weakening; last by instantiate (1 := Γ).
-               inversion H5; subst.
+               inversion H8; subst.
                + inversion H2. constructor.
                + inversion H9. subst. inversion H2. subst. econstructor; last done.
                  constructor; first by eapply le_pty_trans.
@@ -725,7 +725,7 @@ Module Typing (Errors : ExcSig).
       inversion HK. subst.
       split; first last.
       + eapply fill_types; first done.
-        destruct n; simpl; eapply weakening_error; try done; constructor; try apply le_pty_refl; set_solver.
+        destruct n0; simpl; eapply weakening_error; try done; constructor; try apply le_pty_refl; set_solver.
       + apply le_ty_refl.
     - destruct v1, v2; try discriminate.
       simpl in H. injection H as <-.
@@ -740,22 +740,21 @@ Module Typing (Errors : ExcSig).
       split; first last.
       + eapply fill_types; first done.
         inversion Hα; subst.
-        { inversion H3. constructor. }
+        { inversion H6. constructor. }
         { econstructor; last done. by eapply le_pty_trans. }
       + apply le_ty_refl.
     - apply decomp_types in Hty as [α [Hα HK]].
       inversion HK. subst.
       apply unwind_decompose in H as (K1 & Hkcomp & HK1).
-      destruct (compose_type _ _ _ _ _ _ H7 Hkcomp) as (α & HK2 & HK3).
+      destruct (compose_type _ _ _ _ _ _ H10 Hkcomp) as (α & HK2 & HK3).
       inversion HK2. subst.
       split; first last.
       + eapply fill_types; first last.
         * eapply substitution_lemma; first done.
           -- intros [|]; term_simpl.
              { inversion Hα; subst.
-               - inversion H2. rewrite -H in H3. inversion H3. subst. constructor.
-               - inversion H6. subst. inversion H2. rewrite -H5 in H3. subst.
-                 inversion H3. subst.
+               - inversion H5. rewrite -H in H2. inversion H2. subst. constructor.
+               - inversion H6. subst. inversion H5. rewrite -H4 in H2. subst. inversion H2. subst.
                  econstructor; last done.
                  constructor.
                  + eapply le_pty_trans; first done.

@@ -936,8 +936,6 @@ Module interp (Errors : ExcSig).
       apply NATOP_Ret.
     - simpl in HE0, HE1.
       destruct (split_cont k env) as [g t] eqn:Heq.
-      assert (IT_hom g) as Hg.
-      { eapply split_cont_left_hom'. apply Heq. }
       injection HE0 as <- <-.
       injection HE1 as <- <-.
       econstructor; last (constructor; done).
