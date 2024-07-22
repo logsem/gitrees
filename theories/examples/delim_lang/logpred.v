@@ -49,28 +49,29 @@ Section logrel.
   Proof. solve_proper. Qed.
   Definition logrel_nat : ITV -n> iProp := λne x, logrel_nat' x.
 
-  Definition obs_ref'
-    (t : IT)
-    : iProp :=
-    (WP t {{ βv, logrel_nat βv ∗ has_substate [] }})%I.
-  Local Instance obs_ref_ne : NonExpansive obs_ref'.
-  Proof. solve_proper. Qed.
-  Program Definition obs_ref : IT -n> iProp :=
-    λne x, obs_ref' x.
-  Solve All Obligations with solve_proper.
+  Program Definition obs_ref : (ITV -n> iProp) -n> IT -n> iProp :=
+    λne Ψ α,
+       (WP α {{ βv, Ψ βv }})%I.
+  Next Obligation. solve_proper_please. Qed.
+  Next Obligation.
+    solve_proper_prepare.
+    do 2 f_equiv.
+    (* intro; simpl. *)
+    solve_proper.
+  Qed.
 
-  Definition logrel_mcont' (P : ITV -n> iProp) (F : stateF ♯ IT) :=
-    (∀ αv, P αv -∗ has_substate F -∗ obs_ref (𝒫 (IT_of_V αv)))%I.
-  Local Instance logrel_mcont_ne : NonExpansive2 logrel_mcont'.
+  Definition logrel_mcont' (P Q : ITV -n> iProp) (F : stateF ♯ IT) :=
+    (∀ αv, P αv -∗ has_substate F -∗ obs_ref Q (𝒫 (IT_of_V αv)))%I.
+  Local Instance logrel_mcont_ne : NonExpansive3 logrel_mcont'.
   Proof. solve_proper. Qed.
-  Program Definition logrel_mcont : (ITV -n> iProp) -n> (stateF ♯ IT) -n> iProp
-    := λne x y, logrel_mcont' x y.
+  Program Definition logrel_mcont : (ITV -n> iProp) -n> (ITV -n> iProp) -n> (stateF ♯ IT) -n> iProp
+    := λne x y z, logrel_mcont' x y z.
   Solve All Obligations with solve_proper.
 
   Program Definition logrel_ectx'
     (Pτ Pα : ITV -n> iProp) (κ : HOM)
     : iProp :=
-    (□ ∀ αv, Pτ αv -∗ ∀ F, logrel_mcont Pα F -∗ has_substate F -∗ obs_ref (𝒫 (`κ (IT_of_V αv))))%I.
+    (□ ∀ αv, Pτ αv -∗ ∀ F Q, logrel_mcont Pα Q F -∗ has_substate F -∗ obs_ref Q (𝒫 (`κ (IT_of_V αv))))%I.
   Local Instance logrel_ectx_ne : NonExpansive3 logrel_ectx'.
   Proof. solve_proper. Qed.
   Program Definition logrel_ectx
@@ -93,8 +94,8 @@ Section logrel.
     := (∃ f', IT_of_V f ≡ Fun f'
               ∧ □ ∀ (βv : ITV),
           Pτ βv -∗ ∀ (κ : HOM),
-          logrel_ectx Pσ Pα κ -∗ ∀ σ,
-          logrel_mcont Pβ σ -∗ has_substate σ -∗ obs_ref (𝒫 (`κ (APP' (Fun f') (IT_of_V βv)))))%I.
+          logrel_ectx Pσ Pα κ -∗ ∀ σ Q,
+          logrel_mcont Pβ Q σ -∗ has_substate σ -∗ obs_ref Q (𝒫 (`κ (APP' (Fun f') (IT_of_V βv)))))%I.
   Local Instance logrel_arr_ne
     : (∀ n, Proper (dist n
                       ==> dist n
@@ -131,9 +132,9 @@ Section logrel.
 
   Program Definition logrel_expr (τ α δ : ITV -n> iProp) : IT -n> iProp
     := λne e, (∀ E, logrel_ectx τ α E
-                    -∗ ∀ F, logrel_mcont δ F
+                    -∗ ∀ F Q, logrel_mcont δ Q F
                             -∗ has_substate F
-                            -∗ obs_ref (𝒫 (`E e)))%I.
+                            -∗ obs_ref Q (𝒫 (`E e)))%I.
   Solve All Obligations with solve_proper.
 
   Definition logrel (τ α β : ty) : IT -n> iProp
@@ -168,8 +169,8 @@ Section logrel.
     iIntros (v).
     iModIntro.
     iIntros "Pv".
-    iIntros (σ) "Hσ HH".
-    iApply ("Hσ" with "Pv HH").
+    iIntros (σ Q) "Hσ HH".
+    iApply ("Hσ" $! v with "Pv HH").
   Qed.
 
   Lemma logrel_of_val α v :
@@ -177,7 +178,7 @@ Section logrel.
   Proof.
     iIntros "#H".
     iIntros (Φ κ) "#Hκ".
-    iIntros (σ) "Hst HH".
+    iIntros (σ Q) "Hst HH".
     iSpecialize ("Hκ" $! v with "H").
     iApply ("Hκ" with "Hst HH").
   Qed.
@@ -190,7 +191,7 @@ Section logrel.
     iModIntro.
     iIntros (γ) "#Hγ".
     iIntros (κ) "#Hκ".
-    iIntros (σ) "Hm Hst".
+    iIntros (σ Q) "Hm Hst".
     iSpecialize ("H" with "Hγ").
     iApply ("H" with "[$Hκ] [$Hm] [$Hst]").
   Qed.
@@ -201,7 +202,7 @@ Section logrel.
     iModIntro.
     iIntros (γ) "#Hss".
     iIntros (κ Ψ) "#Hκ".
-    iIntros (σ) "Hm Hst".
+    iIntros (σ Q) "Hm Hst".
     iApply ("Hss" with "[$Hκ] [$Hm] [$Hst]").
   Qed.
 
@@ -212,15 +213,17 @@ Section logrel.
     iModIntro.
     iIntros (γ) "Hγ".
     iIntros (Ψ κ) "Hκ".
-    iIntros (m) "Hm Hst".
+    iIntros (m Q) "Hm Hst".
     assert (𝒫 ((`κ) (interp_reset rs e γ))
               ≡ (𝒫 ◎ `κ) (interp_reset rs e γ)) as ->.
     { reflexivity. }
+    unfold obs_ref.
+    cbn [ofe_mor_car].
     iApply (wp_reset with "Hst").
     iIntros "!> _ Hst".
     iSpecialize ("H" $! γ with "Hγ").
     iSpecialize ("H" $! HOM_id (compat_HOM_id _)).
-    iAssert (logrel_mcont (interp_ty τ) (laterO_map (𝒫 ◎ `κ) :: m))
+    iAssert (logrel_mcont (interp_ty τ) Q (laterO_map (𝒫 ◎ `κ) :: m))
       with "[Hκ Hm]" as "Hm'".
     {
       iIntros (v) "Hv GG".
@@ -241,7 +244,7 @@ Section logrel.
     iModIntro.
     iIntros (γ) "#Hγ".
     iIntros (κ) "#Hκ".
-    iIntros (m) "Hm Hst".
+    iIntros (m Q) "Hm Hst".
     assert (𝒫 ((`κ) (interp_shift rs e γ))
               ≡ (𝒫 ◎ `κ) (interp_shift rs e γ)) as ->.
     { reflexivity. }
@@ -260,7 +263,7 @@ Section logrel.
       - iModIntro.
         subst γ'.
         iIntros (E) "HE".
-        iIntros (F) "Hm Hst".
+        iIntros (F Q') "Hm Hst".
         simpl.
         match goal with
         | |- context G [ofe_mor_car _ _ (`E) (ofe_mor_car _ _ Fun ?a)] =>
@@ -311,14 +314,13 @@ Section logrel.
     iLöb as "IH".
     iIntros (v) "#Hw".
     iIntros (κ) "#Hκ".
-    iIntros (σ) "Hσ Hst".
+    iIntros (σ Q) "Hσ Hst".
     rewrite APP_APP'_ITV APP_Fun laterO_map_Next -Tick_eq.
     pose (γ' :=
             (extend_scope (extend_scope γ (interp_rec rs e γ)) (IT_of_V v))).
     rewrite /logrel.
     Opaque extend_scope.
     simpl.
-    unfold obs_ref'.
     rewrite hom_tick.
     rewrite hom_tick.
     iApply wp_tick.
@@ -331,7 +333,7 @@ Section logrel.
         iApply "Hw".
       * iIntros (ξ).
         iIntros (κ') "Hκ'".
-        iIntros (F) "Hst KK".
+        iIntros (F Q') "Hst KK".
         Transparent extend_scope.
         simpl.
         iRewrite "Hf".
@@ -342,7 +344,7 @@ Section logrel.
           iModIntro.
           iIntros (βv) "Hβv".
           iIntros (κ'') "Hκ''".
-          iIntros (σ'') "Hσ'' Hst".
+          iIntros (σ'' Q'') "Hσ'' Hst".
           iApply ("IH" $! βv with "Hβv Hκ'' Hσ'' Hst").
         }
         iApply ("Hκ'" with "Hst KK").
@@ -362,7 +364,7 @@ Section logrel.
     iModIntro.
     iIntros (γ) "#Hγ".
     iIntros (κ) "#Hκ".
-    iIntros (m) "Hm Hst".
+    iIntros (m Q) "Hm Hst".
     rewrite /interp_natop //=.
 
     set (κ' := (NatOpRSCtx_HOM op e1 γ)).
@@ -377,7 +379,7 @@ Section logrel.
     iIntros (w).
     iModIntro.
     iIntros "#Hw".
-    iIntros (m') "Hm Hst".
+    iIntros (m' Q') "Hm Hst".
     subst sss.
     subst κ'.
     simpl.
@@ -395,7 +397,7 @@ Section logrel.
     iIntros (v).
     iModIntro.
     iIntros "#Hv".
-    iIntros (m'' ) "Hm Hst".
+    iIntros (m'' Q'') "Hm Hst".
     subst sss.
     subst κ'.
     simpl.
@@ -445,7 +447,7 @@ Section logrel.
     iModIntro.
     iIntros (γ) "#Hγ".
     iIntros (κ) "#Hκ".
-    iIntros (σ) "Hσ Hst".
+    iIntros (σ Q) "Hσ Hst".
     rewrite /interp_app //=.
 
     pose (κ' := (AppLSCtx_HOM e2 γ)).
@@ -469,11 +471,10 @@ Section logrel.
     iIntros (w).
     iModIntro.
     iIntros "#Hw".
-    iIntros (m') "Hm Hst".
+    iIntros (m' Q') "Hm Hst".
     subst sss.
     subst κ'.
     simpl.
-    unfold obs_ref'.
     rewrite LET_Val.
     cbn [ofe_mor_car].
     iClear "H".
@@ -493,11 +494,10 @@ Section logrel.
     iIntros (v).
     iModIntro.
     iIntros "#Hv".
-    iIntros (m'') "Hm Hst".
+    iIntros (m'' Q'') "Hm Hst".
     subst sss.
     subst κ''.
     simpl.
-    unfold obs_ref'.
     rewrite LET_Val.
     subst F.
     cbn [ofe_mor_car].
@@ -525,7 +525,7 @@ Section logrel.
     iModIntro.
     iIntros (γ) "#Henv".
     iIntros (κ) "#Hκ".
-    iIntros (σ') "Hm Hst".
+    iIntros (σ' Q) "Hm Hst".
 
     pose (κ' := (AppContRSCtx_HOM e1 γ)).
     assert ((interp_app_cont rs e1 e2 γ) = ((`κ') (e2 γ))) as ->.
@@ -543,7 +543,7 @@ Section logrel.
     iIntros (w).
     iModIntro.
     iIntros "#Hw".
-    iIntros (m') "Hm Hst".
+    iIntros (m' Q') "Hm Hst".
     subst sss.
     subst κ'.
     Opaque interp_app_cont.
@@ -551,7 +551,6 @@ Section logrel.
     iClear "G".
     pose (κ'' := (AppContLSCtx_HOM (IT_of_V w) γ _)).
     set (F := (`κ) _).
-    unfold obs_ref'.
     assert (F ≡ (((`κ) ◎ (`κ'')) (e1 γ))) as ->.
     {
       subst F. simpl. Transparent interp_app_cont. simpl.
@@ -571,12 +570,11 @@ Section logrel.
     iIntros (v).
     iModIntro.
     iIntros "#Hv".
-    iIntros (m'') "Hm Hst".
+    iIntros (m'' Q'') "Hm Hst".
     subst sss.
     subst κ''.
     Opaque APP_CONT.
     simpl.
-    unfold obs_ref'.
     iClear "H".
     rewrite get_val_ITV'.
     simpl.
@@ -628,7 +626,7 @@ Section logrel.
     iModIntro.
     iIntros (γ) "#Henv".
     iIntros (κ) "#Hκ".
-    iIntros (σ') "Hm Hst".
+    iIntros (σ' Q) "Hm Hst".
     unfold interp_if.
     cbn [ofe_mor_car].
     pose (κ' := (IFSCtx_HOM (e₁ γ) (e₂ γ))).
@@ -645,7 +643,7 @@ Section logrel.
     iIntros (v).
     iModIntro.
     iIntros "#Hv".
-    iIntros (σ'') "Hm Hst".
+    iIntros (σ'' Q') "Hm Hst".
     iDestruct "Hv" as "(%n & #Hv)".
     iRewrite "Hv".
     rewrite IT_of_V_Ret.
@@ -654,21 +652,19 @@ Section logrel.
     simpl.
     unfold IFSCtx.
     destruct (decide (0 < n)) as [H|H].
-    - unfold obs_ref'.
-      rewrite IF_True//.
+    - rewrite IF_True//.
       iApply ("G" $! γ with "Henv [Hκ] Hm Hst").
       iIntros (w).
       iModIntro.
       iIntros "#Hw".
-      iIntros (σ''') "Hm Hst".
+      iIntros (σ''' Q'') "Hm Hst".
       iApply ("Hκ" with "Hw Hm Hst").
-    - unfold obs_ref'.
-      rewrite IF_False//; last lia.
+    - rewrite IF_False//; last lia.
       iApply ("J" $! γ with "Henv [Hκ] Hm Hst").
       iIntros (w).
       iModIntro.
       iIntros "#Hw".
-      iIntros (σ''') "Hm Hst".
+      iIntros (σ''' Q'') "Hm Hst".
       iApply ("Hκ" with "Hw Hm Hst").
   Qed.
 

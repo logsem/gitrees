@@ -166,143 +166,143 @@ Section interp.
     | LocV l => interp_loc l
     | UnitV => interp_unit
     | LitV n => interp_nat n
-    | Embed e => constO $ (embed_lang.interp_closed  _ e)
+    | Embed e => constO $ (RESET ◎ NextO) (embed_lang.interp_closed  _ e)
     end.
 
-  Section example.
+  (* Section example. *)
 
-    Definition test_pr1 : expr ∅
-      := App (LamV (Alloc (Var VZ)))
-           (Embed (reset (gitrees.examples.delim_lang.example.p))).
+  (*   Definition test_pr1 : expr ∅ *)
+  (*     := App (LamV (Alloc (Var VZ))) *)
+  (*          (Embed (reset (gitrees.examples.delim_lang.example.p))). *)
 
-    Lemma p_typ : embed_lang.typed_expr_pure □ (reset (example.p)) ℕ.
-    Proof.
-      repeat econstructor.
-    Qed.
+  (*   Lemma p_typ : embed_lang.typed_expr_pure □ (reset (example.p)) ℕ. *)
+  (*   Proof. *)
+  (*     repeat econstructor. *)
+  (*   Qed. *)
 
-    Lemma test_typ1 :
-      typed_glued □ test_pr1 (tRef tNat).
-    Proof.
-      repeat econstructor.
-      constructor.
-    Qed.
+  (*   Lemma test_typ1 : *)
+  (*     typed_glued □ test_pr1 (tRef tNat). *)
+  (*   Proof. *)
+  (*     repeat econstructor. *)
+  (*     constructor. *)
+  (*   Qed. *)
 
-    Lemma test_helper_prop1 :
-      ⊢ ∀ x σ (Φ : ITV → iProp), has_substate (laterO_map x :: σ : delim.stateF ♯ IT)
-        -∗ (∀ v, v ≡ RetV 18 -∗ has_substate (σ : delim.stateF ♯ IT) -∗ WP@{rs} (x (IT_of_V v)) {{ Φ }})
-        -∗ WP@{rs} 𝒫 (delim_lang.interp.interp_expr rs example.p ı_scope) {{ Φ }}.
-    Proof.
-      Opaque SHIFT APP_CONT.
-      iIntros (x σ Φ) "Hσ HΦ".
-      cbn.
-      do 2 example.shift_hom.
-      iApply (wp_reset with "Hσ").
-      iIntros "!> _ Hσ". simpl.
-      do 2 example.shift_hom.
-      iApply (wp_shift with "Hσ").
-      { rewrite laterO_map_Next. done. }
-      iIntros "!>_ Hσ".
-      simpl.
+  (*   Lemma test_helper_prop1 : *)
+  (*     ⊢ ∀ x σ (Φ : ITV → iProp), has_substate (laterO_map x :: σ : delim.stateF ♯ IT) *)
+  (*       -∗ (∀ v, v ≡ RetV 18 -∗ has_substate (σ : delim.stateF ♯ IT) -∗ WP@{rs} (x (IT_of_V v)) {{ Φ }}) *)
+  (*       -∗ WP@{rs} 𝒫 (delim_lang.interp.interp_expr rs example.p ı_scope) {{ Φ }}. *)
+  (*   Proof. *)
+  (*     Opaque SHIFT APP_CONT. *)
+  (*     iIntros (x σ Φ) "Hσ HΦ". *)
+  (*     cbn. *)
+  (*     do 2 example.shift_hom. *)
+  (*     iApply (wp_reset with "Hσ"). *)
+  (*     iIntros "!> _ Hσ". simpl. *)
+  (*     do 2 example.shift_hom. *)
+  (*     iApply (wp_shift with "Hσ"). *)
+  (*     { rewrite laterO_map_Next. done. } *)
+  (*     iIntros "!>_ Hσ". *)
+  (*     simpl. *)
 
-      (* the rest *)
-      rewrite -(IT_of_V_Ret 6) get_val_ITV'. simpl.
-      rewrite get_fun_fun. simpl.
-      do 2 example.shift_hom.
-      iApply (wp_app_cont with "Hσ"); first done.
-      iIntros "!> _ Hσ". simpl.
-      rewrite later_map_Next -Tick_eq.
-      iApply wp_tick. iNext.
-      example.shift_hom.
-      rewrite IT_of_V_Ret NATOP_Ret. simpl.
-      rewrite -(IT_of_V_Ret 9).
-      iApply (wp_pop_cons with "Hσ").
-      iIntros "!> _ Hσ".
-      simpl.
+  (*     (* the rest *) *)
+  (*     rewrite -(IT_of_V_Ret 6) get_val_ITV'. simpl. *)
+  (*     rewrite get_fun_fun. simpl. *)
+  (*     do 2 example.shift_hom. *)
+  (*     iApply (wp_app_cont with "Hσ"); first done. *)
+  (*     iIntros "!> _ Hσ". simpl. *)
+  (*     rewrite later_map_Next -Tick_eq. *)
+  (*     iApply wp_tick. iNext. *)
+  (*     example.shift_hom. *)
+  (*     rewrite IT_of_V_Ret NATOP_Ret. simpl. *)
+  (*     rewrite -(IT_of_V_Ret 9). *)
+  (*     iApply (wp_pop_cons with "Hσ"). *)
+  (*     iIntros "!> _ Hσ". *)
+  (*     simpl. *)
 
-      example.shift_hom. example.shift_natop_l.
-      rewrite -(IT_of_V_Ret 5) get_val_ITV'. simpl.
-      example.shift_hom. example.shift_natop_l.
-      rewrite get_fun_fun. simpl.
-      example.shift_hom. example.shift_natop_l.
-      iApply (wp_app_cont with "Hσ"); first done.
-      iIntros "!> _ Hσ". simpl.
-      rewrite later_map_Next -Tick_eq.
-      iApply wp_tick. iNext.
-      rewrite (IT_of_V_Ret 5) NATOP_Ret. simpl.
-      rewrite -(IT_of_V_Ret 8).
-      iApply (wp_pop_cons with "Hσ").
-      iIntros "!> _ Hσ".
-      simpl.
-      example.shift_hom.
-      example.shift_natop_l.
-      rewrite (IT_of_V_Ret 8).
-      simpl. rewrite IT_of_V_Ret NATOP_Ret.
-      simpl. rewrite -(IT_of_V_Ret 17).
-      iApply (wp_pop_cons with "Hσ").
-      iIntros "!> _ Hσ". simpl.
-      rewrite IT_of_V_Ret NATOP_Ret.
-      simpl. rewrite -(IT_of_V_Ret 18).
+  (*     example.shift_hom. example.shift_natop_l. *)
+  (*     rewrite -(IT_of_V_Ret 5) get_val_ITV'. simpl. *)
+  (*     example.shift_hom. example.shift_natop_l. *)
+  (*     rewrite get_fun_fun. simpl. *)
+  (*     example.shift_hom. example.shift_natop_l. *)
+  (*     iApply (wp_app_cont with "Hσ"); first done. *)
+  (*     iIntros "!> _ Hσ". simpl. *)
+  (*     rewrite later_map_Next -Tick_eq. *)
+  (*     iApply wp_tick. iNext. *)
+  (*     rewrite (IT_of_V_Ret 5) NATOP_Ret. simpl. *)
+  (*     rewrite -(IT_of_V_Ret 8). *)
+  (*     iApply (wp_pop_cons with "Hσ"). *)
+  (*     iIntros "!> _ Hσ". *)
+  (*     simpl. *)
+  (*     example.shift_hom. *)
+  (*     example.shift_natop_l. *)
+  (*     rewrite (IT_of_V_Ret 8). *)
+  (*     simpl. rewrite IT_of_V_Ret NATOP_Ret. *)
+  (*     simpl. rewrite -(IT_of_V_Ret 17). *)
+  (*     iApply (wp_pop_cons with "Hσ"). *)
+  (*     iIntros "!> _ Hσ". simpl. *)
+  (*     rewrite IT_of_V_Ret NATOP_Ret. *)
+  (*     simpl. rewrite -(IT_of_V_Ret 18). *)
 
-      iApply (wp_pop_cons with "Hσ").
-      iIntros "!> _ Hσ".
-      by iApply "HΦ".
-    Qed.
+  (*     iApply (wp_pop_cons with "Hσ"). *)
+  (*     iIntros "!> _ Hσ". *)
+  (*     by iApply "HΦ". *)
+  (*   Qed. *)
 
-    Lemma test_prop1 σ :
-      ⊢ heap_ctx rs
-        -∗ has_substate (σ : delim.stateF ♯ IT)
-        -∗ WP@{rs} (interp_expr test_pr1 ı_scope) @ notStuck
-             {{ βv, ∃ (l : loc),
-                      βv ≡ RetV l
-                      ∗ pointsto l (Ret 18)
-                      ∗ has_substate (σ : delim.stateF ♯ IT)}}.
-    Proof.
-      Opaque SHIFT APP_CONT RESET gitrees.examples.delim_lang.example.p.
-      iIntros "T H".
-      cbn.
+  (*   Lemma test_prop1 σ : *)
+  (*     ⊢ heap_ctx rs *)
+  (*       -∗ has_substate (σ : delim.stateF ♯ IT) *)
+  (*       -∗ WP@{rs} (interp_expr test_pr1 ı_scope) @ notStuck *)
+  (*            {{ βv, ∃ (l : loc), *)
+  (*                     βv ≡ RetV l *)
+  (*                     ∗ pointsto l (Ret 18) *)
+  (*                     ∗ has_substate (σ : delim.stateF ♯ IT)}}. *)
+  (*   Proof. *)
+  (*     Opaque SHIFT APP_CONT RESET gitrees.examples.delim_lang.example.p. *)
+  (*     iIntros "T H". *)
+  (*     cbn. *)
 
-      match goal with
-      | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
-          set (F := b)
-      end.
-      unshelve eset (K := (exist _ (LETCTX F) _ : HOM)).
-      { apply _. }
-      Transparent LET.
-      simpl.
-      do 2 example.shift_hom.
-      iApply (wp_reset with "H").
-      iNext.
-      iIntros "? H".
-      iApply (test_helper_prop1 $! _ σ with "H").
-      iIntros (v) "#HEQ H".
-      subst F.
-      simpl.
-      rewrite get_val_ITV.
-      simpl.
-      rewrite get_val_fun.
-      simpl.
-      rewrite APP'_Fun_l.
-      simpl.
-      rewrite <-Tick_eq.
-      iApply wp_tick.
-      iNext.
-      rewrite get_val_ITV.
-      simpl.
-      iApply (wp_alloc with "T").
-      { solve_proper. }
-      do 2 iNext.
-      iIntros (l) "Hl".
-      iApply wp_val.
-      iModIntro.
-      iExists l.
-      iSplit; first done.
-      iFrame "H".
-      assert (Ret 18 ≡ IT_of_V (RetV 18))%stdpp as ->.
-      { by rewrite -(IT_of_V_Ret 18). }
-      iRewrite - "HEQ".
-      done.
-    Qed.
-  End example.
+  (*     match goal with *)
+  (*     | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] => *)
+  (*         set (F := b) *)
+  (*     end. *)
+  (*     unshelve eset (K := (exist _ (LETCTX F) _ : HOM)). *)
+  (*     { apply _. } *)
+  (*     Transparent LET. *)
+  (*     simpl. *)
+  (*     do 2 example.shift_hom. *)
+  (*     iApply (wp_reset with "H"). *)
+  (*     iNext. *)
+  (*     iIntros "? H". *)
+  (*     iApply (test_helper_prop1 $! _ σ with "H"). *)
+  (*     iIntros (v) "#HEQ H". *)
+  (*     subst F. *)
+  (*     simpl. *)
+  (*     rewrite get_val_ITV. *)
+  (*     simpl. *)
+  (*     rewrite get_val_fun. *)
+  (*     simpl. *)
+  (*     rewrite APP'_Fun_l. *)
+  (*     simpl. *)
+  (*     rewrite <-Tick_eq. *)
+  (*     iApply wp_tick. *)
+  (*     iNext. *)
+  (*     rewrite get_val_ITV. *)
+  (*     simpl. *)
+  (*     iApply (wp_alloc with "T"). *)
+  (*     { solve_proper. } *)
+  (*     do 2 iNext. *)
+  (*     iIntros (l) "Hl". *)
+  (*     iApply wp_val. *)
+  (*     iModIntro. *)
+  (*     iExists l. *)
+  (*     iSplit; first done. *)
+  (*     iFrame "H". *)
+  (*     assert (Ret 18 ≡ IT_of_V (RetV 18))%stdpp as ->. *)
+  (*     { by rewrite -(IT_of_V_Ret 18). } *)
+  (*     iRewrite - "HEQ". *)
+  (*     done. *)
+  (*   Qed. *)
+  (* End example. *)
 End interp.
 
 Section sets.
@@ -325,11 +325,34 @@ Section sets.
   Canonical Structure exprO S := leibnizO (expr S).
 
   Notation "'WP' α {{ β , Φ } }" := (wp rs α notStuck ⊤ (λ β, Φ))
-    (at level 20, α, Φ at level 200,
-     format "'WP'  α  {{  β ,  Φ  } }") : bi_scope.
+                                      (at level 20, α, Φ at level 200,
+                                        format "'WP'  α  {{  β ,  Φ  } }") : bi_scope.
   Notation "'WP' α {{ Φ } }" := (wp rs α notStuck ⊤ Φ)
-    (at level 20, α, Φ at level 200,
-     format "'WP'  α  {{  Φ  } }") : bi_scope.
+                                  (at level 20, α, Φ at level 200,
+                                    format "'WP'  α  {{  Φ  } }") : bi_scope.
+
+  Program Definition clwp : IT -> (ITV -> iProp) -> iProp :=
+    λ α Φ, (∀ (κ : HOM) (Ψ : ITV -> iProp), (∀ v, Φ v -∗ WP (`κ (IT_of_V v)) {{ Ψ }}) -∗ WP (`κ α) {{ Ψ }})%I.
+
+  Notation "'CLWP' α {{ β , Φ } }" := (clwp α (λ β, Φ))
+                                        (at level 20, α, Φ at level 200,
+                                          format "'CLWP'  α  {{  β ,  Φ  } }") : bi_scope.
+  Notation "'CLWP' α {{ Φ } }" := (clwp α Φ)
+                                    (at level 20, α, Φ at level 200,
+                                      format "'CLWP'  α  {{  Φ  } }") : bi_scope.
+
+  Lemma clwp_bind (κ : HOM) e Φ :
+    CLWP e {{ βv, CLWP (`κ (IT_of_V βv)) {{ Φ }} }} ⊢ CLWP (`κ e) {{ Φ }}.
+  Proof.
+    iIntros "H %κ' %Ψ G".
+    rewrite HOM_ccompose.
+    iApply ("H" $! (HOM_compose κ' κ)).
+    iIntros (v) "J".
+    simpl.
+    iApply "J".
+    iIntros (v') "K".
+    by iApply "G".
+  Qed.
 
   Program Definition interp_tnat : ITV -n> iProp := λne αv,
       (∃ n : nat, αv ≡ RetV n)%I.
@@ -339,9 +362,15 @@ Section sets.
       (αv ≡ RetV ())%I.
   Solve All Obligations with solve_proper_please.
 
+  Definition logN : namespace := nroot .@ "logN".
+
+  Program Definition interp_ref (Φ : ITV -n> iProp) : ITV -n> iProp := λne αv,
+      (∃ (l : loc), αv ≡ RetV l ∗ inv (logN .@ l) (∃ βv, pointsto l (IT_of_V βv) ∗ Φ βv))%I.
+  Solve All Obligations with solve_proper_please.
+
   Program Definition obs_ref : (ITV -n> iProp) -n> IT -n> iProp :=
     λne Ψ α,
-       (WP 𝒫 α {{ βv, Ψ βv ∗ has_substate ([] : delim.stateF ♯ IT) }})%I.
+       (WP α {{ βv, Ψ βv }})%I.
   Next Obligation. solve_proper_please. Qed.
   Next Obligation.
     solve_proper_prepare.
@@ -351,19 +380,17 @@ Section sets.
   Qed.
 
   Definition logrel_ectx (V W : ITV -n> iProp) (κ : HOM) : iProp :=
-    (□ ∀ (βv : ITV) σ, has_substate (σ : delim.stateF ♯ IT) -∗ logpred.logrel_mcont rs (logpred.interp_ty rs ℕ) σ -∗ V βv -∗ obs_ref W (`κ (IT_of_V βv)))%I.
+    (□ ∀ (βv : ITV),
+       V βv -∗ has_substate ([] : delim.stateF ♯ IT) -∗ obs_ref W (`κ (IT_of_V βv)))%I.
 
   Program Definition interp_tarr (Φ1 Φ2 : ITV -n> iProp)
     : ITV -n> iProp :=
     λne αv,
       (∃ f', IT_of_V αv ≡ Fun f'
-             ∧ □ ∀ βv, Φ1 βv -∗ ∀ (κ : HOM) σ, has_substate (σ : delim.stateF ♯ IT) -∗ logpred.logrel_mcont rs (logpred.interp_ty rs ℕ) σ -∗ logrel_ectx Φ2 (interp_tnat) κ -∗ obs_ref interp_tnat (`κ ((Fun f') ⊙ ((IT_of_V βv)))))%I.
-  Solve All Obligations with solve_proper_please.
-
-  Definition logN : namespace := nroot .@ "logN".
-
-  Program Definition interp_ref (Φ : ITV -n> iProp) : ITV -n> iProp := λne αv,
-      (∃ (l : loc), αv ≡ RetV l ∗ inv (logN .@ l) (∃ βv, pointsto l (IT_of_V βv) ∗ Φ βv))%I.
+             ∧ □ ∀ βv, Φ1 βv
+                       -∗ ∀ κ Φ3, logrel_ectx Φ2 Φ3 κ
+                                  -∗ has_substate ([] : delim.stateF ♯ IT)
+                                  -∗ obs_ref Φ3 (`κ ((Fun f') ⊙ ((IT_of_V βv)))))%I.
   Solve All Obligations with solve_proper_please.
 
   Fixpoint interp_ty (τ : ty) : ITV -n> iProp :=
@@ -385,11 +412,10 @@ Section sets.
   Qed.
 
   Program Definition interp_exprG V : IT -n> iProp :=
-    λne e, (∀ κ σ, heap_ctx rs
-                   -∗ has_substate (σ : delim.stateF ♯ IT)
-                   -∗ logpred.logrel_mcont rs (logpred.interp_ty rs ℕ) σ
-                   -∗ logrel_ectx V interp_tnat κ
-                   -∗ obs_ref interp_tnat (`κ e))%I.
+    λne e, (∀ κ W, heap_ctx rs
+                   -∗ has_substate ([] : delim.stateF ♯ IT)
+                   -∗ logrel_ectx V W κ
+                   -∗ obs_ref W (`κ e))%I.
   Solve All Obligations with solve_proper_please.
 
   Program Definition ssubst_validG {S : Set}
@@ -409,9 +435,10 @@ Section sets.
   Proof.
     iModIntro.
     iIntros (γ) "#H".
-    iIntros (κ σ) "#Q R T #W".
-    iSpecialize ("W" $! (RetV n) with "R T []").
-    - by iExists _.
+    iIntros (κ W) "#Q R #W".
+    iSpecialize ("W" $! (RetV n) with "[]").
+    - iExists _.
+      done.
     - by iApply "W".
   Qed.
 
@@ -420,9 +447,10 @@ Section sets.
   Proof.
     iModIntro.
     iIntros (γ) "#H".
-    iIntros (κ σ) "#Q R T #W".
-    iSpecialize ("W" $! (RetV ()) with "R T []"); first done.
-    by iApply "W".
+    iIntros (κ W) "#Q R #W".
+    iSpecialize ("W" $! (RetV ()) with "[]").
+    - done.
+    - by iApply "W".
   Qed.
 
   Lemma compat_var {S : Set} (Ω : S → ty) (v : S) :
@@ -430,8 +458,8 @@ Section sets.
   Proof.
     iModIntro.
     iIntros (γ) "#H".
-    iIntros (κ σ) "Q R T W".
-    iApply ("H" with "Q R T W").
+    iIntros (κ W) "Q R W".
+    iApply ("H" with "Q R W").
   Qed.
 
   Lemma compat_glueNat {S : Set} (Ω : S → ty)
@@ -441,52 +469,28 @@ Section sets.
   Proof.
     iModIntro.
     iIntros (γ) "#H".
-    iIntros (κ σ) "#Q R T #W".
-
-    unshelve eset (F := (exist _ (𝒫 : IT -n> IT) _ : HOM)).
-    { apply _. }
-    unfold obs_ref.
-    simpl.
-    assert (𝒫 = `F)%stdpp as ->.
-    { done. }
-    rewrite HOM_ccompose.
+    iIntros (κ W) "#Q R #W".
 
     iPoseProof (logpred.fundamental_expr_pure rs □ ℕ e t) as "#G".
     unshelve iSpecialize ("G" $! ı_scope _).
     { iIntros ([]). }
-    unfold embed_lang.interp_closed.
-    unfold logpred.logrel_pure.
-    cbn [ofe_mor_car].
-    unfold logpred.logrel_expr.
-    cbn [ofe_mor_car].
-    unfold logpred.obs_ref.
-    unfold logpred.obs_ref'.
-    cbn [ofe_mor_car].
-    unshelve iSpecialize ("G" $! (logpred.interp_ty rs ℕ) κ with "[]").
-    1-4: apply _.
+
+    iApply (wp_reset with "R").
+    iIntros "!> Hc R".
+    iSpecialize ("G" $! (logpred.logrel_nat rs) HOM_id with "[]").
     {
-      iIntros (v).
-      iModIntro.
-      iIntros "Hv".
-      iIntros (σ') "Hσ".
-      iIntros "R".
-      unfold obs_ref.
-      simpl.
-      unfold logpred.obs_ref'.
-      simpl.
-      iApply ("W" $! _ σ' with "R Hσ Hv").
+      iApply logpred.compat_HOM_id.
     }
-    iSpecialize ("G" $! σ with "[W T]").
+    iSpecialize ("G" $! [laterO_map (`κ)] W with "[] R").
     {
-      iIntros (?) "K L".
-      unfold logpred.obs_ref.
-      unfold logpred.obs_ref'.
-      simpl.
-      iApply ("T" with "K L").
+      iIntros (v) "#E R".
+      iApply (wp_pop_cons with "R").
+      iIntros "!> Hc R".
+      iApply "W".
+      - iApply "E".
+      - iFrame.
     }
-    simpl.
-    unfold logpred.obs_ref'.
-    by iApply "G".
+    iApply "G".
   Qed.
 
   Lemma compat_app {S : Set}
@@ -499,7 +503,7 @@ Section sets.
     iIntros "#H #G".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ σ) "#Q R T #W".
+    iIntros (κ W) "#Q R #W".
     simpl.
     match goal with
     | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
@@ -512,11 +516,11 @@ Section sets.
     rewrite HOM_ccompose.
     iSpecialize ("G" $! γ with "Hγ").
     iSpecialize ("G" $! (HOM_compose κ K)).
-    iApply ("G" with "Q R T []").
+    iApply ("G" with "Q R []").
     iClear "G".
     iIntros (v).
     iModIntro.
-    iIntros (σ') "R T #Hv".
+    iIntros "#T R".
     simpl.
     rewrite LET_Val.
     subst F K.
@@ -532,10 +536,10 @@ Section sets.
     rewrite HOM_ccompose.
     iSpecialize ("H" $! γ with "Hγ").
     iSpecialize ("H" $! (HOM_compose κ K)).
-    iApply ("H" with "Q R T").
+    iApply ("H" with "Q R").
     iIntros (w).
     iModIntro.
-    iIntros (σ'') "R T #Hw".
+    iIntros "#Hw R".
     simpl.
     rewrite LET_Val.
     subst F.
@@ -547,8 +551,8 @@ Section sets.
       iApply "HEQ".
     }
     iRewrite "HEQ'".
-    iSpecialize ("Hw" $! v with "Hv").
-    iApply ("Hw" $! κ with "R T W").
+    iSpecialize ("Hw" $! v with "T").
+    iApply ("Hw" $! κ W with "W R").
   Qed.
 
   Lemma compat_alloc {S : Set}
@@ -560,7 +564,7 @@ Section sets.
     iIntros "#H".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ σ) "#Q R T #W".
+    iIntros (κ σ) "#Q R #W".
     simpl.
     match goal with
     | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
@@ -569,23 +573,23 @@ Section sets.
     unshelve eset (K := HOM_compose κ (exist _ (LETCTX F) _ : HOM)).
     { apply _. }
     iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! K σ with "Q R T []"); first last.
+    iSpecialize ("H" $! K σ with "Q R []"); first last.
     { subst K; simpl; iApply "H". }
     iIntros (v).
     iModIntro.
-    iIntros (σ') "R T #Hv".
+    iIntros "#Hv R".
     subst K.
     simpl.
     rewrite LET_Val.
     subst F.
     cbn [ofe_mor_car].
-    do 2 rewrite hom_vis.
+    do 1 rewrite hom_vis.
     iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ'') "[>Hlc [Hs Hh]]" "Hcl".
     iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
     set (l:=Loc.fresh (dom σ'')).
-    iExists σ'', l, _, (𝒫 (`κ (Ret l))).
+    iExists σ'', l, _, ((`κ (Ret l))).
     iFrame "Hs".
     simpl. change (Loc.fresh (dom σ'')) with l.
     iSplit; first done.
@@ -608,7 +612,7 @@ Section sets.
     }
     iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
     { iExists _. by iFrame. }
-    iSpecialize ("W" $! (RetV l) σ' with "R T []").
+    iSpecialize ("W" $! (RetV l) with "[]").
     {
       iExists l.
       iSplit; first done.
@@ -616,6 +620,7 @@ Section sets.
     }
     iModIntro.
     iApply "W".
+    iFrame.
   Qed.
 
   Lemma compat_assign {S : Set} {Ω : S → ty}
@@ -627,7 +632,7 @@ Section sets.
     iIntros "#H #G".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ σ) "#Hheap R T #Hκ".
+    iIntros (κ σ) "#Hheap R #Hκ".
     simpl.
     match goal with
     | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
@@ -636,11 +641,11 @@ Section sets.
     unshelve eset (K := HOM_compose κ (exist _ (LETCTX F) _ : HOM)).
     { apply _. }
     iSpecialize ("G" $! γ with "Hγ").
-    iSpecialize ("G" $! K with "Hheap R T []"); first last.
+    iSpecialize ("G" $! K with "Hheap R []"); first last.
     { subst K; simpl; iApply "G". }
     iIntros (v).
     iModIntro.
-    iIntros (σ') "R T #Hv".
+    iIntros "#Hv R".
     subst K.
     simpl.
     rewrite LET_Val.
@@ -653,18 +658,18 @@ Section sets.
     unshelve eset (K := HOM_compose κ (exist _ (get_ret F) _) : HOM).
     { apply _. }
     iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! K with "Hheap R T []"); first last.
+    iSpecialize ("H" $! K with "Hheap R []"); first last.
     { subst K; simpl; iApply "H". }
     iIntros (w).
     iModIntro.
     subst K F.
     simpl.
-    iIntros (σ'') "R T (%l & #HEQ & Hw)".
+    iIntros "(%l & #HEQ & Hw) R".
     iRewrite "HEQ".
     rewrite IT_of_V_Ret.
     rewrite get_ret_ret.
     simpl.
-    do 2 rewrite hom_vis.
+    do 1 rewrite hom_vis.
 
     iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ''') "[>Hlc [Hs Hh]]" "Hcl".
@@ -683,7 +688,7 @@ Section sets.
     destruct (Next_uninj x) as [α' Ha'].
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
-    iExists σ''', (), (<[l:=Next (IT_of_V v)]>σ'''), (𝒫 (`κ (Ret ()))).
+    iExists σ''', (), (<[l:=Next (IT_of_V v)]>σ'''), (`κ (Ret ())).
     iFrame "Hs".
     iSimpl. repeat iSplit; [done | done | ].
     iNext. iIntros "Hlc".
@@ -701,7 +706,7 @@ Section sets.
     { iExists _. by iFrame. }
     iModIntro.
     rewrite <-IT_of_V_Ret.
-    by iApply ("Hκ" $! _ σ'' with "R T []").
+    by iApply ("Hκ" $! _ with "[] R").
   Qed.
 
   Lemma compat_deref {S : Set} (Ω : S → ty)
@@ -712,7 +717,7 @@ Section sets.
     iIntros "#H".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ σ) "#Hheap R T #Hκ".
+    iIntros (κ Q) "#Hheap R #Hκ".
     simpl.
     match goal with
     | |- context G [get_ret ?a] =>
@@ -721,11 +726,11 @@ Section sets.
     unshelve eset (K := HOM_compose κ (exist _ (get_ret F) _) : HOM).
     { apply _. }
     iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! K with "Hheap R T []"); first last.
+    iSpecialize ("H" $! K with "Hheap R []"); first last.
     { subst K; simpl; iApply "H". }
     iIntros (w).
     iModIntro.
-    iIntros (σ') "R T #Hw".
+    iIntros "#Hw R".
     subst K F.
     simpl.
     iDestruct "Hw" as "(%l & #HEQ & Hw)".
@@ -733,7 +738,7 @@ Section sets.
     rewrite IT_of_V_Ret.
     rewrite get_ret_ret.
     simpl.
-    do 2 rewrite hom_vis.
+    do 1 rewrite hom_vis.
 
     iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ'') "[>Hlc [Hs Hh]]" "Hcl".
@@ -754,7 +759,7 @@ Section sets.
     { rewrite Hx. rewrite option_equivI.
       rewrite Hb'. by iNext. }
     iClear "Hlookup".
-    iExists σ'', (Next β'), σ'', (𝒫 (`κ β')).
+    iExists σ'', (Next β'), σ'', ((`κ β')).
     iFrame "Hs".
     iSimpl. repeat iSplit; [ | | ].
     { by rewrite Hx /= Hb'. }
@@ -776,7 +781,7 @@ Section sets.
     { iNext. iExists _. iFrame. }
     iModIntro.
     iRewrite "Hba".
-    iApply ("Hκ" with "R T H").
+    iApply ("Hκ" with "H R").
   Qed.
 
   Lemma compat_natop {S : Set}
@@ -789,7 +794,7 @@ Section sets.
     iIntros "#H #G".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ σ) "#Q R T #W".
+    iIntros (κ Q) "#Q R #W".
     simpl.
 
     set (K' := (NatOpRSCtx_HOM op α γ)).
@@ -799,11 +804,11 @@ Section sets.
 
     iSpecialize ("G" $! γ with "Hγ").
     iSpecialize ("G" $! sss).
-    iApply ("G" with "Q R T []").
+    iApply ("G" with "Q R []").
     iClear "G".
     iIntros (v).
     iModIntro.
-    iIntros (σ') "R T #Hv".
+    iIntros "#Hv R".
     simpl.
     clear K' sss.
 
@@ -815,10 +820,10 @@ Section sets.
 
     iSpecialize ("H" $! γ with "Hγ").
     iSpecialize ("H" $! sss).
-    iApply ("H" with "Q R T []").
+    iApply ("H" with "Q R []").
     iIntros (w).
     iModIntro.
-    iIntros (σ'') "R T #Hw".
+    iIntros "#Hw R".
     simpl.
 
     iDestruct "Hv" as "(%n & #HEQ)".
@@ -848,7 +853,7 @@ Section sets.
     }
     iRewrite "HEQ''".
     rewrite <-IT_of_V_Ret.
-    iApply ("W" with "R T").
+    iApply ("W" with "[] R").
     by iExists _.
   Qed.
 
@@ -860,7 +865,7 @@ Section sets.
     iIntros "#H".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ σ) "#Q R T #W".
+    iIntros (κ Q) "#Q R #W".
     cbn [interp_expr].
     unfold interp_lam.
     cbn [ofe_mor_car].
@@ -870,24 +875,24 @@ Section sets.
     end.
     assert (Fun F ≡ IT_of_V $ FunV F)%stdpp as ->.
     { reflexivity. }
-    iApply ("W" with "R T").
+    iApply ("W" with "[] R").
     iExists _.
     iSplit; first done.
     iModIntro.
     iIntros (v) "#Hv".
     fold (interp_ty τ1).
     fold (interp_ty τ2).
-    iIntros (κ' σ') "R T #Hκ'".
+    iIntros (κ' Q') "#Hκ'".
     rewrite APP'_Fun_l.
     rewrite laterO_map_Next.
     rewrite <-Tick_eq.
     iSpecialize ("H" $! (extend_scope γ (IT_of_V v)) with "[]").
     {
       iIntros ([| x]); iModIntro.
-      - iIntros (κ'' Ψ'') "Q' R T Hκ''".
-        iApply ("Hκ''" with "R T Hv").
-      - iIntros (κ'' Ψ'') "Q' R T #Hκ''".
-        iApply ("Hγ" with "Q' R T Hκ''").
+      - iIntros (κ'' Ψ'') "Q' R Hκ''".
+        iApply ("Hκ''" with "Hv R").
+      - iIntros (κ'' Ψ'') "Q' R #Hκ''".
+        iApply ("Hγ" with "Q' R Hκ''").
     }
     subst F.
     cbn [later_car].
@@ -895,12 +900,12 @@ Section sets.
     rewrite hom_tick.
     unfold obs_ref.
     cbn [ofe_mor_car].
-    rewrite hom_tick.
+    iIntros "R".
     iApply wp_tick.
     iNext.
     unfold interp_exprG.
     cbn [ofe_mor_car].
-    iSpecialize ("H" $! κ' with "Q R T [Hκ']").
+    iSpecialize ("H" $! κ' Q' with "Q R [Hκ']").
     - unfold obs_ref.
       cbn [ofe_mor_car].
       iApply "Hκ'".
@@ -926,16 +931,17 @@ Section sets.
         [by iApply fl | by iApply fl].
   Qed.
 
-  Lemma compat_HOM_id :
-    ⊢ logrel_ectx (interp_tnat) (interp_tnat) HOM_id.
+  Lemma compat_HOM_id P:
+    ⊢ logrel_ectx P P HOM_id.
   Proof.
     iIntros (v).
     iModIntro.
-    iIntros (σ) "R T Pv".
+    iIntros "Pv R".
     simpl.
     unfold logpred.logrel_mcont'.
     simpl.
-    iApply ("T" with "Pv R").
+    iApply wp_val.
+    by iModIntro.
   Qed.
 
 End sets.
@@ -948,10 +954,10 @@ Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q
 Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R, SubOfe unitO R, SubOfe locO R}
   `{!invGpreS Σ} `{!heapPreG rs R Σ} `{!statePreG rs R Σ}
   (α : interp_scope ∅ -n> IT (gReifiers_ops rs) R)
-  (e : IT (gReifiers_ops rs) R) st' k :
+  (e : IT (gReifiers_ops rs) R) st' k τ :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ} `{H3: !heapG rs R Σ},
-      (£ cr ⊢ validG rs □ α tNat)%I) →
-  ssteps (gReifiers_sReifier rs) (𝒫 (α ı_scope)) ([], (empty, ())) e st' k →
+      (£ cr ⊢ validG rs □ α τ)%I) →
+  ssteps (gReifiers_sReifier rs) (α ı_scope) ([], (empty, ())) e st' k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) e st' β1 st1)
    ∨ (∃ βv, (IT_of_V βv ≡ e)%stdpp).
 Proof.
@@ -967,7 +973,7 @@ Proof.
   { apply Hdisj. }
   { by rewrite Hb. }
   intros H2 H3.
-  exists (λ _, True)%I. split.
+  eexists (λ _, True)%I. split.
   { apply _. }
   iIntros "[[Hone Hcr] Hst]".
   match goal with
@@ -1003,24 +1009,17 @@ Proof.
   { iIntros ([]). }
   unfold interp_exprG.
   simpl.
-  iSpecialize ("Hlog" $! HOM_id cont_stack with "Hinv Hcont [] []").
-  { iIntros (?) "? Q".
-    iApply (wp_pop_end with "Q").
-    iIntros "!> _ Q".
-    iApply wp_val.
-    iModIntro.
-    iFrame.
-  }
-  { iApply compat_HOM_id. }
-  simpl in st.
+  iSpecialize ("Hlog" $! HOM_id (interp_ty rs τ) with "Hinv Hcont []").
+  { iApply compat_HOM_id.  }
   iModIntro.
   iApply (wp_wand with "Hlog").
-  eauto with iFrame.
+  iIntros (?) "_".
+  by iModIntro.
 Qed.
 
-Lemma safety e σ (β : IT (sReifier_ops (gReifiers_sReifier rs)) (sumO natO (sumO unitO locO))) k :
-  typed_glued □ e tNat →
-  ssteps (gReifiers_sReifier rs) (𝒫 (interp_expr rs e ı_scope)) ([], (empty, ())) β σ k →
+Lemma safety τ e σ (β : IT (sReifier_ops (gReifiers_sReifier rs)) (sumO natO (sumO unitO locO))) k :
+  typed_glued □ e τ →
+  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) ([], (empty, ())) β σ k →
   (∃ β1 st1, sstep (gReifiers_sReifier rs) β σ β1 st1)
    ∨ (∃ βv, IT_of_V βv ≡ β)%stdpp.
 Proof.

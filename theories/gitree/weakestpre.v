@@ -425,6 +425,16 @@ Section weakestpre.
       iModIntro. iRewrite "Hb". by iFrame.
   Qed.
 
+  Lemma wp_tick_n α s E1 Φ k :
+    ▷^k WP α @ s;E1 {{ Φ }} ⊢ WP (Tick_n k α) @ s;E1 {{ Φ }}.
+  Proof.
+    induction k as [| ? IHk]; first done.
+    iIntros "H".
+    iApply wp_tick.
+    iNext.
+    by iApply IHk.
+  Qed.
+
   Opaque gState_recomp.
 
   (* We can generalize this based on the stuckness bit *)
