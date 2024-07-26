@@ -130,8 +130,8 @@ Section interp.
 
   Program Definition interp_app {A : ofe} (t1 : A -n> IT) (t2 : A -n> IT)
     : A -n> IT := λne env,
-      LET (t2 env) $ λne x,
       LET (t1 env) $ λne f,
+      LET (t2 env) $ λne x,
       APP' f x.
   Solve All Obligations with solve_proper_please.
 
@@ -401,15 +401,91 @@ Section sets.
     (□ ∀ (βv : ITV),
        V βv -∗ has_substate ([] : delim.stateF ♯ IT) -∗ obs_ref W (`κ (IT_of_V βv)))%I.
 
+  Program Definition interp_exprG V : IT -n> iProp :=
+    λne e, (∀ κ W, heap_ctx rs
+                   -∗ has_substate ([] : delim.stateF ♯ IT)
+                   -∗ logrel_ectx V W κ
+                   -∗ obs_ref W (`κ e))%I.
+  Next Obligation.
+    solve_proper_prepare.
+    f_equiv; intro; simpl.
+    f_equiv; intro; simpl.
+    do 3 f_equiv.
+    unfold clwp.
+    f_equiv; intro; simpl.
+    f_equiv; intro; simpl.
+    f_equiv.
+    solve_proper.
+  Qed.
+
+  Local Instance interp_exprG_ne : NonExpansive interp_exprG.
+  Proof.
+    solve_proper_prepare.
+    f_equiv; intro; simpl.
+    f_equiv; intro; simpl.
+    do 3 f_equiv.
+    solve_proper.
+  Qed.
+
+  Local Instance interp_exprG_bind_ne (κ : HOM) (Φ : ITV -n> iProp)
+    : NonExpansive (λ βv, (interp_exprG Φ (`κ (IT_of_V βv)))%I).
+  Proof.
+    solve_proper.
+  Qed.
+
+  Lemma interp_exprG_bind (κ : HOM) e (Φ : ITV -n> iProp) :
+    interp_exprG (λne βv, interp_exprG Φ (`κ (IT_of_V βv))) e ⊢ interp_exprG Φ (`κ e).
+  Proof.
+    iIntros "H %κ' %W #Hheap Hctx #Hcont".
+    iApply ("H" $! (HOM_compose κ' κ) W with "Hheap Hctx").
+    iIntros "%v".
+    iModIntro.
+    iIntros "G Hctx".
+    iApply ("G" with "Hheap Hctx").
+    iApply "Hcont".
+  Qed.
+
+  Lemma interp_exprG_val (Φ : ITV -n> iProp) (e : IT) (v : ITV) `{!IntoVal e v} :
+    Φ v ⊢ interp_exprG Φ e.
+  Proof.
+    iIntros "H %κ %Ψ #Hheap Hctx Hκ".
+    rewrite <-into_val.
+    iApply ("Hκ" with "H Hctx").
+  Qed.
+
+  Lemma interp_exprG_tick (Φ : ITV -n> iProp) (e : IT) :
+    ▷ interp_exprG Φ e ⊢ interp_exprG Φ (Tick e).
+  Proof.
+    iIntros "H %κ %Ψ #Hheap Hctx Hκ".
+    iIntros "%κ' %Ξ Hκ'".
+    do 2 rewrite hom_tick.
+    iApply wp_tick.
+    iApply ("H" with "[$Hheap] [$Hctx] [$Hκ] [$Hκ']").
+  Qed.
+
   Program Definition interp_tarr (Φ1 Φ2 : ITV -n> iProp)
     : ITV -n> iProp :=
     λne αv,
-      (∃ f', IT_of_V αv ≡ Fun f'
-             ∧ □ ∀ βv, Φ1 βv
-                       -∗ ∀ κ Φ3, logrel_ectx Φ2 Φ3 κ
-                                  -∗ has_substate ([] : delim.stateF ♯ IT)
-                                  -∗ obs_ref Φ3 (`κ ((Fun f') ⊙ ((IT_of_V βv)))))%I.
+      (∃ f',
+         IT_of_V αv ≡ Fun f'
+         ∧ □ ∀ βv, Φ1 βv -∗ interp_exprG Φ2 ((Fun f') ⊙ ((IT_of_V βv))))%I.
   Solve All Obligations with solve_proper_please.
+
+  Opaque interp_exprG.
+
+  (* Lemma interp_expr_pure_interp_exprG e Ψ : *)
+  (*   (∀ Φ, logpred.logrel_expr rs Ψ Φ Φ e) ⊢ interp_exprG Ψ e. *)
+  (* Proof. *)
+  (*   iIntros "H %κ %W #Hheap Hctx #Hcont". *)
+  (*   iSpecialize ("H" $! W κ with "[Hctx]"). *)
+  (*   { *)
+  (*     iIntros "%v". *)
+  (*     iAssert (□ (Ψ v -∗ obs_ref W ((`κ) (IT_of_V v))))%I as "#Hcont'". *)
+  (*     { *)
+
+  (*     } *)
+  (*     iSpecialize ("Hcont" $! v). *)
+  (*   } *)
 
   Fixpoint interp_ty (τ : ty) : ITV -n> iProp :=
     match τ with
@@ -429,23 +505,6 @@ Section sets.
     - apply _.
   Qed.
 
-  Program Definition interp_exprG V : IT -n> iProp :=
-    λne e, (∀ κ W, heap_ctx rs
-                   -∗ has_substate ([] : delim.stateF ♯ IT)
-                   -∗ logrel_ectx V W κ
-                   -∗ obs_ref W (`κ e))%I.
-  Next Obligation.
-    solve_proper_prepare.
-    f_equiv; intro; simpl.
-    f_equiv; intro; simpl.
-    do 3 f_equiv.
-    unfold clwp.
-    f_equiv; intro; simpl.
-    f_equiv; intro; simpl.
-    f_equiv.
-    solve_proper.
-  Qed.
-
   Program Definition ssubst_validG {S : Set}
     (Γ : S -> ty)
     (ss : interp_scope S) : iProp :=
@@ -463,11 +522,8 @@ Section sets.
   Proof.
     iModIntro.
     iIntros (γ) "#H".
-    iIntros (κ W) "#Q R #W".
-    iSpecialize ("W" $! (RetV n) with "[]").
-    - iExists _.
-      done.
-    - by iApply "W".
+    iApply interp_exprG_val.
+    by iExists _.
   Qed.
 
   Lemma compat_unit {S : Set} (Ω : S → ty) :
@@ -475,10 +531,7 @@ Section sets.
   Proof.
     iModIntro.
     iIntros (γ) "#H".
-    iIntros (κ W) "#Q R #W".
-    iSpecialize ("W" $! (RetV ()) with "[]").
-    - done.
-    - by iApply "W".
+    by iApply interp_exprG_val.
   Qed.
 
   Lemma compat_var {S : Set} (Ω : S → ty) (v : S) :
@@ -486,8 +539,7 @@ Section sets.
   Proof.
     iModIntro.
     iIntros (γ) "#H".
-    iIntros (κ W) "Q R W".
-    iApply ("H" with "Q R W").
+    iApply "H".
   Qed.
 
   Lemma compat_glueNat {S : Set} (Ω : S → ty)
@@ -532,104 +584,96 @@ Section sets.
     iIntros "#H #G".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ W) "#Q R #W".
-    simpl.
-    match goal with
-    | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
-        set (F := b)
-    end.
-    unshelve eset (K := (exist _ (LETCTX F) _ : HOM)).
-    { apply _. }
-    unfold clwp.
-    iIntros (Tκ TΨ) "TH".
-    assert ((LET (β γ) F) ≡ `K (β γ))%stdpp as ->.
-    { reflexivity. }
-    rewrite HOM_ccompose.
+
+    iSpecialize ("H" $! γ with "Hγ").
     iSpecialize ("G" $! γ with "Hγ").
-    iSpecialize ("G" $! (HOM_compose κ K)).
-    iApply ("G" with "Q R []"); first last.
-    { iApply "TH". }
-    iClear "G".
+    iClear "Hγ".
+
+    set (K := (AppLSCtx_HOM β γ)).
+    assert ((interp_app rs α β γ)
+              ≡ `K (α γ))%stdpp as ->.
+    { simpl; do 3 (f_equiv; intro; simpl). }
+    iApply interp_exprG_bind.
+    iIntros (κ W) "#Hheap Hctx #Hcont".
+    iApply ("H" with "Hheap Hctx").
+    iClear "H".
     iIntros (v).
     iModIntro.
-    iIntros "#T R".
-    simpl.
-    unfold clwp.
-    iIntros (Tκ' TΨ') "TH'".
-    rewrite LET_Val.
-    subst F K.
-    simpl.
-    match goal with
-    | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
-        set (F := b)
-    end.
-    unshelve eset (K := (exist _ (LETCTX F) _ : HOM)).
-    { apply _. }
-    assert ((LET (α γ) F) ≡ `K (α γ))%stdpp as ->.
-    { reflexivity. }
-    rewrite HOM_ccompose.
-    iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! (HOM_compose κ K)).
-    iApply ("H" with "Q R"); first last.
-    { iApply "TH'". }
+    iIntros "#J Hctx".
+    iApply ("Hcont" with "[] Hctx").
+    iClear "Hcont".
+    cbn [ofe_mor_car].
+    assert (`K (IT_of_V v)
+              ≡ (interp_app rs (constO (IT_of_V v)) β γ))%stdpp as ->.
+    { simpl; do 3 (f_equiv; intro; simpl). }
+
+    set (K' := (AppRSCtx_HOM (IT_of_V v) γ _)).
+    assert ((interp_app rs (constO (IT_of_V v)) β γ)
+              ≡ `K' (β γ))%stdpp as ->.
+    { simpl; do 3 (f_equiv; intro; simpl). }
+    iApply interp_exprG_bind.
+    iIntros (κ' W') "_ Hctx #Hcont".
+    iApply ("G" with "Hheap Hctx").
+    iClear "G".
     iIntros (w).
     iModIntro.
-    iIntros "#Hw R".
+    iIntros "#K Hctx".
+    iApply ("Hcont" with "[] Hctx").
+    iClear "Hcont".
     simpl.
-    unfold clwp.
-    iIntros (Tκ'' TΨ'') "TH''".
-    rewrite LET_Val.
-    subst F.
-    simpl.
-    iDestruct "Hw" as "(%f & #HEQ & #Hw)".
-    iAssert ((IT_of_V w ⊙ (IT_of_V v)) ≡ (Fun f ⊙ (IT_of_V v)))%I as "HEQ'".
+    do 2 rewrite LET_Val /=.
+
+    iDestruct "J" as "(%f & #HEQ & #Hw)".
+    iAssert ((IT_of_V v ⊙ (IT_of_V w)) ≡ (Fun f ⊙ (IT_of_V w)))%I as "HEQ'".
     {
-      iApply (f_equivI (flipO APP' (IT_of_V v))).
+      iApply (f_equivI (flipO APP' (IT_of_V w))).
       iApply "HEQ".
     }
     iRewrite "HEQ'".
-    iSpecialize ("Hw" $! v with "T").
-    iApply ("Hw" $! κ W with "W R").
-    iApply "TH''".
+    iApply ("Hw" $! w with "K").
   Qed.
 
   Lemma compat_alloc {S : Set}
     (Ω : S → ty)
     (τ : ty)
     (e : expr S) :
-    ⊢ validG Ω (interp_expr rs e) τ -∗ validG Ω (interp_expr rs (Alloc e)) (tRef τ).
+    ⊢ validG Ω (interp_expr rs e) τ
+      -∗ validG Ω (interp_expr rs (Alloc e)) (tRef τ).
   Proof.
     iIntros "#H".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ σ) "#Q R #W".
-    simpl.
-    match goal with
-    | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
-        set (F := b)
-    end.
-    unshelve eset (K := HOM_compose κ (exist _ (LETCTX F) _ : HOM)).
-    { apply _. }
     iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! K σ with "Q R []"); first last.
-    { subst K; simpl; iApply "H". }
+    iClear "Hγ".
+    unshelve eset (K := exist _ (λne v, interp_alloc (R := R) rs (constO v) γ) _ : HOM).
+    1-3: apply _.
+    { solve_proper. }
+    { simpl; apply _. }
+    assert ((interp_expr rs (Alloc e) γ)
+              ≡ `K (interp_expr rs e γ))%stdpp as ->.
+    { reflexivity. }
+    iApply interp_exprG_bind.
+    iIntros (κ' W') "Hheap Hctx #Hcont".
+    iApply ("H" with "Hheap Hctx").
+    iClear "H".
     iIntros (v).
     iModIntro.
-    iIntros "#Hv R".
-    subst K.
+    iIntros "#G Hctx".
+    iApply ("Hcont" with "[] Hctx").
+    iClear "Hcont".
+    clear κ' W'.
     simpl.
-    unfold clwp.
-    iIntros (Tκ TΨ) "TH".
-    rewrite LET_Val.
-    subst F.
-    cbn [ofe_mor_car].
+    clear K.
+    rewrite LET_Val /=.
+
+    iIntros (κ Ψ) "Hheap Hctx #Hκ %κ' %Ψ' Hκ'".
     do 2 rewrite hom_vis.
     iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ'') "[>Hlc [Hs Hh]]" "Hcl".
     iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
     set (l:=Loc.fresh (dom σ'')).
-    iExists σ'', l, _, (`Tκ (`κ (Ret l))).
+    iExists σ'', l, _, (`κ' (`κ (Ret l))).
     iFrame "Hs".
     simpl. change (Loc.fresh (dom σ'')) with l.
     iSplit; first done.
@@ -642,25 +686,24 @@ Section sets.
       rewrite -(Loc.add_0 l). apply Loc.fresh_fresh. lia.
     }
     iMod (inv_alloc (logN.@l) _
-            (∃ βv : ITV, pointsto l (IT_of_V βv) ∗ interp_ty τ βv) with "[Hl Hv]")
+            (∃ βv : ITV, pointsto l (IT_of_V βv) ∗ interp_ty τ βv) with "[Hl G]")
       as "#HN".
     {
       iNext.
       iExists v.
-      iFrame.
-      iFrame "Hv".
+      by iFrame.
     }
     iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
     { iExists _. by iFrame. }
-    iSpecialize ("W" $! (RetV l) with "[]").
+    iSpecialize ("Hκ" $! (RetV l) with "[]").
     {
       iExists l.
       iSplit; first done.
       iApply "HN".
     }
     iModIntro.
-    iApply ("W" with "R").
-    iApply "TH".
+    iApply ("Hκ" with "Hctx").
+    iApply "Hκ'".
   Qed.
 
   Lemma compat_assign {S : Set} {Ω : S → ty}
@@ -672,47 +715,64 @@ Section sets.
     iIntros "#H #G".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ σ) "#Hheap R #Hκ".
-    simpl.
-    match goal with
-    | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
-        set (F := b)
-    end.
-    unshelve eset (K := HOM_compose κ (exist _ (LETCTX F) _ : HOM)).
-    { apply _. }
+    iSpecialize ("H" $! γ with "Hγ").
     iSpecialize ("G" $! γ with "Hγ").
-    iSpecialize ("G" $! K with "Hheap R []"); first last.
-    { subst K; simpl; iApply "G". }
+    iClear "Hγ".
+    unshelve eset (K := exist _
+                          (λne v, interp_assign (R := R) rs
+                                    (interp_expr rs e1) (constO v) γ) _ : HOM).
+    1-8: apply _.
+    { solve_proper. }
+    { simpl; apply _. }
+    assert ((interp_expr rs (Assign e1 e2) γ)
+              ≡ `K (interp_expr rs e2 γ))%stdpp as ->.
+    { reflexivity. }
+    iApply interp_exprG_bind.
+    iIntros (κ' W') "#Hheap Hctx #Hcont".
+    iApply ("G" with "Hheap Hctx").
+    iClear "G".
     iIntros (v).
     iModIntro.
-    iIntros "#Hv R".
-    subst K.
+    iIntros "#G Hctx".
+    iApply ("Hcont" with "[] Hctx").
+    iClear "Hcont".
+    clear κ' W'.
     simpl.
-    unfold clwp.
-    iIntros (Tκ TΨ) "TH".
-    rewrite LET_Val.
-    subst F.
-    simpl.
+    clear K.
+    rewrite LET_Val /=.
+
+    unshelve eset (K := exist _
+                          (λne w, (get_ret (λne l : loc, WRITE l (IT_of_V v)) w)) _ : HOM).
+    { simpl; apply _. }
     match goal with
-    | |- context G [get_ret ?a] =>
-          set (F := a)
+    | |- context G [ofe_mor_car _ _ (interp_exprG interp_tunit) ?a] =>
+        assert (a
+              ≡ `K (interp_expr rs e1 γ))%stdpp as ->
     end.
-    unshelve eset (K := HOM_compose κ (exist _ (get_ret F) _) : HOM).
-    { apply _. }
-    iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! K with "Hheap R []"); first last.
-    { subst K; simpl; iApply "H". iApply "TH". }
+    {
+      simpl.
+      f_equiv.
+      f_equiv; intro; simpl.
+      f_equiv.
+    }
+    iApply interp_exprG_bind.
+    iIntros (κ' W') "_ Hctx #Hcont".
+    iApply ("H" with "Hheap Hctx").
+    iClear "H".
     iIntros (w).
     iModIntro.
-    subst K F.
+    iIntros "#H Hctx".
+    iApply ("Hcont" with "[] Hctx").
+    iClear "Hcont".
+    clear κ' W'.
     simpl.
-    iIntros "(%l & #HEQ & Hw) R".
+    clear K.
+    iDestruct "H" as "(%l & #HEQ & Hw)".
     iRewrite "HEQ".
-    unfold clwp.
-    iIntros (Tκ' TΨ') "TH'".
     rewrite IT_of_V_Ret.
     rewrite get_ret_ret.
     simpl.
+    iIntros (κ Φ) "_ Hctx #Hκ %κ' %Ψ Hκ'".
     do 2 rewrite hom_vis.
 
     iApply wp_subreify_ctx_indep_lift''. simpl.
@@ -732,7 +792,7 @@ Section sets.
     destruct (Next_uninj x) as [α' Ha'].
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
-    iExists σ''', (), (<[l:=Next (IT_of_V v)]>σ'''), (`Tκ' (`κ (Ret ()))).
+    iExists σ''', (), (<[l:=Next (IT_of_V v)]>σ'''), (`κ' (`κ (Ret ()))).
     iFrame "Hs".
     iSimpl. repeat iSplit; [done | done | ].
     iNext. iIntros "Hlc".
@@ -743,15 +803,14 @@ Section sets.
     {
       iNext.
       iExists v.
-      iFrame.
-      iFrame "Hv".
+      by iFrame.
     }
     iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
     { iExists _. by iFrame. }
     iModIntro.
     rewrite <-IT_of_V_Ret.
-    iApply ("Hκ" with "[] R"); first done.
-    iApply "TH'".
+    iApply ("Hκ" with "[] Hctx"); first done.
+    iApply "Hκ'".
   Qed.
 
   Lemma compat_deref {S : Set} (Ω : S → ty)
@@ -762,29 +821,35 @@ Section sets.
     iIntros "#H".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ Q) "#Hheap R #Hκ".
-    simpl.
-    match goal with
-    | |- context G [get_ret ?a] =>
-          set (F := a)
-    end.
-    unshelve eset (K := HOM_compose κ (exist _ (get_ret F) _) : HOM).
-    { apply _. }
     iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! K with "Hheap R []"); first last.
-    { subst K; simpl; iApply "H". }
-    iIntros (w).
+    iClear "Hγ".
+    unshelve eset (K := exist _
+                          (λne v, interp_deref (R := R) rs (constO v) γ) _ : HOM).
+    1-3: apply _.
+    { solve_proper. }
+    { simpl; apply _. }
+    assert ((interp_expr rs (Deref e) γ)
+              ≡ `K (interp_expr rs e γ))%stdpp as ->.
+    { reflexivity. }
+    iApply interp_exprG_bind.
+    iIntros (κ' W') "Hheap Hctx #Hcont".
+    iApply ("H" with "Hheap Hctx").
+    iClear "H".
+    iIntros (v).
     iModIntro.
-    iIntros "#Hw R".
-    subst K F.
+    iIntros "#G Hctx".
+    iApply ("Hcont" with "[] Hctx").
+    iClear "Hcont".
+    clear κ' W'.
     simpl.
-    iDestruct "Hw" as "(%l & #HEQ & Hw)".
+    clear K.
+
+    iDestruct "G" as "(%l & #HEQ & Hw)".
     iRewrite "HEQ".
-    unfold clwp.
-    iIntros (Tκ TΨ) "TH".
     rewrite IT_of_V_Ret.
     rewrite get_ret_ret.
     simpl.
+    iIntros (κ Φ) "#Hheap Hctx #Hκ %κ' %Ψ Hκ'".
     do 2 rewrite hom_vis.
 
     iApply wp_subreify_ctx_indep_lift''. simpl.
@@ -806,7 +871,7 @@ Section sets.
     { rewrite Hx. rewrite option_equivI.
       rewrite Hb'. by iNext. }
     iClear "Hlookup".
-    iExists σ'', (Next β'), σ'', (`Tκ (`κ β')).
+    iExists σ'', (Next β'), σ'', (`κ' (`κ β')).
     iFrame "Hs".
     iSimpl. repeat iSplit; [ | | ].
     { by rewrite Hx /= Hb'. }
@@ -828,8 +893,8 @@ Section sets.
     { iNext. iExists _. iFrame. }
     iModIntro.
     iRewrite "Hba".
-    iApply ("Hκ" with "H R").
-    iApply "TH".
+    iApply ("Hκ" with "H Hctx").
+    iApply "Hκ'".
   Qed.
 
   Lemma compat_natop {S : Set}
@@ -842,40 +907,45 @@ Section sets.
     iIntros "#H #G".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ Q) "#Q R #W".
-    simpl.
-
-    set (K' := (NatOpRSCtx_HOM op α γ)).
-    assert ((NATOP (do_natop op) (α γ) (β γ)) = ((`K') (β γ))) as -> by done.
-    rewrite HOM_ccompose.
-    pose (sss := (HOM_compose κ K')). rewrite (HOM_compose_ccompose κ K' sss)//.
-
+    iSpecialize ("H" $! γ with "Hγ").
     iSpecialize ("G" $! γ with "Hγ").
-    iSpecialize ("G" $! sss).
-    iApply ("G" with "Q R []").
+    iClear "Hγ".
+
+    set (K := (NatOpRSCtx_HOM op α γ)).
+    assert ((interp_natop rs op α β γ)
+              ≡ `K (β γ))%stdpp as ->.
+    { simpl; f_equiv. }
+    iApply interp_exprG_bind.
+    iIntros (κ W) "#Hheap Hctx #Hcont".
+    iApply ("G" with "Hheap Hctx").
     iClear "G".
     iIntros (v).
     iModIntro.
-    iIntros "#Hv R".
-    simpl.
-    clear K' sss.
+    iIntros "#J Hctx".
+    iApply ("Hcont" with "[] Hctx").
+    iClear "Hcont".
+    cbn [ofe_mor_car].
+    assert (`K (IT_of_V v)
+              ≡ (interp_natop rs op α (constO (IT_of_V v)) γ))%stdpp as ->.
+    { simpl; do 3 (f_equiv; intro; simpl). }
 
-    pose (K' := (NatOpLSCtx_HOM op (IT_of_V v) γ _)).
-    assert ((NATOP (do_natop op) (α γ) (IT_of_V v)) = ((`K') (α γ)))
-      as -> by done.
-    rewrite HOM_ccompose.
-    pose (sss := (HOM_compose κ K')). rewrite (HOM_compose_ccompose κ K' sss)//.
-
-    iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! sss).
-    iApply ("H" with "Q R []").
+    set (K' := (NatOpLSCtx_HOM op (IT_of_V v) γ _)).
+    assert ((interp_natop rs op α (constO (IT_of_V v)) γ)
+              ≡ `K' (α γ))%stdpp as ->.
+    { simpl; do 3 (f_equiv; intro; simpl). }
+    iApply interp_exprG_bind.
+    iIntros (κ' W') "_ Hctx #Hcont".
+    iApply ("H" with "Hheap Hctx").
+    iClear "H".
     iIntros (w).
     iModIntro.
-    iIntros "#Hw R".
+    iIntros "#K Hctx".
+    iApply ("Hcont" with "[] Hctx").
+    iClear "Hcont".
     simpl.
 
-    iDestruct "Hv" as "(%n & #HEQ)".
-    iDestruct "Hw" as "(%n' & #HEQ')".
+    iDestruct "J" as "(%n & #HEQ)".
+    iDestruct "K" as "(%n' & #HEQ')".
     iAssert ((NATOP (do_natop op) (IT_of_V w) (IT_of_V v))
                ≡ (Ret (do_natop op n' n)))%I as "#HEQ''".
     {
@@ -900,39 +970,33 @@ Section sets.
       done.
     }
     iRewrite "HEQ''".
-    iIntros (Tκ TΨ) "TH".
-    rewrite <-IT_of_V_Ret.
-    iApply ("W" with "[] R").
-    - by iExists _.
-    - iApply "TH".
+    iApply interp_exprG_val.
+    by iExists _.
   Qed.
 
   Lemma compat_lam {S : Set} (Ω : S → ty)
     (e : expr (inc S))
     (τ1 τ2 : ty)
-    : ⊢ validG (Ω ▹ τ1) (interp_expr rs e) τ2 -∗ validG Ω (interp_expr rs (LamV e)) (tArr τ1 τ2).
+    : ⊢ validG (Ω ▹ τ1) (interp_expr rs e) τ2
+        -∗ validG Ω (interp_expr rs (LamV e)) (tArr τ1 τ2).
   Proof.
     iIntros "#H".
     iModIntro.
     iIntros (γ) "#Hγ".
-    iIntros (κ Q) "#Q R #W".
     cbn [interp_expr].
     unfold interp_lam.
     cbn [ofe_mor_car].
+    iApply interp_exprG_val.
     match goal with
-    | |- context G [ofe_mor_car _ _ Fun ?a] =>
+    | |- context G [FunV ?a] =>
         set (F := a)
     end.
-    assert (Fun F ≡ IT_of_V $ FunV F)%stdpp as ->.
-    { reflexivity. }
-    iApply ("W" with "[] R").
     iExists _.
     iSplit; first done.
     iModIntro.
     iIntros (v) "#Hv".
     fold (interp_ty τ1).
     fold (interp_ty τ2).
-    iIntros (κ' Q') "#Hκ'".
     rewrite APP'_Fun_l.
     rewrite laterO_map_Next.
     rewrite <-Tick_eq.
@@ -945,24 +1009,10 @@ Section sets.
         iApply ("Hγ" with "Q' R Hκ''").
     }
     subst F.
-    cbn [later_car].
-    cbn [ofe_mor_car].
-    rewrite hom_tick.
-    unfold obs_ref.
-    cbn [ofe_mor_car].
-    iIntros "R".
-    iIntros (Tκ TΨ) "TH".
-    rewrite hom_tick.
-    iApply wp_tick.
+    simpl.
+    iApply interp_exprG_tick.
     iNext.
-    unfold interp_exprG.
-    cbn [ofe_mor_car].
-    iSpecialize ("H" $! κ' Q' with "Q R [Hκ']").
-    - unfold obs_ref.
-      cbn [ofe_mor_car].
-      iApply "Hκ'".
-    - iApply "H".
-      iApply "TH".
+    iFrame "H".
   Qed.
 
   Fixpoint fl {S : Set} (Ω : S → ty) (e : expr S) (τ : ty) (H : typed_glued Ω e τ)
