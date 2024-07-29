@@ -381,7 +381,7 @@ Section sets.
 
   Program Definition obs_ref : (ITV -n> iProp) -n> IT -n> iProp :=
     λne Ψ α,
-       (CLWP α {{ βv, Ψ βv }})%I.
+       (CLWP α {{ βv, Ψ βv ∗ has_substate ([] : delim.stateF ♯ IT) }})%I.
   Next Obligation.
     solve_proper.
   Qed.
@@ -394,7 +394,11 @@ Section sets.
     by do 2 f_equiv.
   Qed.
   Next Obligation.
-    solve_proper.
+    solve_proper_prepare.
+    unfold clwp.
+    f_equiv; intro; simpl.
+    f_equiv; intro; simpl.
+    by do 5 f_equiv.
   Qed.
 
   Definition logrel_ectx (V W : ITV -n> iProp) (κ : HOM) : iProp :=
@@ -410,11 +414,8 @@ Section sets.
     solve_proper_prepare.
     f_equiv; intro; simpl.
     f_equiv; intro; simpl.
-    do 3 f_equiv.
+    do 5 f_equiv.
     unfold clwp.
-    f_equiv; intro; simpl.
-    f_equiv; intro; simpl.
-    f_equiv.
     solve_proper.
   Qed.
 
@@ -562,7 +563,7 @@ Section sets.
     {
       iApply logpred.compat_HOM_id.
     }
-    iSpecialize ("G" $! [laterO_map (`K ◎ `κ)] Ψ with "[HH] R").
+    iSpecialize ("G" $! (laterO_map (`K ◎ `κ) :: []) Ψ with "[HH] R").
     {
       iIntros (v) "#E R".
       iApply (wp_pop_cons with "R").
@@ -669,13 +670,13 @@ Section sets.
     iIntros (κ Ψ) "Hheap Hctx #Hκ %κ' %Ψ' Hκ'".
     do 2 rewrite hom_vis.
     iApply wp_subreify_ctx_indep_lift''. simpl.
-    iInv (nroot.@"storeE") as (σ'') "[>Hlc [Hs Hh]]" "Hcl".
+    iInv (nroot.@"storeE") as (heap) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
-    set (l:=Loc.fresh (dom σ'')).
-    iExists σ'', l, _, (`κ' (`κ (Ret l))).
+    set (l:=Loc.fresh (dom heap)).
+    iExists heap, l, _, (`κ' (`κ (Ret l))).
     iFrame "Hs".
-    simpl. change (Loc.fresh (dom σ'')) with l.
+    simpl. change (Loc.fresh (dom heap)) with l.
     iSplit; first done.
     iSplit.
     { simpl. rewrite ofe_iso_21. done. }
@@ -776,12 +777,12 @@ Section sets.
     do 2 rewrite hom_vis.
 
     iApply wp_subreify_ctx_indep_lift''. simpl.
-    iInv (nroot.@"storeE") as (σ''') "[>Hlc [Hs Hh]]" "Hcl".
+    iInv (nroot.@"storeE") as (heap) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken (⊤ ∖ nclose (nroot.@"storeE"))).
     { set_solver. }
     iIntros "Hwk".
     iInv (logN.@l) as "H" "Hcl'".
-    iAssert (▷ ⌜is_Some (σ''' !! l)⌝)%I as "#Hdom".
+    iAssert (▷ ⌜is_Some (heap !! l)⌝)%I as "#Hdom".
     {
       iNext.
       iDestruct "H" as "(%βv & Hp & H)".
@@ -792,7 +793,7 @@ Section sets.
     destruct (Next_uninj x) as [α' Ha'].
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
-    iExists σ''', (), (<[l:=Next (IT_of_V v)]>σ'''), (`κ' (`κ (Ret ()))).
+    iExists heap, (), (<[l:=Next (IT_of_V v)]>heap), (`κ' (`κ (Ret ()))).
     iFrame "Hs".
     iSimpl. repeat iSplit; [done | done | ].
     iNext. iIntros "Hlc".
@@ -853,7 +854,7 @@ Section sets.
     do 2 rewrite hom_vis.
 
     iApply wp_subreify_ctx_indep_lift''. simpl.
-    iInv (nroot.@"storeE") as (σ'') "[>Hlc [Hs Hh]]" "Hcl".
+    iInv (nroot.@"storeE") as (heap) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken (⊤ ∖ nclose (nroot.@"storeE"))).
     { set_solver. }
     iIntros "Hwk".
@@ -861,17 +862,17 @@ Section sets.
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
     iDestruct "H" as "(%βv & Hp & #H)".
-    iAssert (⌜is_Some (σ'' !! l)⌝)%I as "%Hdom".
+    iAssert (⌜is_Some (heap !! l)⌝)%I as "%Hdom".
     { iApply (istate_loc_dom with "Hh Hp"). }
     destruct Hdom as [x Hx].
     destruct (Next_uninj x) as [β' Hb'].
-    iAssert ((σ'' !! l ≡ Some (Next (IT_of_V βv))))%I as "#Hlookup".
+    iAssert ((heap !! l ≡ Some (Next (IT_of_V βv))))%I as "#Hlookup".
     { iApply (istate_read with "Hh Hp"). }
     iAssert (▷ (β' ≡ IT_of_V βv))%I as "#Hba".
     { rewrite Hx. rewrite option_equivI.
       rewrite Hb'. by iNext. }
     iClear "Hlookup".
-    iExists σ'', (Next β'), σ'', (`κ' (`κ β')).
+    iExists heap, (Next β'), heap, (`κ' (`κ β')).
     iFrame "Hs".
     iSimpl. repeat iSplit; [ | | ].
     { by rewrite Hx /= Hb'. }
@@ -1044,7 +1045,8 @@ Section sets.
     unfold logpred.logrel_mcont'.
     simpl.
     iIntros (Tκ TΨ) "TH".
-    by iApply "TH".
+    iApply "TH".
+    iFrame.
   Qed.
 
 End sets.
@@ -1115,7 +1117,7 @@ Proof.
   iSpecialize ("Hlog" $! HOM_id (interp_ty rs τ) with "Hinv Hcont []").
   { iApply compat_HOM_id.  }
   iModIntro.
-  iSpecialize ("Hlog" $! HOM_id (interp_ty rs τ) with "[]").
+  iSpecialize ("Hlog" $! HOM_id (λne v, interp_ty rs τ v ∗ has_substate ([] : delim.stateF ♯ (IT (gReifiers_ops rs) _)))%I with "[]").
   {
     iIntros "%w Hw".
     iApply wp_val.
