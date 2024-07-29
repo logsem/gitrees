@@ -1147,3 +1147,181 @@ Proof.
   intros ? ? ?. iIntros "_".
   by iApply fl.
 Qed.
+
+Definition R := (sumO natO (sumO unitO locO)).
+
+Lemma logpred_adequacy_nat Σ
+  `{!invGpreS Σ} `{!heapPreG rs R Σ} `{!statePreG rs R Σ}
+  (α : interp_scope ∅ -n> IT (gReifiers_ops rs) R)
+  (e : IT (gReifiers_ops rs) R) st' k :
+  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ} `{H3: !heapG rs R Σ},
+     (£ 1 ⊢ validG rs □ α tNat)%I) →
+  ssteps (gReifiers_sReifier rs) (α ı_scope) ([], (empty, ())) e st' k →
+  (∃ β1 st1, sstep (gReifiers_sReifier rs) e st' β1 st1)
+  ∨ (∃ (n : natO), (IT_of_V (RetV n) ≡ e)%stdpp).
+Proof.
+  intros Hlog Hst.
+  destruct (IT_to_V e) as [βv|] eqn:Hb.
+  {
+    unshelve epose proof (wp_adequacy 1 Σ _ _ rs (α ı_scope) ([], (∅%stdpp, ()))
+                            βv st' notStuck k (λ x, ∃ n : natO, (RetV n) ≡ x)%stdpp _) as Had.
+    {
+      rewrite IT_of_to_V'.
+      - apply Hst.
+      - rewrite Hb.
+        reflexivity.
+    }
+    right.
+    simpl in Had.
+    destruct Had as [n Had].
+    - intros H2 H3.
+      exists (interp_tnat rs).
+      split; first solve_proper.
+      split.
+      + intros β.
+        iIntros "(%n & #HEQ)".
+        iExists n.
+        iDestruct (internal_eq_sym with "HEQ") as "HEQ'"; iClear "HEQ".
+        iAssert (IT_of_V β ≡ Ret n)%I as "#Hb".
+        { iRewrite - "HEQ'". iPureIntro. by rewrite IT_of_V_Ret. }
+        iAssert (⌜β ≡ RetV n⌝)%I with "[-]" as %Hfoo.
+        {
+          destruct β as [r|f]; simpl.
+          - iPoseProof (Ret_inj' with "Hb") as "%Hr".
+            iPureIntro.
+            simpl in Hr.
+            rewrite Hr.
+            reflexivity.
+          - iExFalso. iApply (IT_ret_fun_ne).
+            iApply internal_eq_sym. iExact "Hb".
+        }
+        iPureIntro. rewrite Hfoo. reflexivity.
+      + iIntros "[Hcr Hst]".
+        match goal with
+        | |- context G [has_full_state ?a] =>
+            set (st := a)
+        end.
+        pose (cont_stack := st.1).
+        iMod (new_heapG rs empty) as (H4) "H".
+        specialize (Hlog H2 H3 H4).
+        iPoseProof (Hlog with "Hcr") as "#G".
+        iSpecialize ("G" $! ı_scope with "[]").
+        { iIntros ([]). }
+        iAssert (has_substate (cont_stack : delim.stateF ♯ _) ∗ has_substate empty)%I with "[Hst]" as "[Hcont Hheap]".
+        { unfold has_substate, has_full_state.
+          assert (of_state rs (IT (gReifiers_ops rs) _) st ≡
+                    of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state (cont_stack : delim.stateF ♯ _))
+                  ⋅ of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state empty))%stdpp as ->; last first.
+          { rewrite -own_op. done. }
+          unfold sR_idx. simpl.
+          intro j.
+          rewrite discrete_fun_lookup_op.
+          inv_fin j.
+          { unfold of_state, of_idx. simpl.
+            erewrite (eq_pi _ _ _ (@eq_refl _ 0%fin)). done. }
+          intros j. inv_fin j.
+          { unfold of_state, of_idx. simpl.
+            erewrite (eq_pi _ _ _ (@eq_refl _ 1%fin)). done. }
+          intros i. inversion i.
+        }
+        iApply fupd_wp.
+        iMod (inv_alloc (nroot.@"storeE") _ (∃ σ, £ 1 ∗ has_substate σ ∗ own (heapG_name rs) (●V σ))%I with "[-Hcont]") as "#Hinv".
+        { iNext. iExists _. iFrame. }
+        iSpecialize ("G" $! HOM_id (interp_tnat rs) with "Hinv Hcont []").
+        {
+          iIntros (v).
+          iModIntro.
+          iIntros "#Hv R %K %W HK".
+          iApply "HK".
+          iFrame.
+          iApply "Hv".
+        }
+        iApply ("G" $! HOM_id (interp_tnat rs)).
+        iModIntro.
+        iIntros (v) "(Hv & _)".
+        iApply wp_val.
+        by iModIntro.
+    - exists n.
+      rewrite Had.
+      apply IT_of_to_V'.
+      rewrite Hb.
+      reflexivity.
+  }
+  left.
+  cut ((∃ β1 st1, sstep (gReifiers_sReifier rs) e st' β1 st1)
+      ∨ (∃ e', (e ≡ Err e')%stdpp ∧ notStuck e')).
+  { intros [?|He]; first done.
+    destruct He as [? [? []]]. }
+  eapply (wp_safety (S 1)); eauto.
+  { apply Hdisj. }
+  { by rewrite Hb. }
+  intros H2 H3.
+  eexists (λ _, True)%I. split.
+  { apply _. }
+  iIntros "[[Hone Hcr] Hst]".
+  match goal with
+  | |- context G [has_full_state ?a] =>
+      set (st := a)
+  end.
+  pose (cont_stack := st.1).
+  pose (heap := st.2.1).
+  iMod (new_heapG rs heap) as (H4) "H".
+  iAssert (has_substate (cont_stack : delim.stateF ♯ _) ∗ has_substate heap)%I with "[Hst]" as "[Hcont Hheap]".
+  { unfold has_substate, has_full_state.
+    assert (of_state rs (IT (gReifiers_ops rs) _) st ≡
+            of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state (cont_stack : delim.stateF ♯ _))
+            ⋅ of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state heap))%stdpp as ->; last first.
+    { rewrite -own_op. done. }
+    unfold sR_idx. simpl.
+    intro j.
+    rewrite discrete_fun_lookup_op.
+    inv_fin j.
+    { unfold of_state, of_idx. simpl.
+      erewrite (eq_pi _ _ _ (@eq_refl _ 0%fin)). done. }
+    intros j. inv_fin j.
+    { unfold of_state, of_idx. simpl.
+      erewrite (eq_pi _ _ _ (@eq_refl _ 1%fin)). done. }
+    intros i. inversion i.
+  }
+  iApply fupd_wp.
+  iMod (inv_alloc (nroot.@"storeE") _ (∃ σ, £ 1 ∗ has_substate σ ∗ own (heapG_name rs) (●V σ))%I with "[-Hcr Hcont]") as "#Hinv".
+  { iNext. iExists _. iFrame. }
+  simpl.
+  iPoseProof (@Hlog _ _ _ with "Hcr") as "#Hlog".
+  iSpecialize ("Hlog" $! ı_scope with "[]").
+  { iIntros ([]). }
+  unfold interp_exprG.
+  simpl.
+  iSpecialize ("Hlog" $! HOM_id (interp_ty rs tNat) with "Hinv Hcont []").
+  { iApply compat_HOM_id.  }
+  iModIntro.
+  iSpecialize ("Hlog" $! HOM_id (λne v, interp_ty rs tNat v ∗ has_substate ([] : delim.stateF ♯ (IT (gReifiers_ops rs) _)))%I with "[]").
+  {
+    iIntros "%w Hw".
+    iApply wp_val.
+    by iModIntro.
+  }
+  iApply (wp_wand with "Hlog").
+  iIntros (?) "_".
+  by iModIntro.
+Qed.
+
+Lemma safety_nat e σ (β : IT (sReifier_ops (gReifiers_sReifier rs)) (sumO natO (sumO unitO locO))) k :
+  typed_glued □ e tNat →
+  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) ([], (empty, ())) β σ k →
+  (∃ β1 st1, sstep (gReifiers_sReifier rs) β σ β1 st1)
+   ∨ (∃ (n : natO), (IT_of_V (RetV n) ≡ β)%stdpp).
+Proof.
+  intros Htyped Hsteps.
+  pose (R := (sumO natO (sumO unitO locO))).
+  pose (Σ := gFunctors.app invΣ (gFunctors.app (stateΣ rs R) (gFunctors.app (heapΣ rs R) gFunctors.nil))).
+  assert (invGpreS Σ).
+  { apply _. }
+  assert (statePreG rs R Σ).
+  { apply _. }
+  assert (heapPreG rs R Σ).
+  { apply _. }
+  eapply (logpred_adequacy_nat Σ); eauto.
+  intros ? ? ?. iIntros "_".
+  by iApply fl.
+Qed.
