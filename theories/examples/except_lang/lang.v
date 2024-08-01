@@ -1,4 +1,4 @@
-From gitrees Require Export prelude effects.io_tape effects.exceptions.
+From gitrees Require Export prelude effects.exceptions.
 Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
 
 Module Lang (Errors : ExcSig).

@@ -1,14 +1,15 @@
 From gitrees Require Import gitree lang_generic.
 From iris.algebra Require Import list.
 From gitrees.effects Require Export exceptions.
-From gitrees.examples.except_lang Require Import lang.
+From gitrees.examples.except_lang Require Import lang typing.
 
 Require Import Binding.Lib Binding.Set.
 
 
 Module interp (Errors : ExcSig).
-
-  Module _LANG := Lang Errors.
+  
+  Module _TYP := Typing Errors.
+  Import _TYP.
   Import _LANG.
   Import _Exc.
   
@@ -1488,4 +1489,3 @@ Module interp (Errors : ExcSig).
   End Examples.
 **) *)  
 End interp.
-#[global] Opaque INPUT OUTPUT_.
