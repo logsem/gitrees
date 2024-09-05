@@ -10,6 +10,13 @@ Require Import Binding.Lib Binding.Set Binding.Env.
 
 Open Scope stdpp_scope.
 
+Program Definition 𝒫_HOM {sz : nat}
+  {rs : gReifiers CtxDep sz} `{!subReifier reify_delim rs}
+  {R} `{!Cofe R} : @HOM R _ (gReifiers_ops rs) := exist _ 𝒫 _.
+Next Obligation.
+  intros; apply _.
+Qed.
+
 Section logrel.
   Context {sz : nat}.
   Variable (rs : gReifiers CtxDep sz).
@@ -71,7 +78,7 @@ Section logrel.
   Program Definition logrel_ectx'
     (Pτ Pα : ITV -n> iProp) (κ : HOM)
     : iProp :=
-    (□ ∀ αv, Pτ αv -∗ ∀ F Q, logrel_mcont Pα Q F -∗ has_substate F -∗ obs_ref Q (𝒫 (`κ (IT_of_V αv))))%I.
+    (□ ∀ αv, Pτ αv -∗ ∀ F Q, logrel_mcont Pα Q F -∗ has_substate F -∗ obs_ref Q (`κ (IT_of_V αv)))%I.
   Local Instance logrel_ectx_ne : NonExpansive3 logrel_ectx'.
   Proof. solve_proper. Qed.
   Program Definition logrel_ectx
@@ -81,10 +88,11 @@ Section logrel.
 
   Program Definition logrel_cont' V W (βv : ITV) : iProp :=
     (∃ (κ : HOM), (IT_of_V βv) ≡
-                    (Fun (Next (λne x, Tau (laterO_map (𝒫 ◎ `κ) (Next x)))))
-                  ∧ □ logrel_ectx V W κ)%I.
+                    (Fun (Next (λne x, Tau (laterO_map κ (Next x)))))
+                  ∧ logrel_ectx V W κ)%I.
   Local Instance logrel_cont_ne : NonExpansive3 logrel_cont'.
   Proof. solve_proper. Qed.
+
   Program Definition logrel_cont
     : (ITV -n> iProp) -n> (ITV -n> iProp) -n> ITV -n> iProp
     := λne x y z, logrel_cont' x y z.
@@ -95,7 +103,7 @@ Section logrel.
               ∧ □ ∀ (βv : ITV),
           Pτ βv -∗ ∀ (κ : HOM),
           logrel_ectx Pσ Pα κ -∗ ∀ σ Q,
-          logrel_mcont Pβ Q σ -∗ has_substate σ -∗ obs_ref Q (𝒫 (`κ (APP' (Fun f') (IT_of_V βv)))))%I.
+          logrel_mcont Pβ Q σ -∗ has_substate σ -∗ obs_ref Q (`κ (APP' (Fun f') (IT_of_V βv))))%I.
   Local Instance logrel_arr_ne
     : (∀ n, Proper (dist n
                       ==> dist n
@@ -132,9 +140,9 @@ Section logrel.
 
   Program Definition logrel_expr (τ α δ : ITV -n> iProp) : IT -n> iProp
     := λne e, (∀ E, logrel_ectx τ α E
-                    -∗ ∀ F Q, logrel_mcont δ Q F
+                    -∗ ∀ F Ψ, logrel_mcont δ Ψ F
                             -∗ has_substate F
-                            -∗ obs_ref Q (𝒫 (`E e)))%I.
+                            -∗ obs_ref Ψ (`E e))%I.
   Solve All Obligations with solve_proper.
 
   Definition logrel (τ α β : ty) : IT -n> iProp
@@ -164,7 +172,7 @@ Section logrel.
           -∗ logrel_pure τ (e γ))%I.
 
   Lemma compat_HOM_id P :
-    ⊢ logrel_ectx P P HOM_id.
+    ⊢ logrel_ectx P P (HOM_compose 𝒫_HOM HOM_id).
   Proof.
     iIntros (v).
     iModIntro.
@@ -214,16 +222,16 @@ Section logrel.
     iIntros (γ) "Hγ".
     iIntros (Ψ κ) "Hκ".
     iIntros (m Q) "Hm Hst".
-    assert (𝒫 ((`κ) (interp_reset rs e γ))
-              ≡ (𝒫 ◎ `κ) (interp_reset rs e γ)) as ->.
-    { reflexivity. }
+    (* assert (𝒫 ((`κ) (interp_reset rs e γ)) *)
+    (*           ≡ (𝒫 ◎ `κ) (interp_reset rs e γ)) as ->. *)
+    (* { reflexivity. } *)
     unfold obs_ref.
     cbn [ofe_mor_car].
     iApply (wp_reset with "Hst").
     iIntros "!> _ Hst".
     iSpecialize ("H" $! γ with "Hγ").
-    iSpecialize ("H" $! HOM_id (compat_HOM_id _)).
-    iAssert (logrel_mcont (interp_ty τ) Q (laterO_map (𝒫 ◎ `κ) :: m))
+    iSpecialize ("H" $! 𝒫_HOM (compat_HOM_id _)).
+    iAssert (logrel_mcont (interp_ty τ) Q (laterO_map (`κ) :: m))
       with "[Hκ Hm]" as "Hm'".
     {
       iIntros (v) "Hv GG".
@@ -245,9 +253,9 @@ Section logrel.
     iIntros (γ) "#Hγ".
     iIntros (κ) "#Hκ".
     iIntros (m Q) "Hm Hst".
-    assert (𝒫 ((`κ) (interp_shift rs e γ))
-              ≡ (𝒫 ◎ `κ) (interp_shift rs e γ)) as ->.
-    { reflexivity. }
+    (* assert (𝒫 ((`κ) (interp_shift rs e γ)) *)
+    (*           ≡ (𝒫 ◎ `κ) (interp_shift rs e γ)) as ->. *)
+    (* { reflexivity. } *)
     iApply (wp_shift with "Hst").
     { rewrite laterO_map_Next; reflexivity. }
     iNext.
@@ -279,7 +287,7 @@ Section logrel.
       - iApply "Hγ".
     }
     iSpecialize ("H" $! γ' with "Hγ'").
-    iSpecialize ("H" $! HOM_id (compat_HOM_id _) m with "Hm Hst").
+    iSpecialize ("H" $! 𝒫_HOM (compat_HOM_id _) m with "Hm Hst").
     by iApply "H".
   Qed.
 
@@ -322,7 +330,7 @@ Section logrel.
     Opaque extend_scope.
     simpl.
     rewrite hom_tick.
-    rewrite hom_tick.
+    (* rewrite hom_tick. *)
     iApply wp_tick.
     iNext.
     iSpecialize ("H" $! γ' with "[Hw]").
@@ -584,15 +592,15 @@ Section logrel.
     rewrite get_fun_fun.
     simpl.
 
-    match goal with
-    | |- context G [ofe_mor_car _ _
-                     (ofe_mor_car _ _ APP_CONT ?a) ?b] =>
-        set (T := APP_CONT a b)
-    end.
-    iAssert (𝒫 ((`κ) T) ≡ (𝒫 ◎ (`κ)) T)%I as "HEQ'".
-    { iPureIntro. reflexivity. }
-    iRewrite "HEQ'"; iClear "HEQ'".
-    subst T.
+    (* match goal with *)
+    (* | |- context G [ofe_mor_car _ _ *)
+    (*                  (ofe_mor_car _ _ APP_CONT ?a) ?b] => *)
+    (*     set (T := APP_CONT a b) *)
+    (* end. *)
+    (* (* iAssert (𝒫 ((`κ) T) ≡ (𝒫 ◎ (`κ)) T)%I as "HEQ'". *) *)
+    (* (* { iPureIntro. reflexivity. } *) *)
+    (* (* iRewrite "HEQ'"; iClear "HEQ'". *) *)
+    (* subst T. *)
 
     iApply (wp_app_cont with "[Hst]").
     { reflexivity. }
@@ -606,7 +614,7 @@ Section logrel.
       iNext.
       iSpecialize ("Hv" $! w with "Hw").
 
-      iApply ("Hv" $! (laterO_map (𝒫 ◎ `κ) :: m'') with "[Hm] Hst").
+      iApply ("Hv" $! (laterO_map (`κ) :: m'') with "[Hm] Hst").
       {
         iIntros (p) "#Hp Hst".
         iApply (wp_pop_cons with "Hst").
@@ -768,7 +776,14 @@ Proof.
   { iIntros ([]). }
   unfold logrel_pure.
   simpl.
-  iSpecialize ("Hlog" $! (logrel_nat rs) HOM_id (compat_HOM_id _ _) [] with "[]").
+  iSpecialize ("Hlog" $! (logrel_nat rs) 𝒫_HOM with "[]").
+  {
+    iIntros (αv).
+    iModIntro.
+    iIntros "#Hαv %F %Q Hs Hss".
+    iApply ("Hs" with "Hαv Hss").
+  }
+  iSpecialize ("Hlog" $! [] with "[]").
   {
     iIntros (αv) "HHH GGG".
     iApply (wp_pop_end with "GGG").
@@ -780,6 +795,7 @@ Proof.
   }
   subst st.
   iSpecialize ("Hlog" with "Hs").
+  simpl.
   iApply (wp_wand with "Hlog").
   iIntros (βv). simpl.
   iIntros "_".

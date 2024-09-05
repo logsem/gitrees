@@ -220,15 +220,16 @@ Section wp.
   Qed.
 
   (** * The symbolic execution rules *)
-  Lemma wp_read_atomic (l : loc)  E1 E2 s Φ :
+  Lemma wp_read_atomic_hom (l : loc)  E1 E2 s Φ (κ : IT -n> IT) `{!IT_hom κ} :
     nclose (nroot.@"storeE") ## E1 →
     heap_ctx -∗
     (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
-        ▷ ▷ (pointsto l α ={E2,E1}=∗ WP@{rs} α @ s {{ Φ }})) -∗
-    WP@{rs} READ l @ s {{ Φ }}.
+        ▷ ▷ (pointsto l α ={E2,E1}=∗ WP@{rs} (κ α) @ s {{ Φ }})) -∗
+    WP@{rs} κ (READ l) @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
     unfold READ. simpl.
+    rewrite hom_vis.
     iApply wp_subreify_ctx_indep_lift''.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
@@ -247,20 +248,46 @@ Section wp.
     { rewrite Hx. rewrite option_equivI.
       rewrite Hb'. by iNext. }
     iClear "Hlookup".
-    iExists σ,(Next β'),σ,β'.
+    iExists σ,(Next β'),σ,(κ β').
     iFrame "Hs".
     repeat iSplit.
     - assert ((option_bind _ _ (λ x, Some (x, σ)) (σ !! l)) ≡
                 (option_bind _ _ (λ x, Some (x, σ)) (Some (Next β')))) as <-.
       { rewrite Hx /= ; solve_proper. }
       simpl. iPureIntro. by f_equiv.
-    - iPureIntro. apply ofe_iso_21.
+    - iPureIntro. by rewrite /= ofe_iso_21 laterO_map_Next.
     - iNext. iIntros "Hlc Hs".
       iMod ("Hback" with "Hp") as "Hback".
       iMod "Hwk" .
       iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
       { iExists _. by iFrame. }
       iRewrite "Hba". done.
+  Qed.
+
+  Lemma wp_read_atomic (l : loc)  E1 E2 s Φ :
+    nclose (nroot.@"storeE") ## E1 →
+    heap_ctx
+    -∗ (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
+                          ▷ ▷ (pointsto l α ={E2,E1}=∗ WP@{rs} α @ s {{ Φ }}))
+    -∗ WP@{rs} (READ l) @ s {{ Φ }}.
+  Proof.
+    iIntros "%Hm H".
+    iApply (wp_read_atomic_hom l E1 E2 s Φ idfun Hm with "H").
+  Qed.
+
+
+  Lemma wp_read_hom (l : loc) (α : IT) s Φ (κ : IT -n> IT) `{!IT_hom κ} :
+    heap_ctx -∗
+    ▷ pointsto l α -∗
+    ▷ ▷ (pointsto l α -∗ WP@{rs} κ α @ s {{ Φ }}) -∗
+    WP@{rs} κ (READ l) @ s {{ Φ }}.
+  Proof.
+    iIntros "#Hcxt Hp Ha".
+    iApply (wp_read_atomic_hom _ (⊤∖ nclose (nroot.@"storeE")) with "[$]").
+    { set_solver. }
+    iModIntro. iExists _; iFrame.
+    iNext. iNext. iIntros "Hl".
+    iModIntro. by iApply "Ha".
   Qed.
 
   Lemma wp_read (l : loc) (α : IT) s Φ :
@@ -270,21 +297,18 @@ Section wp.
     WP@{rs} READ l @ s {{ Φ }}.
   Proof.
     iIntros "#Hcxt Hp Ha".
-    iApply (wp_read_atomic _ (⊤∖ nclose (nroot.@"storeE")) with "[$]").
-    { set_solver. }
-    iModIntro. iExists _; iFrame.
-    iNext. iNext. iIntros "Hl".
-    iModIntro. by iApply "Ha".
+    iApply (wp_read_hom _ _ _ _ idfun with "Hcxt Hp Ha").
   Qed.
 
-  Lemma wp_write_atomic (l : loc)  E1 E2 β s Φ :
+  Lemma wp_write_atomic_hom (l : loc)  E1 E2 β s Φ (κ : IT -n> IT) `{!IT_hom κ} :
     nclose (nroot.@"storeE") ## E1 →
     heap_ctx -∗
     (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
-        ▷ ▷ (pointsto l β ={E2,E1}=∗ Φ (RetV ()))) -∗
-    WP@{rs} WRITE l β @ s {{ Φ }}.
+        ▷ ▷ (pointsto l β ={E2,E1}=∗ WP@{rs} κ (Ret ()) @ s {{ β, Φ β }})) -∗
+    WP@{rs} κ (WRITE l β) @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
+    unfold WRITE; rewrite /= hom_vis.
     iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
@@ -298,7 +322,7 @@ Section wp.
     destruct (Next_uninj x) as [α' Ha'].
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
-    iExists σ,(),(<[l:=Next β]>σ),(Ret ()).
+    iExists σ,(),(<[l:=Next β]>σ),(κ (Ret ())).
     iFrame "Hs".
     iSimpl. repeat iSplit; [ done | done | ].
     iNext. iIntros "Hlc".
@@ -308,7 +332,42 @@ Section wp.
     iMod "Hwk" .
     iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
     { iExists _. by iFrame. }
-    iApply wp_val. iModIntro. done.
+    iModIntro. done.
+  Qed.
+
+  Lemma wp_write_atomic (l : loc)  E1 E2 β s Φ :
+    nclose (nroot.@"storeE") ## E1 →
+    heap_ctx
+    -∗ (|={E1,E2}=> ∃ α, ▷ pointsto l α
+                        ∗ ▷ ▷ (pointsto l β ={E2,E1}=∗ Φ (RetV ())))
+    -∗ WP@{rs} WRITE l β @ s {{ Φ }}.
+  Proof.
+    iIntros "%Hm H G".
+    iApply (wp_write_atomic_hom l E1 E2 _ _ _ idfun Hm with "H [G]").
+    iMod "G".
+    iModIntro.
+    iDestruct "G" as "(%α & G1 & G2)".
+    iExists α; iFrame "G1".
+    do 2 iNext.
+    iIntros "H".
+    iMod ("G2" with "H") as "G".
+    iModIntro.
+    iApply wp_val.
+    by iModIntro.
+  Qed.
+
+  Lemma wp_write_hom (l : loc) (α β : IT) s Φ (κ : IT -n> IT) `{!IT_hom κ} :
+    heap_ctx -∗
+    ▷ pointsto l α -∗
+    ▷▷ (pointsto l β -∗ WP@{rs} κ (Ret ()) @ s {{ β, Φ β }}) -∗
+    WP@{rs} κ (WRITE l β) @ s {{ Φ }}.
+  Proof.
+    iIntros "#Hctx Hp Ha".
+    iApply (wp_write_atomic_hom _ (⊤∖ nclose (nroot.@"storeE")) with "[$]").
+    { set_solver. }
+    iModIntro. iExists _; iFrame.
+    iNext. iNext. iIntros "Hl".
+    iModIntro. by iApply "Ha".
   Qed.
 
   Lemma wp_write (l : loc) (α β : IT) s Φ :
@@ -318,25 +377,28 @@ Section wp.
     WP@{rs} WRITE l β @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Hp Ha".
-    iApply (wp_write_atomic _ (⊤∖ nclose (nroot.@"storeE")) with "[$]").
-    { set_solver. }
-    iModIntro. iExists _; iFrame.
-    iNext. iNext. iIntros "Hl".
-    iModIntro. by iApply "Ha".
+    iApply (wp_write_hom _ _ _ _ _ idfun with "Hctx Hp [Ha]").
+    do 2 iNext.
+    iIntros "H".
+    iDestruct ("Ha" with "H") as "G".
+    iApply wp_val.
+    by iModIntro.
   Qed.
 
-  Lemma wp_alloc (α : IT) (k : locO -n> IT) s Φ `{!NonExpansive Φ} :
+  Lemma wp_alloc_hom (α : IT) (k : locO -n> IT) s Φ `{!NonExpansive Φ}
+    (κ : IT -n> IT) `{!IT_hom κ} :
     heap_ctx -∗
-    ▷▷ (∀ l, pointsto l α -∗ WP@{rs} k l @ s {{ Φ }}) -∗
-    WP@{rs} ALLOC α k @ s {{ Φ }}.
+    ▷▷ (∀ l, pointsto l α -∗ WP@{rs} κ (k l) @ s {{ Φ }}) -∗
+    WP@{rs} κ (ALLOC α k) @ s {{ Φ }}.
   Proof.
     iIntros "Hh H".
+    rewrite hom_vis.
     iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
     set (l:=Loc.fresh (dom σ)).
-    iExists σ,l,_,(k l).
+    iExists σ,l,_,(κ (k l)).
     iFrame "Hs".
     simpl. change (Loc.fresh (dom σ)) with l.
     iSplit; first done.
@@ -351,14 +413,25 @@ Section wp.
     iApply ("H" with "Hl").
   Qed.
 
-  Lemma wp_dealloc_atomic (l : loc)  E1 E2 s Φ :
+  Lemma wp_alloc (α : IT) (k : locO -n> IT) s Φ `{!NonExpansive Φ} :
+    heap_ctx -∗
+    ▷▷ (∀ l, pointsto l α -∗ WP@{rs} k l @ s {{ Φ }}) -∗
+    WP@{rs} ALLOC α k @ s {{ Φ }}.
+  Proof.
+    iIntros "Hh H".
+    iApply (wp_alloc_hom _ _ _ _ idfun with "Hh H").
+  Qed.
+
+  Lemma wp_dealloc_atomic_hom (l : loc)  E1 E2 s Φ
+    (κ : IT -n> IT) `{!IT_hom κ} :
     nclose (nroot.@"storeE") ## E1 →
     heap_ctx -∗
     (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
-        ▷ ▷ (|={E2,E1}=> Φ (RetV ()))) -∗
-    WP@{rs} DEALLOC l @ s {{ Φ }}.
+        ▷ ▷ (|={E2,E1}=> WP@{rs} κ (Ret ()) @ s {{ β, Φ β }})) -∗
+    WP@{rs} κ (DEALLOC l) @ s {{ Φ }}.
   Proof.
     iIntros (Hee) "#Hcxt H".
+    rewrite hom_vis.
     iApply wp_subreify_ctx_indep_lift''. simpl.
     iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     iApply (fupd_mask_weaken E1).
@@ -371,7 +444,7 @@ Section wp.
     { iApply (istate_loc_dom with "Hh Hp"). }
     destruct Hdom as [x Hx].
     destruct (Next_uninj x) as [β' Hb'].
-    iExists σ,(),(delete l σ),(Ret ()).
+    iExists σ,(),(delete l σ),(κ (Ret ())).
     iFrame "Hs".
     repeat iSplit; simpl; eauto.
     iNext. iIntros "Hlc Hs".
@@ -380,7 +453,42 @@ Section wp.
     iMod "Hwk" .
     iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
     { iExists _. by iFrame. }
-    iModIntro. by iApply wp_val.
+    by iModIntro.
+  Qed.
+
+  Lemma wp_dealloc_atomic (l : loc)  E1 E2 s Φ :
+    nclose (nroot.@"storeE") ## E1 →
+    heap_ctx -∗
+    (|={E1,E2}=> ∃ α, ▷ pointsto l α ∗
+        ▷ ▷ (|={E2,E1}=> Φ (RetV ()))) -∗
+    WP@{rs} DEALLOC l @ s {{ Φ }}.
+  Proof.
+    iIntros (Hee) "#Hcxt H".
+    iApply (wp_dealloc_atomic_hom _ _ _ _ _ idfun with "Hcxt [H]");
+      first done.
+    iMod "H".
+    iModIntro.
+    iDestruct "H" as "(%α & G1 & G2)".
+    iExists α; iFrame "G1".
+    do 2 iNext.
+    iMod "G2".
+    iModIntro.
+    iApply wp_val.
+    by iModIntro.
+  Qed.
+
+  Lemma wp_dealloc_hom (l : loc) α s Φ (κ : IT -n> IT) `{!IT_hom κ} :
+    heap_ctx -∗
+    ▷ pointsto l α -∗
+    ▷ ▷ WP@{rs} κ (Ret ()) @ s {{ β, Φ β }} -∗
+    WP@{rs} κ (DEALLOC l) @ s {{ Φ }}.
+  Proof.
+    iIntros "#Hctx Hl H".
+    iApply (wp_dealloc_atomic_hom _ (⊤∖ nclose (nroot.@"storeE")) with "[$]").
+    { set_solver. }
+    iModIntro. iExists _; iFrame.
+    iNext. iNext.
+    iModIntro. done.
   Qed.
 
   Lemma wp_dealloc (l : loc) α s Φ :
@@ -390,10 +498,9 @@ Section wp.
     WP@{rs} DEALLOC l @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Hl H".
-    iApply (wp_dealloc_atomic _ (⊤∖ nclose (nroot.@"storeE")) with "[$]").
-    { set_solver. }
-    iModIntro. iExists _; iFrame.
-    iNext. iNext.
+    iApply (wp_dealloc_hom _ _ _ _ idfun with "Hctx Hl [H]").
+    do 2 iNext.
+    iApply wp_val.
     iModIntro. done.
   Qed.
 

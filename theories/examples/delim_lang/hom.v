@@ -16,7 +16,7 @@ Section hom.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
-  Program Definition 𝒫_HOM : HOM (A:=natO) := exist _ 𝒫 _.
+  Program Definition 𝒫_HOM : HOM (A := R) := exist _ 𝒫 _.
   Next Obligation.
     apply _.
   Qed.

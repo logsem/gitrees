@@ -851,7 +851,7 @@ Section ITV.
       | FunV f => Fun f
       end.
 
-  #[export] Instance ITV_inhabited `{!Inhabited A} : Inhabited ITV := populate (RetV inhabitant).
+  #[export] Instance ITV_inhabited : Inhabited ITV := populate (FunV (Next idfun)).
 
   #[export] Instance ITV_dist : Dist (ITV)
     := λ n αv βv, match αv, βv with
