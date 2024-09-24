@@ -32,6 +32,7 @@ theories/program_logic.v
 theories/effects/store.v
 theories/effects/callcc.v
 theories/effects/io_tape.v
+theories/effects/exceptions.v
 theories/effects/delim.v
 
 theories/lib/pairs.v
@@ -56,6 +57,10 @@ theories/examples/input_lang/lang.v
 theories/examples/input_lang/interp.v
 theories/examples/input_lang/logpred.v
 theories/examples/input_lang/logrel.v
+
+theories/examples/except_lang/lang.v
+theories/examples/except_lang/interp.v
+theories/examples/except_lang/typing.v
 
 theories/examples/affine_lang/lang.v
 theories/examples/affine_lang/logrel1.v
