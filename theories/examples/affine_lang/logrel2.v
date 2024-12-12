@@ -137,8 +137,9 @@ Section glue.
     simpl.
     iApply (wp_wand with "H").
     iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
-    iModIntro. simpl. iFrame. iExists tt,_; iFrame.
-    iDestruct "Ha" as "[Ha|Ha]"; iExists _; eauto.
+    iDestruct "Ha" as "[Ha|Ha]".
+    - iModIntro. simpl. by iFrame.
+    - iModIntro. simpl. by iFrame.
   Qed.
 
   Lemma compat_glue_from_affine_nat α :
@@ -208,7 +209,7 @@ Section glue.
                (pointsto l (Ret 0) ∗ interp_tarr (interp_ty τ1) (interp_ty τ2) αv)) with "[Hl Ha]") as "#Hinv".
     { iNext. iRight. by iFrame. }
     iModIntro. simpl. iApply wp_val.
-    iModIntro. iExists tt. iFrame. iExists σ'. iFrame.
+    iModIntro. iExists tt. iFrame "Hp". iExists σ'. iFrame.
     iModIntro. clear σ σ'. iIntros (σ βv) "Hs #Hb".
     iIntros (?) "Hp".
     iApply wp_lam. iNext. simpl.
@@ -495,13 +496,23 @@ Proof.
   exists (λ _, True)%I. split.
   { apply _. }
   iIntros "[[Hone Hcr] Hst]".
-  pose (σ := st.1).
+
+  pose (σ := st.1 : gmap locO (laterO (IT (gReifiers_ops rs) R))).
   pose (ios := st.2.1).
-  iMod (new_heapG rs σ) as (H3) "H".
-  iAssert (has_substate σ ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
+  iMod (new_heapG rs (to_agree <$> σ)) as (H3) "H".
+  iAssert (has_substate
+             (σ : oFunctor_car
+                    (sReifier_state reify_store)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R))
+           ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
   { unfold has_substate, has_full_state.
     assert (of_state rs (IT (gReifiers_ops rs) _) st ≡
-            of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)
+              of_idx rs (IT (gReifiers_ops rs) _) sR_idx
+              (sR_state (σ : oFunctor_car
+                    (sReifier_state reify_store)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)))
             ⋅ of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state ios))%stdpp as ->; last first.
     { rewrite -own_op. done. }
     unfold sR_idx. simpl.
@@ -513,9 +524,15 @@ Proof.
     intros j. inv_fin j.
     { unfold of_state, of_idx. simpl.
       erewrite (eq_pi _ _ _ (@eq_refl _ 1%fin)). done. }
-    intros i. inversion i. }
+    intros i. inversion i.
+  }
   iApply fupd_wp.
-  iMod (inv_alloc (nroot.@"storeE") _ (∃ σ, £ 1 ∗ has_substate σ ∗ own (heapG_name rs) (●V σ))%I with "[-Hcr Hio]") as "#Hinv".
+  iMod (inv_alloc (nroot.@"storeE") _ (∃ σ : gmap locO (laterO (IT (gReifiers_ops rs) R)),
+             £ 1 ∗ has_substate (σ : oFunctor_car
+                    (sReifier_state reify_store)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R))
+             ∗ own (heapG_name rs) (●V ((to_agree <$> σ) : gmap.gmapO loc (agreeR (laterO (IT (gReifiers_ops rs) R))))))%I with "[-Hcr Hio]") as "#Hinv".
   { iNext. iExists _. iFrame. }
   simpl.
   iMod na_alloc as (p) "Hp".

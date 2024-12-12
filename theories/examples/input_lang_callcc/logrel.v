@@ -41,11 +41,11 @@ Section logrel.
                               ∗ logrel_nat βv v ∗ has_substate σ' ∗ cont_ctx }})%I.
 
   Definition logrel_ectx {S} V (κ : HOM) (K : ectx S) : iProp :=
-    (□ ∀ (βv : ITV) (v : val S), V βv v -∗ obs_ref (`κ (IT_of_V βv)) (fill K (Val v)))%I.
+    (□ ∀ (βv : ITV) (v : val S), V βv v -∗ obs_ref (κ (IT_of_V βv)) (fill K (Val v)))%I.
 
   Definition logrel_expr {S} V (α : IT) (e : expr S) : iProp :=
     (∀ (κ : HOM) (K : ectx S),
-       logrel_ectx V κ K -∗ obs_ref (`κ α) (fill K e))%I.
+       logrel_ectx V κ K -∗ obs_ref (κ α) (fill K e))%I.
 
   Definition logrel_arr {S} V1 V2 (βv : ITV) (vf : val S) : iProp :=
     (∃ f, IT_of_V βv ≡ Fun f ∧ □ ∀ αv v, V1 αv v -∗
@@ -53,7 +53,7 @@ Section logrel.
 
 
   Definition logrel_cont {S} V (βv : ITV) (v : val S) : iProp :=
-    (∃ (κ : HOM) K, (IT_of_V βv) ≡ (Fun (Next (λne x, Tau (laterO_map (`κ) (Next x)))))
+    (∃ (κ : HOM) K, (IT_of_V βv) ≡ (Fun (Next (λne x, Tau (laterO_map (λne x, κ x) (Next x)))))
                             ∧ ⌜v = ContV K⌝
                             ∧ □ logrel_ectx V κ K)%I.
 
@@ -92,7 +92,13 @@ Section logrel.
   #[export] Instance logrel_ectx_ne {S} (V : ITV → val S → iProp) :
     NonExpansive2 V → NonExpansive2 (logrel_ectx V).
   Proof.
-    solve_proper.
+    intros ??????? J.
+    rewrite /logrel_ectx.
+    do 2 f_equiv; intros ?.
+    f_equiv; intros ?.
+    do 2 f_equiv; first done.
+    f_equiv.
+    apply J.
   Qed.
 
   #[export] Instance logrel_arr_ne {S} (V1 V2 : ITV → val S → iProp) :
@@ -136,7 +142,13 @@ Section logrel.
     Proper ((≡) ==> (≡) ==> (≡)) V →
     Proper ((≡) ==> (≡) ==> (≡)) (logrel_ectx V).
   Proof.
-    solve_proper.
+    intros ?????? J.
+    rewrite /logrel_ectx.
+    do 2 f_equiv; intros ?.
+    f_equiv; intros ?.
+    do 2 f_equiv; first done.
+    f_equiv.
+    apply J.
   Qed.
 
   #[export] Instance logrel_arr_proper {S} (V1 V2 : ITV → val S → iProp) :
@@ -199,7 +211,7 @@ Section logrel.
   Lemma obs_ref_bind {S} (f : HOM) (K : ectx S) e α τ1 :
     ⊢ logrel τ1 α e -∗
       logrel_ectx (logrel_val τ1) f K -∗
-      obs_ref (`f α) (fill K e).
+      obs_ref (f α) (fill K e).
   Proof.
     iIntros "H1 #H2".
     iIntros (σ) "Hs Hcont".
@@ -294,10 +306,10 @@ Section logrel.
     iIntros (ss γ) "#Hss".
     simpl.
     pose (κ' := (IFSCtx_HOM (α1 ss) (α2 ss))).
-    assert ((IF (α0 ss) (α1 ss) (α2 ss)) = ((`κ') (α0 ss))) as -> by reflexivity.
+    assert ((IF (α0 ss) (α1 ss) (α2 ss)) = ((κ') (α0 ss))) as -> by reflexivity.
     term_simpl.
     iIntros (κ K) "#HK".
-    assert ((`κ) ((IFSCtx (α1 ss) (α2 ss)) (α0 ss)) = ((`κ) ◎ (`κ')) (α0 ss))
+    assert ((κ) ((IFSCtx (α1 ss) (α2 ss)) (α0 ss)) = ((κ) ∘ (κ')) (α0 ss))
       as -> by reflexivity.
     pose (sss := (HOM_compose κ κ')). rewrite (HOM_compose_ccompose κ κ' sss)//.
     assert (fill K (If (bind γ e0) (bind γ e1) (bind γ e2))%syn =
@@ -342,7 +354,7 @@ Section logrel.
     term_simpl.
     iIntros (σ) "Hs Hcont".
     destruct (update_input σ) as [n σ'] eqn:Hinp.
-    iApply (wp_input' with "Hs [-]"); first done.
+    iApply (wp_input' rs _ _ _ _ (λne x, κ x) with "Hs [-]"); first done.
     iNext. iIntros "Hlc Hs". term_simpl.
     iSpecialize ("HK" $! (RetV n) (LitV n) with "[]"); first by iExists n.
     iSpecialize ("HK" $! σ' with "Hs Hcont").
@@ -370,7 +382,7 @@ Section logrel.
     term_simpl.
     iIntros (κ K) "#HK".
     set (κ' := (NatOpRSCtx_HOM op α1 ss)).
-    assert ((NATOP (do_natop op) (α1 ss) (α2 ss)) = ((`κ') (α2 ss))) as -> by done.
+    assert ((NATOP (do_natop op) (α1 ss) (α2 ss)) = ((κ') (α2 ss))) as -> by done.
     rewrite HOM_ccompose.
     pose (sss := (HOM_compose κ κ')). rewrite (HOM_compose_ccompose κ κ' sss)//.
     assert (fill K (NatOp op (bind γ e1) (bind γ e2))%syn =
@@ -381,7 +393,7 @@ Section logrel.
     term_simpl. clear κ' sss.
     rewrite -fill_comp. simpl.
     pose (κ' := (NatOpLSCtx_HOM op (IT_of_V βv) ss _)).
-    assert ((NATOP (do_natop op) (α1 ss) (IT_of_V βv)) = ((`κ') (α1 ss))) as -> by done.
+    assert ((NATOP (do_natop op) (α1 ss) (IT_of_V βv)) = ((κ') (α1 ss))) as -> by done.
     rewrite HOM_ccompose.
     pose (sss := (HOM_compose κ κ')). rewrite (HOM_compose_ccompose κ κ' sss)//.
     assert (fill K (NatOp op (bind γ e1) (LitV n2))%syn =
@@ -417,7 +429,7 @@ Section logrel.
     Opaque interp_throw.
     term_simpl.
     pose (κ' := ThrowLSCtx_HOM β ss).
-    assert ((interp_throw rs α β ss) = ((`κ') (α ss))) as -> by done.
+    assert ((interp_throw rs α β ss) = ((κ') (α ss))) as -> by done.
     rewrite HOM_ccompose.
     pose (sss := (HOM_compose κ κ')). rewrite (HOM_compose_ccompose κ κ' sss)//.
     assert (fill K (Throw (bind γ e) (bind γ e'))%syn =
@@ -431,7 +443,7 @@ Section logrel.
     simpl.
     pose (κ'' := ThrowRSCtx_HOM (IT_of_V βv) ss _).
     assert ((get_fun (λne f : laterO (IT -n> IT), THROW (IT_of_V βv) f) (β ss)) ≡
-              ((`κ'') (β ss))) as ->.
+              ((κ'') (β ss))) as ->.
     {
       subst κ''. simpl. by rewrite get_val_ITV.
     }
@@ -452,7 +464,7 @@ Section logrel.
     rewrite get_fun_fun.
     simpl.
     iIntros (σ) "Hs Hcont".
-    iApply (wp_throw' with "Hcont").
+    iApply (wp_throw' rs _ (λne x, κ x) with "Hcont").
     iNext. iIntros "Hcl Hcont". term_simpl.
     rewrite later_map_Next. iApply wp_tick. iNext.
     iSpecialize ("H" $! βv v with "[]"); first done.
@@ -483,11 +495,12 @@ Section logrel.
     term_simpl.
     iIntros (σ) "Hs Hcont".
 
-    iApply (wp_callcc with "Hcont").
+    iApply (wp_callcc _ _ _ (λne x, κ x) with "Hcont").
     { simpl. done. }
     iNext. iIntros "Hcl Hcont". term_simpl.
 
-    pose (ff := (λit x : IT, Tick ((`κ) x))).
+    unshelve epose (ff := (λit x : IT, Tick ((κ) x))).
+    { solve_proper. }
     match goal with
     | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ extend_scope ss )?f] => set (fff := f)
     end.
@@ -507,10 +520,13 @@ Section logrel.
       destruct x as [| x]; term_simpl; last iApply "Hss".
       Transparent extend_scope.
       subst ss'; simpl.
-      pose proof (asval_fun (Next (λne x, Tau (laterO_map (`κ) (Next x))))).
+      pose proof (asval_fun (Next (λne x, Tau (laterO_map (λne x, κ x) (Next x))))).
       subst ff. destruct H as [f H].
       iIntros (t r) "#H".
-      simpl. rewrite -H. iApply "H".
+      simpl.
+      assert ((IT_of_V f) ≡ (λit x : IT, Tick (κ x))) as <-.
+      { rewrite H. do 2 f_equiv. intros ?; rewrite /= later_map_Next //=. }
+      iApply "H".
       unfold logrel_cont.
       iExists κ, K.
       iSplit; first done.
@@ -546,10 +562,10 @@ Section logrel.
     iIntros (κ K) "#HK".
     term_simpl.
     pose (κ' := OutputSCtx_HOM ss).
-    replace (get_ret OUTPUT (α ss)) with ((`κ') (α ss)) by reflexivity.
-    replace ((`κ) ((`κ') (α ss))) with (((`κ) ◎ (`κ')) (α ss)) by reflexivity.
+    replace (get_ret OUTPUT (α ss)) with ((κ') (α ss)) by reflexivity.
+    replace ((κ) ((κ') (α ss))) with (((κ) ∘ (κ')) (α ss)) by reflexivity.
     pose (sss := (HOM_compose κ κ')).
-    replace (`κ ◎ `κ') with  (`sss) by reflexivity.
+    replace (κ ∘ κ') with  (hom_fun sss) by reflexivity.
     assert (fill K (Output (bind γ e))%syn =
             fill (ectx_compose K (OutputK EmptyK)) (bind γ e)) as ->.
     { rewrite -fill_comp. reflexivity. }
@@ -559,7 +575,7 @@ Section logrel.
     iRewrite "Hb". simpl.
     iIntros (σ) "Hs Hcont".
     rewrite get_ret_ret.
-    iApply (wp_output' with "Hs"); first done.
+    iApply (wp_output' _ _ _ _ (λne x, κ x) with "Hs"); first done.
     iNext. iIntros "Hlc Hs".
     iSpecialize ("HK" $! (RetV 0) (LitV 0) with "[]"); first by iExists 0.
     iSpecialize ("HK" $! (update_output n σ) with "Hs Hcont").
@@ -593,13 +609,13 @@ Section logrel.
     assert ((bind γ (App e1 e2))%syn = (fill (AppRK (bind γ e1) EmptyK) (bind γ e2))) as ->.
     { reflexivity. }
     pose (κ' := (AppRSCtx_HOM α1 ss)).
-    assert ((α1 ss ⊙ (α2 ss)) = ((`κ') (α2 ss))) as ->.
+    assert ((α1 ss ⊙ (α2 ss)) = ((κ') (α2 ss))) as ->.
     { simpl; unfold AppRSCtx. reflexivity. }
     iIntros (κ K) "#HK".
-    assert ((`κ) ((`κ') (α2 ss)) = ((`κ) ◎ (`κ')) (α2 ss)) as ->.
+    assert ((κ) ((κ') (α2 ss)) = ((κ) ∘ (κ')) (α2 ss)) as ->.
     { reflexivity. }
     pose (sss := (HOM_compose κ κ')).
-    assert ((`κ ◎ `κ') = (`sss)) as ->.
+    assert ((κ ∘ κ') = (sss)) as ->.
     { reflexivity. }
     rewrite fill_comp.
     iApply obs_ref_bind; first by iApply "H2".
@@ -611,10 +627,10 @@ Section logrel.
     assert ((App (bind γ e1) v) = (fill (AppLK EmptyK v) (bind γ e1))) as ->.
     { reflexivity. }
     pose (κ'' := (AppLSCtx_HOM (IT_of_V βv) ss _)).
-    assert (((`κ) (α1 ss ⊙ (IT_of_V βv))) = (((`κ) ◎ (`κ'')) (α1 ss))) as ->.
+    assert (((κ) (α1 ss ⊙ (IT_of_V βv))) = (((κ) ∘ (κ'')) (α1 ss))) as ->.
     { reflexivity. }
     pose (sss := (HOM_compose κ κ'')).
-    assert ((`κ ◎ `κ'') = (`sss)) as ->.
+    assert ((κ ∘ κ'') = (sss)) as ->.
     { reflexivity. }
     rewrite fill_comp.
     iApply obs_ref_bind; first by iApply "H1".

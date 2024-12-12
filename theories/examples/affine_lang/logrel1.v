@@ -544,13 +544,22 @@ Proof.
   exists (λ _, True)%I. split.
   { apply _. }
   iIntros "[[Hone Hcr] Hst]".
-  pose (σ := st.1).
+  pose (σ := st.1 : gmap locO (laterO (IT (gReifiers_ops rs) R))).
   pose (ios := st.2.1).
-  iMod (new_heapG rs σ) as (H3) "H".
-  iAssert (has_substate σ ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
+  iMod (new_heapG rs (to_agree <$> σ)) as (H3) "H".
+  iAssert (has_substate
+             (σ : oFunctor_car
+                    (sReifier_state reify_store)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R))
+           ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
   { unfold has_substate, has_full_state.
     assert (of_state rs (IT (gReifiers_ops rs) _) st ≡
-            of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)
+              of_idx rs (IT (gReifiers_ops rs) _) sR_idx
+              (sR_state (σ : oFunctor_car
+                    (sReifier_state reify_store)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)))
             ⋅ of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state ios))%stdpp as ->; last first.
     { rewrite -own_op. done. }
     unfold sR_idx. simpl.
@@ -562,12 +571,24 @@ Proof.
     intros j. inv_fin j.
     { unfold of_state, of_idx. simpl.
       erewrite (eq_pi _ _ _ (@eq_refl _ 1%fin)). done. }
-    intros i. inversion i. }
+    intros i. inversion i.
+  }
   iApply fupd_wp.
-  iMod (inv_alloc (nroot.@"storeE") _ (∃ σ, £ 1 ∗ has_substate σ ∗ own (heapG_name rs) (●V σ))%I with "[-Hcr]") as "#Hinv".
-  { iNext. iExists _. iFrame. }
-  simpl.
+  simpl in *.
   iPoseProof (@Hlog _ _ _ with "Hcr") as "Hlog".
+  iMod (inv_alloc (nroot.@"storeE") _
+          (∃ σ : gmap locO (laterO (IT (gReifiers_ops rs) R)),
+             £ 1 ∗ has_substate (σ : oFunctor_car
+                    (sReifier_state reify_store)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R))
+             ∗ own (heapG_name rs) (●V ((to_agree <$> σ) : gmap.gmapO loc (agreeR (laterO (IT (gReifiers_ops rs) R))))))%I
+         with "[Hone H Hs]") as "#Hinv".
+  {
+    iNext. iExists st.1.
+    iFrame "Hone H Hs".
+  }
+  simpl.
   iSpecialize ("Hlog" $! ı_scope with "Hinv []").
   { iApply ssubst_valid_fin_empty1. }
   iSpecialize ("Hlog" $! tt with "[//]").

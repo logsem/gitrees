@@ -32,8 +32,8 @@ Section clwp.
   Program Definition clwp s E : IT -> (ITV -n> iProp) -> iProp :=
     λ α Φ, (∀ (κ : HOM) (Ψ : ITV -n> iProp),
               (∀ v, Φ v
-                    -∗ WP@{rs} (`κ (IT_of_V v)) @ s ; E {{ Ψ }})
-              -∗ WP@{rs} (`κ α) @ s ; E {{ Ψ }})%I.
+                    -∗ WP@{rs} (κ (IT_of_V v)) @ s ; E {{ Ψ }})
+              -∗ WP@{rs} (κ α) @ s ; E {{ Ψ }})%I.
 
   Notation "'CLWP' e @ s ; E {{ Φ } }" :=
     (clwp s E e Φ)
@@ -92,6 +92,14 @@ Section clwp.
     by iApply "H".
   Qed.
 
+  Lemma clwp_val s E (Φ : ITV -n> iProp) α αv `{!IntoVal α αv}
+    : (|={E}=> Φ αv) ⊢ CLWP α @ s ; E {{ Φ }}.
+  Proof.
+    iIntros "G".
+    rewrite -(into_val (α := α)).
+    by iApply clwp_value_fupd'.
+  Qed.
+
   Lemma clwp_mono s E e (Φ Ψ : ITV -n> iProp) :
     CLWP e @ s; E {{ Φ }} -∗ (∀ v, Φ v ={E}=∗ Ψ v) -∗ CLWP e @ s; E {{ Ψ }}.
   Proof.
@@ -133,14 +141,14 @@ Section clwp.
   Qed.
 
   Global Instance clwp_bind_ne s E (κ : HOM) (Φ : ITV -n> iProp)
-    : NonExpansive (λ βv, (CLWP (`κ (IT_of_V βv)) @ s; E {{ Φ }})%I).
+    : NonExpansive (λ βv, (CLWP (κ (IT_of_V βv)) @ s; E {{ Φ }})%I).
   Proof.
     solve_proper.
   Qed.
 
   Program Definition clwp_bind s E (κ : HOM) e (Φ : ITV -n> iProp) :
-    CLWP e @ s; E {{ βv, CLWP (`κ (IT_of_V βv)) @ s; E {{ Φ }} }}
-                ⊢ CLWP (`κ e) @ s; E {{ Φ }}.
+    CLWP e @ s; E {{ βv, CLWP (κ (IT_of_V βv)) @ s; E {{ Φ }} }}
+                ⊢ CLWP (κ e) @ s; E {{ Φ }}.
   Proof.
     rewrite /clwp.
     iIntros "H %κ' %Ψ G".

@@ -20,27 +20,20 @@ Section hom.
 
   (** Specific packaged homomorphisms *)
 
-  Program Definition NatOpRSCtx_HOM {S : Set} (op : nat_op)
+  Definition NatOpRSCtx_HOM {S : Set} (op : nat_op)
     (α : @interp_scope F A _ S -n> IT) (env : @interp_scope F A _ S)
-    : HOM := exist _ (interp_natoprk rs op α (λne env, idfun) env) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
+    : HOM := MkHom (interp_natoprk rs op α (λne env, idfun) env) _.
 
-  Program Definition NatOpLSCtx_HOM {S : Set} (op : nat_op)
+  Definition NatOpLSCtx_HOM {S : Set} (op : nat_op)
     (α : IT) (env : @interp_scope F A _ S)
     (Hv : AsVal α)
-    : HOM := exist _ (interp_natoplk rs op (λne env, idfun) (constO α) env) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
+    : HOM := MkHom (interp_natoplk rs op (λne env, idfun) (constO α) env) _.
 
   Program Definition ThrowLSCtx_HOM {S : Set}
     (α : @interp_scope F A _ S -n> IT)
     (env : @interp_scope F A _ S)
-    : HOM := exist _ ((interp_throwlk rs (λne env, idfun) α env)) _.
+    : HOM := MkHom ((interp_throwlk rs (λne env, idfun) α env)) _.
+  Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros; simpl.
     apply _.
@@ -49,7 +42,8 @@ Section hom.
   Program Definition ThrowRSCtx_HOM {S : Set}
     (β : IT) (env : @interp_scope F A _ S)
     (Hv : AsVal β)
-    : HOM := exist _ (interp_throwrk rs (constO β) (λne env, idfun) env) _.
+    : HOM := MkHom (interp_throwrk rs (constO β) (λne env, idfun) env) _.
+  Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros; simpl.
     simple refine (IT_HOM _ _ _ _ _); intros; simpl.
@@ -72,30 +66,18 @@ Section hom.
       by rewrite get_fun_err.
   Qed.
 
-  Program Definition OutputSCtx_HOM {S : Set}
+  Definition OutputSCtx_HOM {S : Set}
     (env : @interp_scope F A _ S) : HOM (A:=natO)
-    := exist _ ((interp_outputk rs (λne env, idfun) env)) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
+    := MkHom ((interp_outputk rs (λne env, idfun) env)) _.
 
-  Program Definition AppRSCtx_HOM {S : Set}
+  Definition AppRSCtx_HOM {S : Set}
     (α : @interp_scope F A _ S -n> IT)
     (env : @interp_scope F A _ S)
-    : HOM := exist _ (interp_apprk rs α (λne env, idfun) env) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
+    : HOM := MkHom (interp_apprk rs α (λne env, idfun) env) _.
 
-  Program Definition AppLSCtx_HOM {S : Set}
+  Definition AppLSCtx_HOM {S : Set}
     (β : IT) (env : @interp_scope F A _ S)
     (Hv : AsVal β)
-    : HOM := exist _ (interp_applk rs (λne env, idfun) (constO β) env) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
+    : HOM := MkHom (interp_applk rs (λne env, idfun) (constO β) env) _.
 
 End hom.

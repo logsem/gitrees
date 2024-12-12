@@ -1,6 +1,7 @@
 (** * Example of a program in delim_lang and its symbolic execution *)
 From gitrees Require Import gitree lang_generic.
-From gitrees.effects Require Import delim.
+From gitrees.effects Require Import delim store.
+From gitrees.lib Require Import pairs.
 From gitrees.examples.delim_lang Require Import lang interp.
 From iris.proofmode Require Import base classes tactics environments.
 From iris.base_logic Require Import algebra.
@@ -23,11 +24,9 @@ Global Ltac shift_hom :=
 Global Ltac shift_natop_l :=
   match goal with
   | |- envs_entails _ (wp _ (ofe_mor_car _ _ (λne x, ?k1 x)
-                              (ofe_mor_car _ _
-                                 (ofe_mor_car _ _
-                                    (NATOP (do_natop lang.Add)) ?t) (IT_of_V ?e))) _ _ _) =>
-      assert ((ofe_mor_car _ _ (λne x, k1 x) (NATOP (do_natop lang.Add) t (IT_of_V e))) ≡
-                (λne x, k1 (NATOP (do_natop lang.Add) x (IT_of_V e))) t) as -> by done
+                              (((NATOP (do_natop ?op)) ?t) (IT_of_V ?e))) _ _ _) =>
+      assert ((ofe_mor_car _ _ (λne x, k1 x) (NATOP (do_natop op) t (IT_of_V e))) ≡
+                (λne x, k1 (NATOP (do_natop op) x (IT_of_V e))) t) as -> by done
   end.
 
 Section proof.
@@ -81,7 +80,8 @@ Section proof.
     iIntros "!> _ Hσ".
     simpl.
 
-    shift_hom. shift_natop_l.
+    shift_hom.
+    shift_natop_l.
     rewrite -(IT_of_V_Ret 5) get_val_ITV'. simpl.
     shift_hom. shift_natop_l.
     rewrite get_fun_fun. simpl.

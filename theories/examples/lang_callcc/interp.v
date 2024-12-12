@@ -308,12 +308,6 @@ Section interp.
     revert env.
     induction K; simpl; intros env; first reflexivity; try (by rewrite IHK).
     - repeat f_equiv.
-      by rewrite IHK.
-    - repeat f_equiv.
-      by rewrite IHK.
-    - repeat f_equiv.
-      by rewrite IHK.
-    - repeat f_equiv.
       intros ?; simpl.
       repeat f_equiv.
       by rewrite IHK.
@@ -418,13 +412,13 @@ Section interp.
     IT_hom (interp_ectx (IfK K e1 e2) env).
   Proof.
     intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - rewrite -IF_Tick. do 3 f_equiv. apply hom_tick.
+    - rewrite -IF_Tick. f_equiv. apply hom_tick.
     - assert ((interp_ectx K env (Vis op i ko)) ≡
         (Vis op i (laterO_map (λne y, interp_ectx K env y) ◎ ko))).
       { by rewrite hom_vis. }
       trans (IF (Vis op i (laterO_map (λne y : IT, interp_ectx K env y) ◎ ko))
                (interp_expr e1 env) (interp_expr e2 env)).
-      { do 3 f_equiv. by rewrite hom_vis. }
+      { f_equiv. by rewrite hom_vis. }
       rewrite IF_Vis. f_equiv. simpl.
       intro. simpl. by rewrite -laterO_map_compose.
     - trans (IF (Err e) (interp_expr e1 env) (interp_expr e2 env)).
@@ -450,14 +444,14 @@ Section interp.
     IT_hom (interp_ectx (AppLK K v) env).
   Proof.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - rewrite -APP'_Tick_l. do 2 f_equiv. apply hom_tick.
+    - rewrite -APP'_Tick_l. f_equiv. apply hom_tick.
     - trans (APP' (Vis op i (laterO_map (interp_ectx K env) ◎ ko))
                (interp_val v env)).
-      + do 2f_equiv. rewrite hom_vis. do 3 f_equiv. by intro.
+      + f_equiv. rewrite hom_vis. do 3 f_equiv. by intro.
       + rewrite APP'_Vis_l. f_equiv. intro x. simpl.
         by rewrite -laterO_map_compose.
     - trans (APP' (Err e) (interp_val v env)).
-      { do 2f_equiv. apply hom_err. }
+      { f_equiv. apply hom_err. }
       apply APP'_Err_l, interp_val_asval.
   Qed.
 
@@ -479,15 +473,15 @@ Section interp.
     IT_hom (interp_ectx (NatOpLK op K v) env).
   Proof.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - rewrite -NATOP_ITV_Tick_l. do 2 f_equiv. apply hom_tick.
+    - rewrite -NATOP_ITV_Tick_l. f_equiv. apply hom_tick.
     - trans (NATOP (do_natop op)
                (Vis op0 i (laterO_map (interp_ectx K env) ◎ ko))
                (interp_val v env)).
-      { do 2 f_equiv. rewrite hom_vis. f_equiv. by intro. }
+      { f_equiv. rewrite hom_vis. f_equiv. by intro. }
       rewrite NATOP_ITV_Vis_l. f_equiv. intro x. simpl.
       by rewrite -laterO_map_compose.
     - trans (NATOP (do_natop op) (Err e) (interp_val v env)).
-      + do 2 f_equiv. apply hom_err.
+      + f_equiv. apply hom_err.
       + by apply NATOP_Err_l, interp_val_asval.
   Qed.
 

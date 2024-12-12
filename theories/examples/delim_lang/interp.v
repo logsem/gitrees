@@ -178,7 +178,7 @@ Section interp.
     solve_proper_prepare.
     do 2 f_equiv.
     intro; simpl.
-    by do 2 f_equiv.
+    by f_equiv.
   Qed.
   Next Obligation.
     solve_proper_prepare.
@@ -516,11 +516,13 @@ Section interp.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - rewrite <-hom_tick.
       f_equiv.
+      rewrite /LET /LET_ne /=.
       rewrite ->2 get_val_ITV.
       simpl.
       rewrite get_val_tick.
       reflexivity.
-    - rewrite get_val_ITV.
+    - rewrite /LET /LET_ne /=.
+      rewrite get_val_ITV.
       simpl.
       rewrite ->2 hom_vis.
       f_equiv.
@@ -532,6 +534,7 @@ Section interp.
       simpl.
       reflexivity.
     - rewrite <-hom_err.
+      rewrite /LET /LET_ne /=.
       rewrite get_val_ITV.
       simpl.
       f_equiv.
@@ -549,9 +552,11 @@ Section interp.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - rewrite <-hom_tick.
       f_equiv.
+      rewrite /LET /LET_ne /=.
       rewrite get_val_tick.
       reflexivity.
-    - rewrite !hom_vis.
+    - rewrite /LET /LET_ne /=.
+      rewrite !hom_vis.
       f_equiv.
       intro; simpl.
       rewrite <-laterO_map_compose.
@@ -559,6 +564,7 @@ Section interp.
     - rewrite <-hom_err.
       f_equiv.
       rewrite hom_err.
+      rewrite /LET /LET_ne /=.
       rewrite get_val_err.
       reflexivity.
   Qed.
@@ -644,12 +650,12 @@ Section interp.
     - do 4 f_equiv. intro. simpl. by repeat f_equiv.
     - rewrite -hom_tick. f_equiv.
       match goal with
-      | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
+      | |- context G [LET ?a ?b] =>
           set (F := b)
       end.
       trans (interp_cont k env (LET (Fun (Next (ir_unf (interp_expr e) env))) F)).
       {
-        do 3 f_equiv.
+        do 2 f_equiv.
         apply interp_rec_unfold.
       }
       subst F.

@@ -114,6 +114,18 @@ Section weakestpre.
   Implicit Type κ : IT -n> IT.
   Implicit Type x : IT.
 
+  Lemma wp_throw'' σ κ (f : IT -> IT) (x : IT)
+    (HE : NonExpansive f)
+    `{!IT_hom κ} Φ s :
+    has_substate σ -∗
+    ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} f x @ s {{ Φ }}) -∗
+    WP@{rs} κ (THROW x (Next (λne x, f x))) @ s {{ Φ }}.
+  Proof.
+    iIntros "Hs Ha". rewrite /THROW. simpl.
+    rewrite hom_vis.
+    iApply (wp_subreify_ctx_dep with "Hs"); simpl; done.
+  Qed.
+
   Lemma wp_throw' σ κ (f : IT -n> IT) (x : IT)
     `{!IT_hom κ} Φ s :
     has_substate σ -∗

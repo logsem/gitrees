@@ -179,7 +179,7 @@ Section affine.
   Qed.
   Next Obligation.
     intros; repeat intro; repeat f_equiv; first assumption.
-    intro; simpl; f_equiv; intro; simpl.
+    intro; simpl.
     repeat f_equiv; intro; simpl; repeat f_equiv; intro; simpl.
     repeat f_equiv; assumption.
   Qed.

@@ -12,7 +12,7 @@ Opaque laterO_map.
 Canonical Structure locO := leibnizO loc.
 Definition stateF : oFunctor := (gmapOF locO (▶ ∙))%OF.
 
-#[local] Instance state_inhabited : Inhabited (stateF ♯ unitO).
+#[local] Instance state_inhabited X `{!Cofe X} : Inhabited (stateF ♯ X).
 Proof. apply _. Qed.
 #[local] Instance state_cofe X `{!Cofe X} : Cofe (stateF ♯ X).
 Proof. apply _. Qed.
@@ -138,7 +138,7 @@ Section wp.
   Notation stateO := (stateF ♯ IT).
 
   (* a separate ghost state for keeping track of locations *)
-  Definition istate := gmap_viewUR loc (laterO IT).
+  Definition istate := gmap_viewR loc (agreeR (laterO IT)).
   Class heapPreG Σ := HeapPreG { heapPreG_inG :: inG Σ istate }.
   Class heapG Σ := HeapG {
       heapG_inG :: inG Σ istate;
@@ -165,10 +165,12 @@ Section wp.
 
   Context `{!heapG Σ}.
 
-  Definition heap_ctx := inv (nroot.@"storeE")
-                        (∃ σ, £ 1 ∗ has_substate σ ∗ own heapG_name (●V σ))%I.
-  Definition pointsto (l : loc) (α : IT) : iProp :=
-    own heapG_name $ gmap_view_frag l (DfracOwn 1) (Next α).
+  Program Definition heap_ctx :=
+    inv (nroot.@"storeE")
+      (∃ σ, £ 1 ∗ has_substate σ ∗ own heapG_name (●V (fmap (M := gmap locO) to_agree σ)))%I.
+
+  Program Definition pointsto (l : loc) (α : IT) : iProp :=
+    own heapG_name $ gmap_view_frag l (DfracOwn 1) (to_agree (Next α)).
   Global Instance pointsto_proper l : Proper ((≡) ==> (≡)) (pointsto l).
   Proof. solve_proper. Qed.
   Global Instance pointsto_ne l : NonExpansive (pointsto l).
@@ -176,25 +178,33 @@ Section wp.
 
   Lemma istate_alloc α l σ :
     σ !! l = None →
-    own heapG_name (●V σ) ==∗ own heapG_name (●V (<[l:=(Next α)]>σ))
+    own heapG_name (●V σ) ==∗ own heapG_name (●V (<[l:=to_agree (Next α)]>σ))
                    ∗ pointsto l α.
   Proof.
     iIntros (Hl) "H".
     iMod (own_update with "H") as "[$ $]".
-    { apply (gmap_view_alloc _ l (DfracOwn 1) (Next α)); eauto.
-      done. }
+    { by apply (gmap_view_alloc _ l (DfracOwn 1) (to_agree (Next α))); eauto. }
     done.
   Qed.
   Lemma istate_read l α σ :
-    own heapG_name (●V σ) -∗ pointsto l α -∗ σ !! l ≡ Some (Next α).
+    own heapG_name (●V (fmap (M := gmap locO) to_agree σ)) -∗ pointsto l α
+    -∗ (σ !! l) ≡ Some (Next α).
   Proof.
     iIntros "Ha Hf".
     iPoseProof (own_valid_2 with "Ha Hf") as "H".
     rewrite gmap_view_both_validI.
-    iDestruct "H" as "[_ Hval]". done.
+    iDestruct "H" as "[%H [G Hval]]".
+    rewrite lookup_fmap.
+    rewrite option_equivI.
+    destruct (σ !! l) as [o |] eqn:Heq.
+    - rewrite Heq /=.
+      rewrite agree_equivI.
+      by iRewrite "Hval".
+    - rewrite Heq /=.
+      done.
   Qed.
   Lemma istate_loc_dom l α σ :
-    own heapG_name (●V σ) -∗ pointsto l α -∗ ⌜is_Some (σ !! l)⌝.
+    own heapG_name (●V (fmap (M := gmap locO) to_agree σ)) -∗ pointsto l α -∗ ⌜is_Some (σ !! l)⌝.
   Proof.
     iIntros "Hinv Hloc".
     iPoseProof (istate_read with "Hinv Hloc") as "Hl".
@@ -202,12 +212,12 @@ Section wp.
     by rewrite option_equivI.
   Qed.
   Lemma istate_write l α β σ :
-    own heapG_name (●V σ) -∗ pointsto l α ==∗ own heapG_name (●V <[l:=(Next β)]>σ)
+    own heapG_name (●V σ) -∗ pointsto l α ==∗ own heapG_name (●V <[l:=(to_agree (Next β))]>σ)
                                   ∗ pointsto l β.
   Proof.
     iIntros "H Hl".
-    iMod (own_update_2 with "H Hl") as "[$ $]".
-    { apply (gmap_view_update). }
+    iMod (own_update_2 with "H Hl") as "[$ $]"; last done.
+    apply gmap_view_replace.
     done.
   Qed.
   Lemma istate_delete l α σ :
@@ -331,7 +341,7 @@ Section wp.
     iMod ("Hback" with "Hp") as "Hback".
     iMod "Hwk" .
     iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
-    { iExists _. by iFrame. }
+    { iExists _. rewrite -(fmap_insert to_agree σ). by iFrame. }
     iModIntro. done.
   Qed.
 
@@ -406,10 +416,18 @@ Section wp.
     { simpl. rewrite ofe_iso_21. done. }
     iNext. iIntros "Hlc Hs".
     iMod (istate_alloc α l with "Hh") as "[Hh Hl]".
-    { apply (not_elem_of_dom_1 (M:=gmap loc)).
-      rewrite -(Loc.add_0 l). apply Loc.fresh_fresh. lia. }
+    {
+      apply (not_elem_of_dom_1 (M:=gmap loc)).
+      rewrite dom_fmap_L.
+      rewrite -(Loc.add_0 l).
+      apply Loc.fresh_fresh. lia.
+    }
     iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
-    { iExists _. by iFrame. }
+    {
+      iExists _.
+      rewrite -(fmap_insert to_agree σ).
+      by iFrame.
+    }
     iApply ("H" with "Hl").
   Qed.
 
@@ -452,7 +470,11 @@ Section wp.
     iMod ("Hback") as "Hback".
     iMod "Hwk" .
     iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
-    { iExists _. by iFrame. }
+    {
+      iExists _.
+      rewrite -(fmap_delete to_agree σ).
+      by iFrame.
+    }
     by iModIntro.
   Qed.
 
