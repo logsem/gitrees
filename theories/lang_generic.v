@@ -96,11 +96,31 @@ Section kripke_logrel.
 
   Global Instance expr_pred_ne {n} : Proper (dist n ==> dist n ==> dist n) expr_pred.
   Proof.
+    intros ??????.
+    unfold expr_pred.
+    simpl.
+    f_equiv.
+    intros ?; simpl.
+    f_equiv.
+    f_equiv; first done.
+    intros ?; simpl.
+    f_equiv.
+    intros ?; simpl.
     solve_proper.
   Qed.
 
   Global Instance expr_pred_proper : Proper (equiv ==> equiv ==> equiv) expr_pred.
   Proof.
+    intros ??????.
+    unfold expr_pred.
+    simpl.
+    f_equiv.
+    intros ?; simpl.
+    f_equiv.
+    f_equiv; first done.
+    intros ?; simpl.
+    f_equiv.
+    intros ?; simpl.
     solve_proper.
   Qed.
 

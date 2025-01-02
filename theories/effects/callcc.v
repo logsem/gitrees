@@ -1,5 +1,6 @@
 (** Call/cc + throw effects *)
 From gitrees Require Import prelude gitree.
+From iris.algebra Require Import list.
 
 Program Definition callccE : opInterp :=
   {|
@@ -16,25 +17,25 @@ Definition contE := @[callccE;throwE].
 
 Definition reify_callcc X `{Cofe X} : ((laterO X -n> laterO X) -n> laterO X) *
                                         unitO * (laterO X -n> laterO X) →
-                                      option (laterO X * unitO) :=
-  λ '(f, σ, k), Some ((k (f k): laterO X), σ : unitO).
+                                      option (laterO X * unitO * listO (laterO X)) :=
+  λ '(f, σ, k), Some ((k (f k): laterO X), σ : unitO, []).
 #[export] Instance reify_callcc_ne X `{Cofe X} :
   NonExpansive (reify_callcc X :
     prodO (prodO ((laterO X -n> laterO X) -n> laterO X) unitO)
       (laterO X -n> laterO X) →
-    optionO (prodO (laterO X) unitO)).
+    optionO ((laterO X) * unitO * listO (laterO X))%type).
 Proof. intros ?[[]][[]][[]]. simpl in *. repeat f_equiv; auto. Qed.
 
 Definition reify_throw X `{Cofe X} :
   ((laterO X * (laterO (X -n> X))) * unitO * (Empty_setO -n> laterO X)) →
-  option (laterO X * unitO) :=
+  option (laterO X * unitO * listO (laterO X)) :=
   λ '((e, k'), σ, _),
-    Some (((laterO_ap k' : laterO X -n> laterO X) e : laterO X), σ : unitO).
+    Some (((laterO_ap k' : laterO X -n> laterO X) e : laterO X), σ : unitO, []).
 #[export] Instance reify_throw_ne X `{Cofe X} :
   NonExpansive (reify_throw X :
       prodO (prodO (prodO (laterO X) (laterO (X -n> X))) unitO)
         (Empty_setO -n> laterO X) →
-    optionO (prodO (laterO X) (unitO))).
+    optionO ((laterO X) * (unitO) * listO (laterO X))%type).
 Proof.
   intros ?[[[]]][[[]]]?. rewrite /reify_throw.
   repeat f_equiv; apply H0.
@@ -123,7 +124,12 @@ Section weakestpre.
   Proof.
     iIntros "Hs Ha". rewrite /THROW. simpl.
     rewrite hom_vis.
-    iApply (wp_subreify_ctx_dep with "Hs"); simpl; done.
+    iApply (wp_subreify_ctx_dep with "Hs"); simpl; [reflexivity | reflexivity |].
+    rewrite /=.
+    iNext.
+    iIntros "Hlc Hs".
+    iSplit; last done.
+    iApply ("Ha" with "Hlc Hs").
   Qed.
 
   Lemma wp_throw' σ κ (f : IT -n> IT) (x : IT)
@@ -134,7 +140,12 @@ Section weakestpre.
   Proof.
     iIntros "Hs Ha". rewrite /THROW. simpl.
     rewrite hom_vis.
-    iApply (wp_subreify_ctx_dep with "Hs"); simpl; done.
+    iApply (wp_subreify_ctx_dep with "Hs"); simpl; [reflexivity | reflexivity |].
+    rewrite /=.
+    iNext.
+    iIntros "Hlc Hs".
+    iSplit; last done.
+    iApply ("Ha" with "Hlc Hs").
   Qed.
 
   Lemma wp_throw σ (f : IT -n> IT) (x : IT) Φ s :
@@ -156,7 +167,7 @@ Section weakestpre.
     rewrite hom_vis.
     iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ (laterO_map k (Next β))  with "Hs").
     {
-      simpl. rewrite -Hp. repeat f_equiv; last done.
+      simpl. rewrite -Hp. repeat f_equiv; last done; last done.
       rewrite ccompose_id_l. rewrite ofe_iso_21.
       repeat f_equiv. intro.
       simpl. f_equiv.
@@ -165,7 +176,10 @@ Section weakestpre.
     {
       simpl. by rewrite later_map_Next.
     }
-    iModIntro.
-    iApply "Ha".
+    rewrite /=.
+    iNext.
+    iIntros "Hlc Hs".
+    iSplit; last done.
+    iApply ("Ha" with "Hlc Hs").
   Qed.
 End weakestpre.

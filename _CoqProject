@@ -33,11 +33,13 @@ theories/effects/store.v
 theories/effects/callcc.v
 theories/effects/io_tape.v
 theories/effects/delim.v
+theories/effects/fork.v
 
 theories/lib/pairs.v
 theories/lib/while.v
 theories/lib/factorial.v
 theories/lib/iter.v
+theories/lib/eq.v
 
 theories/examples/delim_lang/lang.v
 theories/examples/delim_lang/typing.v
@@ -45,7 +47,7 @@ theories/examples/delim_lang/interp.v
 theories/examples/delim_lang/hom.v
 theories/examples/delim_lang/example.v
 theories/examples/delim_lang/logpred.v
-# theories/examples/delim_lang/logrel.v
+theories/examples/delim_lang/logrel.v
 theories/examples/delim_lang/glue.v
 
 theories/examples/lang_callcc/lang.v

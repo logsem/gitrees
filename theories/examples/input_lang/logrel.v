@@ -47,7 +47,19 @@ Section logrel.
 
   #[export] Instance logrel_expr_ne {S} (V : ITV → val S → iProp) :
     NonExpansive2 V → NonExpansive2 (logrel_expr V).
-  Proof. solve_proper. Qed.
+  Proof.
+    intros ????????.
+    unfold logrel_expr.
+    simpl.
+    f_equiv.
+    intros ?; simpl.
+    f_equiv.
+    f_equiv; first done.
+    intros ?; simpl.
+    f_equiv.
+    intros ?; simpl.
+    solve_proper.
+  Qed.
   #[export] Instance logrel_nat_ne {S} : NonExpansive2 (@logrel_nat S).
   Proof. solve_proper. Qed.
   #[export] Instance logrel_val_ne (τ : ty) {S} : NonExpansive2 (@logrel_val τ S).
@@ -359,7 +371,7 @@ Definition rs : gReifiers NotCtxDep 1 := gReifiers_cons reify_io gReifiers_nil.
 Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs natO Σ} {S} (α : IT (gReifiers_ops rs) natO) (e : expr S) n σ σ' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs natO Σ},
       (True ⊢ logrel rs Tnat α e)%I) →
-  ssteps (gReifiers_sReifier rs) α (σ,()) (Ret n) σ' k → ∃ m σ', prim_steps e σ (Val $ LitV n) σ' m.
+  external_steps (gReifiers_sReifier rs) α (σ,()) (Ret n) σ' [] k → ∃ m σ', prim_steps e σ (Val $ LitV n) σ' m.
 Proof.
   intros Hlog Hst.
   pose (ϕ := λ (βv : ITV (gReifiers_ops rs) natO),
@@ -413,7 +425,7 @@ Qed.
 
 Theorem adequacy (e : expr ∅) (k : nat) σ σ' n :
   typed □ e Tnat →
-  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ,()) (Ret k : IT _ natO) σ' n →
+  external_steps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ,()) (Ret k : IT _ natO) σ' [] n →
   ∃ mm σ', prim_steps e σ (Val $ LitV k) σ' mm.
 Proof.
   intros Hty Hst.

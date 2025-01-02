@@ -1,7 +1,7 @@
 (** Useful theorems/functions on OFEs and other stuff missing from Iris *)
 From stdpp Require Import nat_cancel.
 From iris.prelude Require Export options prelude.
-From iris.algebra Require Import ofe local_updates.
+From iris.algebra Require Import list ofe local_updates.
 From iris.bi Require Import notation.
 From iris.si_logic Require Import bi siprop.
 From iris.proofmode Require Import classes tactics modality_instances
@@ -36,6 +36,13 @@ Notation "f ^-1" := (ofe_iso_2 f) (at level 20) : function_scope.
 #[export] Instance optionO_map_proper (A B : ofe) :
   Proper ((≡) ==> (≡)) (@optionO_map A B).
 Proof. solve_proper. Qed.
+
+#[export] Instance prodO_map_proper (A B C D : ofe) :
+  Proper ((≡) ==> (≡) ==> (≡)) (@prodO_map A B C D).
+Proof.
+  intros ?? H ?? G [a b]; simpl.
+  f_equiv; solve_proper.
+Qed.
 
 Program Definition flipO {A B C : ofe} : (A -n> B -n> C) -n> B -n> A -n> C
   := λne f x y, f y x.

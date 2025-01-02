@@ -1,5 +1,6 @@
 (** * I/O on a tape effect *)
 From gitrees Require Import prelude gitree.
+Require Import iris.algebra.list.
 
 Record state := State {
                    inputs : list nat;
@@ -34,8 +35,8 @@ Definition ioE := @[inputE;outputE].
 
 (* INPUT *)
 Definition reify_input X `{Cofe X} : unitO * stateO →
-                                      option (natO * stateO) :=
-    λ '(o, σ), Some (update_input σ : prodO natO stateO).
+                                      option (natO * stateO * listO (laterO X)) :=
+    λ '(o, σ), Some (update_input σ : prodO natO stateO, []).
 #[export] Instance reify_input_ne X `{Cofe X} :
   NonExpansive (reify_input X).
 Proof.
@@ -45,8 +46,8 @@ Qed.
 
 (* OUTPUT *)
 Definition reify_output X `{Cofe X} : (natO * stateO) →
-                                       option (unitO * stateO) :=
-  λ '(n, σ), Some((), update_output n σ : stateO).
+                                       option (unitO * stateO * listO (laterO X)) :=
+  λ '(n, σ), Some((), update_output n σ : stateO, []).
 #[export] Instance reify_output_ne X `{Cofe X} :
   NonExpansive (reify_output X).
 Proof.
@@ -123,12 +124,13 @@ Section weakestpre.
     unfold INPUT. simpl.
     iApply wp_subreify_ctx_indep_lift''.
     iModIntro.
-    iExists σ, n, σ', (k n).
+    iExists σ, n, σ', (k n), [].
     iFrame "Hs".
     iSplit; first by rewrite -Hs.
     iSplit; first by (simpl; rewrite ofe_iso_21).
     iNext.
     iIntros "Hc Hs !>".
+    iSplitR ""; last done.
     iApply ("Ha" with "Hc Hs").
   Qed.
 
@@ -142,7 +144,7 @@ Section weakestpre.
     unfold OUTPUT. simpl.
     iApply wp_subreify_ctx_indep_lift''.
     iModIntro.
-    iExists σ, (), σ', α.
+    iExists σ, (), σ', α, [].
     simpl.
     iFrame "Hs".
     iSplit; first by rewrite -Hs.
@@ -150,6 +152,7 @@ Section weakestpre.
     iNext.
     iIntros "H1 H2".
     iModIntro.
+    iSplitR ""; last done.
     by iApply ("Ha" with "H1 H2").
   Qed.
 

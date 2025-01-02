@@ -473,7 +473,7 @@ Section interp.
     head_step e σ e' σ' (n, 1) →
     reify (gReifiers_sReifier rs)
       (interp_expr (fill K e) env) (gState_recomp σr (sR_state σ))
-      ≡ (gState_recomp σr (sR_state σ'), Tick_n n $ interp_expr (fill K e') env).
+      ≡ (gState_recomp σr (sR_state σ'), Tick_n n $ interp_expr (fill K e') env, []).
   Proof.
     intros Hst.
     trans (reify (gReifiers_sReifier rs) (interp_ectx K env (interp_expr e env))
@@ -496,7 +496,7 @@ Section interp.
         - f_equiv;
           solve_proper.
       }
-      repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
+      repeat f_equiv; last done. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.
       rewrite ofe_iso_21.
       simpl.
@@ -519,16 +519,16 @@ Section interp.
         erewrite <-H; last reflexivity.
         f_equiv.
       }
-      repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
+      repeat f_equiv; last done. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.
       reflexivity.
   Qed.
 
   Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m (env : interp_scope S) :
     prim_step e1 σ1 e2 σ2 (n,m) →
-    ssteps (gReifiers_sReifier rs)
+    external_steps (gReifiers_sReifier rs)
               (interp_expr e1 env) (gState_recomp σr (sR_state σ1))
-              (interp_expr e2 env) (gState_recomp σr (sR_state σ2)) n.
+              (interp_expr e2 env) (gState_recomp σr (sR_state σ2)) [] n.
   Proof.
     Opaque gState_decomp gState_recomp.
     inversion 1; simplify_eq/=.
@@ -538,14 +538,15 @@ Section interp.
       unshelve eapply (interp_expr_fill_no_reify K) in H2; first apply env.
       rewrite H2.
       rewrite interp_comp.
-      eapply ssteps_tick_n.
-    - inversion H2;subst.
+      eapply external_steps_tick_n.
+    - inversion H2; subst.
       + eapply (interp_expr_fill_yes_reify K env _ _ _ _ σr) in H2.
         rewrite interp_comp.
         rewrite hom_INPUT.
         change 1 with (Nat.add 1 0). econstructor; last first.
-        { apply ssteps_zero; reflexivity. }
-        eapply sstep_reify.
+        { constructor; reflexivity. }
+        2:{ rewrite app_nil_r; reflexivity. }
+        eapply external_step_reify.
         { Transparent INPUT. unfold INPUT. simpl.
           f_equiv. reflexivity. }
         simpl in H2.
@@ -558,8 +559,9 @@ Section interp.
         rewrite get_ret_ret.
         rewrite hom_OUTPUT_.
         change 1 with (Nat.add 1 0). econstructor; last first.
-        { apply ssteps_zero; reflexivity. }
-        eapply sstep_reify.
+        { constructor; reflexivity. }
+        2:{ rewrite app_nil_r; reflexivity. }
+        eapply external_step_reify.
         { Transparent OUTPUT_. unfold OUTPUT_. simpl.
           f_equiv. reflexivity. }
         simpl in H2.

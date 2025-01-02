@@ -256,15 +256,15 @@ Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}
   (β : IT (gReifiers_ops rs) R) st st' k :
   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ},
       (£ cr ⊢ valid1 rs notStuck (λne _ : unitO, True)%I □ α τ)%I) →
-  ssteps (gReifiers_sReifier rs) (α ı_scope) st β st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
+  external_steps (gReifiers_sReifier rs) (α ı_scope) st β st' [] k →
+  (∃ β1 st1 l, external_step (gReifiers_sReifier rs) β st' β1 st1 l)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
   intros Hlog Hst.
   destruct (IT_to_V β) as [βv|] eqn:Hb.
   { right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. }
   left.
-  cut ((∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
+  cut ((∃ β1 st1 l, external_step (gReifiers_sReifier rs) β st' β1 st1 l)
       ∨ (∃ e, β ≡ Err e ∧ notStuck e)).
   { intros [?|He]; first done.
     destruct He as [? [? []]]. }
@@ -304,8 +304,8 @@ Qed.
 
 Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k :
   typed □ e τ →
-  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ, ()) β st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
+  external_steps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ, ()) β st' [] k →
+  (∃ β1 st1 l, external_step (gReifiers_sReifier rs) β st' β1 st1 l)
    ∨ (∃ βv, IT_of_V βv ≡ β).
 Proof.
   intros Htyped Hsteps.

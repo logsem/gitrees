@@ -1,5 +1,6 @@
 (* SubOfe: a typeclass for working with generalized return type "a la carte" *)
 From iris.prelude Require Import options.
+From iris.proofmode Require Import tactics.
 From gitrees Require Import prelude gitree.core.
 
 Class SubOfe (A B : ofe) :=
@@ -36,6 +37,69 @@ Section it_subofe.
 
   Definition Ret : A -n> IT := Ret ◎ subOfe_in ◎ inlO.
   Program Definition RetV : A -n> ITV E B := OfeMor RetV ◎ subOfe_in ◎ inlO.
+
+  Lemma Ret_inj (k m : A) {PROP : bi} `{!BiInternalEq PROP} :
+    (k ≡ m ⊣⊢ (Ret k ≡ Ret m : PROP))%I.
+  Proof.
+    iSplit.
+    - iIntros "H". iRewrite "H". done.
+    - iIntros "H".
+      iAssert (internal_eq (IT_unfold (Ret k)) (IT_unfold (Ret m))) with "[H]" as "H".
+      { iRewrite "H". done. }
+      rewrite !IT_unfold_fold. simpl.
+      repeat iPoseProof (sum_equivI with "H") as "H".
+      iPoseProof (f_equivI (((@subOfe_in A B _) ^-1)) with "H") as "H".
+      rewrite !ofe_iso_21.
+      by iPoseProof (sum_equivI with "H") as "H".
+  Qed.
+
+  Lemma RetV_inj (k m : A) {PROP : bi} `{!BiInternalEq PROP} :
+    (k ≡ m ⊣⊢ (Ret k ≡ Ret m : PROP))%I.
+  Proof.
+    iSplit.
+    - iIntros "H". iRewrite "H". done.
+    - iIntros "H".
+      iAssert (internal_eq (IT_unfold (Ret k)) (IT_unfold (Ret m))) with "[H]" as "H".
+      { iRewrite "H". done. }
+      rewrite !IT_unfold_fold. simpl.
+      repeat iPoseProof (sum_equivI with "H") as "H".
+      iPoseProof (f_equivI (((@subOfe_in A B _) ^-1)) with "H") as "H".
+      rewrite !ofe_iso_21.
+      by iPoseProof (sum_equivI with "H") as "H".
+  Qed.
+
+  Lemma IT_ret_tau_ne k α {PROP : bi} `{!BiInternalEq PROP} :
+    (Ret k ≡ Tau α ⊢ False : PROP)%I.
+  Proof.
+    iIntros "H1".
+    iApply IT_ret_tau_ne.
+    iApply "H1".
+  Qed.
+
+  Lemma IT_ret_vis_ne n op i k {PROP : bi} `{!BiInternalEq PROP} :
+    (Ret n ≡ Vis op i k ⊢ False : PROP)%I.
+  Proof.
+    iIntros "H1".
+    iApply IT_ret_vis_ne.
+    iApply "H1".
+  Qed.
+
+  Lemma IT_ret_fun_ne k f {PROP : bi} `{!BiInternalEq PROP} :
+    (Ret k ≡ Fun f ⊢ False : PROP)%I.
+  Proof.
+    iIntros "H1".
+    iApply IT_ret_fun_ne.
+    iApply "H1".
+  Qed.
+
+  Lemma IT_ret_err_ne n e {PROP : bi} `{!BiInternalEq PROP} :
+    (Ret n ≡ Err e ⊢ False : PROP)%I.
+  Proof.
+    iIntros "H1".
+    iApply IT_ret_err_ne.
+    iApply "H1".
+  Qed.
+
   Definition get_ret (f : A -n> IT) : IT -n> IT := get_ret (sumO_rec f Err1 ◎ subOfe_in^-1).
 
   #[global] Instance get_ret_ne n : Proper ((dist n) ==> (dist n)) get_ret.
@@ -69,6 +133,36 @@ Section it_subofe.
   Proof.
     rewrite get_ret_ret. cbn-[sumO_rec].
     rewrite ofe_iso_21. done.
+  Qed.
+
+  Lemma get_ret_err f e : get_ret f (Err e) ≡ Err e.
+  Proof.
+    rewrite get_ret_err.
+    cbn-[sumO_rec].
+    done.
+  Qed.
+  Lemma get_ret_fun f g : get_ret f (Fun g) ≡ Err RuntimeErr.
+  Proof.
+    rewrite get_ret_fun.
+    cbn-[sumO_rec].
+    done.
+  Qed.
+  Lemma get_ret_tick f t : get_ret f (Tick t) ≡ Tick (get_ret f t).
+  Proof.
+    rewrite get_ret_tick.
+    cbn-[sumO_rec].
+    done.
+  Qed.
+  Lemma get_ret_tick_n f n t : get_ret f (Tick_n n t) ≡ Tick_n n (get_ret f t).
+  Proof.
+    induction n; first reflexivity.
+    rewrite get_ret_tick. by rewrite IHn.
+  Qed.
+  Lemma get_ret_vis f op i k : get_ret f (Vis op i k) ≡ Vis op i (laterO_map (get_ret f) ◎ k).
+  Proof.
+    rewrite get_ret_vis.
+    cbn-[sumO_rec].
+    done.
   Qed.
 
   Lemma get_val_ret f n : get_val f (Ret n) ≡ f (Ret n).
