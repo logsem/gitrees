@@ -109,6 +109,17 @@ Section external_step.
         ++ rewrite Hs Hs' //.
   Qed.
 
+  Lemma tp_external_step_mono αs σ βs σ'
+    : tp_external_step αs σ βs σ' → length αs <= length βs.
+  Proof.
+    induction 1 as [????????? H1 H2].
+    rewrite H1 H2.
+    rewrite !app_length !cons_length app_length.
+    apply Nat.add_le_mono_l.
+    rewrite -plus_Sn_m.
+    apply Nat.le_add_r.
+  Qed.
+
   Lemma external_step_tp_external_step α β σ σ' e1 e2 l
     : external_step α σ β σ' l
       → tp_external_step (e1 ++ α :: e2) σ (e1 ++ β :: e2 ++ l) σ'.
@@ -155,6 +166,15 @@ Section external_step.
       + econstructor; last first.
         ++ eapply IHHS; eauto.
         ++ rewrite Ha Hs//.
+  Qed.
+
+  Lemma tp_external_steps_mono αs σ βs σ' k
+    : tp_external_steps αs σ βs σ' k → length αs <= length βs.
+  Proof.
+    induction 1 as [???? H1 H2 | ??????? H1 H2 H3].
+    - by rewrite H1.
+    - etransitivity; last apply H3.
+      eapply tp_external_step_mono; done.
   Qed.
 
   Lemma external_steps_tp_external_steps α β σ σ' e1 e2 l n

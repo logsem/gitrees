@@ -859,119 +859,181 @@ Section weakestpre.
         lia.
   Qed.
 
-  (* Lemma wp_tp_internal_steps αs σ βs σ' s Ψs k : *)
-  (*   ⊢ tp_internal_steps αs σ βs σ' k -∗ state_interp σ *)
-  (*     -∗ ([∗ list] x;Ψ ∈ αs;Ψs, WP x @ s {{ Ψ }}) *)
-  (*     -∗ ∀ βs' βs'', *)
-  (*   βs ≡ βs' ++ βs'' *)
-  (*   -∗ length βs' ≡ length αs *)
-  (*   -∗ £ (k * k + 2 * k) ={⊤}=∗ state_interp σ' ∗ *)
-  (*                       ([∗ list] x;Ψ ∈ βs';Ψs, WP x @ s {{ Ψ }}) *)
-  (*                     ∗ ([∗ list] x ∈ βs'', WP x @ s {{ constO True }}). *)
-  (* Proof. *)
-  (*   iInduction k as [| k] "IH" forall (αs βs σ Ψs); iIntros "Hstep Hs H %βs' %βs'' #HEQ %Hlen Hlc". *)
-  (*   - rewrite tp_internal_steps_0. *)
-  (*     iModIntro. *)
-  (*     iDestruct "Hstep" as "(#H1 & H2)". *)
-  (*     iRewrite - "H2". *)
-  (*     iFrame "Hs". *)
-  (*     iAssert (βs'' ≡ [])%I as "HEQ'". *)
-  (*     { *)
-  (*       iDestruct (f_equivI (drop (length βs')) with "HEQ") as "H2". *)
-  (*       rewrite Hlen. *)
-  (*       rewrite -{2} Hlen. *)
-  (*       iRewrite "H1" in "H2". *)
-  (*       rewrite drop_app Nat.sub_diag drop_0 drop_all. *)
-  (*       rewrite drop_all app_nil_l. *)
-  (*       iApply internal_eq_sym. *)
-  (*       done. *)
-  (*     } *)
-  (*     iSplitL "H". *)
-  (*     { *)
-  (*       iDestruct (internal_eq_rewrite _ _ *)
-  (*                    (λ y, *)
-  (*                      ([∗ list] x;Ψ ∈ y;Ψs, WP x @ s {{ Ψ }}))%I *)
-  (*                   with "[H1 HEQ HEQ'] H") as "H2". *)
-  (*       { *)
-  (*         intros m y1 y2 Hy. *)
-  (*         apply big_sepL2_ne_2; [| reflexivity | solve_proper]. *)
-  (*         by rewrite Hy. *)
-  (*       } *)
-  (*       { *)
-  (*         iRewrite "H1". *)
-  (*         iRewrite "HEQ". *)
-  (*         iRewrite "HEQ'". *)
-  (*         rewrite app_nil_r. *)
-  (*         iPureIntro. *)
-  (*         reflexivity. *)
-  (*       } *)
-  (*       iExact "H2". *)
-  (*     } *)
-  (*     { *)
-  (*       iApply (internal_eq_rewrite _ _ *)
-  (*                    (λ y, *)
-  (*                      ([∗ list] x ∈ y, WP x @ s {{ constO True }}))%I *)
-  (*                   with "[HEQ']"). *)
-  (*       { *)
-  (*         intros m y1 y2 Hy. *)
-  (*         apply big_opL_ne_2; first done. *)
-  (*         solve_proper. *)
-  (*       } *)
-  (*       { *)
-  (*         iApply internal_eq_sym; iExact "HEQ'". *)
-  (*       } *)
-  (*       done. *)
-  (*     } *)
-  (*   - rewrite tp_internal_steps_S. *)
-  (*     iDestruct "Hstep" as "(%γ & %σ'' & #H1 & H2)". *)
-  (*     iDestruct (tp_internal_step_decomp with "H1") as "(%γs' & %γs'' & F1 & %F2)".       *)
-  (*     iDestruct (wp_tp_internal_step with "H1 Hs H") as "H3". *)
-  (*     iClear "H1". *)
-  (*     iSpecialize ("H3" $! γs' γs'' with "F1 []"). *)
-  (*     { by rewrite F2. } *)
-  (*     rewrite /= lc_succ plus_n_Sm Nat.add_0_r Nat.mul_succ_r. *)
-  (*     iDestruct "Hlc" as "[Hlc1 [[Hlc2 [Hlc4 Hlc5]] [Hlc6 [Hlc7 [Hlc8 Hlc9]]]]]". *)
-  (*     iMod (lc_fupd_elim_later ⊤ with "Hlc1 H2") as "#H2". *)
-  (*     iMod ("H3" with "[Hlc7 Hlc8]") as "(H3 & H4)"; first by iSplitL "Hlc7". *)
-  (*     set (F := (λ _, True%I) : ITV -d> iProp).       *)
-  (*     iAssert ([∗ list] x;Ψ ∈ (γs' ++ γs'');(Ψs ++ replicate (length γs'') F), WP x @ s {{ Ψ }})%I with "[H4]" as "H5". *)
-  (*     { *)
-  (*       iDestruct "H4" as "(H4 & H5)". *)
-  (*       iApply (big_sepL2_app with "H4"). *)
-  (*       iApply big_sepL2_alt. *)
-  (*       iSplit. *)
-  (*       - iPureIntro. *)
-  (*         by rewrite replicate_length. *)
-  (*       - iClear "IH HEQ H2 F1". *)
-  (*         iInduction γs'' as [| x ens] "IH"; first done. *)
-  (*         iDestruct "H5" as "(H5 & H6)". *)
-  (*         simpl. *)
-  (*         iFrame "H5". *)
-  (*         iApply "IH". *)
-  (*         iFrame "H6". *)
-  (*     } *)
-  (*     iSpecialize ("IH" $! (γs' ++ γs'') *)
-  (*                    βs σ'' (Ψs ++ replicate (length γs'') F) with "[H2] H3 H5"). *)
-  (*     { *)
-  (*       iRewrite "F1" in "H2". *)
-  (*       iFrame "H2". *)
-  (*     }       *)
-  (*     iMod (tp_internal_steps_decomp with "Hlc2 H2") as "(%a1 & %a2 & #A1 & %A2)". *)
-  (*     iSpecialize ("IH" $! a1 a2 with "A1 [] [Hlc4 Hlc5 Hlc6]"). *)
-  (*     { *)
-  (*       rewrite -A2. *)
-  (*       by iRewrite "F1". *)
-  (*     } *)
-  (*     { *)
-  (*       iSplitL "Hlc4"; first done. *)
-  (*       iSplitL "Hlc5"; done. *)
-  (*     } *)
-  (*     iMod "IH". *)
-  (*     iModIntro. *)
-  (*     iDestruct "IH" as "(IH1 & IH2 & IH3)". *)
-  (*     iFrame "IH1".       *)
-  (*     admit. *)
-  (* Admitted. *)
+  (* k too many credits, but i ain't greedy *)
+  Lemma wp_tp_internal_steps αs σ βs σ' s Ψs k :
+    ⊢ tp_internal_steps αs σ βs σ' k -∗ state_interp σ
+      -∗ ([∗ list] x;Ψ ∈ αs;Ψs, WP x @ s {{ Ψ }})
+      -∗ ∀ βs' βs'',
+    βs ≡ βs' ++ βs''
+    -∗ length βs' ≡ length αs
+    -∗ £ (k * k + 2 * k) ={⊤}=∗ state_interp σ' ∗
+                        ([∗ list] x;Ψ ∈ βs';Ψs, WP x @ s {{ Ψ }})
+                      ∗ ([∗ list] x ∈ βs'', WP x @ s {{ constO True }}).
+  Proof.
+    iInduction k as [| k] "IH" forall (αs βs σ Ψs); iIntros "Hstep Hs H %βs' %βs'' #HEQ %Hlen Hlc".
+    - rewrite tp_internal_steps_0.
+      iModIntro.
+      iDestruct "Hstep" as "(#H1 & H2)".
+      iRewrite - "H2".
+      iFrame "Hs".
+      iAssert (βs'' ≡ [])%I as "HEQ'".
+      {
+        iDestruct (f_equivI (drop (length βs')) with "HEQ") as "H2".
+        rewrite Hlen.
+        rewrite -{2} Hlen.
+        iRewrite "H1" in "H2".
+        rewrite drop_app Nat.sub_diag drop_0 drop_all.
+        rewrite drop_all app_nil_l.
+        iApply internal_eq_sym.
+        done.
+      }
+      iSplitL "H".
+      {
+        iDestruct (internal_eq_rewrite _ _
+                     (λ y,
+                       ([∗ list] x;Ψ ∈ y;Ψs, WP x @ s {{ Ψ }}))%I
+                    with "[H1 HEQ HEQ'] H") as "H2".
+        {
+          intros m y1 y2 Hy.
+          apply big_sepL2_ne_2; [| reflexivity | solve_proper].
+          by rewrite Hy.
+        }
+        {
+          iRewrite "H1".
+          iRewrite "HEQ".
+          iRewrite "HEQ'".
+          rewrite app_nil_r.
+          iPureIntro.
+          reflexivity.
+        }
+        iExact "H2".
+      }
+      {
+        iApply (internal_eq_rewrite _ _
+                     (λ y,
+                       ([∗ list] x ∈ y, WP x @ s {{ constO True }}))%I
+                    with "[HEQ']").
+        {
+          intros m y1 y2 Hy.
+          apply big_opL_ne_2; first done.
+          solve_proper.
+        }
+        {
+          iApply internal_eq_sym; iExact "HEQ'".
+        }
+        done.
+      }
+    - rewrite tp_internal_steps_S.
+      iPoseProof (big_sepL2_alt with "H") as "HT".
+      iDestruct "HT" as "[%HT1 HT2]".
+      iPoseProof (big_sepL2_alt (λ _ x y, WP x @ s {{ y }}%I) with "[HT2]") as "H".
+      {
+        iSplit; first (iPureIntro; apply HT1).
+        iApply "HT2".
+      }
+      iDestruct "Hstep" as "(%γ & %σ'' & #H1 & H2)".
+      iDestruct (tp_internal_step_decomp with "H1") as "(%γs' & %γs'' & F1 & %F2)".
+      iDestruct (wp_tp_internal_step with "H1 Hs H") as "H3".
+      iClear "H1".
+      iSpecialize ("H3" $! γs' γs'' with "F1 []").
+      { by rewrite F2. }
+      rewrite /= lc_succ plus_n_Sm Nat.add_0_r Nat.mul_succ_r.
+      iDestruct "Hlc" as "[Hlc1 [[Hlc2 [Hlc4 Hlc5]] [Hlc6 [Hlc7 [Hlc8 Hlc9]]]]]".
+      iMod (lc_fupd_elim_later ⊤ with "Hlc1 H2") as "#H2".
+      iMod ("H3" with "[Hlc7 Hlc8]") as "(H3 & H4)"; first by iSplitL "Hlc7".
+      set (F := (λ _, True%I) : ITV -d> iProp).
+      iAssert ([∗ list] x;Ψ ∈ (γs' ++ γs'');(Ψs ++ replicate (length γs'') F), WP x @ s {{ Ψ }})%I with "[H4]" as "H5".
+      {
+        iDestruct "H4" as "(H4 & H5)".
+        iApply (big_sepL2_app with "H4").
+        iApply big_sepL2_alt.
+        iSplit.
+        - iPureIntro.
+          by rewrite replicate_length.
+        - iClear "IH HEQ H2 F1".
+          iInduction γs'' as [| x ens] "IH"; first done.
+          iDestruct "H5" as "(H5 & H6)".
+          simpl.
+          iFrame "H5".
+          iApply "IH".
+          iFrame "H6".
+      }
+      iSpecialize ("IH" $! (γs' ++ γs'')
+                     βs σ'' (Ψs ++ replicate (length γs'') F) with "[H2] H3 H5").
+      {
+        iRewrite "F1" in "H2".
+        iFrame "H2".
+      }
+      iMod (tp_internal_steps_decomp with "Hlc2 H2") as "(%a1 & %a2 & #A1 & %A2)".
+      iSpecialize ("IH" $! a1 a2 with "A1 [] [Hlc4 Hlc5 Hlc6]").
+      {
+        rewrite -A2.
+        by iRewrite "F1".
+      }
+      {
+        iSplitL "Hlc4"; first done.
+        iSplitL "Hlc5"; done.
+      }
+      iMod "IH".
+      iModIntro.
+      iDestruct "IH" as "(IH1 & IH2 & IH3)".
+      iFrame "IH1".
+      iPoseProof (big_sepL2_alt with "IH2") as "HP".
+      iDestruct "HP" as "[%HP1 HP2]".
+      iPoseProof (big_sepL2_alt (λ _ x y, WP x @ s {{ y }}%I) with "[HP2]") as "IH2".
+      {
+        iSplit; first (iPureIntro; apply HP1).
+        iApply "HP2".
+      }
+      iAssert ([∗ list] x;Ψ ∈ a2;(replicate (length a2) F), WP x @ s {{ Ψ }})%I with "[IH3]" as "H5".
+      {
+        iApply big_sepL2_alt.
+        iSplit.
+        - iPureIntro.
+          by rewrite replicate_length.
+        - iClear "A1".
+          iInduction a2 as [| x ens] "IH"; first done.
+          iDestruct "IH3" as "(H5 & H6)".
+          simpl.
+          iFrame "H5".
+          iApply "IH".
+          iFrame "H6".
+      }
+      iPoseProof (big_sepL2_app with "IH2 H5") as "IH".
+      rewrite -app_assoc.
+      iDestruct (internal_eq_rewrite _ _
+                (λ y,
+                  ([∗ list] x;x' ∈ y;_, WP x @ s {{ x' }}))%I
+               with "[A1] IH") as "IH".
+      {
+        intros m y1 y2 Hy.
+        apply big_sepL2_ne_2; first done.
+        - solve_proper.
+        - solve_proper.
+      }
+      {
+        iRewrite - "A1".
+        iApply "HEQ".
+      }
+      rewrite HT1 in Hlen.
+      iDestruct (big_sepL2_app_inv with "IH") as "[IH1 IH2]".
+      { by left. }
+      iFrame "IH1".
+      rewrite -replicate_add.
+      iPoseProof (big_sepL2_alt with "IH2") as "HP".
+      iDestruct "HP" as "[%HW1 HW2]".
+      iPoseProof (big_sepL2_alt (λ _ x y, WP x @ s {{ y }}%I) with "[HW2]") as "IH2".
+      {
+        iSplit; first (iPureIntro; apply HW1).
+        iApply "HW2".
+      }
+      iPoseProof (big_sepL2_replicate_r with "IH2") as "HP".
+      {
+        rewrite replicate_length in HW1.
+        done.
+      }
+      iApply "HP".
+  Qed.
 
   Lemma wp_external_step α σ β σ' en s Ψ :
     external_step α σ β σ' en →
@@ -1017,18 +1079,21 @@ Section weakestpre.
     iApply (wp_tp_internal_step with "Hst Hs HIC").
   Qed.
 
-  (* Lemma wp_tp_external_steps αs σ βs σ' s Ψs k : *)
-  (*   tp_external_steps αs σ βs σ' k → *)
-  (*   state_interp σ ∗ ([∗ list] x;Ψ ∈ αs;Ψs, WP x @ s {{ Ψ }}) *)
-  (*     ⊢  £ (3 * k) ={⊤}=∗ (state_interp σ' ∗ ([∗ list] x;Ψ ∈ βs;Ψs, WP x @ s {{ Ψ }})). *)
-  (* Proof. *)
-  (*   iIntros (Hst) "[Hs HIC]". *)
-  (*   iAssert (tp_internal_steps αs σ βs σ' k) as "Hst". *)
-  (*   { by iApply tp_external_steps_tp_internal_steps. } *)
-  (*   (* iApply (wp_tp_internal_steps with "Hst Hs HIC"). *) *)
-  (* (*   done. *) *)
-  (* (* Qed. *) *)
-  (* Admitted. *)
+  Lemma wp_tp_external_steps αs σ βs σ' s Ψs k :
+    tp_external_steps αs σ βs σ' k →
+    state_interp σ ∗ ([∗ list] x;Ψ ∈ αs;Ψs, WP x @ s {{ Ψ }})
+      ⊢  £ (k * k + 2 * k) ={⊤}=∗ (state_interp σ' ∗ ([∗ list] x;Ψ ∈ (take (length αs) βs);Ψs, WP x @ s {{ Ψ }}) ∗ ([∗ list] x ∈ drop (length αs) βs, WP x @ s {{ constO True }})).
+  Proof.
+    iIntros (Hst) "[Hs HIC]".
+    iAssert (tp_internal_steps αs σ βs σ' k) as "Hst".
+    { by iApply tp_external_steps_tp_internal_steps. }
+    iPoseProof (wp_tp_internal_steps with "Hst Hs HIC") as "HTTT".
+    iSpecialize ("HTTT" $! (take (length αs) βs) (drop (length αs) βs)).
+    iSpecialize ("HTTT" with "[] []").
+    { iPureIntro. by rewrite take_drop. }
+    { rewrite take_length_le; first done. by eapply tp_external_steps_mono. }
+    iApply "HTTT".
+  Qed.
 
   Lemma IT_error_lem α :
     ⊢@{iProp} (∃ e, α ≡ Err e) ∨ ¬ (∃ e, α ≡ Err e).
@@ -1284,6 +1349,7 @@ Section weakestpre_specific.
     iMod "H" as (σ y σ' β l) "[Hlst [Hreify [Hk H]]]".
     iModIntro.
     iExists (sR_state σ),(subEff_outs y), (sR_state σ'), β.
+    iExists l.
     iFrame "Hlst H Hk".
     by iApply subReifier_reify_idxI_ctx_indep.
   Qed.
@@ -1671,33 +1737,55 @@ Proof.
   by iApply fupd_mask_intro_discard.
 Qed.
 
-(* Lemma wp_adequacy_tp cr Σ `{!invGpreS Σ} n a (rs : gReifiers a n) *)
-(*   {A} `{!Cofe A} `{!statePreG rs A Σ} *)
-(*   (α : listO (IT _ A)) σ β σ' s k (ψ : Prop) : *)
-(*   tp_external_steps (gReifiers_sReifier rs) α σ β σ' k → *)
-(*   (∀ `{H1 : !invGS Σ} `{H2: !stateG rs A Σ}, *)
-(*      ∃ (Φs : list (ITV (gReifiers_ops rs) A -> iPropI Σ)), *)
-(*        (* NonExpansive Φs ∧ (∀ βv, Φs βv ⊢ ⌜ψ⌝) *) *)
-(*        (£ cr ∗ has_full_state σ ⊢ [∗ list] x;Φ ∈ α;Φs, WP@{rs} x @ s {{ Φ }})%I) *)
-(*   → ψ. *)
-(* Proof. *)
-(*   intros Hst Hprf. *)
-(*   cut (⊢ ⌜ψ⌝ : iProp Σ)%I. *)
-(*   { intros HH. eapply uPred.pure_soundness; eauto. } *)
-(*   eapply (step_fupdN_soundness_lc _ 0 (cr + 3*k)). *)
-(*   intros Hinv. iIntros "[Hcr Hlc]". *)
-(*   iMod (new_state_interp rs σ) as (sg) "[Hs Hs2]". *)
-(*   destruct (Hprf Hinv sg) as (Φs & Hprf'). *)
-(*   iPoseProof (Hprf' with "[$Hcr $Hs2]") as "Hic". *)
-(*   iPoseProof (wp_tp_external_steps with "[$Hs $Hic]") as "Hphi". *)
-(*   { eassumption. } *)
-(*   iMod ("Hphi" with "Hlc") as "[Hst H]". *)
-
-(*   rewrite wp_val_inv; eauto. *)
-(*   iMod "H" as "H". *)
-(*   rewrite HΦψ. iFrame "H". *)
-(*   by iApply fupd_mask_intro_discard. *)
-(* Qed. *)
+Lemma wp_adequacy_tp cr Σ `{!invGpreS Σ} n a (rs : gReifiers a n)
+  {A} `{!Cofe A} `{!statePreG rs A Σ}
+  (α : (IT _ A)) σ β βv σ' s k (ψ : (ITV (gReifiers_ops rs) A) → Prop) :
+  tp_external_steps (gReifiers_sReifier rs) [α] σ ((IT_of_V βv) :: β) σ' k →
+  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs A Σ},
+     ∃ (Φs : list (ITV (gReifiers_ops rs) A -> iPropI Σ)),
+       (Forall (λ f, (∀ n, Proper (dist n ==> dist n) f)) Φs) ∧
+       (∀ βv, (from_option id (λ _, True%I) (head Φs)) βv ⊢ ⌜ψ βv⌝) ∧
+       (£ cr ∗ has_full_state σ ⊢ [∗ list] x;Φ ∈ [α];Φs, WP@{rs} x @ s {{ Φ }})%I)
+  → ψ βv.
+Proof.
+  intros Hst Hprf.
+  cut (⊢ ⌜ψ βv⌝ : iProp Σ)%I.
+  { intros HH. eapply uPred.pure_soundness; eauto. }
+  eapply (step_fupdN_soundness_lc _ 0 (cr + (k * k + 2 * k))).
+  intros Hinv. iIntros "[Hcr Hlc]".
+  iMod (new_state_interp rs σ) as (sg) "[Hs Hs2]".
+  destruct (Hprf Hinv sg) as (Φs & Hne & Hprf' & Hprf'').
+  iPoseProof (Hprf'' with "[$Hcr $Hs2]") as "Hic".
+  iPoseProof (wp_tp_external_steps with "[$Hs $Hic]") as "Hphi".
+  { eassumption. }
+  iMod ("Hphi" with "Hlc") as "[Hst H]".
+  simpl.
+  iDestruct "H" as "[H1  H2]".
+  rewrite take_0.
+  specialize (Hprf' βv).
+  iPoseProof (big_sepL2_alt with "H1") as "H1".
+  iDestruct "H1" as "[%HW1 HW2]".
+  simpl in HW1.
+  assert (∃ Φ, Φs = [Φ]) as HHH.
+  { destruct Φs as [| b ?].
+    - inversion HW1.
+    - simpl in HW1.
+      inversion HW1 as [HW2].
+      destruct Φs.
+      + exists b; done.
+      + inversion HW2.
+  }
+  destruct HHH as [Φ ->].
+  simpl.
+  iDestruct "HW2" as "[HW2 _]".
+  erewrite wp_val_inv; eauto.
+  - iMod "HW2" as "H".
+    iApply Hprf'.
+    simpl in *.
+    by iApply fupd_mask_intro_discard.
+  - by rewrite Forall_singleton in Hne.
+  - apply _.
+Qed.
 
 Lemma wp_safety cr Σ `{!invGpreS Σ} n a (rs : gReifiers a n)
   {A} `{!Cofe A} `{!statePreG rs A Σ} s l k

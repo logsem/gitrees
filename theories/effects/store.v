@@ -73,17 +73,40 @@ Definition state_cas X `{!Cofe X} : (loc * (laterO X) * (laterO X) * (laterO (X 
                              Some (later_map fst r, <[l := later_map snd r]>σ, []).
 #[export] Instance state_cas_ne X `{!Cofe X} :
   NonExpansive (state_cas X : prodO _ (stateF ♯ X) → optionO (laterO X * (stateF ♯ X) * listO (laterO X))%type).
-(* Proof. *)
-(*   intros n [[[[m1 k1] p1] n1] s1] [[[[m2 k2] p2] n2] s2]. simpl. *)
-(*   intros [[[[Hm Hk] Hp] Hn] Hs]. simpl in *. *)
-(*   f_equiv. *)
-(*   - intros ?? Hxy; simpl. *)
-(*     do 3 f_equiv; first solve_proper. *)
-(*     rewrite Hs Hm. *)
-(*     do 3 f_equiv; solve_proper. *)
-(*   - by rewrite Hs Hm. *)
-(* Qed. *)
-Admitted.
+Proof.
+  intros n [[[[m1 k1] p1] n1] s1] [[[[m2 k2] p2] n2] s2]. simpl.
+  intros [[[[Hm Hk] Hp] Hn] Hs]. simpl in *.
+  f_equiv.
+  - intros ?? Hxy; simpl.
+    do 3 f_equiv.
+    + rewrite !later_map_Next.
+      apply Next_contractive.
+      destruct n.
+      * apply dist_later_0.
+      * apply dist_later_S.
+        do 2 f_equiv.
+        -- f_equiv.
+           ++ f_equiv.
+              ** apply Hn; lia.
+              ** apply Hxy; lia.
+           ++ apply Hk; lia.
+        -- apply Hp; lia.
+    + rewrite !later_map_Next.
+      rewrite Hm.
+      f_equiv; last done.
+      apply Next_contractive.
+      destruct n.
+      -- apply dist_later_0.
+      -- apply dist_later_S.
+         do 2 f_equiv.
+         ++ f_equiv.
+            ** f_equiv.
+               --- apply Hn; lia.
+               --- apply Hxy; lia.
+            ** apply Hk; lia.
+         ++ apply Hp; lia.
+  - by rewrite Hs Hm.
+Qed.
 
 Program Definition ReadE : opInterp :=  {|
   Ins := locO;
@@ -262,7 +285,7 @@ Section wp.
     iIntros "Ha Hf".
     iPoseProof (own_valid_2 with "Ha Hf") as "H".
     rewrite gmap_view_both_validI.
-    iDestruct "H" as "[%H [G Hval]]".
+    iDestruct "H" as "[%H Hval]".
     rewrite lookup_fmap.
     rewrite option_equivI.
     destruct (σ !! l) as [o |] eqn:Heq.
@@ -286,8 +309,7 @@ Section wp.
   Proof.
     iIntros "H Hl".
     iMod (own_update_2 with "H Hl") as "[$ $]"; last done.
-    apply gmap_view_replace.
-    done.
+    apply gmap_view_update.
   Qed.
   Lemma istate_delete l α σ :
     own heapG_name (●V σ) -∗ pointsto l α ==∗ own heapG_name (●V delete l σ).
