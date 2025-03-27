@@ -1,6 +1,6 @@
 (** In this module, we package up IT homomorphism in a sigma type, and
 we will use it as a domain for logical relations on continuations *)
-From gitrees Require Import gitree lang_generic.
+From gitrees Require Import gitree.
 
 Open Scope stdpp_scope.
 

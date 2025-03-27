@@ -315,9 +315,11 @@ Section tp.
   Program Definition to_tpool : listO IT -n> tpoolUR := λne l, (to_tpool' l).
   Next Obligation.
     rewrite /to_tpool'.
+    intros m.
     intros l.
+    revert m.
     generalize 0.
-    induction l as [| x l Hl]; intros m ? H.
+    induction l as [| x l Hl]; intros p m ? H.
     - apply Forall2_nil_inv_l in H.
       rewrite H.
       reflexivity.
@@ -327,7 +329,7 @@ Section tp.
       simpl.
       do 2 f_equiv.
       + solve_proper.
-      + specialize (Hl (S m) l' H2).
+      + specialize (Hl (S p) m l' H2).
         destruct Hl as [Hl _].
         simpl in Hl.
         apply Some_dist_inj in Hl.
@@ -337,7 +339,7 @@ Section tp.
         apply Hl.
   Qed.
 
-  Class tpoolSG Σ := TPOOLSG { tpool_inG :: inG Σ ( tpoolUR); tpool_name : gname }.
+  Class tpoolSG Σ := TPOOLSG { tpool_inG :: inG Σ (tpoolUR); tpool_name : gname }.
 End tp.
 
 Section rel.
@@ -346,7 +348,7 @@ Section rel.
   Context (R : ofe) `{!Cofe R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ} `{!tpoolSG rs R Σ} `{!stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ} `{!tpoolSG rs R Σ} `{!stateG rs R Σ}.
   Notation iProp := (iProp Σ).
   Notation coPsetO := (leibnizO coPset).
   Context (s : stuckness).
@@ -462,7 +464,7 @@ Section rel.
 
   Program Definition spec_inv (ρ : listO IT) σ : iProp :=
     (∃ tp σ' m, own (tpool_name rs R) ((to_tpool rs R tp))
-                ∗ state_interp rs σ'
+                ∗ state_interp σ'
                 ∗ tp_internal_steps (gReifiers_sReifier rs) ρ σ tp σ' m)%I.
 
   Definition spec_ctx : iProp :=
@@ -675,7 +677,7 @@ Section rel.
   (* generalize to arbitrary internal steps + new treads *)
   Lemma step_tick `{!Inhabited (gReifiers_state rs ♯ IT)} E j e :
     nclose specN ⊆ E →
-    £ 1 ∗ spec_ctx ∗ j ⤇ Tick e ={E}=∗ j ⤇ e.
+    £ 1 ∗ spec_ctx ∗ (▷ j ⤇ Tick e) ={E}=∗ j ⤇ e.
   Proof.
     iIntros (HSub) "[HCred [#HSpec HPt]]".
     iDestruct "HSpec" as (tp σ) "HSpec".
@@ -739,10 +741,10 @@ Section rel.
     ∗ sReifier_re sR op (x, σ) ≡ Some (y, σ', l)
     ∗ k (subEff_outs y) ≡ Next β
     ∗ spec_ctx
-    ∗ has_substate σ
-    ∗ j ⤇ (Vis (subEff_opid op) (subEff_ins x) k)
+    ∗ ▷ has_substate σ
+    ∗ ▷ j ⤇ (Vis (subEff_opid op) (subEff_ins x) k)
     ={E}=∗ j ⤇ β
-         ∗ ([∗ list] i ∈ listO_map Tau l, ∃ j0 : natO, j0 ⤇ i)
+         ∗ ([∗ list] i ∈ listO_map Tau l, ∃ k : natO, k ⤇ i)
          ∗ has_substate σ'.
   Proof.
     iIntros (HSub) "(HCred & #Hr & #HEq & #HSpec & HSt & HPt)".
@@ -796,7 +798,7 @@ Section rel.
       iApply "Hreify".
     }
     iEval (rewrite Hfs) in "HS".
-    iMod (state_interp_has_state_idx_update _ _ (sR_state σ') with "HS HSt") as "[HS HSt]".
+    iMod (state_interp_has_state_idx_update _ (sR_state σ') with "HS HSt") as "[HS HSt]".
     iFrame "Hp Hpool HSt".
     iApply "HClose".
     iNext.
@@ -849,10 +851,10 @@ Section rel.
     ∗ sReifier_re sR op (x, σ) ≡ Some (y, σ', l)
     ∗ k (subEff_outs y) ≡ Next β
     ∗ spec_ctx
-    ∗ has_substate σ
-    ∗ j ⤇ K (Vis (subEff_opid op) (subEff_ins x) k)
+    ∗ ▷ has_substate σ
+    ∗ ▷ j ⤇ K (Vis (subEff_opid op) (subEff_ins x) k)
     ={E}=∗ j ⤇ K β
-         ∗ ([∗ list] i ∈ listO_map Tau l, ∃ j0 : natO, j0 ⤇ i)
+         ∗ ([∗ list] i ∈ listO_map Tau l, ∃ k : natO, k ⤇ i)
          ∗ has_substate σ'.
   Proof.
     iIntros (HSub) "(HCred & #Hr & #HEq & #HSpec & HSt & HPt)".
@@ -877,13 +879,13 @@ Section rel.
                        ∃ v', j ⤇ K (IT_of_V v')
                              ∗ IT_Val_Rel v v' }})%I.
   Next Obligation.
-    intros ?? H1.
+    intros ????? H1.
     do 2 (f_equiv; intros ?).
     do 3 f_equiv.
     done.
   Qed.
   Next Obligation.
-    intros ?? H ?.
+    intros ???? H ?.
     simpl.
     do 2 (f_equiv; intros ?).
     do 2 f_equiv.
@@ -921,21 +923,24 @@ Section rel.
     (ITV -n> ITV -n> iProp) -n> ITV -n> ITV -n> iProp
     := λne R x y,
       ((∃ a b, x ≡ RetV a ∧ y ≡ RetV b ∧ a ≡ b)
-       ∨ (∃ f g, x ≡ FunV (Next f) ∧ y ≡ FunV (Next g)
+       ∨ (∃ m f g, x ≡ FunV (Next f) ∧ y ≡ FunV (Next g)
+                 ∧ later_credits.lc_supply m
                  ∧ □ ∀ v w, ▷ (R v w
-                             -∗ IT_Rel_pre R
-                                  (f (IT_of_V v)) (g (IT_of_V w)))))%I.
+                               -∗ £ (n + 1)
+                               -∗ IT_Rel_pre R
+                                    (f (IT_of_V v)) (g (IT_of_V w)))))%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
-    intros ?? H ??; simpl.
+    intros ??? H ??; simpl.
     f_equiv.
-    do 2 (f_equiv; intros ?).
-    do 3 f_equiv.
+    do 3 (f_equiv; intros ?).
+    do 4 f_equiv.
     do 2 (f_equiv; intros ?).
     do 2 f_equiv.
     - solve_proper.
-    - do 2 (f_equiv; intros ?).
+    - f_equiv.
+      do 2 (f_equiv; intros ?).
       do 2 f_equiv.
       intros ?; simpl.
       f_equiv; intros ?.
@@ -949,8 +954,8 @@ Section rel.
     rewrite /IT_Val_Rel_pre.
     intros ??; simpl.
     f_equiv.
-    do 2 (f_equiv; intros ?).
-    do 3 f_equiv.
+    do 3 (f_equiv; intros ?).
+    do 4 f_equiv.
     do 2 (f_equiv; intros ?).
     apply later_contractive.
     destruct m as [| m].
@@ -959,7 +964,8 @@ Section rel.
       f_equiv.
       + apply dist_later_S in H.
         solve_proper.
-      + do 2 (f_equiv; intros ?).
+      + f_equiv.
+        do 2 (f_equiv; intros ?).
         do 2 f_equiv.
         intros ?; simpl.
         f_equiv; intros ?.
@@ -981,11 +987,11 @@ Section rel.
 
   Program Definition IT_Rel := IT_Rel_pre IT_Val_Rel.
 
-  Global Instance IT_Val_Rel_persist e1 e2 : Persistent (IT_Val_Rel e1 e2).
-  Proof.
-    rewrite IT_Val_Rel_unfold' /IT_Val_Rel_pre.
-    apply _.
-  Qed.
+  (* Global Instance IT_Val_Rel_persist e1 e2 : Persistent (IT_Val_Rel e1 e2). *)
+  (* Proof. *)
+  (*   rewrite IT_Val_Rel_unfold' /IT_Val_Rel_pre. *)
+  (*   apply _. *)
+  (* Qed. *)
 
   Lemma IT_Rel_ext_substL e1 e1' e2 : e1 ≡ e1' → IT_Rel e1 e2 ⊢ IT_Rel e1' e2.
   Proof.
@@ -1015,16 +1021,15 @@ Section rel.
     iEval (rewrite IT_Val_Rel_unfold') in "H".
     iEval (rewrite IT_Val_Rel_unfold').
     rewrite /IT_Val_Rel_pre /=.
-    iDestruct "H" as "[(%x & %y & H) | (%f & %g & H1 & H2 & #H3)]".
+    iDestruct "H" as "[(%x & %y & H) | (%m & %f & %g & H1 & H2 & H3)]".
     - iLeft.
       iExists x, y.
       by rewrite -H.
     - iRight.
-      iExists f, g.
+      iExists m, f, g.
       rewrite H.
       iSplit; first done.
       iSplit; first done.
-      iModIntro.
       done.
   Qed.
 
@@ -1034,21 +1039,33 @@ Section rel.
     iEval (rewrite IT_Val_Rel_unfold') in "H".
     iEval (rewrite IT_Val_Rel_unfold').
     rewrite /IT_Val_Rel_pre /=.
-    iDestruct "H" as "[(%x & %y & H) | (%f & %g & H1 & H2 & #H3)]".
+    iDestruct "H" as "[(%x & %y & H) | (%m & %f & %g & H1 & H2 & H3)]".
     - iLeft.
       iExists x, y.
       by rewrite -H.
     - iRight.
-      iExists f, g.
+      iExists m, f, g.
       rewrite H.
       iSplit; first done.
       iSplit; first done.
-      iModIntro.
       done.
   Qed.
 
   Definition IT_Top_Rel e1 e2 : iProp :=
     spec_ctx → IT_Rel e1 e2.
+
+  #[export] Instance elim_modal_bupd_logrel p e1 e2 P :
+    ElimModal True p false (|==> P) P (IT_Rel e1 e2) (IT_Rel e1 e2).
+  Proof.
+    rewrite /ElimModal bi.intuitionistically_if_elim.
+    iIntros (_) "(H1 & H2)".
+    iIntros (j K) "H3".
+    rewrite (bupd_fupd ⊤).
+    iApply fupd_wp; first solve_proper.
+    iMod "H1".
+    iModIntro.
+    iApply ("H2" with "H1 H3").
+  Qed.
 
   (* Program Definition IT_ctx (f : IT -n> IT) : Prop := *)
   (*   ∃ Perr_rec : error → IT, *)
@@ -1120,60 +1137,61 @@ Notation "e1 ⪯ₑ e2 '@{' re \ A \ s '}'" := (IT_Rel re A s e1 e2) (at level 8
 Notation "e1 ⪯ᵥ e2 '@{' re \ A \ s '}'" := (IT_Val_Rel re A s e1 e2) (at level 80).
 Notation "e1 ⪯ₚ e2 '@{' re \ A \ s '}'" := (IT_Top_Rel re A s e1 e2) (at level 80).
 
-Lemma logrel_adequacy cr Σ `{!invGpreS Σ} n (rs : gReifiers NotCtxDep n)
-  {A} `{!Cofe A} `{!statePreG rs A Σ} `{!inG Σ (tpoolUR rs A)}
-  `{Inhabited (sReifier_state (gReifiers_sReifier rs)
-                 ♯ IT (sReifier_ops (gReifiers_sReifier rs)) A)}
-  (α β : IT _ A) σ βv σ' s l k (ψ : (ITV (gReifiers_ops rs) A) → Prop) :
-  external_steps (gReifiers_sReifier rs) α σ (IT_of_V βv) σ' l k →
-  (∀ `{H1 : !invGS Σ} `{H2 : !stateG rs A Σ} `{H3 : !tpoolSG rs A Σ},
-     (∀ βv, ⊢@{iProp Σ} ⌜ψ βv⌝)
-     ∧ (£ cr ∗ has_full_state σ ⊢ (α) ⪯ₚ (β) @{ rs \ A \ s })%I) →
-  ψ βv.
-Proof.
-  intros Hst Hprf.
-  cut (⊢ ⌜ψ βv⌝ : iProp Σ)%I.
-  { intros HH. eapply uPred.pure_soundness; eauto. }
-  eapply (step_fupdN_soundness_lc _ 0 (1 + cr + 3*k)).
-  intros Hinv. iIntros "[[Hcr' Hcr] Hlc]".
-  iMod (new_state_interp rs σ) as (sg) "[Hs Hsfull]".
-  iMod (new_state_interp rs σ) as (sg') "[Hs' Hsfull']".
-  iMod (own_alloc ((to_tpool rs A []))) as (γ) "Ht".
-  { by apply gmap_view_auth_dfrac_valid. }
-  set (T := {| tpool_inG := _; tpool_name := γ |} : tpoolSG rs A Σ).
-  iMod (tpool_alloc rs A β 0 [] with "[$Ht]") as "[Hpool Hth]"; first done.
-  iMod (inv_alloc specN _ (spec_inv rs A [β] σ) with "[Hpool Hs']") as "#Hcfg".
-  {
-    iNext. iExists [β], σ, 0.
-    iFrame "Hpool Hs'".
-    by iApply tp_internal_steps_0.
-  }
-  destruct (Hprf Hinv sg T) as (Φ & Hprf').
-  iPoseProof (Hprf' with "[$Hcr $Hsfull] [Hcfg]") as "Hic".
-  { iExists [β], σ. admit. }
-  iSpecialize ("Hic" $! 0 HOM_id with "Hth").
-  iPoseProof (wp_internal_steps with "[]") as "Hphi".
-  {
-    iApply external_steps_internal_steps.
-    apply Hst.
-  }
-  iMod ("Hphi" with "Hs Hic Hlc") as "[Hs [Hp Hts]]".
-  iClear "Hphi".
-  iMod (wp_val_inv with "Hp") as "[%βv' [Hp #Hval]]".
-  { solve_proper. }
-  iInv specN as (tp σ'' p) "[H1 [HS #H2]]" "HClose".
-  iApply (lc_fupd_add_later with "Hcr'").
-  iNext.
-  iDestruct (tpool_read with "H1 Hp") as "#HEQ".
-  iMod ("HClose" with "[-Hs]") as "_".
-  { iNext. iExists tp, σ'', p. iFrame "H1". iFrame "H2". iFrame "HS". }
-  iPoseProof (Φ βv) as "HΦ".
+(* Lemma logrel_adequacy cr Σ `{!invGpreS Σ} n (rs : gReifiers NotCtxDep n) *)
+(*   {A} `{!Cofe A} `{!statePreG rs A Σ} `{!inG Σ (tpoolUR rs A)} *)
+(*   `{Inhabited (sReifier_state (gReifiers_sReifier rs) *)
+(*                  ♯ IT (sReifier_ops (gReifiers_sReifier rs)) A)} *)
+(*   (α β : IT _ A) σ βv σ' s l k (ψ : (ITV (gReifiers_ops rs) A) → Prop) : *)
+(*   external_steps (gReifiers_sReifier rs) α σ (IT_of_V βv) σ' l k → *)
+(*   (∀ `{H1 : !invGS Σ} `{H2 : !stateG rs A Σ} `{H3 : !tpoolSG rs A Σ}, *)
+(*      (∀ βv, ⊢@{iProp Σ} ⌜ψ βv⌝) *)
+(*      ∧ (£ cr ∗ has_full_state σ ⊢ (α) ⪯ₚ (β) @{ rs \ A \ s })%I) → *)
+(*   ψ βv. *)
+(* Proof. *)
+(*   intros Hst Hprf. *)
+(*   cut (⊢ ⌜ψ βv⌝ : iProp Σ)%I. *)
+(*   { intros HH. eapply uPred.pure_soundness; eauto. } *)
+(*   eapply (step_fupdN_soundness_lc _ 0 (1 + cr + 3*k)). *)
+(*   intros Hinv. iIntros "[[Hcr' Hcr] Hlc]". *)
+(*   iMod (new_state_interp rs σ) as (sg) "[Hs Hsfull]". *)
+(*   iMod (new_state_interp rs σ) as (sg') "[Hs' Hsfull']". *)
+(*   iMod (own_alloc ((to_tpool rs A []))) as (γ) "Ht". *)
+(*   { by apply gmap_view_auth_dfrac_valid. } *)
+(*   set (T := {| tpool_inG := _; tpool_name := γ |} : tpoolSG rs A Σ). *)
+(*   iMod (tpool_alloc rs A β 0 [] with "[$Ht]") as "[Hpool Hth]"; first done. *)
+(*   iMod (inv_alloc specN _ (spec_inv rs A [β] σ) with "[Hpool Hs']") as "#Hcfg". *)
+(*   { *)
+(*     iNext. iExists [β], σ, 0. *)
+(*     iFrame "Hpool Hs'". *)
+(*     by iApply tp_internal_steps_0. *)
+(*   } *)
+(*   destruct (Hprf Hinv sg T) as (Φ & Hprf'). *)
+(*   iPoseProof (Hprf' with "[$Hcr $Hsfull] [Hcfg]") as "Hic". *)
+(*   { iExists [β], σ. admit. } *)
+(*   iSpecialize ("Hic" $! 0 HOM_id with "Hth"). *)
+(*   iPoseProof (wp_internal_steps with "[]") as "Hphi". *)
+(*   { *)
+(*     iApply external_steps_internal_steps. *)
+(*     apply Hst. *)
+(*   } *)
+(*   iMod ("Hphi" with "Hs Hic Hlc") as "[Hs [Hp Hts]]". *)
+(*   iClear "Hphi". *)
 
-  (* POI 2. we get internal steps, value relation. probably, we can also get something about state *)
-  (* has_full_state in the spec *)
-  (* epose proof (internal_step_safe_external_step (Σ := Σ) (gReifiers_sReifier rs) β σ). *)
-  (* iApply fupd_mask_intro_discard; first done. *)
-Abort.
+(*   (* iMod (wp_val_inv with "Hp") as "[%βv' [Hp #Hval]]". *) *)
+(*   (* { solve_proper. } *) *)
+(*   (* iInv specN as (tp σ'' p) "[H1 [HS #H2]]" "HClose". *) *)
+(*   (* iApply (lc_fupd_add_later with "Hcr'"). *) *)
+(*   (* iNext. *) *)
+(*   (* iDestruct (tpool_read with "H1 Hp") as "#HEQ". *) *)
+(*   (* iMod ("HClose" with "[-Hs]") as "_". *) *)
+(*   (* { iNext. iExists tp, σ'', p. iFrame "H1". iFrame "H2". iFrame "HS". } *) *)
+(*   (* iPoseProof (Φ βv) as "HΦ". *) *)
+
+(*   (* POI 2. we get internal steps, value relation. probably, we can also get something about state *) *)
+(*   (* has_full_state in the spec *) *)
+(*   (* epose proof (internal_step_safe_external_step (Σ := Σ) (gReifiers_sReifier rs) β σ). *) *)
+(*   (* iApply fupd_mask_intro_discard; first done. *) *)
+(* Abort. *)
 
 Section basic_rules.
   Context {n : nat} (rs : gReifiers NotCtxDep n).
@@ -1181,7 +1199,7 @@ Section basic_rules.
   Context (R : ofe) `{!Cofe R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ} `{!tpoolSG rs R Σ} `{!stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ} `{!tpoolSG rs R Σ} `{!stateG rs R Σ}.
   Notation iProp := (iProp Σ).
   Notation coPsetO := (leibnizO coPset).
   Context (s : stuckness).
@@ -1229,30 +1247,31 @@ Section basic_rules.
       + by iApply IT_Rel_Tick_l.
   Qed.
 
-  Lemma IT_Rel_Eff
-    `{subR : !subReifier sR rs}
-    (op : opid (sReifier_ops sR))
-    (x : Ins (sReifier_ops sR op) ♯ IT)
-    (y : Outs (sReifier_ops sR op) ♯ IT)
-    (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT)
-    (σ σ' : sReifier_state sR ♯ IT) β l e :
-    sReifier_re sR op (x, σ) ≡ Some (y, σ', l) →
-    k (subEff_outs y) ≡ Next β →
-    has_substate σ
-    -∗ ▷ (£ 1 -∗ has_substate σ'
-          -∗ ([∗ list] ef ∈ listO_map Tau l, WP@{rs} ef @ s {{ _, True }})
-          ∗ (β) ⪯ₑ (e) @{ rs \ R \ s})
-    -∗ (Vis (subEff_opid op) (subEff_ins x) k) ⪯ₑ (e) @{ rs \ R \ s}.
-  Proof.
-    iIntros (H1 H2) "Hσ G".
-    iIntros (j K) "J".
-    iApply (wp_subreify_ctx_indep with "Hσ"); [eassumption | eassumption |].
-    iNext.
-    iIntros "Hlc Hσ".
-    iDestruct ("G" with "Hlc Hσ") as "(G1 & G2)".
-    iFrame "G1".
-    by iApply "G2".
-  Qed.
+  (* Lemma IT_Rel_Eff *)
+  (*   `{subR : !subReifier sR rs} *)
+  (*   (op : opid (sReifier_ops sR)) *)
+  (*   (x : Ins (sReifier_ops sR op) ♯ IT) *)
+  (*   (y : Outs (sReifier_ops sR op) ♯ IT) *)
+  (*   (k : Outs (F (subEff_opid op)) ♯ IT -n> laterO IT) *)
+  (*   (σ σ' : sReifier_state sR ♯ IT) β l e : *)
+  (*   sReifier_re sR op (x, σ) ≡ Some (y, σ', l) → *)
+  (*   k (subEff_outs y) ≡ Next β → *)
+  (*   has_substate σ *)
+  (*   -∗ ▷ (£ 1 -∗ has_substate σ' *)
+  (*         -∗ ([∗ list] ef ∈ listO_map Tau l, WP@{rs} ef @ s {{ _, True }}) *)
+  (*         ∗ (β) ⪯ₑ (e) @{ rs \ R \ s}) *)
+  (*   -∗ (Vis (subEff_opid op) (subEff_ins x) k) ⪯ₑ (e) @{ rs \ R \ s}. *)
+  (* Proof. *)
+  (*   iIntros (H1 H2) "Hσ G". *)
+  (*   iIntros (j K) "J". *)
+  (*   iPoseProof (wp_subreify_ctx_indep with "[Hσ]") as "J'". *)
+  (*   iApply (wp_subreify_ctx_indep with "Hσ"); [eassumption | eassumption |]. *)
+  (*   iNext. *)
+  (*   iIntros "Hlc Hσ". *)
+  (*   iDestruct ("G" with "Hlc Hσ") as "(G1 & G2)". *)
+  (*   iFrame "G1". *)
+  (*   by iApply "G2". *)
+  (* Qed. *)
 End basic_rules.
 
 Require Import gitrees.gitree.subofe.
@@ -1282,25 +1301,26 @@ Section example.
     by do 2 f_equiv.
   Qed.
 
-  Example prog3_prog4_rel : ⊢ (IT_of_V prog3) ⪯ₚ (prog4) @{ rs \ R \ s }.
+  Example prog3_prog4_rel :  ⊢ (IT_of_V prog3) ⪯ₚ (prog4) @{ rs \ R \ s }.
   Proof.
     iIntros "#HInv".
     iApply IT_Rel_val'.
     rewrite IT_Val_Rel_unfold'.
     iRight.
-    iExists _, _. iSplit; first done. iSplit; first done.
+    iExists 1, _, _. iSplit; first done. iSplit; first done.
+    iSplit; first admit.
     iModIntro.
     iIntros (v w).
     iNext.
-    iIntros "H" (j K).
+    iIntros "H HCred" (j K).
     iIntros "Hpt".
     iApply wp_val.
     iModIntro.
     iExists w.
-    iSplit; last done.
+    iFrame "H".
     rewrite /= LET_Val /=.
     done.
-  Qed.
+  Admitted.
 
   Program Example prog5 : IT := λit x, ALLOC (Ret 5) (constO x).
   Next Obligation.
@@ -1315,14 +1335,15 @@ Section example.
     iApply IT_Rel_val'.
     rewrite IT_Val_Rel_unfold'.
     iRight.
-    iExists _, _. iSplit; first done. iSplit; first done.
+    iExists 1, _, _. iSplit; first done. iSplit; first done.
+    iSplit; first admit.
     iModIntro.
     iIntros (v w).
     iNext.
-    iIntros "#H" (j K).
+    iIntros "H HCred" (j K).
     iIntros "Hpt".
     iSimpl.
-    iApply (wp_alloc with "HHeap [Hpt]"); first solve_proper.
+    iApply (wp_alloc with "HHeap [HCred Hpt H]"); first solve_proper.
     do 2 iNext.
     iIntros (l) "Hpt'".
     iSimpl.
@@ -1331,37 +1352,91 @@ Section example.
     iExists w.
     iFrame "Hpt".
     done.
-  Qed.
+  Admitted.
 
-  (* POI 3. no rules for effects at the right-hand side *)
-  Example prog3_prog5_rel : £ 1 -∗ heap_ctx rs
-                            -∗ (IT_of_V prog3) ⪯ₚ (prog5) @{ rs \ R \ s }.
+    Example prog5_prog5_rel `{!Inhabited (gReifiers_state rs ♯ IT)}
+    : heap_ctx rs
+      -∗ (prog5) ⪯ₚ (prog5) @{ rs \ R \ s }.
   Proof.
-    iIntros "HCred #HHeap #HInv".
+    iIntros "#HHeap #HInv".
     iApply IT_Rel_val'.
     rewrite IT_Val_Rel_unfold'.
     iRight.
-    iExists _, _. iSplit; first done. iSplit; first done.
+    iExists 1, _, _. iSplit; first done. iSplit; first done.
+    iSplit; first admit.
     iModIntro.
     iIntros (v w).
     iNext.
-    iIntros "#H" (j K).
+
+    (* IT_Rel should have elim modal *)
+    iIntros "H HCred" (j K).
+
+    iIntros "HPt".
+    simpl.
+
+    (* iDestruct "HInv" as (σ l) "HInv". *)
+    iApply (wp_alloc with "HHeap"); first solve_proper.
+    (* iPoseProof (step_reify_hom rs R K ⊤ j) as "G". *)
+
+    (* iApply fupd_wp; first solve_proper. *)
+    (* iInv specN as (tp σ'' p) "[H1 [HS #H2]]" "HClose".     *)
+    (* iApply (wp_alloc with "HHeap"); first solve_proper. *)
+    (* iDestruct (bi.later_intro with "HPt") as "HPt".     *)
+    (* iApply fupd_mask_intro. *)
+
+    do 2 iNext.
+    iIntros (l') "HPt'".
+    iApply wp_val.
+    iModIntro.
+    iExists w.
+    iFrame "H".
+    (* XXX: same stuff with credits *)
+    (* probably put them into it rel val (function case) *)
+  Abort.
+
+
+  (* POI 3. no rules for effects at the right-hand side *)
+  Example prog3_prog5_rel `{!Inhabited (gReifiers_state rs ♯ IT)}
+    : heap_ctx rs
+      -∗ (IT_of_V prog3) ⪯ₚ (prog5) @{ rs \ R \ s }.
+  Proof.
+    iIntros "#HHeap #HInv".
+    iApply IT_Rel_val'.
+    rewrite IT_Val_Rel_unfold'.
+    iRight.
+    iExists 1, _, _. iSplit; first done. iSplit; first done.
+    iSplit; first admit.
+    iModIntro.
+    iIntros (v w).
+    iNext.
+    iIntros "H HCred" (j K).
     iIntros "Hpt".
     iSimpl in "Hpt".
     iApply wp_val.
-    iMod (step_reify_hom rs R K ⊤ j with "[Hpt]") as "G";
-      first done.
-    - admit.
-    - iModIntro.
-      iExists w.
-      iFrame "H".
 
-    (* epose proof (step_reify rs R ⊤ j). *)
-    (* iMod (step_reify) as "G". *)
-    (* iModIntro. *)
-    (* iExists w. *)
-    (* iSplit; last done. *)
-    (* simpl. *)
+    iInv (nroot.@"storeE") as (σ') "(>J1 & J2 & J3)" "HClose'".
+    iMod (step_reify_hom rs R K (⊤ ∖ ↑nroot.@"storeE") j _ _ _ _ σ'
+           with "[$J1 $J2 Hpt $HInv]") as "(Hpt & _ & Hs)".
+    {
+      assert (nroot.@"spec" ## nroot.@"storeE").
+      { apply ndot_ne_disjoint. done. }
+      set_solver.
+    }
+    {
+      iSplitR "Hpt"; last first.
+      - iSplit; last first.
+        + iNext.
+          iApply "Hpt".
+        + by simpl.
+      - by simpl.
+    }
+    iExists w.
+    iFrame "Hpt H".
+    iApply "HClose'".
+    iNext.
+
+    (* XXX: auth shouldn't be in spec_inv. it's step rule task to handle it *)
+    iExists _; iFrame "Hs".
   Abort.
 
   Program Example prog6 : IT := (IT_of_V prog3) ⊙ (IT_of_V prog3).
@@ -1381,18 +1456,18 @@ Section example.
     iFrame "Hwk".
     rewrite IT_Val_Rel_unfold'.
     iRight.
-    iExists _, _. iSplit; first done. iSplit; first done.
+    iExists 1, _, _. iSplit; first done. iSplit; first done.
+    iSplit; first admit.
     iModIntro.
     iIntros (v w).
     iNext.
-    iIntros "H" (j' K').
+    iIntros "H HCred" (j' K').
     iIntros "Hpt".
     iApply wp_val.
     iModIntro.
     iExists w.
-    iSplit; last done.
-    done.
-  Qed.
+    iFrame "H Hpt".
+  Admitted.
 
   (* TODO *)
   (* Example prog1 : IT := fact_imp n rs. *)
