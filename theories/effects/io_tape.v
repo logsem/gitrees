@@ -111,7 +111,7 @@ Section weakestpre.
   Context `{!SubOfe natO R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Lemma wp_input (σ σ' : stateO) (n : nat) (k : natO -n> IT) Φ s :
@@ -130,6 +130,7 @@ Section weakestpre.
     iSplit; first by (simpl; rewrite ofe_iso_21).
     iNext.
     iIntros "Hc Hs !>".
+    iSimpl. rewrite /wptp big_sepL2_nil.
     iSplitR ""; last done.
     iApply ("Ha" with "Hc Hs").
   Qed.
@@ -152,6 +153,7 @@ Section weakestpre.
     iNext.
     iIntros "H1 H2".
     iModIntro.
+    iSimpl. rewrite /wptp big_sepL2_nil.
     iSplitR ""; last done.
     by iApply ("Ha" with "H1 H2").
   Qed.

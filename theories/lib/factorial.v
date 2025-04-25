@@ -12,7 +12,8 @@ Section fact.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
-  Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
+  Context `{!heapG rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Program Definition fact_imp_body (acc ℓ : loc) : IT :=
@@ -33,7 +34,7 @@ Section fact.
         (READ acc).
 
   Lemma wp_fact_imp_bod n m acc ℓ :
-    @heap_ctx n' NotCtxDep rs R _ _ Σ _ _ _ -∗
+    heap_ctx rs -∗
     pointsto acc (Ret m) -∗ pointsto ℓ (Ret n) -∗
     WP@{rs} fact_imp_body acc ℓ {{ _, pointsto acc (Ret (m * fact n)) }}.
   Proof.
@@ -86,6 +87,7 @@ Section fact.
       iApply wp_tick. iNext.
       replace (m + n*m) with ((n + 1) * m) by lia.
       iSpecialize ("IH" with "Hacc  Hl" ).
+      iIntros "Hlc".
       iApply (wp_wand with "IH").
       iIntros (_).
       rewrite Nat.sub_0_r.
@@ -94,11 +96,12 @@ Section fact.
   Qed.
 
   Lemma wp_fact_imp (n : nat) :
-    @heap_ctx n' NotCtxDep rs R _ _ Σ _ _ _ ⊢ WP@{rs} fact_imp ⊙ (Ret n) {{  βv, βv ≡ RetV (fact n)  }}.
+    heap_ctx rs ⊢ WP@{rs} fact_imp ⊙ (Ret n) {{  βv, βv ≡ RetV (fact n)  }}.
   Proof.
     iIntros "#Hctx".
     iApply wp_lam. iNext.
     simpl. rewrite get_ret_ret.
+    iIntros "Hlc".
     iApply (wp_alloc with "Hctx").
     { solve_proper. }
     iNext. iNext.
@@ -121,7 +124,7 @@ Section fact.
   Program Definition fact_io : IT :=
     INPUT $ λne n, fact_imp ⊙ (Ret n).
   Lemma wp_fact_io (n : nat) :
-    @heap_ctx n' NotCtxDep rs R _ _ Σ _ _ _ ∗ has_substate (State [n] [])
+    heap_ctx rs ∗ has_substate (State [n] [])
     ⊢ WP@{rs} get_ret OUTPUT fact_io  {{ _, has_substate (State [] [fact n]) }}.
   Proof.
     iIntros "[#Hctx Htape]".

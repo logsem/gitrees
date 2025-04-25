@@ -54,18 +54,18 @@ Section it_subofe.
   Qed.
 
   Lemma RetV_inj (k m : A) {PROP : bi} `{!BiInternalEq PROP} :
-    (k ≡ m ⊣⊢ (Ret k ≡ Ret m : PROP))%I.
+    (k ≡ m ⊣⊢ (RetV k ≡ RetV m : PROP))%I.
   Proof.
     iSplit.
     - iIntros "H". iRewrite "H". done.
     - iIntros "H".
-      iAssert (internal_eq (IT_unfold (Ret k)) (IT_unfold (Ret m))) with "[H]" as "H".
-      { iRewrite "H". done. }
-      rewrite !IT_unfold_fold. simpl.
-      repeat iPoseProof (sum_equivI with "H") as "H".
+      iDestruct (f_equivI (IT_of_V) with "H") as "H".
+      iSimpl in "H".
+      iDestruct (Ret_inj' with "H") as "H".
       iPoseProof (f_equivI (((@subOfe_in A B _) ^-1)) with "H") as "H".
       rewrite !ofe_iso_21.
-      by iPoseProof (sum_equivI with "H") as "H".
+      iPoseProof (sum_equivI with "H") as "H".
+      done.
   Qed.
 
   Lemma IT_ret_tau_ne k α {PROP : bi} `{!BiInternalEq PROP} :

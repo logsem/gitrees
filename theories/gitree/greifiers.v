@@ -15,6 +15,13 @@ Section greifiers_generic.
   | gReifiers_cons {n} : sReifier → gReifiers n → gReifiers (S n)
   .
 
+  Definition grs_O_inv (P : gReifiers 0 -> Type) (H : P gReifiers_nil)
+    (v : gReifiers 0) : P v :=
+    match v with
+    | gReifiers_nil => H
+    | gReifiers_cons sR v => fun devil => False_ind (@IDProp) devil
+    end.
+
   Definition grs_S_inv {n} (P : gReifiers (S n) → Type)
     (Hcons : ∀ sR v, P (gReifiers_cons sR v)) v : P v.
   Proof.

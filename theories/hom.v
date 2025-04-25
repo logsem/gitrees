@@ -1,6 +1,6 @@
 (** In this module, we package up IT homomorphism in a sigma type, and
 we will use it as a domain for logical relations on continuations *)
-From gitrees Require Import gitree.
+From gitrees Require Import gitree.core prelude.
 
 Open Scope stdpp_scope.
 
@@ -52,14 +52,5 @@ Section hom.
     h = HOM_compose f g ->
     f ∘ g = h.
   Proof. intros ->. done. Qed.
-
-  Definition IFSCtx_HOM `{!SubOfe natO A} α β : HOM := MkHom (λ x, IFSCtx α β x) _.
-
-  Program Definition LET_HOM (f : IT -n> IT) : HOM
-    := MkHom (LETCTX f) (LETCTX_Hom f).
-
-  Lemma LET_HOM_eq α (f : IT -n> IT)
-    : LET α f ≡ (LET_HOM f) α.
-  Proof. reflexivity. Qed.
 
 End hom.

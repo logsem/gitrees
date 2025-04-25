@@ -2,6 +2,53 @@ From gitrees Require Import prelude.
 From gitrees Require Import gitree.
 From iris.algebra Require Import list.
 
+(* Section aaa. *)
+(*   Context {sz : nat} {a : is_ctx_dep}. *)
+(*   Variable (rs : gReifiers a sz). *)
+(*   Context {R} `{CR : !Cofe R}. *)
+(*   Context `{!SubOfe boolO R}. *)
+(*   Notation F := (gReifiers_ops rs). *)
+(*   Notation IT := (IT F R). *)
+(*   Notation ITV := (ITV F R). *)
+(*   Context `{!gitreeGS_gen rs R Σ}. *)
+
+(*   Class ofe_decide_eq := *)
+(*     MkOfeDecide { *)
+(*         ofe_dec : IT; *)
+(*         ofe_dec_reflect : ∀ a b : IT, *)
+(*           ofe_dec ⊙ a ⊙ b ≡ Ret true → a ≡ b; *)
+(*       }. *)
+
+(*   (* Global Program Instance ofe_decide_eq_ZO `{!SubOfe ZO R} : *) *)
+(*   (*   ofe_decide_eq ZO *) *)
+(*   (*   := MkOfeDecide ZO _ (get_ret2 (λne x y, Ret (Z.eqb x y))) _. *) *)
+(*   (* Next Obligation. *) *)
+(*   (*   intros ? x y H. *) *)
+(*   (*   rewrite /get_ret2 /= in H. *) *)
+(*   (*   rewrite get_ret_ret /= get_ret_ret /= in H. *) *)
+(*   (*   apply bi.siProp.internal_eq_soundness. *) *)
+(*   (*   iDestruct (Ret_inj (E := F) (A := boolO) (B := R) true false) as "J". *) *)
+(*   (*   destruct (x =? y)%Z as [G | G] eqn:J. *) *)
+(*   (*   - rewrite Z.eqb_eq in J. *) *)
+(*   (*     by rewrite J. *) *)
+(*   (*   - iEval (rewrite H) in "J". *) *)
+(*   (*     iExFalso. *) *)
+(*   (*     iDestruct "J" as "[_ J]". *) *)
+(*   (*     iDestruct ("J" with "[]") as "J'"; first done. *) *)
+(*   (*     iDestruct (discrete_eq with "J'") as "%K". *) *)
+(*   (*     inversion K. *) *)
+(*   (* Qed. *) *)
+
+(*   (* Global Program Instance ofe_decide_eq_sumO *) *)
+(*   (*   `{!SubOfe A R} `{!SubOfe B R} `{!SubOfe (sumO A B) R} *) *)
+(*   (*   `{!ofe_decide_eq A} `{!ofe_decide_eq B} : *) *)
+(*   (*   ofe_decide_eq (sumO A B) *) *)
+(*   (*   := MkOfeDecide (sumO A B) _ _ _. *) *)
+(*   (* Next Obligation. *) *)
+(*   (*   intros. *) *)
+
+(* End aaa. *)
+
 Section ofe_decision.
   Class Ofe_decide_eq (R : ofe) :=
     MkOfeDecide {
@@ -15,6 +62,15 @@ Section ofe_decision.
   Next Obligation.
     intros; simpl in *.
     rewrite Nat.eqb_eq in H.
+    done.
+  Qed.
+  Fail Next Obligation.
+
+  Global Program Instance ofe_decide_eq_Z : Ofe_decide_eq ZO
+    := MkOfeDecide (λne x y, Z.eqb x y) _.
+  Next Obligation.
+    intros; simpl in *.
+    rewrite Z.eqb_eq in H.
     done.
   Qed.
   Fail Next Obligation.
@@ -154,7 +210,7 @@ Section decidable_equality.
   Context `{!invGS_gen hlc Σ}.
   Notation iProp := (iProp Σ).
 
-  Context `{SO : !SubOfe natO A}.
+  Context `{SO : !SubOfe boolO A}.
   Context {dec : Ofe_decide_eq A}.
 
   Program Definition safe_compare_def
@@ -163,7 +219,7 @@ Section decidable_equality.
          (λne v2,
            get_val
              (λne v1,
-               get_ret2 (λne x y, Ret (if (ofe_decision x y) then 1 else 0)) v2 v1)
+               get_ret2 (λne x y, Ret (ofe_decision x y)) v2 v1)
              b) a).
   Next Obligation.
     intros ????? n.
@@ -214,7 +270,7 @@ Section decidable_equality.
     : IT -n> IT -n> IT := λne a b, safe_compare_def a b.
   Solve All Obligations with solve_proper.
 
-  Lemma safe_compare_reflect x y : safe_compare x y ≡ Ret 1 → x ≡ y.
+  Lemma safe_compare_reflect x y : safe_compare x y ≡ Ret true → x ≡ y.
   Proof using A AC SO dec Σ.
     destruct (IT_dont_confuse x)
       as [[e Ha] | [[m Ha] | [ [g Ha] | [[α' Ha]|[op [i [ko Ha]]]] ]]].
@@ -251,7 +307,7 @@ Section decidable_equality.
           by rewrite -Ha' in Ha.
         * exfalso.
           assert (⊢@{iProp} False)%I; last by eapply uPred.pure_soundness.
-          iAssert (0 ≡ 1)%I as "%G".
+          iAssert (false ≡ true)%I as "%G".
           {
             iApply Ret_inj.
             rewrite <-H.
@@ -337,7 +393,7 @@ Section decidable_equality.
       done.
   Qed.
 
-  Lemma safe_compare_ret x y : safe_compare (Ret x) (Ret y) ≡ Ret (if ofe_decision x y then 1 else 0).
+  Lemma safe_compare_ret x y : safe_compare (Ret x) (Ret y) ≡ Ret (ofe_decision x y).
   Proof.
     rewrite /safe_compare /= /safe_compare_def.
     rewrite get_val_ret /= get_val_ret /= get_ret_ret /= get_ret_ret //=.

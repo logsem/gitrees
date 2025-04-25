@@ -518,6 +518,7 @@ Section interp.
         simpl.
         erewrite <-H; last reflexivity.
         f_equiv.
+        solve_proper.
       }
       repeat f_equiv; last done. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.

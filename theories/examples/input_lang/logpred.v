@@ -13,7 +13,7 @@ Section io_lang.
   Context `{!SubOfe natO R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ, !na_invG Σ}.
+  Context `{!gitreeGS_gen rs R Σ, !na_invG Σ}.
   Notation iProp := (iProp Σ).
 
   Canonical Structure exprO S := leibnizO (expr S).
@@ -169,7 +169,7 @@ Section io_lang.
     iIntros (σ βv) "Hs #Hw".
     iIntros (x) "Hx".
     iApply wp_lam.
-    iNext.
+    iNext. iIntros "Hcl".
     pose (ss' := (extend_scope (extend_scope ss (interp_rec rs α ss)) (IT_of_V βv))).
     iSpecialize ("H" $! _ ss' with "Hs []").
     {
@@ -188,9 +188,7 @@ Section io_lang.
       - iApply "Hss".
     }
     unfold f.
-    iAssert (IT_of_V (FunV (Next f)) ≡ interp_rec rs α ss)%I as "Heq".
-    { rewrite interp_rec_unfold. done. }
-    iRewrite -"Heq". by iApply "H".
+    by iApply "H".
   Qed.
 
   Lemma compat_natop {S : Set} (Γ : S → ty) op α β :
@@ -243,8 +241,8 @@ Section io_lang.
 
 End io_lang.
 
-Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _ _} τ.
-Arguments interp_tarr {_ _ _ _ _ _ _ _ _ _ _} Φ1 Φ2.
+Arguments interp_ty {_ _ _ _ _ _ _ _ _ _ _} τ.
+Arguments interp_tarr {_ _ _ _ _ _ _ _ _ _} Φ1 Φ2.
 
 Local Definition rs : gReifiers NotCtxDep _ := gReifiers_cons reify_io gReifiers_nil.
 
@@ -254,28 +252,53 @@ Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}
   `{!invGpreS Σ} `{!statePreG rs R Σ} τ
   (α : interp_scope ∅ -n> IT (gReifiers_ops rs) R)
   (β : IT (gReifiers_ops rs) R) st st' k :
-  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ},
+  (∀ `{H1 : !gitreeGS_gen rs R Σ},
       (£ cr ⊢ valid1 rs notStuck (λne _ : unitO, True)%I □ α τ)%I) →
   external_steps (gReifiers_sReifier rs) (α ı_scope) st β st' [] k →
-  (∃ β1 st1 l, external_step (gReifiers_sReifier rs) β st' β1 st1 l)
-   ∨ (∃ βv, IT_of_V βv ≡ β).
+  is_Some (IT_to_V β)
+  ∨ (∃ β1 st1 l, external_step (gReifiers_sReifier rs) β st' β1 st1 l)
+   ∨ (∃ e : errorO, β ≡ Err e ∧ notStuck e).
 Proof.
   intros Hlog Hst.
-  destruct (IT_to_V β) as [βv|] eqn:Hb.
-  { right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. }
-  left.
-  cut ((∃ β1 st1 l, external_step (gReifiers_sReifier rs) β st' β1 st1 l)
-      ∨ (∃ e, β ≡ Err e ∧ notStuck e)).
-  { intros [?|He]; first done.
-    destruct He as [? [? []]]. }
-  eapply (wp_safety cr); eauto.
-  { apply Hdisj. }
-  { by rewrite Hb. }
+  eapply (wp_progress_gen Σ 1 NotCtxDep rs cr (λ x, x) notStuck
+            [] k (α ı_scope) β st st' Hdisj Hst).
   intros H1 H2.
+  assert (G1 : (nat → ∀ σ : prodO stateO unitO, state_interp σ
+                                                ⊢ |={∅}=> state_interp σ)).
+  { intros. iIntros "?". by iModIntro. }
+  assert (G2 : (nat → NonExpansive (λ σ : prodO stateO unitO, state_interp σ))).
+  { solve_proper. }
+  assert (G3 : (nat → ∀ σ : prodO stateO unitO, state_interp σ
+                                                ⊣⊢ True ∗ state_interp σ)).
+  {
+    intros. iSplit; iIntros "H".
+    - by iFrame "H".
+    - by iDestruct "H" as "(_ & ?)".
+  }
+  pose H3 : gitreeGS_gen rs R Σ :=
+    GitreeG rs R Σ H1 H2
+      (λ _ σ, @state_interp _ _ rs R _ _ H2 σ)
+      (λ _, True%I)
+      (λ _, True%I)
+      ltac:(solve_proper)
+      (λ x, x)
+      G1
+      G2
+      G3.
+  simpl in H3.
   exists (interp_ty (s:=notStuck) (P:=(λne _:unitO, True)) τ)%I. split.
   { apply _. }
-  iIntros "[Hcr  Hst]".
-  iPoseProof (Hlog with "Hcr") as "Hlog".
+  iExists (@state_interp_fun _ _ rs _ _ _ H3).
+  iExists (@aux_interp_fun _ _ rs _ _ _ H3).
+  iExists (@fork_post _ _ rs _ _ _ H3).
+  iExists (@fork_post_ne _ _ rs _ _ _ H3).
+  iExists (@state_interp_fun_mono _ _ rs _ _ _ H3).
+  iExists (@state_interp_fun_ne _ _ rs _ _ _ H3).
+  iExists (@state_interp_fun_decomp _ _ rs _ _ _ H3).
+  simpl.
+  iAssert (True%I) as "G"; first done; iFrame "G"; iClear "G".
+  iModIntro. iIntros "(Hcr & Hst)".
+  iPoseProof (Hlog H3 with "Hcr") as "Hlog".
   destruct st as [σ []].
   iAssert (has_substate σ) with "[Hst]" as "Hs".
   { unfold has_substate, has_full_state.
@@ -305,16 +328,25 @@ Qed.
 Lemma io_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k :
   typed □ e τ →
   external_steps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ, ()) β st' [] k →
-  (∃ β1 st1 l, external_step (gReifiers_sReifier rs) β st' β1 st1 l)
-   ∨ (∃ βv, IT_of_V βv ≡ β).
+  is_Some (IT_to_V β)
+  ∨ (∃ β1 st1 l, external_step (gReifiers_sReifier rs) β st' β1 st1 l).
 Proof.
   intros Htyped Hsteps.
+  cut (is_Some (IT_to_V β)
+       ∨ (∃ β1 st1 l, external_step (gReifiers_sReifier rs) β st' β1 st1 l)
+       ∨ (∃ e : errorO, β ≡ Err e ∧ notStuck e)).
+  {
+    intros [H | [H | [? [? H]]]].
+    - by left.
+    - by right.
+    - done.
+  }
   pose (Σ:=#[invΣ;stateΣ rs natO]).
   assert (invGpreS Σ).
   { apply _. }
   assert (statePreG rs natO Σ).
   { apply _. }
   eapply (logpred_adequacy 0 Σ); eauto.
-  intros ? ?. iIntros "_".
+  intros ?. iIntros "_".
   by iApply fundamental.
 Qed.

@@ -2,34 +2,194 @@
 From iris.prelude Require Import options.
 From iris.base_logic Require Export base_logic.
 From gitrees Require Export prelude gitree.core gitree.subofe.
+From gitrees Require Export hom.
+
+Module PrimOps.
+  Section un_op.
+    Context {Σ : opsInterp} {A : ofe} `{!Cofe A} {B : ofe}.
+    Context `{!SubOfe B A}.
+    Notation IT := (IT Σ A).
+
+    Program Definition UNOP_ne (f : B -n> optionO B)
+      : IT -n> IT :=
+      λne t,
+        get_val (λne v,
+            get_ret (λne (n : B),
+                from_option Ret (Err RuntimeErr) (f n)) v) t.
+    Solve All Obligations with solve_proper.
+    Definition UNOP f x := UNOP_ne f x.
+    Global Instance UNOP_Proper f
+      : Proper ((≡) ==> (≡)) (UNOP f).
+    Proof. rewrite /UNOP; solve_proper_please. Qed.
+    Global Instance UNOP_NonExp f : NonExpansive (UNOP f).
+    Proof. rewrite /UNOP; solve_proper_please. Qed.
+  End un_op.
+
+  (* move to lib *)
+  Section bin_op.
+    Context {Σ : opsInterp} {A : ofe} `{!Cofe A} {B : ofe}.
+    Context `{!SubOfe B A}.
+    Notation IT := (IT Σ A).
+
+    Program Definition BINOP_ne (f : B -n> B -n> optionO B)
+      : IT -n> IT -n> IT :=
+      λne t1 t2,
+        get_val (λne v2,
+            get_val (λne v1,
+                get_ret2 (λne n1 n2, from_option Ret (Err RuntimeErr) (f n1 n2)) v1 v2) t1) t2.
+    Solve All Obligations with solve_proper_please.
+    Definition BINOP f x y := BINOP_ne f x y.
+    Global Instance BINOP_Proper f
+      : Proper ((≡) ==> (≡) ==> (≡)) (BINOP f).
+    Proof. rewrite /BINOP; solve_proper_please. Qed.
+    Global Instance BINOP_NonExp f : NonExpansive2 (BINOP f).
+    Proof. rewrite /BINOP; solve_proper_please. Qed.
+  End bin_op.
+End PrimOps.
+
+Module IF_nat.
+  Section nat_if.
+    Context {Σ : opsInterp} {A : ofe} `{!Cofe A}.
+    Notation IT := (IT Σ A).
+
+    Program Definition IF_ne `{!SubOfe natO A} : IT -n> IT -n> IT -n> IT := λne t t1 t2,
+        get_ret (λne n, if Nat.ltb 0 n then t1 else t2) t.
+    Next Obligation. repeat intro. by rewrite H. Qed.
+    Solve All Obligations with solve_proper_please.
+
+    Definition IF `{!SubOfe natO A} x y z := IF_ne x y z.
+    Global Instance IF_Proper `{H : !SubOfe natO A}
+      : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) (@IF H).
+    Proof. rewrite /IF; solve_proper_please. Qed.
+    Global Instance IF_NonExp `{H : !SubOfe natO A} : NonExpansive3 (@IF H).
+    Proof. rewrite /IF; solve_proper_please. Qed.
+
+    Program Definition IF_last_ne `{!SubOfe natO A} : IT -n> IT -n> IT -n> IT := λne t1 t2 t, IF t t1 t2.
+    Solve All Obligations with rewrite /IF; solve_proper_please.
+    Definition IF_last `{!SubOfe natO A} x y z := IF_last_ne x y z.
+    Global Instance IF_last_Proper `{H : !SubOfe natO A}
+      : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) (@IF_last H).
+    Proof. rewrite /IF_last; solve_proper_please. Qed.
+    Global Instance IF_last_NonExp `{H : !SubOfe natO A} : NonExpansive3 (@IF_last H).
+    Proof. rewrite /IF_last; solve_proper_please. Qed.
+
+    Lemma IF_Err `{!SubOfe natO A} e t1 t2 : IF (Err e) t1 t2 ≡ Err e.
+    Proof. unfold IF. simpl. by rewrite get_ret_err. Qed.
+    Lemma IF_True `{!SubOfe natO A} n t1 t2 :
+      0 < n → IF (Ret n) t1 t2 ≡ t1.
+    Proof.
+      intro Hn. unfold IF. simpl.
+      rewrite get_ret_ret.
+      destruct n; first lia; last eauto.
+    Qed.
+    Lemma IF_False `{!SubOfe natO A} n t1 t2 :
+      0 ≥ n → IF (Ret n) t1 t2 ≡ t2.
+    Proof.
+      intro Hn. unfold IF. simpl.
+      rewrite get_ret_ret.
+      destruct n; first eauto; last lia.
+    Qed.
+    Lemma IF_Tick `{!SubOfe natO A} t t1 t2 :
+      IF (Tick t) t1 t2 ≡ Tick (IF t t1 t2).
+    Proof. rewrite {1}/IF /=. apply get_ret_tick. Qed.
+    Lemma IF_Tick_n `{!SubOfe natO A} n t t1 t2 :
+      IF (Tick_n n t) t1 t2 ≡ Tick_n n (IF t t1 t2).
+    Proof.
+      induction n; eauto. by rewrite IF_Tick IHn.
+    Qed.
+    Lemma IF_Vis `{!SubOfe natO A} op i k t1 t2 :
+      IF (Vis op i k) t1 t2 ≡ Vis op i (laterO_map (IF_last_ne t1 t2) ◎ k).
+    Proof.
+      rewrite {1}/IF /=.
+      rewrite get_ret_vis. repeat f_equiv.
+      by intro.
+    Qed.
+
+    Definition IFSCtx `{!SubOfe natO A} (β1 β2 α : IT) := IF α β1 β2.
+    #[local] Instance IFSCtx_ne (β1 β2 : IT) `{!SubOfe natO A} : NonExpansive (IFSCtx β1 β2).
+    Proof. unfold IFSCtx. solve_proper. Qed.
+    #[export] Instance IFSCtx_hom (β1 β2 : IT) `{!SubOfe natO A} : IT_hom (IFSCtx β1 β2).
+    Proof.
+      unfold IFSCtx.
+      simple refine (IT_HOM _ _ _ _ _).
+      - intro a. simpl. rewrite IF_Tick//.
+      - intros op i k. simpl. rewrite IF_Vis.
+        repeat f_equiv. intro α. reflexivity.
+      - intros e. simpl. rewrite IF_Err//.
+    Qed.
+    Definition IFSCtx_HOM `{!SubOfe natO A} α β : HOM := MkHom (λ x, IFSCtx α β x) _.
+  End nat_if.
+
+  Opaque IF.
+End IF_nat.
+
+Module IF_bool.
+  Section bool_if.
+    Context {Σ : opsInterp} {A : ofe} `{!Cofe A}.
+    Notation IT := (IT Σ A).
+
+    Program Definition IF_ne `{!SubOfe boolO A} : IT -n> IT -n> IT -n> IT :=
+      λne t t1 t2,
+        get_ret (λne (n : boolO), if n then t1 else t2) t.
+    Next Obligation. repeat intro. by rewrite H. Qed.
+    Solve All Obligations with solve_proper_please.
+
+    Definition IF `{!SubOfe boolO A} x y z := IF_ne x y z.
+    Global Instance IF_Proper `{H : !SubOfe boolO A}
+      : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) (@IF H).
+    Proof. rewrite /IF; solve_proper_please. Qed.
+    Global Instance IF_ne' `{H : !SubOfe boolO A} : NonExpansive3 (@IF H).
+    Proof. rewrite /IF; solve_proper_please. Qed.
+
+    Program Definition IF_last_ne `{!SubOfe boolO A} : IT -n> IT -n> IT -n> IT := λne t1 t2 t, IF t t1 t2.
+    Solve All Obligations with rewrite /IF; solve_proper_please.
+    Definition IF_last `{!SubOfe boolO A} x y z := IF_last_ne x y z.
+    Global Instance IF_last_Proper `{H : !SubOfe boolO A}
+      : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) (@IF_last H).
+    Proof. rewrite /IF_last; solve_proper_please. Qed.
+    Global Instance IF_last_NonExp `{H : !SubOfe boolO A} : NonExpansive3 (@IF_last H).
+    Proof. rewrite /IF_last; solve_proper_please. Qed.
+
+    Lemma IF_Err `{!SubOfe boolO A} e t1 t2 : IF (Err e) t1 t2 ≡ Err e.
+    Proof. unfold IF. simpl. by rewrite get_ret_err. Qed.
+    Lemma IF_True `{!SubOfe boolO A} t1 t2 :
+      IF (Ret true) t1 t2 ≡ t1.
+    Proof.
+      unfold IF. simpl.
+      rewrite get_ret_ret.
+      done.
+    Qed.
+    Lemma IF_False `{!SubOfe boolO A} t1 t2 :
+      IF (Ret false) t1 t2 ≡ t2.
+    Proof.
+      unfold IF. simpl.
+      rewrite get_ret_ret.
+      done.
+    Qed.
+    Lemma IF_Tick `{!SubOfe boolO A} t t1 t2 :
+      IF (Tick t) t1 t2 ≡ Tick (IF t t1 t2).
+    Proof. rewrite {1}/IF /=. apply get_ret_tick. Qed.
+    Lemma IF_Tick_n `{!SubOfe boolO A} n t t1 t2 :
+      IF (Tick_n n t) t1 t2 ≡ Tick_n n (IF t t1 t2).
+    Proof.
+      induction n; eauto. by rewrite IF_Tick IHn.
+    Qed.
+    Lemma IF_Vis `{!SubOfe boolO A} op i k t1 t2 :
+      IF (Vis op i k) t1 t2 ≡ Vis op i (laterO_map (IF_last_ne t1 t2) ◎ k).
+    Proof.
+      rewrite {1}/IF /=.
+      rewrite get_ret_vis. repeat f_equiv.
+      by intro.
+    Qed.
+  End bool_if.
+
+  Opaque IF.
+End IF_bool.
 
 Section lambda.
   Local Opaque laterO_ap.
-
   Context {Σ : opsInterp} {A : ofe} `{!Cofe A}.
-
   Notation IT := (IT Σ A).
-
-  Program Definition IF_ne `{!SubOfe natO A} : IT -n> IT -n> IT -n> IT := λne t t1 t2,
-      get_ret (λne n, if Nat.ltb 0 n then t1 else t2) t.
-  Next Obligation. repeat intro. by rewrite H. Qed.
-  Solve All Obligations with solve_proper_please.
-
-  Definition IF `{!SubOfe natO A} x y z := IF_ne x y z.
-  Global Instance IF_Proper `{H : !SubOfe natO A}
-    : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) (@IF H).
-  Proof. rewrite /IF; solve_proper_please. Qed.
-  Global Instance IF_NonExp `{H : !SubOfe natO A} : NonExpansive3 (@IF H).
-  Proof. rewrite /IF; solve_proper_please. Qed.
-
-  Program Definition IF_last_ne `{!SubOfe natO A} : IT -n> IT -n> IT -n> IT := λne t1 t2 t, IF t t1 t2.
-  Solve All Obligations with rewrite /IF; solve_proper_please.
-  Definition IF_last `{!SubOfe natO A} x y z := IF_last_ne x y z.
-  Global Instance IF_last_Proper `{H : !SubOfe natO A}
-    : Proper ((≡) ==> (≡) ==> (≡) ==> (≡)) (@IF_last H).
-  Proof. rewrite /IF_last; solve_proper_please. Qed.
-  Global Instance IF_last_NonExp `{H : !SubOfe natO A} : NonExpansive3 (@IF_last H).
-  Proof. rewrite /IF_last; solve_proper_please. Qed.
 
   (** A non-strict application, does not recurse under the effects of the argument *)
   Program Definition APP_ne : IT -n> laterO IT -n> IT := λne f x,
@@ -165,37 +325,7 @@ Section lambda.
   Lemma APP'_Fun_l f x `{!AsVal x} : APP' (Fun f) x ≡ Tau $ laterO_ap f (Next x).
   Proof. rewrite APP_APP'_ITV. by rewrite APP_Fun. Qed.
 
-  Lemma IF_Err `{!SubOfe natO A} e t1 t2 : IF (Err e) t1 t2 ≡ Err e.
-  Proof. unfold IF. simpl. by rewrite get_ret_err. Qed.
-  Lemma IF_True `{!SubOfe natO A} n t1 t2 :
-    0 < n → IF (Ret n) t1 t2 ≡ t1.
-  Proof.
-    intro Hn. unfold IF. simpl.
-    rewrite get_ret_ret.
-    destruct n; first lia; last eauto.
-  Qed.
-  Lemma IF_False `{!SubOfe natO A} n t1 t2 :
-    0 ≥ n → IF (Ret n) t1 t2 ≡ t2.
-  Proof.
-    intro Hn. unfold IF. simpl.
-    rewrite get_ret_ret.
-    destruct n; first eauto; last lia.
-  Qed.
-  Lemma IF_Tick `{!SubOfe natO A} t t1 t2 :
-    IF (Tick t) t1 t2 ≡ Tick (IF t t1 t2).
-  Proof. rewrite {1}/IF /=. apply get_ret_tick. Qed.
-  Lemma IF_Tick_n `{!SubOfe natO A} n t t1 t2 :
-    IF (Tick_n n t) t1 t2 ≡ Tick_n n (IF t t1 t2).
-  Proof.
-    induction n; eauto. by rewrite IF_Tick IHn.
-  Qed.
-  Lemma IF_Vis `{!SubOfe natO A} op i k t1 t2 :
-    IF (Vis op i k) t1 t2 ≡ Vis op i (laterO_map (IF_last_ne t1 t2) ◎ k).
-  Proof.
-    rewrite {1}/IF /=.
-    rewrite get_ret_vis. repeat f_equiv.
-    by intro.
-  Qed.
+
 
   Lemma NATOP_Err_r `{!SubOfe natO A} f e t1 : NATOP f t1 (Err e) ≡ Err e.
   Proof. simpl. by rewrite /NATOP /NATOP_ne //= get_val_err. Qed.
@@ -260,12 +390,11 @@ Section lambda.
   Lemma LET_Val α f `{!AsVal α} : LET α f ≡ f α.
   Proof. unfold LET. simpl. rewrite get_val_ITV//. Qed.
 
-  Opaque APP APP' IF NATOP.
+  Opaque APP APP' NATOP.
   Definition AppLSCtx (β α : IT) := APP' α β.
   Definition AppRSCtx (β α : IT) := APP' β α.
   Definition NatOpLSCtx `{!SubOfe natO A} f (β α : IT) := NATOP f α β.
   Definition NatOpRSCtx `{!SubOfe natO A} f (β α : IT) := NATOP f β α.
-  Definition IFSCtx `{!SubOfe natO A} (β1 β2 α : IT) := IF α β1 β2.
   Definition SEQCtx (β2 α : IT) := SEQ α β2.
   Definition LETCTX f : IT -n> IT := λne x, LET x f.
 
@@ -319,17 +448,6 @@ Section lambda.
       repeat f_equiv. intro. reflexivity.
     - intros e. simpl. rewrite NATOP_Err_r//.
   Qed.
-  #[local] Instance IFSCtx_ne (β1 β2 : IT) `{!SubOfe natO A} : NonExpansive (IFSCtx β1 β2).
-  Proof. unfold IFSCtx. solve_proper. Qed.
-  #[export] Instance IFSCtx_hom (β1 β2 : IT) `{!SubOfe natO A} : IT_hom (IFSCtx β1 β2).
-  Proof.
-    unfold IFSCtx.
-    simple refine (IT_HOM _ _ _ _ _).
-    - intro a. simpl. rewrite IF_Tick//.
-    - intros op i k. simpl. rewrite IF_Vis.
-      repeat f_equiv. intro α. reflexivity.
-    - intros e. simpl. rewrite IF_Err//.
-  Qed.
   Instance SEQCtx_ne β2 : NonExpansive (SEQCtx β2).
   Proof. solve_proper. Qed.
   #[export] Instance SEQ_hom (β2 : IT) : IT_hom (SEQCtx β2).
@@ -342,10 +460,15 @@ Section lambda.
     unfold LETCTX, LET.
     simpl. apply get_val_hom.
   Qed.
+  Program Definition LET_HOM (f : IT -n> IT) : HOM
+    := MkHom (LETCTX f) (LETCTX_Hom f).
 
+  Lemma LET_HOM_eq α (f : IT -n> IT)
+    : LET α f ≡ (LET_HOM f) α.
+  Proof. reflexivity. Qed.
 End lambda.
 
-#[global] Opaque APP APP' IF NATOP SEQ LET.
+#[global] Opaque APP APP' NATOP SEQ LET.
 
 Notation "'λit' x .. y , P" := (Fun (Next (λne x, .. (Fun (Next (λne y, P))) .. )))
   (at level 200, x binder, y binder, right associativity,

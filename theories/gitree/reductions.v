@@ -1,6 +1,7 @@
 From iris.proofmode Require Import classes tactics.
 From iris.base_logic.lib Require Export invariants.
 From iris.algebra Require Import list.
+From iris.bi.lib Require Import fixpoint.
 From gitrees Require Import prelude.
 From gitrees.gitree Require Import core reify.
 
@@ -242,24 +243,57 @@ Section internal_step.
   Solve All Obligations with solve_proper.
 
   Program Definition internal_steps_pre
-    (self : IT -n> stateO -n> IT -n> stateO -n> listO IT -n> natO -n> iProp):
-    IT -n> stateO -n> IT -n> stateO -n> listO IT -n> natO -n> iProp :=
-    λne α σ β σ'' l n, ((n ≡ 0 ∧ α ≡ β ∧ σ ≡ σ'' ∧ l ≡ [])
+    (self : (prodO IT (prodO stateO (prodO IT (prodO stateO (prodO (listO IT) natO))))) -> iProp) :
+    (prodO IT (prodO stateO (prodO IT (prodO stateO (prodO (listO IT) natO))))) -> iProp :=
+    λ '(α, (σ, (β, (σ'', (l, n))))), ((n ≡ 0 ∧ α ≡ β ∧ σ ≡ σ'' ∧ l ≡ [])
                         ∨ (∃ n' γ σ' l' l'',
                              l ≡ l' ++ l''
                              ∧ n ≡ (S n')
                              ∧ internal_step α σ γ σ' l'
-                             ∧ ▷ self γ σ' β σ'' l'' n'))%I.
-  Solve All Obligations with solve_proper.
+                             ∧ self (γ, (σ', (β, (σ'', (l'', n'))))))
+                                     )%I.
 
-  Global Instance internal_steps_pre_ne : NonExpansive internal_steps_pre.
-  Proof. solve_proper. Qed.
-  Global Instance internal_steps_pre_contractive
-    : Contractive internal_steps_pre.
-  Proof. solve_contractive. Qed.
-  Definition internal_steps
+  Definition internal_steps'
+    : prodO IT (prodO stateO (prodO IT (prodO stateO (prodO (listO IT) natO)))) -> iProp
+    := bi_least_fixpoint internal_steps_pre.
+
+  Global Instance internal_steps_pre_ne : ∀ Φ,
+    NonExpansive Φ → NonExpansive (internal_steps_pre Φ).
+  Proof.
+    intros Φ HΦ.
+    intros ?.
+    intros [x1 [x2 [x3 [x4 [x5 x6]]]]] [y1 [y2 [y3 [y4 [y5 y6]]]]].
+    intros [H1 [H2 [H3 [H4 [H5 H6]]]]].
+    simpl in *.
+    solve_proper.
+  Qed.
+
+  Global Instance internal_steps'_ne : NonExpansive internal_steps'.
+  Proof.
+    apply least_fixpoint_ne'.
+    apply _.
+  Qed.
+
+  Global Instance internal_steps_mono : BiMonoPred internal_steps_pre.
+  Proof.
+    constructor; last apply _.
+    iIntros (Φ Ψ HΦ HΨ) "H".
+    iIntros ([x1 [x2 [x3 [x4 [x5 x6]]]]])
+      "[(G1 & G2 & G3 & G4) | (%n' & %γ & %σ & %l & %l' & G1 & G2 & G3 & G4)]".
+    - iLeft; repeat iSplit; done.
+    - iRight.
+      iExists n', γ, σ, l, l'.
+      repeat iSplit; [done | done | done |].
+      by iApply "H".
+  Qed.
+
+  Lemma internal_steps'_unfold x : internal_steps' x ≡ internal_steps_pre internal_steps' x.
+  Proof. apply least_fixpoint_unfold. apply _. Qed.
+
+  Program Definition internal_steps
     : IT -n> stateO -n> IT -n> stateO -n> listO IT -n> natO -n> iProp
-    := fixpoint internal_steps_pre.
+    := λne x1 x2 x3 x4 x5 x6, internal_steps' (x1, (x2, (x3, (x4, (x5, x6))))).
+  Solve All Obligations with solve_proper.
 
   Lemma internal_steps_unfold α β σ σ'' n l :
     internal_steps α σ β σ'' l n ≡
@@ -268,11 +302,21 @@ Section internal_step.
             l ≡ l' ++ l''
             ∧ n ≡ (S n')
             ∧ internal_step α σ γ σ' l'
-            ∧ ▷ internal_steps γ σ' β σ'' l'' n'))%I.
+            ∧ internal_steps γ σ' β σ'' l'' n'))%I.
+  Proof. rewrite /internal_steps /= internal_steps'_unfold //=. Qed.
+
+  Lemma internal_steps_ind α β σ σ' n l
+    Φ `{!NonExpansive Φ}
+    : □ (∀ y, internal_steps_pre (bi_least_fixpoint (λ Ψ a, Φ a ∧ internal_steps_pre Ψ a)) y -∗ Φ y)
+      -∗ internal_steps α σ β σ' l n -∗ Φ (α, (σ, (β, (σ', (l, n))))).
   Proof.
-    unfold internal_steps.
-    apply (fixpoint_unfold internal_steps_pre _ _ _ _ _) .
+    rewrite /internal_steps.
+    iIntros "H".
+    iSimpl; iIntros "G".
+    iApply (least_fixpoint_ind_wf with "H G").
   Qed.
+
+  Opaque internal_steps.
 
   (** Properties *)
   Lemma internal_steps_0 α β σ σ' l :
@@ -291,7 +335,7 @@ Section internal_step.
       (∃ γ σ' l' l'',
          l ≡ l' ++ l''
          ∧ internal_step α σ γ σ' l'
-         ∧ ▷ internal_steps γ σ' β σ'' l'' k)%I.
+         ∧ internal_steps γ σ' β σ'' l'' k)%I.
   Proof.
     rewrite internal_steps_unfold. iSplit.
     - iDestruct 1 as "[(% & _ & _)|H]"; first by fold_leibniz; lia.
@@ -316,23 +360,55 @@ Section internal_step.
   Proof. solve_proper. Qed.
 
   Program Definition tp_internal_steps_pre
-    (self : listO IT -n> stateO -n> listO IT -n> stateO -n> natO -n> iProp):
-    listO IT -n> stateO -n> listO IT -n> stateO -n> natO -n> iProp :=
-    λne α σ β σ'' n, ((n ≡ 0 ∧ α ≡ β ∧ σ ≡ σ'')
+    (self : prodO (listO IT) (prodO stateO (prodO (listO IT) (prodO stateO natO))) -> iProp) :
+    prodO (listO IT) (prodO stateO (prodO (listO IT) (prodO stateO natO))) -> iProp :=
+    λ '(α, (σ, (β, (σ'', n)))), ((n ≡ 0 ∧ α ≡ β ∧ σ ≡ σ'')
                      ∨ (∃ n' γ σ',
                           n ≡ (S n')
                           ∧ tp_internal_step α σ γ σ'
-                          ∧ ▷ self γ σ' β σ'' n'))%I.
-  Solve All Obligations with solve_proper.
+                          ∧ self (γ, (σ', (β, (σ'', n'))))))%I.
 
-  Global Instance tp_internal_steps_pre_ne : NonExpansive tp_internal_steps_pre.
-  Proof. solve_proper. Qed.
-  Global Instance tp_internal_steps_pre_contractive
-    : Contractive tp_internal_steps_pre.
-  Proof. solve_contractive. Qed.
-  Definition tp_internal_steps
+  Definition tp_internal_steps'
+    : prodO (listO IT) (prodO stateO (prodO (listO IT) (prodO stateO natO))) -> iProp
+    := bi_least_fixpoint tp_internal_steps_pre.
+
+  Global Instance tp_internal_steps_pre_ne : ∀ Φ,
+    NonExpansive Φ → NonExpansive (tp_internal_steps_pre Φ).
+  Proof.
+    intros Φ HΦ.
+    intros ?.
+    intros [x1 [x2 [x3 [x4 x5]]]] [y1 [y2 [y3 [y4 y5]]]].
+    intros [H1 [H2 [H3 [H4 H5]]]].
+    simpl in *.
+    solve_proper.
+  Qed.
+
+  Global Instance tp_internal_steps'_ne : NonExpansive tp_internal_steps'.
+  Proof.
+    apply least_fixpoint_ne'.
+    apply _.
+  Qed.
+
+  Global Instance tp_internal_steps_mono : BiMonoPred tp_internal_steps_pre.
+  Proof.
+    constructor; last apply _.
+    iIntros (Φ Ψ HΦ HΨ) "H".
+    iIntros ([x1 [x2 [x3 [x4 x5]]]])
+      "[(G1 & G2 & G3) | (%n' & %γ & %σ & G1 & G2 & G3)]".
+    - iLeft; repeat iSplit; done.
+    - iRight.
+      iExists n', γ, σ.
+      repeat iSplit; [done | done |].
+      by iApply "H".
+  Qed.
+
+  Lemma tp_internal_steps'_unfold x : tp_internal_steps' x ≡ tp_internal_steps_pre tp_internal_steps' x.
+  Proof. apply least_fixpoint_unfold. apply _. Qed.
+
+  Program Definition tp_internal_steps
     : listO IT -n> stateO -n> listO IT -n> stateO -n> natO -n> iProp
-    := fixpoint tp_internal_steps_pre.
+    := λne x1 x2 x3 x4 x5, tp_internal_steps' (x1, (x2, (x3, (x4, x5)))).
+  Solve All Obligations with solve_proper.
 
   Lemma tp_internal_steps_unfold α β σ σ'' n :
     tp_internal_steps α σ β σ'' n ≡
@@ -340,11 +416,21 @@ Section internal_step.
        ∨ (∃ n' γ σ',
             n ≡ (S n')
             ∧ tp_internal_step α σ γ σ'
-            ∧ ▷ tp_internal_steps γ σ' β σ'' n'))%I.
+            ∧ tp_internal_steps γ σ' β σ'' n'))%I.
+  Proof. rewrite /tp_internal_steps /= tp_internal_steps'_unfold //=. Qed.
+
+  Lemma tp_internal_steps_ind α β σ σ' l
+    Φ `{!NonExpansive Φ}
+    : □ (∀ y, tp_internal_steps_pre (bi_least_fixpoint (λ Ψ a, Φ a ∧ tp_internal_steps_pre Ψ a)) y -∗ Φ y)
+      -∗ tp_internal_steps α σ β σ' l -∗ Φ (α, (σ, (β, (σ', l)))).
   Proof.
-    unfold tp_internal_steps.
-    apply (fixpoint_unfold tp_internal_steps_pre _ _ _ _ _) .
+    rewrite /tp_internal_steps.
+    iIntros "H".
+    iSimpl; iIntros "G".
+    iApply (least_fixpoint_ind_wf with "H G").
   Qed.
+
+  Opaque tp_internal_steps.
 
   (** Properties *)
   Lemma tp_internal_steps_0 α β σ σ' :
@@ -361,7 +447,7 @@ Section internal_step.
   Lemma tp_internal_steps_S α β σ σ'' k :
     tp_internal_steps α σ β σ'' (S k) ≡ (∃ γ σ',
                                 tp_internal_step α σ γ σ'
-                                ∧ ▷ tp_internal_steps γ σ' β σ'' k)%I.
+                                ∧ tp_internal_steps γ σ' β σ'' k)%I.
   Proof.
     rewrite tp_internal_steps_unfold. iSplit.
     - iDestruct 1 as "[(% & _ & _)|H]"; first by fold_leibniz; lia.
@@ -427,7 +513,7 @@ Section internal_step.
     - by iApply internal_steps_0.
     - iApply internal_steps_S.
       iExists _,_,_,_; iSplit; first done.
-      iSplit; [by iApply external_step_internal_step | by iNext].
+      iSplit; [by iApply external_step_internal_step | done].
   Qed.
 
   Lemma tp_external_step_tp_internal_step α β σ σ' :
@@ -450,7 +536,7 @@ Section internal_step.
       iSplit; first eauto.
       iSplit.
       + iApply tp_external_step_tp_internal_step; eauto.
-      + iNext. iApply IH; eauto.
+      + iApply IH; eauto.
   Qed.
 
   Local Lemma tick_safe_externalize (α : IT) σ :
@@ -555,23 +641,23 @@ Section internal_step.
       → tp_internal_steps (e1 ++ α :: e2) σ (e1 ++ β :: e2 ++ l) σ' n.
   Proof.
     iStartProof.
-    iLöb as "IH" forall (l e2 n α σ).
     iIntros "H".
-    rewrite internal_steps_unfold.
-    iDestruct "H" as "[(H1 & H2 & H3 & H4)
-        |(%n' & %γ & %σ'' & %l' & %l'' & H1 & H2 & H3 & H4)]".
-    - iRewrite "H1"; iRewrite "H2"; iRewrite "H3"; iRewrite "H4".
-      iApply tp_internal_steps_0.
+    iInduction n as [| n IH] "G" forall (α e2 σ l).
+    - rewrite internal_steps_0.
+      iDestruct "H" as "(H1 & H2 & H3)".
+      iRewrite "H1"; iRewrite "H2"; iRewrite "H3".
+      rewrite tp_internal_steps_0.
       by rewrite app_nil_r.
-    - iRewrite "H1"; iRewrite "H2".
+    - rewrite internal_steps_S.
+      iDestruct "H" as "(%γ & %σ'' & %t & %t' & G1 & G2 & G3)".
       iApply tp_internal_steps_S.
-      iExists (e1 ++ γ :: e2 ++ l'), σ''.
+      iExists (e1 ++ γ :: e2 ++ t), σ''.
       iSplit.
       + by iApply internal_step_tp_internal_step.
-      + iNext.
-        iSpecialize ("IH" $! l'' (e2 ++ l') n' γ σ'').
-        rewrite app_assoc.
-        by iApply "IH".
+      + iSpecialize ("G" $! γ (e2 ++ t) σ'' t').
+        rewrite -app_assoc.
+        iRewrite - "G1" in "G".
+        by iApply "G".
   Qed.
 
   (* this is true only for iProp/uPred? *)

@@ -15,11 +15,11 @@ Program Definition forkI : opInterp :=
 Definition concE := @[forkI].
 
 (* FORK *)
-Definition reify_fork X `{Cofe X} : (laterO X) * stateO →
+Definition reify_fork' X `{Cofe X} : (laterO X) * stateO →
                                       option (unitO * stateO * listO (laterO X)) :=
     λ '(o, σ), Some ((), σ, [o]).
-#[export] Instance reify_fork_ne X `{Cofe X} :
-  NonExpansive (reify_fork X).
+#[export] Instance reify_fork'_ne X `{Cofe X} :
+  NonExpansive (reify_fork' X).
 Proof.
   intros ?[? []] [? []] G.
   simpl in *. f_equiv.
@@ -27,14 +27,14 @@ Proof.
   apply G.
 Qed.
 
-Canonical Structure reify_fork_sig : sReifier NotCtxDep.
+Canonical Structure reify_fork : sReifier NotCtxDep.
 Proof.
   simple refine {| sReifier_ops := concE;
                    sReifier_state := stateO
                 |}.
   intros X HX op.
   destruct op as [? | []]; simpl.
-  simple refine (OfeMor (reify_fork X)).
+  simple refine (OfeMor (reify_fork' X)).
 Defined.
 
 Section constructors.
@@ -55,19 +55,19 @@ Section weakestpre.
   Context {sz : nat}.
   Context {a : is_ctx_dep}.
   Variable (rs : gReifiers a sz).
-  Context {subR : subReifier (sReifier_NotCtxDep_min reify_fork_sig a) rs}.
+  Context {subR : subReifier (sReifier_NotCtxDep_min reify_fork a) rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe unitO R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Lemma wp_fork (σ : stateO) (n : IT) (k : IT -n> IT) `{!IT_hom k} Φ s :
     has_substate σ
     -∗ ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} (k (Ret ())) @ s {{ Φ }}
-                                 ∗ ▷ WP@{rs} n @ s {{ constO True }}) -∗
+                                 ∗ ▷ WP@{rs} n @ s {{ fork_post }}) -∗
     WP@{rs} k (FORK n) @ s {{ Φ }}.
   Proof.
     iIntros "Hs Ha".
@@ -84,9 +84,10 @@ Section weakestpre.
     iIntros "Hc Hs !>".
     iDestruct ("Ha" with "Hc Hs") as "(Ha1 & Ha2)".
     iSplitL "Ha1"; first done.
+    rewrite /weakestpre.wptp big_sepL2_singleton.
     rewrite -Tick_eq.
-    iSplit; last done.
-    by iApply wp_tick.
+    iApply wp_tick.
+    by iNext; iIntros "_".
   Qed.
 
 End weakestpre.
