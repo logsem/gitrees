@@ -187,6 +187,14 @@ Program Definition interp_load {A} (a : A -n> IT)
     λne env, get_ret (λne l, READ l) (a env).
 ```
 
+We use the equational theory and the induced reduction relation on
+GITrees to argue about soundness of denotational semantics for the
+following languages:
+* Language with I/O;
+* Language with call/cc;
+* Language with call/cc and I/O;
+* Language with delimited continuations;
+
 ## Program Logic
 
 To reason about GITrees, the framework provides a program logic
@@ -229,6 +237,19 @@ Context `{!heapG rs R Σ}.
 Notation iProp := (iProp Σ).
 ```
 
+We use program logic to show the following results:
+* Type soundness (w.r.t. denotational semantics in GITrees):
+    * Language with I/O;
+    * Language with delimited continuations;
+	* Language with higher-order state combined with delimited continuations language;
+    * Affine language with higher-order state and preemptive concurrency;
+	* Affine language with higher-order state and preemptive concurrency combined with I/O language;
+* Adequacy (w.r.t. operational semantics given by inductive relation):
+    * Language with I/O;
+    * Language with call/cc;
+    * Language with call/cc and I/O;
+	* Language with delimited continuations;
+
 ## Concurrency extension
 
 To represent effects related to preemptive concurrency, we extend
@@ -252,6 +273,12 @@ the second is an `IT` that gets written to the location. `CAS`,
 `Atomic`.
 
 ## Case study: Extending the Affine Language with Concurrency
+
+The purpose of this case study is to investigate soundness (w.r.t.
+denotational semantics defined in GITrees) of a lambda calculus that
+combines affine type system, higher-order store and preemptive
+concurrency with calls to a different lambda calculus that has a
+simple type system and I/O operations.
 
 Effects relevant to this case study are located in `effects/store.v`,
 `effects/io_tape.v`, and `fork.v`.
@@ -283,6 +310,10 @@ two changes:
   ```
 
 ## Case study: HeapLang
+
+The purpose of this case study is to define denotational semantics of
+HeapLang, and derive program logic rules for it from the functional
+provided by the library.
 
 Effects relevant to this case study are located in `effects/store.v` and `fork.v`.
 
