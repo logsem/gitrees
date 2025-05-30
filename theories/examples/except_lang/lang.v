@@ -34,9 +34,9 @@ Module Lang (Errors : ExcSig).
   | ThrowK (err : exc) : cont → cont
   | CatchK (err : exc) (h : @expr (inc X)) : cont → cont.
 
-  Arguments val X%bind : clear implicits.
-  Arguments expr X%bind : clear implicits.
-  Arguments cont X%bind : clear implicits.
+  Arguments val X%_bind : clear implicits.
+  Arguments expr X%_bind : clear implicits.
+  Arguments cont X%_bind : clear implicits.
 
   
   Local Open Scope bind_scope.
@@ -55,18 +55,18 @@ Module Lang (Errors : ExcSig).
          match v with
          | LitV n => LitV n
          | RecV e => RecV (emap ((f ↑) ↑) e)
-         end
-  with kmap {A B : Set} (f : A [→] B) (K : cont A) : cont B :=
-         match K with
-         | END => END
-         | IfK e₁ e₂ K => IfK (emap f e₁) (emap f e₂) (kmap f K)
-         | AppLK v K => AppLK (vmap f v) (kmap f K)
-         | AppRK e K => AppRK (emap f e) (kmap f K)
-         | NatOpLK op v K => NatOpLK op (vmap f v) (kmap f K)
-         | NatOpRK op e K => NatOpRK op (emap f e) (kmap f K)
-         | ThrowK err K => ThrowK err (kmap f K)
-         | CatchK err h K => CatchK err (emap (f ↑) h) (kmap f K)
          end.
+  Fixpoint kmap {A B : Set} (f : A [→] B) (K : cont A) : cont B :=
+    match K with
+    | END => END
+    | IfK e₁ e₂ K => IfK (emap f e₁) (emap f e₂) (kmap f K)
+    | AppLK v K => AppLK (vmap f v) (kmap f K)
+    | AppRK e K => AppRK (emap f e) (kmap f K)
+    | NatOpLK op v K => NatOpLK op (vmap f v) (kmap f K)
+    | NatOpRK op e K => NatOpRK op (emap f e) (kmap f K)
+    | ThrowK err K => ThrowK err (kmap f K)
+    | CatchK err h K => CatchK err (emap (f ↑) h) (kmap f K)
+    end.
 
 #[export] Instance FMap_expr : FunctorCore expr := @emap.
 #[export] Instance FMap_val  : FunctorCore val := @vmap.

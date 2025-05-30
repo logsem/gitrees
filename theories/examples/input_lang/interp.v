@@ -158,17 +158,17 @@ Section interp.
          | If e e1 e2 => interp_if (interp_expr e) (interp_expr e1) (interp_expr e2)
          | Input => interp_input
          | Output e => interp_output (interp_expr e)
-         end
-  with interp_ectx {S} (K : ectx S) : interp_scope S -n> (IT -n> IT) :=
-         match K with
-         | EmptyK => λne env, idfun
-         | AppRK e1 K => interp_apprk (interp_expr e1) (interp_ectx K)
-         | AppLK K v2 => interp_applk (interp_ectx K) (interp_val v2)
-         | NatOpRK op e1 K => interp_natoprk op (interp_expr e1) (interp_ectx K)
-         | NatOpLK op K v2 => interp_natoplk op (interp_ectx K) (interp_val v2)
-         | IfK K e1 e2 => interp_ifk (interp_ectx K) (interp_expr e1) (interp_expr e2)
-         | OutputK K => interp_outputk (interp_ectx K)
          end.
+  Fixpoint interp_ectx {S} (K : ectx S) : interp_scope S -n> (IT -n> IT) :=
+    match K with
+    | EmptyK => λne env, idfun
+    | AppRK e1 K => interp_apprk (interp_expr e1) (interp_ectx K)
+    | AppLK K v2 => interp_applk (interp_ectx K) (interp_val v2)
+    | NatOpRK op e1 K => interp_natoprk op (interp_expr e1) (interp_ectx K)
+    | NatOpLK op K v2 => interp_natoplk op (interp_ectx K) (interp_val v2)
+    | IfK K e1 e2 => interp_ifk (interp_ectx K) (interp_expr e1) (interp_expr e2)
+    | OutputK K => interp_outputk (interp_ectx K)
+    end.
   Solve All Obligations with first [ solve_proper | solve_proper_please ].
 
   Global Instance interp_val_asval {S} {D : interp_scope S} (v : val S)

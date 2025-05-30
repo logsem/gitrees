@@ -495,7 +495,7 @@ Section internal_step.
     - rewrite app_comm_cons.
       by rewrite -app_assoc.
     - iRewrite "H1".
-      rewrite !app_length //.
+      rewrite !length_app //.
   Qed.
 
   Lemma external_step_internal_step α β σ σ' en :

@@ -69,7 +69,7 @@ Proof.
   solve_equiv.
 Qed.
 
-Global Hint Extern 4 (_ ≡ _) => solve_equiv.
+Global Hint Extern 4 (_ ≡ _) => solve_equiv : core.
 
 Ltac simpl_HFInd :=
   subst; try discriminate;

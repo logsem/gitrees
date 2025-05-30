@@ -7,13 +7,13 @@ Require Import stdpp.fin.
 Section ResolutionDeBruijn.
   Class Resolver (D : Set) (n : nat) := { resolve : fin n -> D }.
 
-  Global Instance ResolverEmpty : Resolver Empty_set 0.
+  Instance ResolverEmpty : Resolver Empty_set 0.
   Proof.
     constructor.
     apply fin_0_inv.
   Defined.
 
-  Global Instance ResolverInc {D : Set} (n : nat) `{Resolver D n} : Resolver (inc D) (S n).
+  Instance ResolverInc {D : Set} (n : nat) `{Resolver D n} : Resolver (inc D) (S n).
   Proof.
     constructor.
     apply fin_S_inv.
@@ -21,7 +21,7 @@ Section ResolutionDeBruijn.
     - intros x; apply VS, resolve, x.
   Defined.
 
-  Global Instance ResolverIncNEmpty {n : nat} : Resolver (iter n inc Empty_set) n.
+  Instance ResolverIncNEmpty {n : nat} : Resolver (iter n inc Empty_set) n.
   Proof.
     induction n; apply _.
   Defined.
@@ -35,3 +35,7 @@ Section SetPureResolver.
   Definition set_pure_resolver {D} {n} `{Resolver D n} (fn : fin n) : F D := (@set_pure _ _ D (resolve fn)).
 
 End SetPureResolver.
+
+Global Hint Resolve ResolverEmpty : typeclass_instances.
+Global Hint Resolve ResolverInc : typeclass_instances.
+Global Hint Resolve ResolverIncNEmpty : typeclass_instances.

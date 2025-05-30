@@ -501,11 +501,11 @@ Section weakestpre.
     (at level 20, α, s, Φ at level 200, only parsing) : bi_scope.
 
   Notation "'WP' α @ s ; E {{ v , Q } }" := (wp α s E (λ v, Q))
-    (at level 20, α, s, Q at level 200,
+    (at level 20, α, s, Q at level 200, v at level 200 as pattern,
        format "'[hv' 'WP'  α  '/' @  s  ;  E  '/' {{  '[' v ,  '/' Q  ']' } } ']'") : bi_scope.
 
   Notation "'WP' α @  s {{ β , Φ } }" := (wp α s ⊤ (λ β, Φ))
-    (at level 20, α, Φ at level 200,
+    (at level 20, α, Φ at level 200, β at level 200 as pattern,
      format "'WP'  α  @  s  {{  β ,  Φ  } }") : bi_scope.
 
   Notation "'WP' α  @  s {{ Φ } }" := (wp α s ⊤ Φ)

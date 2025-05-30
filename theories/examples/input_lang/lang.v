@@ -48,17 +48,17 @@ with vmap {A B : Set} (f : A [→] B) (v : val A) : val B :=
        match v with
        | LitV n => LitV n
        | RecV e => RecV (emap ((f ↑) ↑) e)
-       end
-with kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
-       match K with
-       | EmptyK => EmptyK
-       | OutputK K => OutputK (kmap f K)
-       | IfK K e₁ e₂ => IfK (kmap f K) (emap f e₁) (emap f e₂)
-       | AppLK K v => AppLK (kmap f K) (vmap f v)
-       | AppRK e K => AppRK (emap f e) (kmap f K)
-       | NatOpRK op e K => NatOpRK op (emap f e) (kmap f K)
-       | NatOpLK op K v => NatOpLK op (kmap f K) (vmap f v)
        end.
+Fixpoint kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
+  match K with
+  | EmptyK => EmptyK
+  | OutputK K => OutputK (kmap f K)
+  | IfK K e₁ e₂ => IfK (kmap f K) (emap f e₁) (emap f e₂)
+  | AppLK K v => AppLK (kmap f K) (vmap f v)
+  | AppRK e K => AppRK (emap f e) (kmap f K)
+  | NatOpRK op e K => NatOpRK op (emap f e) (kmap f K)
+  | NatOpLK op K v => NatOpLK op (kmap f K) (vmap f v)
+  end.
 #[export] Instance FMap_expr : FunctorCore expr := @emap.
 #[export] Instance FMap_val  : FunctorCore val := @vmap.
 #[export] Instance FMap_ectx  : FunctorCore ectx := @kmap.
@@ -79,17 +79,17 @@ with vbind {A B : Set} (f : A [⇒] B) (v : val A) : val B :=
        match v with
        | LitV n => LitV n
        | RecV e => RecV (ebind ((f ↑) ↑) e)
-       end
-with kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B :=
-       match K with
-       | EmptyK => EmptyK
-       | OutputK K => OutputK (kbind f K)
-       | IfK K e₁ e₂ => IfK (kbind f K) (ebind f e₁) (ebind f e₂)
-       | AppLK K v => AppLK (kbind f K) (vbind f v)
-       | AppRK e K => AppRK (ebind f e) (kbind f K)
-       | NatOpRK op e K => NatOpRK op (ebind f e) (kbind f K)
-       | NatOpLK op K v => NatOpLK op (kbind f K) (vbind f v)
        end.
+Fixpoint kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B :=
+  match K with
+  | EmptyK => EmptyK
+  | OutputK K => OutputK (kbind f K)
+  | IfK K e₁ e₂ => IfK (kbind f K) (ebind f e₁) (ebind f e₂)
+  | AppLK K v => AppLK (kbind f K) (vbind f v)
+  | AppRK e K => AppRK (ebind f e) (kbind f K)
+  | NatOpRK op e K => NatOpRK op (ebind f e) (kbind f K)
+  | NatOpLK op K v => NatOpLK op (kbind f K) (vbind f v)
+  end.
 
 #[export] Instance BindCore_expr : BindCore expr := @ebind.
 #[export] Instance BindCore_val  : BindCore val := @vbind.

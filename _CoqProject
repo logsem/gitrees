@@ -1,5 +1,8 @@
 -Q theories gitrees
 -Q vendor/Binding Binding
+-arg -w -arg -notation-overridden
+-arg -w -arg -notation-incompatible-prefix
+-arg -w -arg -redundant-canonical-projection
 -arg -w -arg -ssr-search-moved
 
 vendor/Binding/Properties.v

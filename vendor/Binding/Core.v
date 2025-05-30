@@ -1,6 +1,5 @@
 Require Import Utf8.
 Require Import RelationClasses Morphisms.
-Require Vector.
 
 Declare Scope bind_scope.
 Delimit Scope bind_scope with bind.
@@ -49,10 +48,6 @@ Section Arrows.
   Class FunctorCore (F : Obj → Type) :=
     fmap : ∀ {A B}, (Arr A B) → F A → F B.
 
-  (*Definition fmap {F : Obj → Type}
-             {FunCore : FunctorCore F} {A B : Obj}
-             (f : Arr A B) : F A → F B := fmap_core _ _ f.*)
-
   Class Functor (F : Obj → Type) {FunCore : FunctorCore F} : Prop :=
     { map_id {A} (f : Arr A A) (t : F A) (EQ : f ≡ ı) :
         fmap f t = t;
@@ -81,8 +76,6 @@ Section Substitutions.
   Definition sub {Arr Sub} {ASC : SubstCore Arr Sub} := Sub.
   Definition subarr {Arr Sub} {ASC : SubstCore Arr Sub} := Arr.
 
-  (*Notation " 'η' " := (subst_pure _) : bind_scope.
-  Notation " σ • ρ " := (subst_comp σ%bind ρ%bind) (at level 40, left associativity) : bind_scope.*)
   Notation " f '̂' " := (subst_of_arr f%bind) (at level 30) : bind_scope.
 
   Class Subst
@@ -102,10 +95,6 @@ Section Substitutions.
 
     Class BindCore (F : Obj → Type) :=
       bind : ∀ {A B}, (Sub A B) → F A → F B.
-
-    (*Definition bind {F : Obj → Type}
-               {BindF : BindCore F} {A B : Obj}
-               (f : Sub A B) : F A → F B := bind_core _ _ f.*)
 
     Class BindMapPure (F : Obj → Type) {MapF : FunctorCore F} {BindF : BindCore F} : Prop :=
       { bind_map {A B} (f : Arr A B) g t
@@ -200,21 +189,6 @@ Section Shifting.
              {A : Obj}
              (a : F A) : F (Inc A) := fmap mk_shift a.
 
-  (*Fixpoint mk_shiftn
-           {Arr : Obj → Obj → Type}
-           {F   : Obj → Type} {map} {MapF : FunctorCore (F:=F) (Arr:=Arr) map}
-           {Inc : Obj → Obj} {AC : ArrowCore Arr} {ALC : ALiftableCore Arr Inc} {Sh : ShiftableCore Arr Inc}
-           {A : Obj} n : Arr A (Nat.iter n Inc A) :=  
-    match n with
-    | O    => ı
-    | S n' => (liftA (G := Inc) (mk_shiftn (Inc := Inc) n')) ∘ mk_shift
-    end.
-
-  Definition shiftn {Arr : Obj → Obj → Type}
-             {F   : Obj → Type} {map} {MapF : FunctorCore (F:=F) (Arr:=Arr) map}
-             {Inc : Obj → Obj} {AC : ArrowCore Arr} {ALC : ALiftableCore Arr Inc} {Sh : ShiftableCore Arr Inc}
-             n {A : Obj} (a : F A) := fmap (mk_shiftn n) a.*)
-
   Context (Arr : Obj → Obj → Type) {EqArr : EqIndCore Arr} {AC : ArrowCore Arr}.
   Context (Sub : Obj → Obj → Type) {EqSub : EqIndCore Sub} {SC : ArrowCore Sub}.
   Context {ASC : SubstCore Arr Sub}.
@@ -247,27 +221,6 @@ Section Substituting.
              {F   : Obj → Type} {Inc : Obj → Obj} {Sb : SubstitutableCore Sub F Inc}
              {A : Obj}
              (a : G (Inc A)) (v : F A) : G A := bind (mk_subst v) a.
-
-  (*
-  Fixpoint mk_substV
-           {Sub : Obj → Obj → Type} {Arr : Obj → Obj → Type}
-           {G   : Obj → Type} {bnd} {BindG : BindCore (F:=G) (Sub:=Sub) bnd}
-           {F   : Obj → Type} {Inc : Obj → Obj} {PSC : PreSubstCore Sub} {AC : ArrowCore Arr}
-           {SC : SubstCore Arr Sub} {SLC : SLiftableCore Sub Inc} {Sb : SubstitutableCore Sub F Inc}
-           {A : Obj} {n} (xs : Vector.t (F A) n) : Sub (Nat.iter n Inc A) A :=
-    match xs with
-    | Vector.nil _         => η
-    | Vector.cons _ x _ xs => (mk_subst (Inc := Inc) x) • (mk_substV (Inc := Inc) xs) ⇑
-    end.
-
-  Definition substV
-             {Sub : Obj → Obj → Type} {Arr : Obj → Obj → Type} {AC : ArrowCore Arr}
-             {G   : Obj → Type} {bnd} {BindG : BindCore (F:=G) (Sub:=Sub) bnd}
-             {F   : Obj → Type} {Inc : Obj → Obj} {PSC : PreSubstCore Sub} {SC : SubstCore Arr Sub}
-             {SLC : SLiftableCore Sub Inc} {Sb : SubstitutableCore Sub F Inc}
-             {A : Obj} {n} (xs : Vector.t (F A) n) (a : G (Nat.iter n Inc A)) : G A :=
-    bind (mk_substV xs) a.
-   *)
   
   Context (Arr : Obj → Obj → Type) {EqArr : EqIndCore Arr} {AC : ArrowCore Arr}.
   Context (Sub : Obj → Obj → Type) {EqSub : EqIndCore Sub} {SC : ArrowCore Sub}.

@@ -175,8 +175,6 @@ Section clwp.
 
 End clwp.
 
-Check clwp.
-
 Notation "'CLWP@{' re } e @ s ; E {{ Φ } }" :=
   (clwp re s E e Φ)
     (at level 20, e, Φ at level 200, only parsing) : bi_scope.
