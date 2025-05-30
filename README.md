@@ -89,6 +89,7 @@ folder.
 |   |   +-- factorial.v
 |   |   +-- iter.v
 |   |   +-- pairs.v
+|   |   +-- sums.v
 |   |   +-- while.v
 |   |   +-- eq.v (equality for CAS)
 |   |   +-- generators.v (generators on top of coroutines)
@@ -199,15 +200,16 @@ lives in Coq's `Prop`. We use the `istep` relation in our definitions
 result w.r.t. the external relation `sstep`, which we take to be the
 'proper definition' of the reductions for GITrees.
 
-Showing that `istep`-safety implies `sstep`-safety (i.e. that if a
-GITree can do an `istep` then it can also do a `sstep`) requires the
-disjunction propety. The disjunction property for Iris can be shown
-assuming classical axioms (e.g. LEM) on the `Prop`-level.
+Showing that `internal_step`-safety implies `external_step`-safety
+(i.e. that if a GITree can do an `internal_step` then it can also do a
+`external_step`) requires the disjunction propety. The disjunction
+property for Iris can be shown assuming classical axioms (e.g. LEM) on
+the `Prop`-level.
 
 In order not to introduce classical axioms into the whole
 formalization, we added the disjunction propety as an assumption to
-the safety theorem (`wp_safety`) and all of its instances (e.g. in
-logical relations).
+the safety theorems (`wp_progress_gen`, `wp_tp_progress_gen`) and all
+of its instances (e.g. in logical relations).
 
 ### Ground type of errors
 
