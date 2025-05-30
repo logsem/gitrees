@@ -27,7 +27,7 @@ Trees](https://doi.org/10.1007/978-3-031-91121-7_12).
 ## Notations glossary
 
 | Notation | Coq qualified identifier | Description |
-| ----------- | -------------- |
+| ---------| ------------------------ | ----------- |
 | λit x, f x | `Fun (Next (λne x, f x))` | Wrapper for higher-order functions in GITrees |
 | f ⊙ x | `gitree.lambda.APP' f x` | Strict application in GITrees |
 | F ♯ X | `oFunctor_apply F X` | oFunctor object action |
