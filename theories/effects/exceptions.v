@@ -68,11 +68,16 @@ Module Exc (Errors : ExcSig).
   Definition exceptE := @[regE;popE;throwE].
   
   (** Register a handler : Push the handler and current context on the stack **)
-  Definition reify_reg X `{Cofe X} : excO * (laterO X -n> laterO X) * (laterO X) * (stateF ♯ X) * (laterO X -n> laterO X) → option (laterO X * (stateF ♯ X)) :=
-      λ '(e, h, b, σ, k), Some (b, (e,h,k)::σ).
+  Definition reify_reg X `{Cofe X} :
+    excO * (laterO X -n> laterO X) * (laterO X)
+    * (stateF ♯ X) * (laterO X -n> laterO X) →
+    option (laterO X * (stateF ♯ X) * listO (laterO X)) :=
+      λ '(e, h, b, σ, k), Some (b, (e,h,k)::σ, []).
   
-  #[export] Instance reify_reg_ne X `{Cofe X}: NonExpansive (reify_reg X :  excO * (laterO X -n> laterO X) * (laterO X) * (stateF ♯ X) * (laterO X -n> laterO X) → option (laterO X * (stateF ♯ X)) 
-                                                 ).
+  #[export] Instance reify_reg_ne X `{Cofe X}
+    : NonExpansive (reify_reg X : excO * (laterO X -n> laterO X)
+                                  * (laterO X) * (stateF ♯ X) * (laterO X -n> laterO X)
+                                  → option (laterO X * (stateF ♯ X) * listO (laterO X))).
   Proof.
     solve_proper_prepare.
     destruct x as [[[[? ?] ?] ?] ?].
@@ -83,16 +88,21 @@ Module Exc (Errors : ExcSig).
   Qed.
   
   (** Unregister a handler : Remove the topmost handler, restore the ambient context from when it was registered **)
-  Definition reify_pop X `{Cofe X} : excO * (stateF ♯ X) * (unitO -n> laterO X) → option (laterO X * (stateF ♯ X)) :=
+  Definition reify_pop X `{Cofe X} :
+    excO * (stateF ♯ X) * (unitO -n> laterO X)
+    → option (laterO X * (stateF ♯ X) * listO (laterO X)) :=
     λ '(err, σ, k), match σ with
                     | [] => None
                     | (err', h, k')::σ' =>
                         (if (eq_dec err err')
-                         then Some (k' (k ()), σ')
-                         else None)                                                       end.
+                         then Some (k' (k ()), σ', [])
+                         else None)
+                    end.
   
-  #[export] Instance reify_pop_ne X `{Cofe X}: NonExpansive (reify_pop X :
-                                                   excO * (stateF ♯ X) * (unitO -n> laterO X) → option (laterO X * (stateF ♯ X))).
+  #[export] Instance reify_pop_ne X `{Cofe X} :
+    NonExpansive (reify_pop X :
+        excO * (stateF ♯ X) * (unitO -n> laterO X)
+        → option (laterO X * (stateF ♯ X) * listO (laterO X))).
   Proof.
     intros n [[e σ] k] [[e' σ'] k'] Hequiv.
     rewrite pair_dist in Hequiv.
@@ -113,7 +123,8 @@ Module Exc (Errors : ExcSig).
       + reflexivity.
   Qed.
   
-  Fixpoint _cut_when {A : ofe} (p : (A -n> boolO)) (l : listO A) : optionO (A * listO A)%type :=
+  Fixpoint _cut_when {A : ofe} (p : (A -n> boolO)) (l : listO A) :
+    optionO (A * listO A)%type :=
     match l with
     | [] => None
     | x::t => if p x then Some (x, t) else _cut_when p t
@@ -189,14 +200,19 @@ Module Exc (Errors : ExcSig).
   Qed.
   
   (** Raise an error : Find the most recent handler handling this error and remove all handlers registered after it from the stack then invoke the handler inside the context from when it was registered **)
-  Definition reify_throw X `{Cofe X} : (excO * laterO X) * (stateF ♯ X) * (Empty_setO -n> laterO X) → option (laterO X * (stateF ♯ X)) :=
+  Definition reify_throw X `{Cofe X} :
+    (excO * laterO X) * (stateF ♯ X) * (Empty_setO -n> laterO X)
+    → option (laterO X * (stateF ♯ X) * listO (laterO X)) :=
     λ '(x, σ, _), let (err,v) := x in
                   match cut_when (aux err) σ with
                   | None => None
-                  | Some (_, h, k, σ') => Some (k (h v), σ')
+                  | Some (_, h, k, σ') => Some (k (h v), σ', [])
                   end.
   
-  #[export] Instance reify_throw_ne X `{Cofe X} : NonExpansive (reify_throw X : (excO * laterO X) * (stateF ♯ X) * (Empty_setO -n> laterO X) → option (laterO X * (stateF ♯ X))).
+  #[export] Instance reify_throw_ne X `{Cofe X} :
+    NonExpansive (reify_throw X :
+        (excO * laterO X) * (stateF ♯ X) * (Empty_setO -n> laterO X)
+        → option (laterO X * (stateF ♯ X) * listO (laterO X))).
   Proof.
     solve_proper_prepare.
     destruct x as [[[e v] σ] k].
@@ -222,8 +238,7 @@ Module Exc (Errors : ExcSig).
         * rewrite HEq.
           exact (IHσ σ'' Hσ'').
         * rewrite Herr -He. reflexivity.
-  Qed.
-      
+  Qed.      
   
   Canonical Structure reify_exc : sReifier CtxDep.
   Proof.
@@ -242,16 +257,19 @@ Module Exc (Errors : ExcSig).
     Context {subEff0 : subEff exceptE Eff}.
     Context {SubOfe0 : SubOfe unitO A}.
     Notation IT := (IT Eff A).
-    Notation ITV := (ITV Eff A).
-    
+    Notation ITV := (ITV Eff A).    
     
     Program Definition _REG : excO -n> (laterO IT -n> laterO IT) -n> laterO IT -n> IT :=
-      λne e h b, Vis (E:=Eff) (subEff_opid (inl ())) (subEff_ins (F:=exceptE) (op:=(inl ())) (e,h,b)) ((λne x, x) ◎ (subEff_outs (F:=exceptE) (op:=(inl ())))^-1).
+      λne e h b, Vis (E:=Eff) (subEff_opid (inl ()))
+                   (subEff_ins (F:=exceptE) (op:=(inl ())) (e,h,b))
+                   ((λne x, x) ◎ (subEff_outs (F:=exceptE) (op:=(inl ())))^-1).
     Solve All Obligations with solve_proper.
 
     
     Program Definition _POP : excO -n> IT :=
-      λne e, Vis (E:=Eff) (subEff_opid (inr (inl ()))) (subEff_ins (F:=exceptE) (op:=(inr(inl ()))) e) ((λne _, Next $ Ret ()) ◎ (subEff_outs (F:=exceptE) (op:=(inr(inl ()))))^-1).
+      λne e, Vis (E:=Eff) (subEff_opid (inr (inl ())))
+               (subEff_ins (F:=exceptE) (op:=(inr(inl ()))) e)
+               ((λne _, Next $ Ret ()) ◎ (subEff_outs (F:=exceptE) (op:=(inr(inl ()))))^-1).
     Solve All Obligations with solve_proper.
     
     Program Definition CATCH : excO -n> (laterO IT -n> laterO IT) -n> IT -n> IT :=
@@ -269,7 +287,7 @@ Module Exc (Errors : ExcSig).
     Qed.
     Next Obligation.
       solve_proper_prepare.
-      repeat f_equiv.
+      apply get_val_ne.
       solve_proper.
     Qed.
     Next Obligation.
@@ -282,12 +300,16 @@ Module Exc (Errors : ExcSig).
     Qed.
     Next Obligation.
       solve_proper_prepare.
-      repeat f_equiv; solve_proper.
+      repeat f_equiv; first done.
+      apply get_val_ne.
+      solve_proper.
     Qed.
     
     Program Definition _THROW : excO -n> laterO IT -n> IT :=
       λne e v,
-        Vis (E:=Eff) (subEff_opid (inr (inr (inl ())))) (subEff_ins (F:=exceptE) (op:=(inr(inr(inl ())))) (e,v)) (λne x, Empty_setO_rec _ ((subEff_outs (F:=exceptE) (op:=(inr(inr(inl ())))))^-1 x)).
+        Vis (E:=Eff) (subEff_opid (inr (inr (inl ()))))
+          (subEff_ins (F:=exceptE) (op:=(inr(inr(inl ())))) (e,v))
+          (λne x, Empty_setO_rec _ ((subEff_outs (F:=exceptE) (op:=(inr(inr(inl ())))))^-1 x)).
     Next Obligation.
       solve_proper_prepare.
       destruct ((subEff_outs ^-1) x).
@@ -301,7 +323,7 @@ Module Exc (Errors : ExcSig).
     Next Obligation.
     Proof.
       solve_proper_prepare.
-      repeat f_equiv.
+      apply get_val_ne.
       solve_proper.
     Qed.
     
@@ -318,10 +340,11 @@ Module Exc (Errors : ExcSig).
     Context {SubOfe1 : SubOfe natO R}.
     Notation IT := (IT F R).
     Notation ITV := (ITV F R).
-    Context `{!invGS Σ, !stateG rs R Σ}.
+    Context `{!gitreeGS_gen rs R Σ}.
     Notation iProp := (iProp Σ).
     
-    Lemma wp_reg (σ : stateF ♯ IT) (err : excO) (h : laterO IT -n> laterO IT) (k : IT -n> IT) {Hk : IT_hom k} b β s Φ :
+    Lemma wp_reg (σ : stateF ♯ IT) (err : excO) (h : laterO IT -n> laterO IT) (k : IT -n> IT)
+      {Hk : IT_hom k} b β s Φ :
       b ≡ Next β →
       has_substate σ -∗
       ▷ (£ 1 -∗  has_substate ((err, h, laterO_map k) :: σ) -∗ WP@{rs} β @ s {{ β, Φ β }}) -∗
@@ -330,17 +353,22 @@ Module Exc (Errors : ExcSig).
       iIntros (Hβ) "Hσ Ha".
       unfold _REG. simpl.
       rewrite hom_vis.
-      iApply (wp_subreify_ctx_dep with "Hσ").
+      iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ _ _ _ _ _ [] with "Hσ").
       - simpl.
         rewrite /ccompose /compose /=.
-        repeat f_equiv.
+        f_equiv.
+        split; simpl; last reflexivity.
+        split; simpl; first reflexivity.
         apply cons_equiv; last done.
         apply pair_equiv.
         split; first done.
         trans (laterO_map k : laterO IT -n> laterO IT); last reflexivity.
         intro. simpl. f_equiv. apply ofe_iso_21.
-      - done.
-      - iAssumption.
+      - apply Hβ.
+      - rewrite /weakestpre.wptp big_sepL2_nil.
+        iNext. iIntros "H1 H2".
+        iSplit; last done.
+        iApply ("Ha" with "H1 H2").
     Qed.
 
     Lemma wp_pop (σ σ': stateF ♯ IT) (err : excO) h k (k' : IT -n> IT) {Hk' : IT_hom k'} β Φ :
@@ -359,13 +387,16 @@ Module Exc (Errors : ExcSig).
         destruct (eq_dec err err); last done.
         reflexivity.
       - exact Hβ. 
-      - done.
+      - rewrite /weakestpre.wptp big_sepL2_nil.
+        iNext. iIntros "H1 H2".
+        iSplit; last done.
+        iApply ("Ha" with "H1 H2").
     Qed.
     
     Lemma wp_catch_v σ (v : IT) Φ err h (k : IT -n> IT) {Hk : IT_hom k} `{!AsVal v} β :
       k v ≡ β → 
       has_substate σ -∗
-      ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} β {{ Φ }}) -∗
+      ▷ (£ 2 -∗ has_substate σ -∗ WP@{rs} β {{ Φ }}) -∗
       WP@{rs} k (CATCH err h v) {{ Φ }}.
     Proof.
       iIntros (Hβ) "Hσ Ha".
@@ -377,7 +408,9 @@ Module Exc (Errors : ExcSig).
       iApply (wp_pop with "Hσ").
       - reflexivity.
       - simpl. unfold later_map. simpl. rewrite get_val_ret. simpl. rewrite Hβ. reflexivity.
-      - iAssumption.
+      - iNext. iIntros "H1 H2".
+        iApply ("Ha" with "[H1 Hcr] H2").
+        iSplitL "H1"; done.
     Qed.
 
     Global Instance throw_hom {err : exc} : IT_hom (THROW err : IT -n> IT).
@@ -387,8 +420,7 @@ Module Exc (Errors : ExcSig).
       - rewrite hom_vis. do 3 f_equiv. intro. simpl. done.
       - by rewrite hom_err.
     Qed.
-    
-     
+         
     Definition wp_throw (σ pre post : stateF ♯ IT) (err : excO) (h k : laterO IT -n> laterO IT) (k' : IT -n> IT) {Hk : IT_hom k'} (v : IT) `{!AsVal v} β Φ : 
       (Forall (λ '(err',_,_), err <> err') pre) →
       k (h (Next v)) ≡ Next β →
@@ -413,7 +445,10 @@ Module Exc (Errors : ExcSig).
           destruct x as [[err' _] _] . simpl in *.
           destruct (eq_dec err err'); done.
       - exact Hβ.
-      - iAssumption.
+      - iNext. iIntros "H1 H2".
+        rewrite /weakestpre.wptp big_sepL2_nil.
+        iSplit; last done.
+        iApply ("Ha" with "H1 H2").        
     Qed. 
     
     Lemma wp_catch_throw σ (v : IT) `{!AsVal v} (k k': IT -n> IT) {Hk : IT_hom k} {Hk' : IT_hom k'} Φ err (h : laterO IT -n> laterO IT) β :

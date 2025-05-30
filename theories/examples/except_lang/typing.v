@@ -14,7 +14,7 @@ Module Typing (Errors : ExcSig).
   with ty : Type :=
     Ty : pty → gmap.gset exc → ty.
 
-  Context (ETy : exc → pty).
+  #[local] Parameter (ETy : exc → pty).
   Notation "'ℕ'" := Tnat.
   Notation "σ '⟶' τ" := (Tarr σ τ)
                           (at level 20).
