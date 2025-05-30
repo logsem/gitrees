@@ -18,8 +18,7 @@ jobs:
     strategy:
       matrix:
         image:
-          - 'coqorg/coq:8.17'
-          - 'coqorg/coq:8.18'
+          - 'coqorg/coq:8.20'
       max-parallel: 4
       fail-fast: false
 
