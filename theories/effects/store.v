@@ -444,18 +444,23 @@ Section wp.
     {
       apply (gmap_view_alloc_big σ
                (list_to_map (gen_fresh_slice σ p (to_agree (Next α))))
-               (DfracOwn 1)); last done.
-      apply map_disjoint_dom_2.
-      apply elem_of_disjoint.
-      intros x H G.
-      pose proof (gen_fresh_slice_fresh σ p (to_agree (Next α))) as J.
-      rewrite Forall_forall in J.
-      specialize (J (x, (to_agree (Next α)))).
-      apply J; last done.
-      clear -H.
-      apply dom_list_to_map in H.
-      apply elem_of_list_to_set in H.
-      by apply gen_fresh_slice_elem.
+               (DfracOwn 1)). 
+      - apply map_disjoint_dom_2.
+        apply elem_of_disjoint.
+        intros x H G.
+        pose proof (gen_fresh_slice_fresh σ p (to_agree (Next α))) as J.
+        rewrite Forall_forall in J.
+        specialize (J (x, (to_agree (Next α)))).
+        apply J; last done.
+        clear -H.
+        apply dom_list_to_map in H.
+        apply elem_of_list_to_set in H.
+        by apply gen_fresh_slice_elem.
+      - done.
+      - apply map_Forall_lookup_2.
+        intros i x ->%elem_of_list_to_map%gen_fresh_slice_val;
+          last apply gen_fresh_slice_no_dup.
+        done.
     }
     rewrite /gmap_view_auth.
     iFrame "H1".
@@ -481,13 +486,13 @@ Section wp.
     iIntros "Ha Hf".
     iPoseProof (own_valid_2 with "Ha Hf") as "H".
     rewrite gmap_view_both_validI.
-    iDestruct "H" as "[%H Hval]".
+    iDestruct "H" as "[%H [Hval HEQ]]".
     rewrite lookup_fmap.
     rewrite option_equivI.
     destruct (σ !! l) as [o |] eqn:Heq.
     - rewrite Heq /=.
       rewrite agree_equivI.
-      by iRewrite "Hval".
+      by iRewrite "HEQ".
     - rewrite Heq /=.
       done.
   Qed.
@@ -501,12 +506,13 @@ Section wp.
   Qed.
 
   Lemma istate_write l α β σ :
-    own heapG_name (●V σ) -∗ pointsto l α ==∗ own heapG_name (●V <[l:=(to_agree (Next β))]>σ)
-                                  ∗ pointsto l β.
+    own heapG_name (●V σ) -∗ pointsto l α
+    ==∗ own heapG_name (●V <[l:=(to_agree (Next β))]>σ)
+      ∗ pointsto l β.
   Proof.
     iIntros "H Hl".
-    iMod (own_update_2 with "H Hl") as "[$ $]"; last done.
-    apply gmap_view_update.
+    iMod (own_update_2 with "H Hl") as "[$ $]"; last done.    
+    by apply gmap_view_replace.
   Qed.
 
   Lemma istate_delete l α σ :
@@ -1047,6 +1053,96 @@ Module xchg_wp.
     Context `{!gitreeGS_gen rs R Σ}.
     Notation iProp := (iProp Σ).
     Context `{!heapG rs R Σ}.
+
+    Transparent ATOMIC.
+    Lemma wp_xchg_atomic_hom
+    (l : loc) w E1 E2 s Φ (κ : IT -n> IT) `{!IT_hom κ} :
+      nclose (nroot.@"storeE") ## E1 →
+      heap_ctx rs
+      -∗ (|={E1,E2}=> ∃ α, ▷ pointsto l α
+                      ∗ ▷ ▷ (pointsto l w
+                             ={E2,E1}=∗ WP@{rs} (κ α) @ s {{ Φ }}))
+      -∗ WP@{rs} κ (XCHG l w) @ s {{ Φ }}.
+    Proof.
+      iIntros (Hdisj) "#Hcxt H".
+      unfold XCHG.
+      unfold ATOMIC; simpl.
+      rewrite hom_vis.
+      iApply wp_subreify_ctx_indep_lift''.
+      iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
+      iApply (fupd_mask_weaken E1).
+      { set_solver. }
+      iIntros "Hwk".
+      iMod "H" as (α) "[Hp Hback]".
+      iApply (lc_fupd_elim_later with "Hlc").
+      iNext.
+      iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom".
+      { iApply (istate_loc_dom with "Hh Hp"). }
+      destruct Hdom as [x Hx].
+      iAssert ((σ !! l ≡ Some (Next α)))%I as "#Hlookup".
+      { iApply (istate_read with "Hh Hp"). }
+      destruct (Next_uninj x) as [β' Hb'].
+      assert (σ !! l ≡ Some (Next β')) as Hx'.
+      { by rewrite Hx Hb'. }
+      iExists σ, (Next α), (<[l:=Next w]>σ), (κ α), [].
+      iFrame "Hs".
+      repeat iSplit.
+      - rewrite /=.
+        match goal with
+        | |- context G [_ ≫= ?F] =>
+            set (F' := F)
+        end.
+        iApply (internal_eq_rewrite _ _
+                  (λ x : option (later IT),
+                      (x ≫= F' ≡ Some (Next α, (<[l:=Next w]>σ), []))%I)
+                 with "[Hlookup]").
+        {
+          intros m ?? G.
+          f_equiv.
+          apply option_mbind_ne.
+          - subst F'.
+            intros ?? H.
+            solve_proper_prepare.
+            do 3 f_equiv.
+            + f_equiv.
+              apply Next_contractive.
+              destruct m.
+              * apply dist_later_0.
+              * apply dist_later_S.
+                f_equiv.
+                apply H; lia.
+            + do 2 f_equiv.
+              apply Next_contractive.
+              destruct m.
+              * apply dist_later_0.
+              * apply dist_later_S.
+                f_equiv.
+                apply H; lia.
+          - done.
+        }
+        {
+          iApply internal_eq_sym.
+          rewrite Hx'.
+          iApply "Hlookup".
+        }
+        {
+          subst F'.
+          rewrite /=.
+          rewrite !later_map_Next /=.
+          done.
+        }
+      - iPureIntro. by rewrite /= ofe_iso_21 laterO_map_Next.
+      - iNext. iIntros "Hlc Hs".
+        iMod (istate_write rs l α w with "Hh Hp") as "[Hh Hp]".
+        iMod ("Hback" with "Hp") as "Hback".
+        iMod "Hwk" .
+        iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
+        { iExists _. rewrite -(fmap_insert to_agree σ). by iFrame. }
+        iModIntro.
+        iSplit; last done.
+        iApply "Hback".
+    Qed.
+    Opaque ATOMIC.
 
     Lemma wp_xchg_hom (l : loc) α w s Φ
       (κ : IT -n> IT) `{!IT_hom κ} :

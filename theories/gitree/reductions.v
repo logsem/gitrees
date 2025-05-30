@@ -115,7 +115,7 @@ Section external_step.
   Proof.
     induction 1 as [????????? H1 H2].
     rewrite H1 H2.
-    rewrite !app_length !cons_length app_length.
+    rewrite !length_app !length_cons length_app.
     apply Nat.add_le_mono_l.
     rewrite -plus_Sn_m.
     apply Nat.le_add_r.

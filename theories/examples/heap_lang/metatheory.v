@@ -153,7 +153,7 @@ Proof.
     apply map_Forall_insert_2; auto.
     apply lookup_union_Some in Hix; last first.
     { eapply heap_array_map_disjoint;
-        rewrite replicate_length Z2Nat.id; auto with lia. }
+        rewrite length_replicate Z2Nat.id; auto with lia. }
     destruct Hix as [(?&?&?&?&?&[-> Hlt%inj_lt]%lookup_replicate_1)%heap_array_lookup|
                      [j Hj]%elem_of_map_to_list%elem_of_list_lookup_1].
     + simplify_eq/=. rewrite !Z2Nat.id in Hlt; eauto with lia.

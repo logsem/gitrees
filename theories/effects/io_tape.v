@@ -175,3 +175,101 @@ Section weakestpre.
   Qed.
 
 End weakestpre.
+
+Section weakestpre.
+  Context {sz : nat}.
+  Context {a : is_ctx_dep}.
+  Variable (rs : gReifiers a sz).
+  Context {subR : subReifier (sReifier_NotCtxDep_min reify_io a) rs}.
+  Notation F := (gReifiers_ops rs).
+  Context {R} `{!Cofe R}.
+  Context `{!SubOfe natO R}.
+  Notation IT := (IT F R).
+  Notation ITV := (ITV F R).
+  Context `{!gitreeGS_gen rs R Σ}.
+  Notation iProp := (iProp Σ).
+
+  Program Definition io_ctx :=
+    inv (nroot.@"ioE")
+      (∃ σ, £ 1 ∗ has_substate σ)%I.
+
+  Lemma wp_input_agnostic (k : natO -n> IT) Φ s :
+    io_ctx
+    -∗ ▷ (∀ n, WP@{rs} (k n) @ s {{ Φ }})
+    -∗ WP@{rs} (INPUT k) @ s {{ Φ }}.
+  Proof.
+    iIntros "#Hs Ha".
+    unfold INPUT. simpl.
+    iApply wp_subreify_ctx_indep_lift''.
+    iInv (nroot.@"ioE") as (σ) "[>Hcr Hb]" "Hcl".
+    iApply (fupd_mask_weaken (⊤ ∖ ↑nroot.@"ioE")).
+    { set_solver. }
+    iIntros "Hwk".
+    iApply (lc_fupd_elim_later with "Hcr").
+    iNext. simpl in σ.
+    destruct σ as [[|n i] o].
+    - iExists (State [] o), 0, (State [] o), (k 0), [].
+      iFrame "Hb".
+      iSplit; first done.
+      rewrite /= ofe_iso_21.
+      iSplit; first done.
+      iNext.
+      iIntros "Hcr".
+      iIntros "HS".
+      iSpecialize ("Ha" $! 0).
+      iFrame "Ha".
+      rewrite /weakestpre.wptp big_sepL2_nil.
+      iSpecialize ("Hcl" with "[$Hcr HS]").
+      + iNext. iExists _. iFrame "HS".
+      + iApply (fupd_mono with "Hcl").
+        by iIntros "_".
+    - iExists (State (n :: i) o), n, (State i o), (k n), [].
+      iFrame "Hb".
+      iSplit; first done.
+      rewrite /= ofe_iso_21.
+      iSplit; first done.
+      iNext.
+      iIntros "Hcr".
+      iIntros "HS".
+      iSpecialize ("Ha" $! n).
+      iFrame "Ha".
+      rewrite /weakestpre.wptp big_sepL2_nil.
+      iSpecialize ("Hcl" with "[$Hcr HS]").
+      + iNext. iExists _. iFrame "HS".
+      + iApply (fupd_mono with "Hcl").
+        by iIntros "_".
+  Qed.
+
+  Lemma wp_output_agnostic (n : nat) Φ s :
+    io_ctx
+    -∗ ▷ (Φ (RetV 0))
+    -∗ WP@{rs} (OUTPUT n) @ s {{ Φ }}.
+  Proof.
+    iIntros "#Hs Ha".
+    unfold OUTPUT. simpl.
+    iApply wp_subreify_ctx_indep_lift''.
+    iInv (nroot.@"ioE") as (σ) "[>Hcr Hb]" "Hcl".
+    iApply (fupd_mask_weaken (⊤ ∖ ↑nroot.@"ioE")).
+    { set_solver. }
+    iIntros "Hwk".
+    iApply (lc_fupd_elim_later with "Hcr").
+    iNext. simpl in σ.
+    destruct σ as [i o].
+    iExists (State i o), (), (State i (n :: o)), (Ret 0), [].
+    iFrame "Hb".
+    iSplit; first done.
+    iSplit; first done.
+    iNext.
+    iIntros "Hcr".
+    iIntros "HS".
+    rewrite /weakestpre.wptp big_sepL2_nil.
+    iAssert emp%I as "H"; last iFrame "H"; first done.
+    iApply wp_val.
+    iFrame "Ha".
+    iSpecialize ("Hcl" with "[$Hcr HS]").
+    + iNext. iExists _. iFrame "HS".
+    + iApply (fupd_mono with "Hcl").
+      by iIntros "_".
+  Qed.
+
+End weakestpre.

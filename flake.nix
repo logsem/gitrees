@@ -1,7 +1,7 @@
 {
   description = "gitrees";
   inputs = {
-    nixpkgs.url = github:NixOS/nixpkgs/nixos-24.05;
+    nixpkgs.url = github:NixOS/nixpkgs/nixos-24.11;
     flake-utils.url = github:numtide/flake-utils;
   };
   outputs = { self, nixpkgs, flake-utils }:
@@ -9,8 +9,8 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         lib = pkgs.lib;
-        coq = pkgs.coq_8_19;
-        coqPkgs = pkgs.coqPackages_8_19;
+        coq = pkgs.coq_8_20;
+        coqPkgs = pkgs.coqPackages_8_20;
       in {
         packages = {
           coq-artifact = coqPkgs.mkCoqDerivation {

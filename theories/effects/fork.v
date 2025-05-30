@@ -64,30 +64,54 @@ Section weakestpre.
   Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
-  Lemma wp_fork (σ : stateO) (n : IT) (k : IT -n> IT) `{!IT_hom k} Φ s :
-    has_substate σ
-    -∗ ▷ (£ 1 -∗ has_substate σ -∗ WP@{rs} (k (Ret ())) @ s {{ Φ }}
-                                 ∗ ▷ WP@{rs} n @ s {{ fork_post }}) -∗
-    WP@{rs} k (FORK n) @ s {{ Φ }}.
+  Program Definition fork_ctx :=
+    inv (nroot.@"forkE")
+      (£1 ∗ has_substate ())%I.
+
+  Lemma wp_fork_hom (n : IT) (k : IT -n> IT) `{!IT_hom k} Φ s :
+    fork_ctx
+    -∗ ▷ WP@{rs} n @ s {{ fork_post }}
+    -∗ ▷ WP@{rs} (k (Ret ())) @ s {{ Φ }}
+    -∗ WP@{rs} k (FORK n) @ s {{ Φ }}.
   Proof.
-    iIntros "Hs Ha".
+    iIntros "Hs Ha1 Ha2".
     unfold FORK. simpl.
     rewrite hom_vis.
     iApply wp_subreify_ctx_indep_lift''.
-    iModIntro.
-    iExists σ, (), σ, (k (Ret ())), [NextO n].
+    iInv (nroot.@"forkE") as "[>Hcr Hs]" "Hcl".
+    iApply (fupd_mask_weaken (⊤ ∖ ↑nroot.@"forkE")).
+    { set_solver. }
+    iIntros "Hwk".
+    iApply (lc_fupd_elim_later with "Hcr").
+    iNext.
+    iExists (), (), (), (k (Ret ())), [NextO n].
     iFrame "Hs".
     iSplit; first done.
     rewrite /= ofe_iso_21 later_map_Next.
     iSplit; first done.
     iNext.
-    iIntros "Hc Hs !>".
-    iDestruct ("Ha" with "Hc Hs") as "(Ha1 & Ha2)".
-    iSplitL "Ha1"; first done.
+    iIntros "Hcr".
+    iIntros "HS".
+    iFrame "Ha2".
     rewrite /weakestpre.wptp big_sepL2_singleton.
     rewrite -Tick_eq.
     iApply wp_tick.
-    by iNext; iIntros "_".
+    iFrame "Ha1".
+    iSpecialize ("Hcl" with "[$Hcr $HS]").
+    iApply (fupd_mono with "Hcl").
+    iIntros "_". iNext. iIntros "_".
+    done.
+  Qed.
+
+  Lemma wp_fork (n : IT) (Φ : ITV -d> iProp) s :
+    fork_ctx
+    -∗ ▷ WP@{rs} n @ s {{ fork_post }}
+    -∗ ▷ Φ (RetV ())
+    -∗ WP@{rs} (FORK n) @ s {{ Φ }}.
+  Proof.
+    iIntros "Hs Ha1 Ha2".
+    iApply (wp_fork_hom _ idfun with "Hs Ha1").
+    iNext. iApply wp_val. by iModIntro.
   Qed.
 
 End weakestpre.

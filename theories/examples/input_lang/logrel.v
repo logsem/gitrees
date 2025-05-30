@@ -4,6 +4,8 @@ From gitrees.examples.input_lang Require Import lang interp.
 Require Import gitrees.gitree.greifiers.
 Require Import Binding.Lib Binding.Set Binding.Env.
 
+Import IF_nat.
+
 Section logrel.
   Context {sz : nat}.
   Variable (rs : gReifiers NotCtxDep sz).
@@ -368,42 +370,50 @@ Proof.
 Qed.
 Definition rs : gReifiers NotCtxDep 1 := gReifiers_cons reify_io gReifiers_nil.
 
+Program Definition InputLangGitreeGS {R} `{!Cofe R}
+  {a : is_ctx_dep} {n} (rs : gReifiers a n)
+  (Σ : gFunctors)
+  (H1 : invGS Σ) (H2 : stateG rs R Σ)
+  : gitreeGS_gen rs R Σ :=
+  GitreeG rs R Σ H1 H2
+    (λ _ σ, @state_interp _ _ rs R _ _ H2 σ)
+    (λ _, True%I)
+    (λ _, True%I)
+    _
+    (λ x, x)
+    _
+    _
+    _.
+Next Obligation.
+  intros; simpl.
+  iIntros "?". by iModIntro.
+Qed.
+Next Obligation.
+  intros; simpl. iSplit; iIntros "H".
+  - by iFrame "H".
+  - by iDestruct "H" as "(_ & ?)".
+Qed.
+
 Lemma logrel_nat_adequacy  Σ `{!invGpreS Σ}`{!statePreG rs natO Σ} {S} (α : IT (gReifiers_ops rs) natO) (e : expr S) n σ σ' k :
   (∀ `{H1 : !gitreeGS_gen rs natO Σ},
       (True ⊢ logrel rs Tnat α e)%I) →
-  external_steps (gReifiers_sReifier rs) α (σ,()) (Ret n) σ' [] k → ∃ m σ', prim_steps e σ (Val $ LitV n) σ' m.
+  external_steps (gReifiers_sReifier rs) α (σ,()) (Ret n) σ' [] k →
+  ∃ m σ', prim_steps e σ (Val $ LitV n) σ' m.
 Proof.
   intros Hlog Hst.
   pose (ϕ := λ (βv : ITV (gReifiers_ops rs) natO),
           ∃ m σ', prim_steps e σ (Val $ κ βv) σ' m).
   cut (ϕ (RetV n)).
-  { destruct 1 as ( m' & σ2 & Hm).
-    exists m', σ2. revert Hm. by rewrite κ_Ret. }
-  eapply (wp_adequacy (λ x, x) 1 NotCtxDep rs Σ α (σ,()) (Ret n) σ' notStuck k).
+  {
+    destruct 1 as ( m' & σ2 & Hm).
+    exists m', σ2. revert Hm. by rewrite κ_Ret.
+  }
+
+  eapply (wp_adequacy 0 (λ x, x) 1 NotCtxDep rs Σ α (σ,()) (Ret n) σ' notStuck k).
 
   intros Hinv1 Hst1.
-  assert (G1 : (nat → ∀ σ : prodO stateO unitO, state_interp σ
-                                                ⊢ |={∅%stdpp}=> state_interp σ)).
-  { intros. iIntros "?". by iModIntro. }
-  assert (G2 : (nat → NonExpansive (λ σ : prodO stateO unitO, state_interp σ))).
-  { solve_proper. }
-  assert (G3 : (nat → ∀ σ : prodO stateO unitO, state_interp σ
-                                                ⊣⊢ True ∗ state_interp σ)).
-  {
-    intros. iSplit; iIntros "H".
-    - by iFrame "H".
-    - by iDestruct "H" as "(_ & ?)".
-  }
-  pose H3 : gitreeGS_gen rs natO Σ :=
-    GitreeG rs natO Σ Hinv1 Hst1
-      (λ _ σ, @state_interp _ _ rs natO _ _ Hst1 σ)
-      (λ _, True%I)
-      (λ _, True%I)
-      ltac:(solve_proper)
-      (λ x, x)
-      G1
-      G2
-      G3.
+  pose H3 : gitreeGS_gen rs natO Σ := InputLangGitreeGS rs Σ Hinv1 Hst1.
+  simpl in H3.
   iExists (@state_interp_fun _ _ rs _ _ _ H3).
   iExists (@aux_interp_fun _ _ rs _ _ _ H3).
   iExists (@fork_post _ _ rs _ _ _ H3).
@@ -418,14 +428,14 @@ Proof.
   iExists Φ, _.
   iExists (@state_interp_fun_mono _ _ rs _ _ _ H3).
   iExists (@state_interp_fun_ne _ _ rs _ _ _ H3).
-  iExists (@state_interp_fun_decomp _ _ rs _ _ _ H3).
+  iExists (@state_interp_fun_decomp _ _ rs _ _ _ H3).  
+  simpl.
   iPoseProof (external_steps_internal_steps _ _ _ _ _ _ _ Hst) as "J1".
   iFrame "J1"; iClear "J1".
   iAssert (True%I) as "G"; first done; iFrame "G"; iClear "G".
-
   iModIntro.
   iSplitL "".
-  - iIntros "Hst".
+  - iIntros "(_ & Hst)".
     iPoseProof (Hlog _ with "[//]") as "Hlog".
     iAssert (has_substate σ) with "[Hst]" as "Hst".
     {

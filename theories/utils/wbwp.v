@@ -20,15 +20,15 @@ Section wbwp.
   Let of_state := (of_state rs IT).
   Let of_idx := (of_idx rs IT).
   Notation reify := (reify rG).
-  Notation istep := (istep rG).
-  Notation isteps := (isteps rG).
-  Notation sstep := (sstep rG).
-  Notation ssteps := (ssteps rG).
+  Notation istep := (internal_step rG).
+  Notation isteps := (internal_steps rG).
+  Notation sstep := (external_step rG).
+  Notation ssteps := (external_steps rG).
 
   Implicit Type op : opid F.
   Implicit Type α β : IT.
 
-  Context `{!invGS Σ} `{!stateG rs A Σ}.
+  Context `{!gitreeGS_gen rs A Σ}.
   Notation iProp := (iProp Σ).
   Notation coPsetO := (leibnizO coPset).
 
@@ -82,15 +82,15 @@ Section wp.
   Let of_state := (of_state rs IT).
   Let of_idx := (of_idx rs IT).
   Notation reify := (reify rG).
-  Notation istep := (istep rG).
-  Notation isteps := (isteps rG).
-  Notation sstep := (sstep rG).
-  Notation ssteps := (ssteps rG).
+  Notation istep := (internal_step rG).
+  Notation isteps := (internal_steps rG).
+  Notation sstep := (external_step rG).
+  Notation ssteps := (external_steps rG).
 
   Implicit Type op : opid F.
   Implicit Type α β : IT.
 
-  Context `{!invGS Σ} `{!stateG rs A Σ} `{!gstacksIG Σ}.
+  Context `{!gitreeGS_gen rs A Σ} `{!gstacksIG Σ}.
   Notation iProp := (iProp Σ).
   Notation coPsetO := (leibnizO coPset).
 
@@ -300,15 +300,15 @@ Section proofmode_classes.
   Let of_state := (of_state rs IT).
   Let of_idx := (of_idx rs IT).
   Notation reify := (reify rG).
-  Notation istep := (istep rG).
-  Notation isteps := (isteps rG).
-  Notation sstep := (sstep rG).
-  Notation ssteps := (ssteps rG).
+  Notation istep := (internal_step rG).
+  Notation isteps := (internal_steps rG).
+  Notation sstep := (external_step rG).
+  Notation ssteps := (external_steps rG).
 
   Implicit Type op : opid F.
   Implicit Type α β : IT.
 
-  Context `{!invGS Σ} `{!stateG rs A Σ} `{!gstacksIG Σ}.
+  Context `{!gitreeGS_gen rs A Σ} `{!gstacksIG Σ}.
   Notation iProp := (iProp Σ).
   Notation coPsetO := (leibnizO coPset).
 

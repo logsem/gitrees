@@ -29,9 +29,9 @@ with ectx {X : Set} :=
 | ThrowLK (K : ectx) (e : expr) : ectx
 | ThrowRK (v : val) (K : ectx) : ectx.
 
-Arguments val X%bind : clear implicits.
-Arguments expr X%bind : clear implicits.
-Arguments ectx X%bind : clear implicits.
+Arguments val X%_bind : clear implicits.
+Arguments expr X%_bind : clear implicits.
+Arguments ectx X%_bind : clear implicits.
 
 Local Open Scope bind_scope.
 

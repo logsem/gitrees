@@ -8,6 +8,8 @@ From iris.base_logic Require Import algebra.
 
 Require Import Binding.Lib Binding.Set Binding.Env.
 
+Import IF_nat.
+
 Open Scope stdpp_scope.
 
 Definition 𝒫_HOM {sz : nat}
@@ -23,8 +25,7 @@ Section logrel.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ}.
-  Context `{!stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
   Notation restO
     := (gState_rest
@@ -57,12 +58,7 @@ Section logrel.
     λne Ψ α,
        (WP α {{ βv, Ψ βv }})%I.
   Next Obligation. solve_proper_please. Qed.
-  Next Obligation.
-    solve_proper_prepare.
-    do 2 f_equiv.
-    (* intro; simpl. *)
-    solve_proper.
-  Qed.
+  Next Obligation. solve_proper. Qed.
 
   Definition logrel_mcont' (P Q : ITV -n> iProp) (F : stateF ♯ IT) :=
     (∀ αv, P αv -∗ has_substate F -∗ obs_ref Q (𝒫 (IT_of_V αv)))%I.
@@ -230,9 +226,6 @@ Section logrel.
     iIntros (γ) "Hγ".
     iIntros (Ψ κ) "Hκ".
     iIntros (m Q) "Hm Hst".
-    (* assert (𝒫 ((`κ) (interp_reset rs e γ)) *)
-    (*           ≡ (𝒫 ◎ `κ) (interp_reset rs e γ)) as ->. *)
-    (* { reflexivity. } *)
     unfold obs_ref.
     cbn [ofe_mor_car].
     iApply (wp_reset _ _ _ (λne x, κ x) with "Hst").
@@ -261,9 +254,6 @@ Section logrel.
     iIntros (γ) "#Hγ".
     iIntros (κ) "#Hκ".
     iIntros (m Q) "Hm Hst".
-    (* assert (𝒫 ((`κ) (interp_shift rs e γ)) *)
-    (*           ≡ (𝒫 ◎ `κ) (interp_shift rs e γ)) as ->. *)
-    (* { reflexivity. } *)
     iApply (wp_shift _ _ _ (λne x, κ x) with "Hst").
     { rewrite laterO_map_Next; reflexivity. }
     iNext.
@@ -340,7 +330,6 @@ Section logrel.
     Opaque extend_scope.
     simpl.
     rewrite hom_tick.
-    (* rewrite hom_tick. *)
     iApply wp_tick.
     iNext.
     iSpecialize ("H" $! γ' with "[Hw]").
@@ -369,6 +358,7 @@ Section logrel.
       * iApply "Hγ".
     }
     subst γ'.
+    iIntros "_".
     iApply ("H" with "Hκ Hσ Hst").
   Qed.
 
@@ -602,16 +592,6 @@ Section logrel.
     rewrite get_fun_fun.
     simpl.
 
-    (* match goal with *)
-    (* | |- context G [ofe_mor_car _ _ *)
-    (*                  (ofe_mor_car _ _ APP_CONT ?a) ?b] => *)
-    (*     set (T := APP_CONT a b) *)
-    (* end. *)
-    (* (* iAssert (𝒫 ((`κ) T) ≡ (𝒫 ◎ (`κ)) T)%I as "HEQ'". *) *)
-    (* (* { iPureIntro. reflexivity. } *) *)
-    (* (* iRewrite "HEQ'"; iClear "HEQ'". *) *)
-    (* subst T. *)
-
     iApply (wp_app_cont _ _ _ _ (λne x, κ x) with "[Hst]").
     { reflexivity. }
     - iFrame "Hst".
@@ -623,7 +603,9 @@ Section logrel.
       iApply wp_tick.
       iNext.
       iSpecialize ("Hv" $! w with "Hw").
-
+      
+      iIntros "_".
+      
       iApply ("Hv" $! (laterO_map (λne x, κ x) :: m'') with "[Hm] Hst").
       {
         iIntros (p) "#Hp Hst".
@@ -732,34 +714,50 @@ End logrel.
 
 Local Definition rs : gReifiers CtxDep 1 := gReifiers_cons reify_delim gReifiers_nil.
 
-Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
+#[local] Parameter Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
 Lemma logpred_adequacy cr Σ R `{!Cofe R, SubOfe natO R}
   `{!invGpreS Σ} `{!statePreG rs R Σ}
   (α : interp_scope ∅ -n> IT (gReifiers_ops rs) R)
   (e : IT (gReifiers_ops rs) R) st' k :
-  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ},
-      (£ cr ⊢ valid_pure rs □ α ℕ)%I) →
-  ssteps (gReifiers_sReifier rs) (𝒫 (α ı_scope)) ([], ()) e st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier rs) e st' β1 st1)
-   ∨ (∃ βv, IT_of_V βv ≡ e).
+  (∀ `{H1 : !gitreeGS_gen rs R Σ},
+     (£ cr ⊢ valid_pure rs □ α ℕ)%I) →
+  external_steps (gReifiers_sReifier rs) (𝒫 (α ı_scope)) ([], ()) e st' [] k →
+  is_Some (IT_to_V e)
+  ∨ (∃ β1 st1 l, external_step (gReifiers_sReifier rs) e st' β1 st1 l).  
 Proof.
   intros Hlog Hst.
   destruct (IT_to_V e) as [βv|] eqn:Hb.
-  { right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. }
-  left.
-  cut ((∃ β1 st1, sstep (gReifiers_sReifier rs) e st' β1 st1)
-      ∨ (∃ e', e ≡ Err e' ∧ notStuck e')).
-  { intros [?|He]; first done.
-    destruct He as [? [? []]]. }
-  eapply (wp_safety cr); eauto.
-  { apply Hdisj. }
-  { by rewrite Hb. }
+  { left. exists βv. done. }
+  right.    
+  cut (is_Some (IT_to_V e)
+       ∨ (∃ β1 st1 l, external_step (gReifiers_sReifier rs) e st' β1 st1 l)
+       ∨ (∃ e', e ≡ Err e' ∧ notStuck e')).
+  {
+    intros [Hv|[?|He]]; first by (rewrite Hb in Hv; inversion Hv).
+    - done.
+    - destruct He as [? [? []]].
+  }
+  eapply (wp_progress_gen Σ 1 CtxDep rs cr (λ x, x) notStuck []
+            k (𝒫 (α ı_scope)) e ([], ()) st' Hdisj Hst).
   intros H1 H2.
+  
+  pose H3 : gitreeGS_gen rs R Σ := DelimLangGitreeGS rs Σ H1 H2.
+  simpl in H3.
   exists (λ _, True)%I. split.
   { apply _. }
-  iIntros "[Hcr  Hst]".
-  iPoseProof (Hlog with "Hcr") as "Hlog".
+  iExists (@state_interp_fun _ _ rs _ _ _ H3).
+  iExists (@aux_interp_fun _ _ rs _ _ _ H3).
+  iExists (@fork_post _ _ rs _ _ _ H3).
+  iExists (@fork_post_ne _ _ rs _ _ _ H3).
+  iExists (@state_interp_fun_mono _ _ rs _ _ _ H3).
+  iExists (@state_interp_fun_ne _ _ rs _ _ _ H3).
+  iExists (@state_interp_fun_decomp _ _ rs _ _ _ H3).
+  simpl.
+  iAssert (True%I) as "G"; first done; iFrame "G"; iClear "G".
+  iModIntro. iIntros "(Hcr & Hst)".
+  
+  iPoseProof (Hlog H3 with "Hcr") as "Hlog".
   match goal with
   | |- context G [has_full_state (?a, _)] =>
       set (st := a)
@@ -772,8 +770,10 @@ Proof.
     intro j. unfold sR_idx. simpl.
     unfold of_state, of_idx.
     destruct decide as [Heq|]; last first.
-    { inv_fin j; first done.
-      intros i. inversion i. }
+    {
+      inv_fin j; first done.
+      intros i. inversion i.
+    }
     inv_fin j; last done.
     intros Heq.
     rewrite (eq_pi _ _ Heq eq_refl)//.
@@ -814,9 +814,9 @@ Qed.
 
 Lemma safety e σ (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k :
   typed_pure_expr □ e ℕ →
-  ssteps (gReifiers_sReifier rs) (𝒫 (interp_expr rs e ı_scope)) ([], ()) β σ k →
-  (∃ β1 st1, sstep (gReifiers_sReifier rs) β σ β1 st1)
-   ∨ (∃ βv, IT_of_V βv ≡ β)%stdpp.
+  external_steps (gReifiers_sReifier rs) (𝒫 (interp_expr rs e ı_scope)) ([], ()) β σ [] k →
+  is_Some (IT_to_V β)
+  ∨ (∃ β1 st1 l, external_step (gReifiers_sReifier rs) β σ β1 st1 l).  
 Proof.
   intros Htyped Hsteps.
   pose (R := natO).
@@ -826,6 +826,6 @@ Proof.
   assert (statePreG rs R Σ).
   { apply _. }
   eapply (logpred_adequacy 0 Σ); eauto.
-  intros ? ?. iIntros "_".
+  intros ?. iIntros "_".
   by iApply fundamental_expr_pure.
 Qed.

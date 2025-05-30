@@ -162,9 +162,9 @@ Section constructors.
   Notation IT := (IT E R).
   Notation ITV := (ITV E R).
 
-  Program Definition CREATE : (IT -n> IT) -n> (locO -n> IT) -n> IT :=
+  Program Definition CREATE : IT -n> (locO -n> IT) -n> IT :=
     (λne p k, Vis (E := E) (subEff_opid $ op_create)
-      (subEff_ins (F := CoroutineE) (op := op_create) (Next p))
+      (subEff_ins (F := CoroutineE) (op := op_create) (Next (APP'_ne p)))
       (NextO ◎ k ◎ (subEff_outs (F := CoroutineE) (op := op_create))^-1)).
   Next Obligation.
     intros ? n.
@@ -178,6 +178,8 @@ Section constructors.
     apply Next_contractive.
     destruct n; first apply dist_later_0.
     apply dist_later_S.
+    f_equiv. intros ?; simpl.
+    f_equiv.
     by apply dist_S.
   Qed.
 
@@ -310,13 +312,13 @@ Section program_logic.
     iIntros "Ha Hf".
     iPoseProof (own_valid_2 with "Ha Hf") as "H".
     rewrite gmap_view_both_validI.
-    iDestruct "H" as "[%H Hval]".
+    iDestruct "H" as "[%H [Hval HEQ]]".
     rewrite lookup_fmap.
     rewrite option_equivI.
     destruct (σ !! l) as [o |] eqn:Heq.
     - rewrite Heq /=.
       rewrite agree_equivI.
-      by iRewrite "Hval".
+      by iRewrite "HEQ".
     - rewrite Heq /=.
       done.
   Qed.
@@ -333,12 +335,13 @@ Section program_logic.
 
   Lemma suspended_write l α β σ :
     own suspendedG_name (●V σ)
-    -∗ pointsto l α ==∗ own suspendedG_name (●V <[l:=(to_agree $ β)]>σ)
-                      ∗ pointsto l β.
+    -∗ pointsto l α
+    ==∗ own suspendedG_name (●V <[l:=(to_agree $ β)]>σ)
+      ∗ pointsto l β.
   Proof.
     iIntros "H Hl".
     iMod (own_update_2 with "H Hl") as "[$ $]"; last done.
-    apply gmap_view_update.
+    by apply gmap_view_replace.
   Qed.
 
   Lemma suspended_delete l α σ :
@@ -356,7 +359,7 @@ Section program_logic.
   Proof.
     iIntros "H Hl".
     iMod (own_update_2 with "H Hl") as "[$ $]"; last done.
-    apply gmap_view_update.
+    by apply gmap_view_replace.
   Qed.
 
   Lemma stack_update l l' l'' :
@@ -393,7 +396,7 @@ Section program_logic.
 
   Lemma wp_create_hom s Φ (κ : locO -n> IT) α k `{!IT_hom k} :
     coroutines_ctx -∗
-    ▷▷ (∀ l, l ↦ later_ap (Next α) -∗ WP@{rs} k (κ l) @ s {{ Φ }}) -∗
+    ▷▷ (∀ l, l ↦ later_ap (Next $ APP'_ne α) -∗ WP@{rs} k (κ l) @ s {{ Φ }}) -∗
     WP@{rs} k (CREATE α κ) @ s {{ Φ }}.
   Proof.
     iIntros "#Hcxt H".
@@ -404,7 +407,7 @@ Section program_logic.
     iApply (lc_fupd_elim_later with "Hlc").
     iModIntro.
     set (l:=Loc.fresh (dom σ.1)).
-    iExists σ, (Next (k (κ l))), (<[l := Some (later_ap (Next α))]>σ.1, σ.2),
+    iExists σ, (Next (k (κ l))), (<[l := Some (later_ap (Next $ APP'_ne α))]>σ.1, σ.2),
       (k (κ l)), [].
     iFrame "Hs".
     destruct σ as [σ1 σ2]. simpl. change (Loc.fresh (dom σ1)) with l.
@@ -417,7 +420,7 @@ Section program_logic.
     }
     iSplit; first done.
     iNext. iIntros "Hlc Hs".
-    iMod (suspended_alloc (later_ap (Next α)) l with "Hh") as "[Hh Hpt]".
+    iMod (suspended_alloc (later_ap (Next $ APP'_ne α)) l with "Hh") as "[Hh Hpt]".
     {
       apply (not_elem_of_dom_1 (M:=gmap loc)).
       rewrite dom_fmap_L.
@@ -427,7 +430,7 @@ Section program_logic.
     }
     iMod ("Hcl" with "[$Hlc Hs Hh Hh']") as "Hcl".
     {
-      iNext. iExists (<[l := Some $ later_ap (Next α)]>σ1, σ2).
+      iNext. iExists (<[l := Some $ later_ap (Next $ APP'_ne α)]>σ1, σ2).
       rewrite fmap_insert.
       iFrame "Hs Hh Hh'".
     }
@@ -438,7 +441,7 @@ Section program_logic.
 
   Lemma wp_resume_hom s Φ (l : loc) (e : IT) α k `{!IT_hom k} :
     coroutines_ctx
-    -∗ l ↦ later_ap (Next α)
+    -∗ l ↦ later_ap (Next $ α)
     -∗ ▷ (l ↦ nil -∗ WP@{rs} k (LABEL l (α e)) @ s {{ Φ }})
     -∗ WP@{rs} k (RESUME l e) @ s {{ Φ }}.
   Proof.
@@ -457,7 +460,7 @@ Section program_logic.
             rewrite Hx !option_equivI //=).
     destruct (Next_uninj (x (Next e))) as [β' Hb'].
     iDestruct (suspended_read with "Hh H") as "#J".
-    iAssert (Next β' ≡ later_ap (Next α) (Next e))%I as "#Hba".
+    iAssert (Next β' ≡ later_ap (Next $ α) (Next e))%I as "#Hba".
     {
       rewrite -Hb' Hx.
       do 2 rewrite option_equivI.
@@ -632,12 +635,12 @@ Section lib.
   Proof. solve_proper. Qed.
 
   Program Definition WRAP (f : IT) : IT :=
-    CREATE (APP' f) (λne l, INVOKE l).
+    CREATE f (λne l, INVOKE l).
   Solve All Obligations with solve_proper_please.
   Global Instance WRAP_ne : NonExpansive WRAP.
   Proof.
     intros p x y Hxy. rewrite /WRAP.
-    by do 3 f_equiv.
+    by do 2 f_equiv.
   Qed.
 
   Context `{!gitreeGS_gen rs R Σ, !coroutinesG rs R Σ}.
@@ -681,7 +684,7 @@ Section lib.
     ls (f : IT -n> IT) s
     Φ l α `{!AsVal α} :
     coroutines_ctx rs R
-    -∗ l↦later_ap (Next f)
+    -∗ l↦later_ap (Next $ f)
     -∗ stack rs R ls
     -∗ ▷ (l↦nil
           -∗ stack rs R ((l, later_ap (Next (λne x : IT, k x))) :: ls)
@@ -790,8 +793,9 @@ Section lib.
     iEval (rewrite /LETCTX /= LET_Val /= seq_into_hom).
 
     iApply (wp_invoke_app_hom (SEQCtx (INVOKE l ⊙ (Ret ()))) with "Hcor Hl Hst").
-    iNext. iIntros "Hl Hst". iSimpl.
-    iEval (rewrite get_val_ITV /= get_fun_fun /= -Tick_eq /= !hom_tick).
+    iNext. iIntros "Hl Hst".
+    iEval (rewrite -seq_into_hom /THUNK get_val_ITV /= get_fun_fun /=
+           -Tick_eq seq_into_hom hom_tick).
     iApply wp_tick. iNext. iIntros "_".
     iEval (rewrite generator_body_unfold seq_into_hom hom_tick).
     iApply wp_tick. iNext. iIntros "_".
@@ -821,42 +825,3 @@ Section lib.
   Qed.
 
 End lib.
-
-(* Require Import gitrees.lib.sums gitrees.lib.pairs. *)
-
-(* Section lib. *)
-(*   Context {n : nat}. *)
-(*   Variable (rs : gReifiers CtxDep n). *)
-(*   Context {R} {CR : Cofe R} `{!SubOfe unitO R}. *)
-(*   Notation F := (gReifiers_ops rs). *)
-(*   Notation IT := (IT F R). *)
-(*   Notation ITV := (ITV F R). *)
-(*   Context `{!subReifier reify_coroutines rs}. *)
-
-(*   Program Definition WRAP' (f : IT) : IT := WRAP rs f. *)
-(*     CREATE (APP' f) (λne l, INVOKE l). *)
-
-(*   Program Definition NIL : IT := injl_ITf (Ret ()). *)
-(*   Program Definition CONS : IT := λit x xs, injr_ITf (pairIT x xs). *)
-(*   Solve All Obligations with solve_proper_please. *)
-
-(* End lib. *)
-
-(* Require Import gitrees.effects.store. *)
-
-(* Section lib. *)
-(*   Context {n : nat}. *)
-(*   Variable (rs : gReifiers CtxDep n). *)
-(*   Context {R} {CR : Cofe R}. *)
-(*   Notation F := (gReifiers_ops rs). *)
-(*   Notation IT := (IT F R). *)
-(*   Notation ITV := (ITV F R). *)
-(*   Notation stateO := (stateF ♯ IT). *)
-(*   Context `{!subReifier reify_coroutines rs}. *)
-(*   Context `{!subReifier (sReifier_NotCtxDep_min reify_store CtxDep) rs}. *)
-
-(*   Context `{!gitreeGS_gen rs R Σ, !coroutinesG rs R Σ, !heapG rs R Σ}. *)
-(*   Notation iProp := (iProp Σ). *)
-
-
-(* End lib. *)

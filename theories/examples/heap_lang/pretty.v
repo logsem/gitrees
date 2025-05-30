@@ -13,7 +13,6 @@ Global Instance pretty_base_lit : Pretty base_lit :=
        | LitInt z => pretty z
        | LitBool b => if b then "true" else "false"
        | LitUnit => "()"
-       | LitPoison => "<poison>"
        | LitLoc l => "(loc " +:+ pretty l +:+ ")"
        end.
 

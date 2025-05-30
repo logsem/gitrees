@@ -28,9 +28,9 @@ with ectx {X : Set} :=
 | NatOpRK (op : nat_op) (e : expr) (K : ectx) : ectx
 | NatOpLK (op : nat_op) (K : ectx) (v : val) : ectx.
 
-Arguments val X%bind : clear implicits.
-Arguments expr X%bind : clear implicits.
-Arguments ectx X%bind : clear implicits.
+Arguments val X%_bind : clear implicits.
+Arguments expr X%_bind : clear implicits.
+Arguments ectx X%_bind : clear implicits.
 
 Local Open Scope bind_scope.
 

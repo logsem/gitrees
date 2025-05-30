@@ -108,7 +108,7 @@ Section weakestpre.
   Context {R} `{!Cofe R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Implicit Type σ : unitO.
@@ -128,6 +128,7 @@ Section weakestpre.
     rewrite /=.
     iNext.
     iIntros "Hlc Hs".
+    rewrite /weakestpre.wptp big_sepL2_nil.
     iSplit; last done.
     iApply ("Ha" with "Hlc Hs").
   Qed.
@@ -144,6 +145,7 @@ Section weakestpre.
     rewrite /=.
     iNext.
     iIntros "Hlc Hs".
+    rewrite /weakestpre.wptp big_sepL2_nil.
     iSplit; last done.
     iApply ("Ha" with "Hlc Hs").
   Qed.
@@ -179,6 +181,7 @@ Section weakestpre.
     rewrite /=.
     iNext.
     iIntros "Hlc Hs".
+    rewrite /weakestpre.wptp big_sepL2_nil.
     iSplit; last done.
     iApply ("Ha" with "Hlc Hs").
   Qed.

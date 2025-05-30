@@ -40,9 +40,9 @@ with cont {X : Set} :=
 (* conts are inside-out contexts: eg
  IfK e1 e2 (AppLK v ◻) ==> App (if ◻ then e1 else e2) v*)
 
-Arguments val X%bind : clear implicits.
-Arguments expr X%bind : clear implicits.
-Arguments cont X%bind : clear implicits.
+Arguments val X%_bind : clear implicits.
+Arguments expr X%_bind : clear implicits.
+Arguments cont X%_bind : clear implicits.
 
 Local Open Scope bind_scope.
 
@@ -414,8 +414,8 @@ Variant Cred {S : Set} : config -> config -> (nat * nat) -> Prop :=
   (Cmcont [] v) ===> (Cret v) / (1, 1)
 where "c ===> c' / nm" := (Cred c c' nm).
 
-Arguments Mcont S%bind : clear implicits.
-Arguments config S%bind : clear implicits.
+Arguments Mcont S%_bind : clear implicits.
+Arguments config S%_bind : clear implicits.
 
 Inductive steps {S} : config S -> config S -> (nat * nat) -> Prop :=
 | steps_zero : forall c,

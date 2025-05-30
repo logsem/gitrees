@@ -1,3 +1,9 @@
+(** Modified version of heap lang taken from the Iris repository
+Changes made:
+- no prophecy variables
+- red values are only primitives (int, bool, unit and loc)
+*)
+
 From stdpp Require Export binders strings.
 From stdpp Require Import gmap.
 From iris.algebra Require Export ofe.
@@ -125,8 +131,6 @@ Definition lit_is_unboxed (l: base_lit) : Prop :=
 Definition val_is_unboxed (v : val) : Prop :=
   match v with
   | LitV l => lit_is_unboxed l
-  | InjLV (LitV l) => lit_is_unboxed l
-  | InjRV (LitV l) => lit_is_unboxed l
   | _ => False
   end.
 

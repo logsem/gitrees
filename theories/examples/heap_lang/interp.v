@@ -1113,137 +1113,51 @@ End interp.
 Arguments interp_expr {_ _ _ _ _ _ _ _}.
 Arguments interp_val {_ _ _ _ _ _ _ _}.
 
-(* Lemma sfd : Ofe_decide_eq base_litO. *)
-(* Proof. *)
-(*   unshelve econstructor. *)
-(*   - unshelve econstructor. *)
-(*     + intros. *)
-(*       unshelve econstructor. *)
-(*       * intros. *)
-(*         apply (bool_decide (X = X0)). *)
-(*       * intros ????. *)
-(*         simpl in H. *)
-(*         rewrite H. *)
-(*         reflexivity. *)
-(*     + intros ????. *)
-(*       simpl in H. *)
-(*       rewrite H. *)
-(*       reflexivity. *)
-(*   - intros ???. *)
-(*     simpl in H. *)
-
-(* Section program_logic. *)
-(*   Context {sz : nat}. *)
-(*   Variable (rs : gReifiers NotCtxDep sz). *)
-(*   Context {R} `{CR : !Cofe R} `{SubOfe boolO R}. *)
-(*   Notation F := (gReifiers_ops rs). *)
-(*   Notation IT := (IT F R). *)
-(*   Notation ITV := (ITV F R). *)
-(*   Context `{!gitreeGS_gen rs R Σ}. *)
-
-(*   Class ofe_decide_eq T `{!SubOfe T R} := *)
-(*     MkOfeDecide { *)
-(*         ofe_dec' : IT -n> IT -n> IT; *)
-(*         ofe_dec_reflect' : ∀ a b : T, *)
-(*           ofe_dec' (Ret a) (Ret b) ≡ Ret true → (Ret a : IT) ≡ (Ret b : IT); *)
-(*         (* ofe_dec_hom1 e a : ofe_dec (Tick e) a ≡ Tick (ofe_dec e a); *) *)
-(*         (* ofe_dec_hom2 (v : ITV) a : ofe_dec (IT_of_V v) (Tick a) ≡ Tick (ofe_dec (IT_of_V v) a); *) *)
-(*       }. *)
-
-(*   Global Program Instance ofe_decide_eq_base_litO `{!SubOfe base_litO R} : *)
-(*     ofe_decide_eq base_litO *)
-(*     := MkOfeDecide base_litO _ (get_ret2 (λne x y, Ret (bool_decide (x = y)))) _. *)
-(*   Next Obligation. *)
-(*     intros ? x y K. *)
-(*     rewrite /get_ret2 /= in K. *)
-(*     rewrite get_ret_ret /= get_ret_ret /= in K. *)
-(*     apply bi.siProp.internal_eq_soundness. *)
-(*     iDestruct (Ret_inj (E := F) (A := boolO) (B := R) true false) as "J". *)
-(*     destruct (bool_decide (x = y)) as [G | G] eqn:J. *)
-(*     - rewrite bool_decide_eq_true in J. *)
-(*       by rewrite J. *)
-(*     - iEval (rewrite K) in "J". *)
-(*       iExFalso. *)
-(*       iDestruct "J" as "[_ J]". *)
-(*       iDestruct ("J" with "[]") as "J'"; first done. *)
-(*       iDestruct (discrete_eq with "J'") as "%P". *)
-(*       inversion P. *)
-(*   Qed. *)
-
-(*   Lemma sdfsdf (w1 w2 : val) (env : varsO rs) *)
-(*     `{!SubOfe base_litO R} *)
-(*     `{!subReifier reify_store rs *)
-(*       , !subReifier reify_fork_sig rs} *)
-(*     `{!Ofe_decide_eq R} *)
-(*     : vals_compare_safe w1 w2 → w1 = w2 → *)
-(*       (ofe_dec' (interp_val w1 env) (interp_val w2 env) ≡ Ret true). *)
-(*   Proof. *)
-(*     intros J ->. *)
-(*     unfold ofe_dec'. *)
-(*     simpl. *)
-(*     destruct J. *)
-(*     - destruct w2; simpl in H0; [| inversion H0 | inversion H0 | |]. *)
-(*       + rewrite get_ret_ret /= get_ret_ret /=. *)
-
-(*         admit. *)
-(*       + destruct w2; simpl in H0; [| inversion H0 | inversion H0 | |]. *)
-(*         * simpl. *)
-(*           match goal with *)
-(*           | |- context G [ofe_mor_car _ _ (get_ret ?a) ?b] => *)
-(*               set (F := b) *)
-(*           end. *)
-(*           assert (F ≡ injl_ITf (Ret l)) as ->. *)
-(*           { unfold injl_ITf. *)
-(*             simpl. *)
-(*             subst F. *)
-(*             rewrite get_val_ret /=. *)
-(*             reflexivity. *)
-(*           } *)
-(*           simpl. *)
-
-(*           set (F := (get_val (λne v : IT, λit l0 : IT, λit _ : IT, l0 ⊙ v) (Ret l))). *)
-(*           admit. *)
-(*         * admit. *)
-(*         * admit. *)
-(*       + admit. *)
-(*     - destruct w2; simpl in H; [| inversion H | inversion H | |]. *)
-(*       + rewrite get_ret_ret /= get_ret_ret /=. *)
-(*         admit. *)
-(*       + destruct w2; simpl in H; [| inversion H | inversion H | |]. *)
-(*         * admit. *)
-(*         * admit. *)
-(*         * admit. *)
-(*       + admit. *)
-(*   Admitted. *)
-
-(* End program_logic. *)
+Program Definition BaseLitEq : Ofe_decide_eq base_litO
+  := MkOfeDecide (λne a b, bool_decide (a = b)) _ _ _.
+Next Obligation.
+  intros ?? H.
+  simpl in H.
+  by rewrite bool_decide_eq_true in H.
+Qed.
+Next Obligation.
+  intros ?? ->; simpl.
+  by apply bool_decide_eq_true.
+Qed.
+Next Obligation.
+  intros ?? H; simpl.
+  by apply bool_decide_eq_false.
+Qed.  
 
 Section program_logic.
   Context {sz : nat}.
   Variable (rs : gReifiers NotCtxDep sz).
   Context `{!subReifier reify_store rs
-      , !subReifier reify_fork_sig rs}.
+      , !subReifier reify_fork rs}.
   Context {R} `{CR : !Cofe R} `{!Ofe_decide_eq R}.
   Context `{so : !SubOfe base_litO R}.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
   Context `{!gitreeGS_gen rs R Σ, !heapG rs R Σ}.
-
-  Lemma interp_wp_fork σ (n : IT) Φ (e : expr) (env : varsO rs) :
-    has_substate σ
-    -∗ ▷ (£ 1 -∗ has_substate σ
-          -∗ WP@{rs} (Ret ()) {{ Φ }}
-           ∗ ▷ WP@{rs} (interp_expr e env) {{ fork_post }})
+  
+  Ltac fold_interp :=
+    match goal with
+    | |- context G [interp_expr ?a] =>
+        progress fold (interp_expr (R := R) a)
+    | |- context G [interp_val ?a] =>
+        progress fold (interp_val (R := R) a)
+    end.
+  
+  Lemma interp_wp_fork (n : IT) (Φ : ITV  -d> iPropO Σ) (e : expr) (env : varsO rs) :
+    fork_ctx rs
+    -∗ ▷ Φ (RetV ())
+    -∗ ▷ WP@{rs} (interp_expr e env) {{ fork_post }}
     -∗ WP@{rs} (interp_expr (Fork e) env) {{ Φ }}.
   Proof.
-    iIntros "H G".
-    iEval (unfold interp_expr at 1).
-    match goal with
-    | |- context G [ interp_fork _ (_ ?a)] =>
-        fold (interp_expr a)
-    end.
-    iApply (wp_fork rs _ _ idfun with "H G").
+    iIntros "H G1 G2".
+    iEval (unfold interp_expr at 1); fold_interp.
+    iApply (wp_fork rs with "H G2 G1").
   Qed.
 
   Lemma wp_cas_fail_hom (l : store.locO) α (w1 w2 : val) Φ (env : varsO rs) :
@@ -1255,7 +1169,7 @@ Section program_logic.
     -∗ WP@{rs} (interp_expr (CmpXchg #l w1 w2) env) {{ Φ }}.
   Proof.
     iIntros "#Hcxt H HEQ G".
-    unfold interp_expr at 1.
+    iEval (unfold interp_expr at 1); fold_interp.
     match goal with
     | |- context G [ interp_cas _ _ (_ ?a) (_ ?b)] =>
         fold (interp_expr a); fold (interp_expr b)
@@ -1274,7 +1188,7 @@ Section program_logic.
     -∗ WP@{rs} (interp_expr (CmpXchg #l w1 w2) env) {{ Φ }}.
   Proof.
     iIntros "#Hcxt H HEQ G".
-    unfold interp_expr at 1.
+    iEval (unfold interp_expr at 1); fold_interp.
     match goal with
     | |- context G [ interp_cas _ _ (_ ?a) (_ ?b)] =>
         fold (interp_expr a); fold (interp_expr b)
@@ -1284,33 +1198,75 @@ Section program_logic.
     iApply "HEQ".
   Qed.
 
-  Lemma sdfsdf (w1 w2 : val) (env : varsO rs)
-    : vals_compare_safe w1 w2 → w1 = w2 →
+  Lemma comparison_safe_true (w1 w2 : val) (env : varsO rs)
+    : vals_compare_safe w1 w2 → bool_decide (w1 = w2) = true →
       (safe_compare (interp_val w1 env) (interp_val w2 env) ≡ Ret true).
   Proof.
-    intros H ->.
+    intros H ->%bool_decide_eq_true_1.
     rewrite /safe_compare /safe_compare_def /=.
     rewrite get_val_ITV /= get_val_ITV /=.
     destruct H.
-    - destruct w2; simpl in H; [| inversion H | inversion H | |].
-      + rewrite get_ret_ret /= get_ret_ret /=.
+    - destruct w2; simpl in H;
+        [| inversion H | inversion H | inversion H | inversion H].
+      rewrite get_unboxed_ret_ret /= get_unboxed_ret_ret /=.
+      f_equiv.
+      fold_leibniz.
+      apply ofe_decision_reify_true.
+      f_equiv.
+    - destruct w2; simpl in H;
+        [| inversion H | inversion H | inversion H | inversion H].
+      rewrite get_unboxed_ret_ret /= get_unboxed_ret_ret /=.
+      f_equiv.
+      apply ofe_decision_reify_true.
+      f_equiv.
+  Qed.
 
-        admit.
-      + destruct w2; simpl in H; [| inversion H | inversion H | |].
-        * simpl.
+  Lemma ofe_iso_inj {A B : ofe} (f : A ≃ B) a b : ofe_iso_1 f a ≡ ofe_iso_1 f b → a ≡ b.
+  Proof.
+    intros H.
+    rewrite <-(ofe_iso_21 f a), <-(ofe_iso_21 f b).
+    now rewrite H.
+  Qed.
 
-          admit.
-        * admit.
-        * admit.
-      + admit.
-    - destruct w2; simpl in H; [| inversion H | inversion H | |].
-      + rewrite get_ret_ret /= get_ret_ret /=.
-        admit.
-      + destruct w2; simpl in H; [| inversion H | inversion H | |].
-        * admit.
-        * admit.
-        * admit.
-      + admit.
-  Admitted.
+  Lemma comparison_safe_false (w1 w2 : val) (env : varsO rs)
+    : vals_compare_safe w1 w2 → bool_decide (w1 = w2) = false →
+      (safe_compare (interp_val w1 env) (interp_val w2 env) ≡ Ret false).
+  Proof.
+    intros H G%bool_decide_eq_false_1.
+    rewrite /safe_compare /safe_compare_def /=.
+    rewrite get_val_ITV /= get_val_ITV /=.
+    destruct H.
+    - destruct w1; simpl in H;
+        [| inversion H | inversion H | inversion H | inversion H].
+      rewrite get_unboxed_ret_ret /=.
+      destruct w2.
+      + rewrite get_unboxed_ret_ret /=.
+        f_equiv.
+        apply ofe_decision_reify_false.
+        intros J.
+        apply G.
+        apply ofe_iso_inj in J.
+        inversion J; subst.
+        simplify_eq.
+      + by rewrite interp_rec_unfold get_unboxed_ret_fun.
+      + by rewrite /= get_val_ITV /= /= get_val_ITV /= get_unboxed_ret_fun.
+      + by rewrite /= get_val_ITV /= get_unboxed_ret_fun.
+      + by rewrite /= get_val_ITV /= get_unboxed_ret_fun.
+    - destruct w2; simpl in H;
+        [| inversion H | inversion H | inversion H | inversion H].
+      destruct w1.
+      + rewrite get_unboxed_ret_ret /= get_unboxed_ret_ret /=.
+        f_equiv.
+        apply ofe_decision_reify_false.
+        intros J.
+        apply G.
+        apply ofe_iso_inj in J.
+        inversion J; subst.
+        simplify_eq.
+      + by rewrite interp_rec_unfold get_unboxed_ret_fun /=.
+      + by rewrite /= get_val_ITV /= /= get_val_ITV /= get_unboxed_ret_fun.
+      + by rewrite /= get_val_ITV /= get_unboxed_ret_fun.
+      + by rewrite /= get_val_ITV /= get_unboxed_ret_fun.
+  Qed.
 
 End program_logic.

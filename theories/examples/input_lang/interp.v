@@ -4,7 +4,6 @@ From gitrees.examples.input_lang Require Import lang.
 
 Require Import Binding.Lib Binding.Set.
 
-
 Section interp.
   Context {sz : nat}.
   Variable (rs : gReifiers NotCtxDep sz).
@@ -48,14 +47,16 @@ Section interp.
     f_equiv; intros [| [| y']]; simpl; solve_proper.
   Qed.
   Next Obligation.
-    intros.
+    intros ??????? H.
     solve_proper_prepare.
-    f_equiv; intros [| [| y']]; simpl; solve_proper.
+    f_equiv; intros [| [| y']]; simpl; [done | apply H | done].
   Qed.
   Next Obligation.
     intros.
     solve_proper_prepare.
-    do 3 f_equiv; intros ??; simpl; f_equiv;
+    f_equiv.
+    apply laterO_map_ne.
+    intros ??; simpl; f_equiv;
     intros [| [| y']]; simpl; solve_proper.
   Qed.
   Next Obligation.
@@ -97,7 +98,7 @@ Section interp.
   Typeclasses Opaque interp_app.
 
   Program Definition interp_if {A} (t0 t1 t2 : A -n> IT) : A -n> IT :=
-    λne env, IF (t0 env) (t1 env) (t2 env).
+    λne env, IF_nat.IF (t0 env) (t1 env) (t2 env).
   Solve All Obligations with first [ solve_proper | solve_proper_please ].
   Global Instance interp_if_ne A n :
     Proper ((dist n) ==> (dist n) ==> (dist n) ==> (dist n)) (@interp_if A).
@@ -340,18 +341,18 @@ Section interp.
     IT_hom (interp_ectx (IfK K e1 e2) env).
   Proof.
     intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - rewrite -IF_Tick. f_equiv. apply hom_tick.
+    - rewrite -IF_nat.IF_Tick. f_equiv. apply hom_tick.
     - assert ((interp_ectx K env (Vis op i ko)) ≡
         (Vis op i (laterO_map (λne y, interp_ectx K env y) ◎ ko))).
       { by rewrite hom_vis. }
-      trans (IF (Vis op i (laterO_map (λne y : IT, interp_ectx K env y) ◎ ko))
+      trans (IF_nat.IF (Vis op i (laterO_map (λne y : IT, interp_ectx K env y) ◎ ko))
                (interp_expr e1 env) (interp_expr e2 env)).
       { f_equiv. by rewrite hom_vis. }
-      rewrite IF_Vis. f_equiv. simpl.
+      rewrite IF_nat.IF_Vis. f_equiv. simpl.
       intro. simpl. by rewrite -laterO_map_compose.
-    - trans (IF (Err e) (interp_expr e1 env) (interp_expr e2 env)).
+    - trans (IF_nat.IF (Err e) (interp_expr e1 env) (interp_expr e2 env)).
       { repeat f_equiv. apply hom_err. }
-      apply IF_Err.
+      apply IF_nat.IF_Err.
   Qed.
 
   #[local] Instance interp_ectx_hom_appr {S} (K : ectx S)
@@ -424,7 +425,7 @@ Section interp.
     head_step e σ e' σ' (n, 0) →
     interp_expr e env ≡ Tick_n n $ interp_expr e' env.
   Proof.
-    inversion 1; cbn-[IF APP' INPUT Tick get_ret2].
+    inversion 1; cbn-[IF_nat.IF APP' INPUT Tick get_ret2].
     - (* app lemma *)
       subst.
       erewrite APP_APP'_ITV; last apply _.
@@ -443,9 +444,9 @@ Section interp.
       destruct v1,v2; try naive_solver. simpl in *.
       rewrite NATOP_Ret.
       destruct op; simplify_eq/=; done.
-    - rewrite IF_True; last lia.
+    - rewrite IF_nat.IF_True; last lia.
       reflexivity.
-    - rewrite IF_False; last lia.
+    - rewrite IF_nat.IF_False; last lia.
       reflexivity.
   Qed.
 
@@ -518,7 +519,6 @@ Section interp.
         simpl.
         erewrite <-H; last reflexivity.
         f_equiv.
-        solve_proper.
       }
       repeat f_equiv; last done. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.

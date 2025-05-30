@@ -1,9 +1,11 @@
 From gitrees Require Export lang_generic gitree program_logic.
 From gitrees.examples.input_lang Require Import lang interp.
-From gitrees.effects Require Import store.
+From gitrees.effects Require Import store fork.
 From gitrees.lib Require Import pairs.
 
 Require Import Binding.Resolver Binding.Lib Binding.Set Binding.Auto Binding.Env.
+
+Import IF_nat.
 
 (* for namespace sake *)
 Module io_lang.
@@ -43,6 +45,7 @@ Inductive expr : ∀ (S : Set), Type :=
 | Replace {S1 S2 : Set} : expr S1 → expr S2 → expr (sum S1 S2)
 | Dealloc {S : Set} : expr S → expr S
 | EEmbed {S : Set} {τ1 τ1'} : io_lang.expr ∅ → ty_conv τ1 τ1' → expr S
+| EFork {S1 S2 : Set} : expr S1 → expr S2 → expr (sum S1 S2)
 .
 
 Section affine.
@@ -50,21 +53,21 @@ Section affine.
   Variable rs : gReifiers NotCtxDep sz.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier reify_io rs}.
+  Context `{!subReifier reify_fork rs}.
   Notation F := (gReifiers_ops rs).
   Context {R : ofe}.
   Context `{!Cofe R, !SubOfe unitO R, !SubOfe natO R, !SubOfe locO R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ, !heapG rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Program Definition thunked : IT -n> locO -n> IT := λne e ℓ,
-      λit _, IF (READ ℓ) (Err OtherError)
-                         (SEQ (WRITE ℓ (Ret 1)) e).
+      λit _, IF (xchg.XCHG ℓ (Ret 1)) (Err OtherError) e.
   Solve All Obligations with first [solve_proper|solve_proper_please].
 
   Program Definition thunkedV : IT -n> locO -n> ITV := λne e ℓ,
-      FunV $ Next (λne _, IF (READ ℓ) (Err OtherError) (SEQ (WRITE ℓ (Ret 1)) e)).
+      FunV $ Next (λne _, IF (xchg.XCHG ℓ (Ret 1)) (Err OtherError) e).
   Solve All Obligations with first [solve_proper|solve_proper_please].
 
   #[export] Instance thunked_into_val e l : IntoVal (thunked e l) (thunkedV e l).
@@ -123,6 +126,11 @@ Section affine.
 
   Program Definition interp_dealloc {A} (α : A -n> IT) : A -n> IT := λne env,
     get_ret DEALLOC (α env).
+  Solve All Obligations with solve_proper_please.
+
+  Program Definition interp_fork {A1 A2} (t1 : A1 -n> IT) (t2 : A2 -n> IT)
+    : A1 * A2 -n> IT:=
+    λne env, SEQ (FORK (t1 env.1)) (t2 env.2).
   Solve All Obligations with solve_proper_please.
 
   Program Definition glue_to_affine_fun (glue_from_affine glue_to_affine : IT -n> IT) : IT -n> IT := λne α,
@@ -210,6 +218,7 @@ Section affine.
         interp_replace (interp_expr e1) (interp_expr e2) ◎ interp_scope_split
     | EEmbed e tconv =>
         constO $ glue_to_affine tconv (io_lang.interp_closed _ e)
+    | EFork e1 e2 => interp_fork (interp_expr e1) (interp_expr e2) ◎ interp_scope_split
     end.
 
   Lemma wp_Thunk (β:IT) s (Φ:ITV → iProp) `{!NonExpansive Φ} :
@@ -227,17 +236,18 @@ End affine.
 
 #[global] Opaque Thunk.
 Arguments Force {_ _ _ _ _}.
-Arguments Thunk {_ _ _ _ _ _ _}.
+Arguments Thunk {_ _ _ _ _ _}.
 Arguments thunked {_ _ _ _ _ _}.
-Arguments thunkedV {_ _ _ _ _ _ _}.
+Arguments thunkedV {_ _ _ _ _ _}.
 
 Arguments interp_litbool {_ _ _ _ _ _}.
 Arguments interp_litnat {_ _ _ _ _ _}.
 Arguments interp_litunit {_ _ _ _ _ _}.
 Arguments interp_lam {_ _ _ _ _}.
-Arguments interp_app {_ _ _ _ _ _ _ _ _}.
+Arguments interp_app {_ _ _ _ _ _ _ _}.
 Arguments interp_pair {_ _ _ _ _ _}.
-Arguments interp_destruct {_ _ _ _ _ _ _ _ _}.
+Arguments interp_destruct {_ _ _ _ _ _ _ _}.
 Arguments interp_alloc {_ _ _ _ _ _ _}.
 Arguments interp_dealloc {_ _ _ _ _ _ _ _}.
 Arguments interp_replace {_ _ _ _ _ _ _ _ _}.
+Arguments interp_fork {_ _ _ _ _ _ _ _}.

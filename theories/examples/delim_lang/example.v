@@ -41,7 +41,7 @@ Section proof.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Lemma wp_t σ (s : gitree.weakestpre.stuckness) :
@@ -72,7 +72,7 @@ Section proof.
     iApply (wp_app_cont with "Hσ"); first done.
     iIntros "!> _ Hσ". simpl.
     rewrite later_map_Next -Tick_eq.
-    iApply wp_tick. iNext.
+    iApply wp_tick. iNext. iIntros "_".
     shift_hom.
     rewrite IT_of_V_Ret NATOP_Ret. simpl.
     rewrite -(IT_of_V_Ret 9).
@@ -91,7 +91,7 @@ Section proof.
     rewrite later_map_Next -Tick_eq.
     iApply wp_tick. iNext.
     rewrite (IT_of_V_Ret 5) NATOP_Ret. simpl.
-    rewrite -(IT_of_V_Ret 8).
+    rewrite -(IT_of_V_Ret 8). iIntros "_".
     iApply (wp_pop_cons with "Hσ").
     iIntros "!> _ Hσ".
     simpl.

@@ -11,8 +11,8 @@ build: [make "-j%{jobs}%"]
 install: [make "install"]
 remove: ["rm" "-rf" "%{lib}%/coq/user-contrib/gitrees"]
 depends: [
-  "coq-iris" { (= "4.1.0") }
-  "coq-iris-heap-lang" { (= "4.1.0") }
-  "coq-stdpp" { (= "1.9.0") }
-  "coq" { (>= "8.17") | (= "dev") }
+  "coq-iris" { (= "4.3.0") }
+  "coq-iris-heap-lang" { (= "4.3.0") }
+  "coq-stdpp" { (= "1.11.0") }
+  "coq" { (>= "8.20") | (= "dev") }
 ]
