@@ -1,19 +1,19 @@
 # Intro
 
 Guarded Interaction Trees (GITrees) are a framework for providing
-semantics for higher-order programming languages with complex effects,
+semantics for higher-order programming languages with complex effects
 such as concurrency, higher-order store, and I/O. One of the goals of
 the framework is to provide a direct translation for higher-order
-constructions. The intention is to use it as an alternative or
-augmentation to providing operational semantics.
+constructions. The intention is to use it as a composable alternative for
+providing operational semantics.
 
-In this document, we provide a description of the framework and short
-descriptions of two case studies. This document also describes an
+In this document, we provide a description of the framework and two short
+case studies. This document also describes an
 extension for concurrency and reasoning rules about atomic operations
 in GITrees.
 
-The document assumes familiarity with the Iris framework and
-recommends skimming through Sections 1–6 of [Modular Denotational
+The document assumes familiarity with the Iris framework. We
+recommend skimming through Sections 1–6 of [Modular Denotational
 Semantics for Effects with Guarded Interaction
 Trees](https://doi.org/10.1145/3632854).
 
@@ -198,10 +198,10 @@ following languages:
 ## Program Logic
 
 To reason about GITrees, the framework provides a program logic
-(mostly defined in `core/weakestpre.v`), based on internal steps. The
+(mostly defined in `core/weakestpre.v`) based on internal steps. The
 definition mostly follows the one in Iris and provides standard
 progress/adequacy lemmas. The program logic is parameterized by the
-following `GS`, which includes invariant `GS` (with later credits),
+following `GS`, which includes the invariant `GS` (with later credits),
 GITrees state `GS` (`stateG`), and some auxiliary parameters:
 
 ```coq
