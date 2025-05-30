@@ -1,4 +1,5 @@
 From gitrees Require Import prelude gitree.
+Export IF_nat.
 
 Section while.
   Context {E : opsInterp}.

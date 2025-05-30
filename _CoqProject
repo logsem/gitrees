@@ -34,11 +34,16 @@ theories/effects/callcc.v
 theories/effects/io_tape.v
 theories/effects/exceptions.v
 theories/effects/delim.v
+theories/effects/fork.v
+theories/effects/coroutines.v
 
 theories/lib/pairs.v
+theories/lib/sums.v
 theories/lib/while.v
 theories/lib/factorial.v
 theories/lib/iter.v
+theories/lib/eq.v
+theories/lib/generators.v
 
 theories/examples/delim_lang/lang.v
 theories/examples/delim_lang/typing.v
@@ -47,6 +52,12 @@ theories/examples/delim_lang/hom.v
 theories/examples/delim_lang/example.v
 theories/examples/delim_lang/logpred.v
 theories/examples/delim_lang/logrel.v
+theories/examples/delim_lang/glue.v
+
+theories/examples/lang_callcc/lang.v
+theories/examples/lang_callcc/interp.v
+theories/examples/lang_callcc/hom.v
+theories/examples/lang_callcc/logrel.v
 
 theories/examples/input_lang_callcc/lang.v
 theories/examples/input_lang_callcc/interp.v
@@ -66,4 +77,15 @@ theories/examples/affine_lang/lang.v
 theories/examples/affine_lang/logrel1.v
 theories/examples/affine_lang/logrel2.v
 
+theories/examples/heap_lang/interp.v
+theories/examples/heap_lang/lang.v
+theories/examples/heap_lang/metatheory.v
+theories/examples/heap_lang/notation.v
+theories/examples/heap_lang/pretty.v
+theories/examples/heap_lang/tactics.v
+
 theories/utils/finite_sets.v
+theories/utils/clwp.v
+theories/utils/wbwp.v
+theories/utils/ghost_stacks.v
+theories/utils/persistent_pred.v

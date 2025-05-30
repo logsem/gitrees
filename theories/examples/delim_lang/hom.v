@@ -16,15 +16,13 @@ Section hom.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
-  Program Definition 𝒫_HOM : HOM (A:=natO) := exist _ 𝒫 _.
-  Next Obligation.
-    apply _.
-  Qed.
+  Definition 𝒫_HOM : HOM (A := R) := MkHom 𝒫 _.
 
   Program Definition AppContRSCtx_HOM {S : Set}
     (α : @interp_scope F R _ S -n> IT)
     (env : @interp_scope F R _ S)
-    : HOM := exist _ (interp_app_contrk rs α (λne env, idfun) env) _.
+    : HOM := MkHom (interp_app_contrk rs α (λne env, idfun) env) _.
+  Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros; simpl.
     apply _.
@@ -33,7 +31,8 @@ Section hom.
   Program Definition AppContLSCtx_HOM {S : Set}
     (β : IT) (env : @interp_scope F R _ S)
     (Hv : AsVal β)
-    : HOM := exist _ (interp_app_contlk rs (constO β) (λne env, idfun) env) _.
+    : HOM := MkHom (interp_app_contlk rs (constO β) (λne env, idfun) env) _.
+  Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros; simpl.
     simple refine (IT_HOM _ _ _ _ _); intros; simpl.
@@ -55,27 +54,20 @@ Section hom.
     - rewrite get_val_ITV. simpl. rewrite get_fun_err. reflexivity.
   Qed.
 
-  Program Definition NatOpRSCtx_HOM {S : Set} (op : nat_op)
+  Definition NatOpRSCtx_HOM {S : Set} (op : nat_op)
     (α : @interp_scope F R _ S -n> IT) (env : @interp_scope F R _ S)
-    : HOM := exist _ (interp_natoprk rs op α (λne env, idfun) env) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
+    : HOM := MkHom (interp_natoprk rs op α (λne env, idfun) env) _.
 
-  Program Definition NatOpLSCtx_HOM {S : Set} (op : nat_op)
+  Definition NatOpLSCtx_HOM {S : Set} (op : nat_op)
     (α : IT) (env : @interp_scope F R _ S)
     (Hv : AsVal α)
-    : HOM := exist _ (interp_natoplk rs op (constO α) (λne env, idfun) env) _.
-  Next Obligation.
-    intros; simpl.
-    apply _.
-  Qed.
+    : HOM := MkHom (interp_natoplk rs op (constO α) (λne env, idfun) env) _.
 
   Program Definition AppLSCtx_HOM {S : Set}
     (α : @interp_scope F R _ S -n> IT)
     (env : @interp_scope F R _ S)
-    : HOM := exist _ (interp_applk rs α (λne env, idfun) env) _.
+    : HOM := MkHom (interp_applk rs α (λne env, idfun) env) _.
+  Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros; simpl.
     apply _.
@@ -85,18 +77,21 @@ Section hom.
   Program Definition AppRSCtx_HOM {S : Set}
     (β : IT) (env : @interp_scope F R _ S)
     (Hv : AsVal β)
-    : HOM := exist _ (interp_apprk rs (constO β) (λne env, idfun) env) _.
+    : HOM := MkHom (interp_apprk rs (constO β) (λne env, idfun) env) _.
+  Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros; simpl.
     simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - solve_proper_please.
-    - rewrite get_val_ITV.
+    - rewrite /LET /LET_ne /=.
+      rewrite get_val_ITV.
       simpl.
       rewrite get_val_ITV.
       simpl.
       rewrite get_val_tick.
       reflexivity.
-    - rewrite get_val_ITV.
+    - rewrite /LET /LET_ne /=.
+      rewrite get_val_ITV.
       simpl.
       rewrite get_val_vis.
       do 3 f_equiv.
@@ -104,7 +99,8 @@ Section hom.
       rewrite get_val_ITV.
       simpl.
       reflexivity.
-    - rewrite get_val_ITV.
+    - rewrite /LET /LET_ne /=.
+      rewrite get_val_ITV.
       simpl.
       rewrite get_val_err.
       reflexivity.

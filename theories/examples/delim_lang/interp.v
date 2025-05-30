@@ -8,6 +8,32 @@ From iris.base_logic Require Import algebra.
 
 Require Import Binding.Lib Binding.Set.
 
+Program Definition DelimLangGitreeGS {R} `{!Cofe R}
+  {a : is_ctx_dep} {n} (rs : gReifiers a n)
+  (Σ : gFunctors)
+  (H1 : invGS Σ) (H2 : stateG rs R Σ)
+  : gitreeGS_gen rs R Σ :=
+  GitreeG rs R Σ H1 H2
+    (λ _ σ, @state_interp _ _ rs R _ _ H2 σ)
+    (λ _, True%I)
+    (λ _, True%I)
+    _
+    (λ x, x)
+    _
+    _
+    _.
+Next Obligation.
+  intros; simpl.
+  iIntros "?". by iModIntro.
+Qed.
+Next Obligation.
+  intros; simpl. iSplit; iIntros "H".
+  - by iFrame "H".
+  - by iDestruct "H" as "(_ & ?)".
+Qed.
+
+Import IF_nat.
+
 Section interp.
   Context {sz : nat}.
   Variable (rs : gReifiers CtxDep sz).
@@ -19,7 +45,7 @@ Section interp.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
   Notation state := (stateF ♯ IT).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Global Instance denot_cont_ne (κ : later IT -n> later IT) :
@@ -64,9 +90,9 @@ Section interp.
   Global Instance interp_natop_ne A op : NonExpansive2 (@interp_natop A op).
   Proof. solve_proper. Qed.
   Typeclasses Opaque interp_natop.
-
-
+  
   (** ** REC *)
+
   Opaque laterO_map.
   Program Definition interp_rec_pre {S : Set} (body : interp_scope (inc (inc S)) -n> IT)
     : laterO (interp_scope S -n> IT) -n> interp_scope S -n> IT :=
@@ -78,16 +104,21 @@ Section interp.
   Qed.
   Next Obligation.
     solve_proper_prepare.
-    f_equiv; intros [| [| y']]; simpl; solve_proper.
+    f_equiv; intros [| [| y']]; simpl; done.
   Qed.
   Next Obligation.
-    solve_proper_prepare.
-    do 3 f_equiv; intros ??; simpl; f_equiv;
+    intros.
+    intros ???.
+    f_equiv.
+    apply laterO_map_ne.
+    intros ??; simpl; f_equiv;
     intros [| [| y']]; simpl; solve_proper.
   Qed.
   Next Obligation.
-    solve_proper_prepare.
-    by do 2 f_equiv.
+    intros.
+    intros ????; simpl.
+    f_equiv; f_equiv.
+    done.
   Qed.
 
   Program Definition interp_rec {S : Set}
@@ -159,7 +190,6 @@ Section interp.
     λne env, Ret n.
 
   (** ** CONT *)
-  (** XXX DF: why do we need a tick here? Seems to be necessary for soundness *)
   Program Definition interp_cont_val {S} (K : S -n> (IT -n> IT)) : S -n> IT :=
     λne env, (λit x, Tick $ 𝒫 (K env x)).
   Solve All Obligations with solve_proper_please.
@@ -179,14 +209,15 @@ Section interp.
     solve_proper_prepare.
     do 2 f_equiv.
     intro; simpl.
-    by do 2 f_equiv.
+    by f_equiv.
   Qed.
   Next Obligation.
-    solve_proper_prepare.
+    intros ?? K n x y H a; simpl.
+    rewrite (LET_NonExp n (q x) (q y) _); last reflexivity;
+      last solve_proper.
     f_equiv; first solve_proper.
-    f_equiv; first solve_proper.
-    intro; simpl.
-    solve_proper.
+    f_equiv. intros ?; simpl.
+    reflexivity.
   Qed.
 
   Program Definition interp_applk {A} (q : A -n> IT) (K : A -n> IT -n> IT) :
@@ -199,9 +230,11 @@ Section interp.
     solve_proper.
   Qed.
   Next Obligation.
-    solve_proper_prepare.
+    intros ?? K n x y H a; simpl.
     f_equiv; first solve_proper.
-    f_equiv; first solve_proper.
+    f_equiv. intros ?; simpl.
+    f_equiv.
+    solve_proper.
   Qed.
 
   Program Definition interp_app_contrk {A} (q : A -n> IT) (K : A -n> IT -n> IT) :
@@ -517,11 +550,13 @@ Section interp.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - rewrite <-hom_tick.
       f_equiv.
+      rewrite /LET /LET_ne /=.
       rewrite ->2 get_val_ITV.
       simpl.
       rewrite get_val_tick.
       reflexivity.
-    - rewrite get_val_ITV.
+    - rewrite /LET /LET_ne /=.
+      rewrite get_val_ITV.
       simpl.
       rewrite ->2 hom_vis.
       f_equiv.
@@ -533,6 +568,7 @@ Section interp.
       simpl.
       reflexivity.
     - rewrite <-hom_err.
+      rewrite /LET /LET_ne /=.
       rewrite get_val_ITV.
       simpl.
       f_equiv.
@@ -550,9 +586,11 @@ Section interp.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
     - rewrite <-hom_tick.
       f_equiv.
+      rewrite /LET /LET_ne /=.
       rewrite get_val_tick.
       reflexivity.
-    - rewrite !hom_vis.
+    - rewrite /LET /LET_ne /=.
+      rewrite !hom_vis.
       f_equiv.
       intro; simpl.
       rewrite <-laterO_map_compose.
@@ -560,6 +598,7 @@ Section interp.
     - rewrite <-hom_err.
       f_equiv.
       rewrite hom_err.
+      rewrite /LET /LET_ne /=.
       rewrite get_val_err.
       reflexivity.
   Qed.
@@ -645,12 +684,12 @@ Section interp.
     - do 4 f_equiv. intro. simpl. by repeat f_equiv.
     - rewrite -hom_tick. f_equiv.
       match goal with
-      | |- context G [ofe_mor_car _ _ (ofe_mor_car _ _ LET ?a) ?b] =>
+      | |- context G [LET ?a ?b] =>
           set (F := b)
       end.
       trans (interp_cont k env (LET (Fun (Next (ir_unf (interp_expr e) env))) F)).
       {
-        do 3 f_equiv.
+        do 2 f_equiv.
         apply interp_rec_unfold.
       }
       subst F.
@@ -700,7 +739,7 @@ Section interp.
     (interp_config C env) = (t, σ) ->
     (interp_config C' env) = (t', σ') ->
     reify (gReifiers_sReifier rs) t (gState_recomp σr (sR_state σ))
-      ≡ (gState_recomp σr (sR_state σ'), Tick_n n $ t').
+      ≡ (gState_recomp σr (sR_state σ'), Tick_n n $ t', []).
   Proof.
     inversion 1; cbn-[IF APP' Tick get_ret2 gState_recomp]; intros Ht Ht'; inversion Ht; inversion Ht'; subst;
       try rewrite !map_meta_cont_cons in Ht, Ht'|-*.
@@ -722,7 +761,7 @@ Section interp.
         erewrite <-Hr; last reflexivity.
         repeat f_equiv; last done.  solve_proper.
       }
-      f_equiv. by rewrite laterO_map_Next.
+      f_equiv; last done. by rewrite laterO_map_Next.
     - remember (map_meta_cont mk env) as σ.
       match goal with
       | |- context G [Vis ?o ?f ?κ] => set (fin := f); set (op := o); set (kout := κ)
@@ -748,7 +787,7 @@ Section interp.
       simpl.
       rewrite -Tick_eq. do 3 f_equiv.
       rewrite interp_expr_subst.
-      simpl. f_equiv.
+      simpl. f_equiv. f_equiv.
       intros [|s]; simpl; eauto.
       Transparent extend_scope.
       simpl. f_equiv. f_equiv. by intro.
@@ -778,7 +817,7 @@ Section interp.
         erewrite <-Hr; last reflexivity.
         repeat f_equiv; eauto. solve_proper.
       }
-      f_equiv. by rewrite -!Tick_eq.
+      f_equiv; last done. by rewrite -!Tick_eq.
     - remember (map_meta_cont mk env) as σ.
       trans (reify (gReifiers_sReifier rs) (POP (interp_val v env))
                (gState_recomp σr (sR_state (laterO_map (𝒫 ◎ interp_cont k env) :: σ)))).
@@ -797,7 +836,7 @@ Section interp.
         repeat f_equiv; last reflexivity.
         solve_proper.
       }
-      f_equiv. rewrite laterO_map_Next -Tick_eq.
+      f_equiv; last done. rewrite laterO_map_Next -Tick_eq.
       by f_equiv.
     - trans (reify (gReifiers_sReifier rs) (POP (interp_val v env))
                (gState_recomp σr (sR_state []))).
@@ -817,7 +856,7 @@ Section interp.
         repeat f_equiv; last reflexivity.
         solve_proper.
       }
-      f_equiv. by rewrite -Tick_eq.
+      f_equiv; last done. by rewrite -Tick_eq.
   Qed.
 
 
@@ -828,9 +867,9 @@ Section interp.
     fst nm = n ->
     (interp_config C env) = (t, σ) ->
     (interp_config C' env) = (t', σ') ->
-    ssteps (gReifiers_sReifier rs)
+    external_steps (gReifiers_sReifier rs)
       t (gState_recomp σr (sR_state σ))
-      t' (gState_recomp σr (sR_state σ')) n.
+      t' (gState_recomp σr (sR_state σ')) [] n.
   Proof.
     intros H.
     revert n t t' σ σ'.
@@ -845,34 +884,40 @@ Section interp.
                    specialize (interp_cred_no_reify_state env _ _ _ _ _ _ _ H2 Ht Heqc2) as <-;
                    simpl in Heq|-*; rewrite Heq; eapply IHs];
         try solve
-          [eapply ssteps_many with t2 (gState_recomp σr (sR_state σ2)); last done;
+          [eapply reductions.steps_many with t2 (gState_recomp σr (sR_state σ2)) [] []; last done;
+           first done;
             specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H2 Ht Heqc2) as Heq;
-            cbn in Ht; eapply sstep_reify; last done;
-            inversion Ht; rewrite !hom_vis; done].
-      + eapply ssteps_many with t2 (gState_recomp σr (sR_state σ2)); last done.
+            cbn in Ht; eapply external_step_reify; last done;
+           inversion Ht; rewrite !hom_vis; done].
+      + eapply reductions.steps_many with t2 (gState_recomp σr (sR_state σ2)) [] [];
+          last done; first done.
         specialize (interp_cred_no_reify env _ _ _ _ _ _ _ H2 Ht Heqc2) as Heq.
         specialize (interp_cred_no_reify_state env _ _ _ _ _ _ _ H2 Ht Heqc2) as <-.
         simpl in Heq|-*; rewrite Heq. constructor; eauto.
       + specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H2 Ht Heqc2) as Heq.
         simpl in Heq|-*.
         change (2+n') with (1+(1+n')).
-        eapply ssteps_many; last first.
-        * eapply ssteps_many with t2 (gState_recomp σr (sR_state σ2)); last done.
-          eapply sstep_tick; reflexivity.
-        * eapply sstep_reify; last apply Heq.
+        eapply reductions.steps_many; last first.
+        * eapply reductions.steps_many with t2 (gState_recomp σr (sR_state σ2)) [] [];
+            last done; first reflexivity.
+          eapply external_step_tick; reflexivity.
+        * eapply external_step_reify; last apply Heq.
           cbn in Ht. inversion Ht.
           rewrite get_val_ITV. simpl. rewrite get_fun_fun. simpl.
           rewrite !hom_vis. done.
-      + eapply ssteps_many with t2 (gState_recomp σr (sR_state σ2)); last done.
+        * done. 
+      + eapply reductions.steps_many with t2 (gState_recomp σr (sR_state σ2)) [] [];
+          last done; first done.
         specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H2 Ht Heqc2) as Heq.
         cbn in Ht; inversion Ht. subst. rewrite get_val_ITV. simpl.
-        eapply sstep_reify; simpl in Heq; last first.
+        eapply external_step_reify; simpl in Heq; last first.
         * rewrite -Heq. f_equiv. f_equiv. rewrite get_val_ITV. simpl. done.
         * f_equiv. reflexivity.
-      + eapply ssteps_many with t2 (gState_recomp σr (sR_state σ2)); last done.
+      + eapply reductions.steps_many with t2 (gState_recomp σr (sR_state σ2)) [] [];
+          last done; first done.
         specialize (interp_cred_yes_reify env _ _ _ _ _ _ σr _ H2 Ht Heqc2) as Heq.
         cbn in Ht; inversion Ht. subst. rewrite get_val_ITV. simpl.
-        eapply sstep_reify; simpl in Heq; last first.
+        eapply external_step_reify; simpl in Heq; last first.
         * rewrite -Heq. repeat f_equiv. by rewrite get_val_ITV.
         * f_equiv. reflexivity.
   Qed.

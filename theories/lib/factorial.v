@@ -1,6 +1,5 @@
 From gitrees Require Import gitree program_logic.
-From gitrees.examples.input_lang Require Import lang interp.
-From gitrees.effects Require Import store.
+From gitrees.effects Require Import store io_tape.
 From gitrees.lib Require Import while.
 
 Section fact.
@@ -13,7 +12,8 @@ Section fact.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
-  Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
+  Context `{!heapG rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Program Definition fact_imp_body (acc ℓ : loc) : IT :=
@@ -34,7 +34,7 @@ Section fact.
         (READ acc).
 
   Lemma wp_fact_imp_bod n m acc ℓ :
-    heap_ctx -∗
+    heap_ctx rs -∗
     pointsto acc (Ret m) -∗ pointsto ℓ (Ret n) -∗
     WP@{rs} fact_imp_body acc ℓ {{ _, pointsto acc (Ret (m * fact n)) }}.
   Proof.
@@ -67,7 +67,6 @@ Section fact.
       iNext. iNext. iIntros "Hacc".
       iApply wp_val. iModIntro.
       simpl. unfold NatOpRSCtx.
-      (* TODO: look at this with amin *)
       iAssert (IT_of_V (E:=F) (RetV m) ≡ (Ret m))%I as "#Hm".
       { iPureIntro. apply (IT_of_V_Ret (B:=R)). }
       iRewrite "Hm".
@@ -88,6 +87,7 @@ Section fact.
       iApply wp_tick. iNext.
       replace (m + n*m) with ((n + 1) * m) by lia.
       iSpecialize ("IH" with "Hacc  Hl" ).
+      iIntros "Hlc".
       iApply (wp_wand with "IH").
       iIntros (_).
       rewrite Nat.sub_0_r.
@@ -96,11 +96,12 @@ Section fact.
   Qed.
 
   Lemma wp_fact_imp (n : nat) :
-    heap_ctx ⊢ WP@{rs} fact_imp ⊙ (Ret n) {{  βv, βv ≡ RetV (fact n)  }}.
+    heap_ctx rs ⊢ WP@{rs} fact_imp ⊙ (Ret n) {{  βv, βv ≡ RetV (fact n)  }}.
   Proof.
     iIntros "#Hctx".
     iApply wp_lam. iNext.
     simpl. rewrite get_ret_ret.
+    iIntros "Hlc".
     iApply (wp_alloc with "Hctx").
     { solve_proper. }
     iNext. iNext.
@@ -123,7 +124,7 @@ Section fact.
   Program Definition fact_io : IT :=
     INPUT $ λne n, fact_imp ⊙ (Ret n).
   Lemma wp_fact_io (n : nat) :
-    heap_ctx ∗ has_substate (State [n] [])
+    heap_ctx rs ∗ has_substate (State [n] [])
     ⊢ WP@{rs} get_ret OUTPUT fact_io  {{ _, has_substate (State [] [fact n]) }}.
   Proof.
     iIntros "[#Hctx Htape]".

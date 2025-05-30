@@ -13,7 +13,7 @@ Section EqualityIndexedTypes.
     equal A B : T A B → T A B → Prop.
 
   Class EqInd (T : Obj → Obj → Type) {EIC : EqIndCore T} :=
-    { eq_equiv A B :> Equivalence (equal A B) }.
+    { eq_equiv A B :: Equivalence (equal A B) }.
 
 End EqualityIndexedTypes.
 
@@ -40,7 +40,7 @@ Section Arrows.
       arrow_comp_assoc {A B C D} (f : Arr C D) (g : Arr B C) (h : Arr A B) :
         f ∘ g ∘ h ≡ f ∘ (g ∘ h);
       arrow_comp_proper
-        A B C :> Proper (equal B C ==> equal A B ==> equal A C) arrow_comp}.
+        A B C :: Proper (equal B C ==> equal A B ==> equal A C) arrow_comp}.
 
   Context {Arr : Obj → Obj → Type} {ArrEq : EqIndCore Arr} {AC : ArrowCore Arr}.
 
@@ -92,7 +92,7 @@ Section Substitutions.
     { arrow_subst_id {A} : ı ̂ ≡ (ı : Sub A A);
       arrow_subst_comp {A B C} (f : Arr B C) (g : Arr A B) :
         (f ∘ g)̂ ≡ f ̂ ∘ g ̂;
-      arrow_subst_proper A B :> Proper (equal A B ==> equal A B) subst_of_arr}.
+      arrow_subst_proper A B :: Proper (equal A B ==> equal A B) subst_of_arr}.
 
     (** ** Binding *)
 
@@ -160,7 +160,7 @@ Section Lifting.
     { lift_id {A} (f : Arr A A) (EQ : f ≡ ı) : f ↑ ≡ ı;
       lift_comp {A B C} (f : Arr B C) (g : Arr A B) h (EQ : f ∘ g ≡ h) :
         f ↑ ∘ g ↑ ≡ h ↑ ;
-      lift_proper A B :> Proper (equal A B ==> equal (G A) (G B)) lift
+      lift_proper A B :: Proper (equal A B ==> equal (G A) (G B)) lift
     }.
 
   Context {Arr : Obj → Obj → Type} {EqArr : EqIndCore Arr} {AC : ArrowCore Arr}.

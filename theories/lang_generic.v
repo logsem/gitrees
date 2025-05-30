@@ -78,7 +78,7 @@ Section kripke_logrel.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Context {A:ofe}. (* The type & predicate for the explicit Kripke worlds *)
@@ -96,11 +96,31 @@ Section kripke_logrel.
 
   Global Instance expr_pred_ne {n} : Proper (dist n ==> dist n ==> dist n) expr_pred.
   Proof.
+    intros ??????.
+    unfold expr_pred.
+    simpl.
+    f_equiv.
+    intros ?; simpl.
+    f_equiv.
+    f_equiv; first done.
+    intros ?; simpl.
+    f_equiv.
+    intros ?; simpl.
     solve_proper.
   Qed.
 
   Global Instance expr_pred_proper : Proper (equiv ==> equiv ==> equiv) expr_pred.
   Proof.
+    intros ??????.
+    unfold expr_pred.
+    simpl.
+    f_equiv.
+    intros ?; simpl.
+    f_equiv.
+    f_equiv; first done.
+    intros ?; simpl.
+    f_equiv.
+    intros ?; simpl.
     solve_proper.
   Qed.
 
@@ -138,7 +158,7 @@ Section kripke_logrel_ctx_indep.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Context {A : ofe}.
@@ -166,7 +186,7 @@ Section kripke_logrel_ctx_indep.
   Qed.
 End kripke_logrel_ctx_indep.
 
-Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _ _} f {_ _}.
+Arguments expr_pred_bind {_ _ _ _ _ _ _ _ _} f {_ _}.
 
 Section tm_interp.
   Context {sz : nat} {a : is_ctx_dep}.
@@ -176,7 +196,7 @@ Section tm_interp.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Context {A : ofe}.
@@ -205,7 +225,7 @@ Section tm_interp_fin.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Context {A : ofe}.

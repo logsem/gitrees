@@ -63,7 +63,7 @@ Section pairs.
     rewrite -Tick_eq. f_equiv.
     set (f :=  λit _, α).
     trans (APP' (Tick f) β).
-    { f_equiv. f_equiv.
+    { f_equiv.
       rewrite APP'_Fun_l/=.
       rewrite -Tick_eq. f_equiv.
       unfold f. f_equiv.
@@ -77,7 +77,7 @@ Section pairs.
     cbn-[pairITV].
     simpl.
     trans (APP' (pairITV α β) projIT1f).
-    { do 2 f_equiv. rewrite get_val_ITV/=.
+    { f_equiv. rewrite get_val_ITV/=.
       rewrite get_val_ITV/=. done. }
     by apply projIT1_pairV.
   Qed.
@@ -89,7 +89,7 @@ Section pairs.
     rewrite APP'_Fun_l/= -Tick_eq.
     f_equiv.
     etrans.
-    { apply APP'_Proper. rewrite APP'_Fun_l/=.
+    { apply APP'_Proper; last reflexivity. rewrite APP'_Fun_l/=.
       rewrite -Tick_eq. reflexivity. }
     rewrite APP'_Tick_l. f_equiv.
     rewrite APP'_Fun_l/=. by rewrite Tick_eq.
@@ -100,7 +100,7 @@ Section pairs.
     cbn-[pairITV].
     simpl.
     trans (APP' (pairITV α β) projT2f).
-    { do 2 f_equiv. rewrite get_val_ITV/=.
+    { f_equiv. rewrite get_val_ITV /=.
       rewrite get_val_ITV/=. done. }
     by apply projIT2_pairV.
   Qed.
@@ -151,4 +151,3 @@ Section pairs.
   Qed.
 
 End pairs.
-

@@ -1,5 +1,7 @@
 From gitrees Require Import prelude gitree.
 
+Import IF_nat.
+  
 Section iter.
   Context {E : opsInterp}.
   Context {R} `{!Cofe R}.
@@ -40,14 +42,14 @@ Section iter.
     - repeat f_equiv. apply (fixpoint_unfold pre_iter).
     - trans (Tick (pre_iter_2 ITER f ⊙ α ⊙ β)).
       { unfold pre_iter.
-        rewrite -APP'_Tick_l. do 2 f_equiv.
-        rewrite -APP'_Tick_l. do 2 f_equiv.
+        rewrite -APP'_Tick_l. f_equiv.
+        rewrite -APP'_Tick_l. f_equiv.
         rewrite APP'_Fun_l. cbn-[pre_iter_2].
         by rewrite Tick_eq. }
       rewrite Tick_n_S. f_equiv.
       trans (Tick (pre_iter_1 ITER f α ⊙ β)).
       { unfold pre_iter_2.
-        rewrite -APP'_Tick_l. do 2 f_equiv.
+        rewrite -APP'_Tick_l. f_equiv.
         rewrite APP'_Fun_l. cbn-[pre_iter_2].
         by rewrite Tick_eq. }
       rewrite Tick_n_S. f_equiv.
@@ -65,7 +67,7 @@ Section iter_wp.
   Notation F := (gReifiers_ops rs).
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Lemma wp_iter f (m : nat) β Ψ `{!AsVal f} `{!NonExpansive Ψ} :
@@ -80,15 +82,22 @@ Section iter_wp.
     iLöb as "IH" forall (m βv).
     unfold AppRSCtx. simpl.
     rewrite ITER_eq. iApply wp_tick. iNext.
-    iApply wp_tick. iNext. iApply wp_tick. iNext.
+    iIntros "_".
+    iApply wp_tick. iNext. iIntros "_". iApply wp_tick. iNext.
     destruct m as [|m].
-    { rewrite IF_False; last lia.
-      by iApply wp_val. }
+    {
+      rewrite IF_False; last lia.
+      iIntros "_".
+      by iApply wp_val.
+    }
     rewrite IF_True; last lia.
+    iIntros "_".
     iApply (wp_bind _ (AppRSCtx f)).
     iAssert ((NATOP Nat.sub (Ret (S m)) (Ret 1)) ≡ (Ret m : IT))%I as "Heq".
-    { iPureIntro. rewrite (NATOP_Ret (S m) 1 Nat.sub). f_equiv.
-      rewrite Nat.sub_1_r. done. }
+    {
+      iPureIntro. rewrite (NATOP_Ret (S m) 1 Nat.sub). f_equiv.
+      rewrite Nat.sub_1_r. done.
+    }
     iRewrite "Heq".
     iSpecialize ("IH" with "Hb").
     iApply (wp_wand with "IH").

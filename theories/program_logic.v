@@ -9,11 +9,11 @@ Section program_logic.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Lemma wp_lam (f : IT -n> IT) β s Φ `{!AsVal β} :
-    ▷ WP@{rs} f β @ s {{ Φ }} ⊢ WP@{rs} Fun (Next f) ⊙ β @ s{{ Φ }}.
+    ▷ (£ 1 -∗  WP@{rs} f β @ s {{ Φ }}) ⊢ WP@{rs} Fun (Next f) ⊙ β @ s{{ Φ }}.
   Proof.
     iIntros "H".
     rewrite APP'_Fun_l.
@@ -32,7 +32,7 @@ Section program_logic_ctx_indep.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Lemma wp_seq α β s Φ `{!NonExpansive Φ} :

@@ -3,17 +3,18 @@ From gitrees.effects Require Export callcc.
 From gitrees.examples.input_lang_callcc Require Import lang.
 Require Import Binding.Lib Binding.Set.
 
-(* XXX TODO: this duplicates wp_input and wp_output *)
+Import IF_nat.
+
 Section weakestpre.
   Context {sz : nat}.
   Variable (rs : gReifiers CtxDep sz).
-  Context `{!subReifier (sReifier_NotCtxDep_CtxDep reify_io) rs}.
+  Context `{!subReifier (sReifier_NotCtxDep_min reify_io CtxDep) rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   Implicit Type κ : IT -n> IT.
@@ -28,10 +29,10 @@ Section weakestpre.
   Proof.
     iIntros (Hσ) "Hs Ha".
     rewrite hom_INPUT.
-    iApply (wp_subreify_ctx_dep with "Hs").
-    + simpl. rewrite Hσ. simpl. done.
-    + by rewrite ofe_iso_21.
-    + done.
+    iApply (wp_input with "Hs"); first done.
+    iNext.
+    iIntros "Hc Hs".
+    iApply ("Ha" with "Hc Hs").
   Qed.
   Lemma wp_output' (σ σ' : stateO) (n : nat) (κ : IT -n> IT)
      `{!IT_hom κ} Φ s :
@@ -42,10 +43,7 @@ Section weakestpre.
   Proof.
     iIntros (Hσ) "Hs Ha".
     rewrite /OUTPUT hom_OUTPUT_.
-    iApply (wp_subreify_ctx_dep with "Hs").
-    + simpl. by rewrite Hσ.
-    + done.
-    + done.
+    iApply (wp_output_ with "Hs Ha"); first done.
   Qed.
 
 End weakestpre.
@@ -54,7 +52,7 @@ Section interp.
   Context {sz : nat}.
   Variable (rs : gReifiers CtxDep sz).
   Context {subR1 : subReifier reify_cont rs}.
-  Context {subR2 : subReifier (sReifier_NotCtxDep_CtxDep reify_io) rs}.
+  Context {subR2 : subReifier (sReifier_NotCtxDep_min reify_io CtxDep) rs}.
   Context {R} `{CR : !Cofe R}.
   Context `{!SubOfe natO R}.
   Notation F := (gReifiers_ops rs).
@@ -109,13 +107,13 @@ Section interp.
   Qed.
   Next Obligation.
     solve_proper_prepare.
-    repeat f_equiv.
+    apply get_fun_ne.
     intro; simpl.
     by repeat f_equiv.
   Qed.
   Next Obligation.
     solve_proper_prepare.
-    repeat f_equiv; last done.
+    erewrite get_val_ne; first solve_proper.
     intro; simpl.
     by repeat f_equiv.
   Qed.
@@ -139,15 +137,17 @@ Section interp.
     f_equiv; intros [| [| y']]; simpl; solve_proper.
   Qed.
   Next Obligation.
-    intros.
+    intros ??????? H.
     solve_proper_prepare.
-    f_equiv; intros [| [| y']]; simpl; solve_proper.
+    f_equiv; intros [| [| y']]; simpl; [done | apply H | done].
   Qed.
   Next Obligation.
     intros.
     solve_proper_prepare.
-    do 3 f_equiv; intros ??; simpl; f_equiv;
-    intros [| [| y']]; simpl; solve_proper.
+    f_equiv.
+    apply laterO_map_ne.
+    intros ??; simpl; f_equiv;
+    intros [| [| y']]; simpl; solve_proper.    
   Qed.
   Next Obligation.
     intros.
@@ -374,16 +374,10 @@ Section interp.
   Proof.
     revert env.
     induction K; simpl; intros env; first reflexivity; try (by rewrite IHK).
-    - repeat f_equiv.
-      by rewrite IHK.
-    - repeat f_equiv.
-      by rewrite IHK.
-    - repeat f_equiv.
-      by rewrite IHK.
-    - repeat f_equiv.
-      intros ?; simpl.
-      repeat f_equiv.
-      by rewrite IHK.
+    repeat f_equiv.
+    intros ?; simpl.
+    repeat f_equiv.
+    by rewrite IHK.
   Qed.
 
   Program Definition sub_scope {S S'} (δ : S [⇒] S') (env : interp_scope S')
@@ -500,13 +494,13 @@ Section interp.
     IT_hom (interp_ectx (IfK K e1 e2) env).
   Proof.
     intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - rewrite -IF_Tick. do 3 f_equiv. apply hom_tick.
+    - rewrite -IF_Tick. f_equiv. apply hom_tick.
     - assert ((interp_ectx K env (Vis op i ko)) ≡
         (Vis op i (laterO_map (λne y, interp_ectx K env y) ◎ ko))).
       { by rewrite hom_vis. }
       trans (IF (Vis op i (laterO_map (λne y : IT, interp_ectx K env y) ◎ ko))
                (interp_expr e1 env) (interp_expr e2 env)).
-      { do 3 f_equiv. by rewrite hom_vis. }
+      { f_equiv. by rewrite hom_vis. }
       rewrite IF_Vis. f_equiv. simpl.
       intro. simpl. by rewrite -laterO_map_compose.
     - trans (IF (Err e) (interp_expr e1 env) (interp_expr e2 env)).
@@ -532,14 +526,14 @@ Section interp.
     IT_hom (interp_ectx (AppLK K v) env).
   Proof.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - rewrite -APP'_Tick_l. do 2 f_equiv. apply hom_tick.
+    - rewrite -APP'_Tick_l. f_equiv. apply hom_tick.
     - trans (APP' (Vis op i (laterO_map (interp_ectx K env) ◎ ko))
                (interp_val v env)).
-      + do 2f_equiv. rewrite hom_vis. do 3 f_equiv. by intro.
+      + f_equiv. rewrite hom_vis. do 3 f_equiv. by intro.
       + rewrite APP'_Vis_l. f_equiv. intro x. simpl.
         by rewrite -laterO_map_compose.
     - trans (APP' (Err e) (interp_val v env)).
-      { do 2f_equiv. apply hom_err. }
+      { f_equiv. apply hom_err. }
       apply APP'_Err_l, interp_val_asval.
   Qed.
 
@@ -561,15 +555,15 @@ Section interp.
     IT_hom (interp_ectx (NatOpLK op K v) env).
   Proof.
     intros H. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - rewrite -NATOP_ITV_Tick_l. do 2 f_equiv. apply hom_tick.
+    - rewrite -NATOP_ITV_Tick_l. f_equiv. apply hom_tick.
     - trans (NATOP (do_natop op)
                (Vis op0 i (laterO_map (interp_ectx K env) ◎ ko))
                (interp_val v env)).
-      { do 2 f_equiv. rewrite hom_vis. f_equiv. by intro. }
+      { f_equiv. rewrite hom_vis. f_equiv. by intro. }
       rewrite NATOP_ITV_Vis_l. f_equiv. intro x. simpl.
       by rewrite -laterO_map_compose.
     - trans (NATOP (do_natop op) (Err e) (interp_val v env)).
-      + do 2 f_equiv. apply hom_err.
+      + f_equiv. apply hom_err.
       + by apply NATOP_Err_l, interp_val_asval.
   Qed.
 
@@ -688,7 +682,7 @@ Section interp.
     head_step e σ e' σ' K (n, 1) →
     reify (gReifiers_sReifier rs)
       (interp_expr (fill K e) env) (gState_recomp σr (sR_state σ))
-      ≡ (gState_recomp σr (sR_state σ'), Tick_n n $ interp_expr (fill K e') env).
+      ≡ (gState_recomp σr (sR_state σ'), Tick_n n $ interp_expr (fill K e') env, []).
   Proof.
     intros Hst.
     trans (reify (gReifiers_sReifier rs) (interp_ectx K env (interp_expr e env))
@@ -704,12 +698,12 @@ Section interp.
       rewrite reify_vis_eq_ctx_dep //; first last.
       {
         apply (subReifier_reify
-                 (sReifier_NotCtxDep_CtxDep reify_io) rs (inl ())
+                 (sReifier_NotCtxDep_min reify_io CtxDep) rs (inl ())
                  () (Next (interp_ectx K env (Ret n0)))
                  (NextO ◎ (interp_ectx K env ◎ Ret)) σ σ' σr).
         simpl. rewrite H5. reflexivity.
       }
-      repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
+      repeat f_equiv; last done. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.
       reflexivity.
     - trans (reify (gReifiers_sReifier rs) (interp_ectx K env (OUTPUT n0)) (gState_recomp σr (sR_state σ))).
@@ -726,7 +720,7 @@ Section interp.
       {
         simpl.
         pose proof (subReifier_reify
-                 (sReifier_NotCtxDep_CtxDep reify_io) rs (inr (inl ()))
+                 (sReifier_NotCtxDep_min reify_io CtxDep) rs (inr (inl ()))
                  n0 (Next (interp_ectx K env (Ret 0)))
                  (constO (Next (interp_ectx K env ((Ret 0))))) σ (update_output n0 σ) σr) as H.
         simpl in H. erewrite <-H; last reflexivity.
@@ -734,14 +728,14 @@ Section interp.
         + do 3 intro. by rewrite /prod_map H0.
         + do 2 f_equiv. by intro.
       }
-      repeat f_equiv. rewrite Tick_eq/=. repeat f_equiv.
+      repeat f_equiv; last done. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.
       reflexivity.
     - match goal with
       | |- context G [ofe_mor_car _ _ (CALLCC) ?g] => set (f := g)
       end.
       match goal with
-      | |- context G [(?s, _)] => set (gσ := s) end.
+      | |- context G [(?s, _, _)] => set (gσ := s) end.
       Transparent CALLCC.
       unfold CALLCC.
       simpl.
@@ -773,9 +767,12 @@ Section interp.
       }
       rewrite interp_comp.
       rewrite interp_expr_subst.
+      f_equiv; last done.
       f_equiv.
-      { setoid_rewrite ofe_iso_12.
-        by apply gState_recomp_decomp. }
+      {
+        setoid_rewrite ofe_iso_12.
+        by apply gState_recomp_decomp.
+      }
       rewrite Tick_eq.
       f_equiv.
       rewrite laterO_map_Next.
@@ -787,9 +784,9 @@ Section interp.
 
   Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m (env : interp_scope S) :
     prim_step e1 σ1 e2 σ2 (n,m) →
-    ssteps (gReifiers_sReifier rs)
+    external_steps (gReifiers_sReifier rs)
               (interp_expr e1 env) (gState_recomp σr (sR_state σ1))
-              (interp_expr e2 env) (gState_recomp σr (sR_state σ2)) n.
+              (interp_expr e2 env) (gState_recomp σr (sR_state σ2)) [] n.
   Proof.
     Opaque gState_decomp gState_recomp.
     inversion 1; simplify_eq/=.
@@ -800,16 +797,19 @@ Section interp.
         unshelve eapply (interp_expr_fill_no_reify K) in H2; first apply env.
         rewrite H2.
         rewrite interp_comp.
-        eapply ssteps_tick_n.
+        eapply external_steps_tick_n.
       - inversion H2;subst.
         + eapply (interp_expr_fill_yes_reify K env _ _ _ _ σr) in H2.
           rewrite interp_comp.
           rewrite hom_INPUT.
-          change 1 with (Nat.add 1 0). econstructor; last first.
-          { apply ssteps_zero; reflexivity. }
-          eapply sstep_reify.
-          { Transparent INPUT. unfold INPUT. simpl.
-            f_equiv. reflexivity. }
+          change 1 with (Nat.add 1 0).
+          eapply (steps_many _ _ _ _ _ _ _ [] []); first done; last first.
+          { apply steps_zero; reflexivity. }
+          eapply external_step_reify.
+          {
+            Transparent INPUT. unfold INPUT. simpl.
+            f_equiv. reflexivity.
+          }
           simpl in H2.
           rewrite -H2.
           repeat f_equiv; eauto.
@@ -819,11 +819,14 @@ Section interp.
           rewrite interp_comp. simpl.
           rewrite get_ret_ret.
           rewrite hom_OUTPUT_.
-          change 1 with (Nat.add 1 0). econstructor; last first.
-          { apply ssteps_zero; reflexivity. }
-          eapply sstep_reify.
-          { Transparent OUTPUT_. unfold OUTPUT_. simpl.
-            f_equiv. reflexivity. }
+          change 1 with (Nat.add 1 0).
+          eapply (steps_many _ _ _ _ _ _ _ [] []); first done; last first.
+          { apply steps_zero; reflexivity. }
+          eapply external_step_reify.
+          {
+            Transparent OUTPUT_. unfold OUTPUT_. simpl.
+            f_equiv. reflexivity.
+          }
           simpl in H2.
           rewrite -H2.
           repeat f_equiv; eauto.
@@ -832,11 +835,13 @@ Section interp.
           eauto.
         + eapply (interp_expr_fill_yes_reify K env _ _ _ _ σr) in H2.
           rewrite !interp_comp interp_expr_subst.
-          change 1 with (Nat.add 1 0). econstructor; last first.
-          { apply ssteps_zero; reflexivity. }
+          change 1 with (Nat.add 1 0).
+          eapply (steps_many _ _ _ _ _ _ _ [] []); first done; last first.
+          { apply steps_zero; reflexivity. }
           rewrite -interp_comp.
-          eapply sstep_reify.
-          { Transparent CALLCC. unfold CALLCC. rewrite interp_comp hom_vis.
+          eapply external_step_reify.
+          {
+            Transparent CALLCC. unfold CALLCC. rewrite interp_comp hom_vis.
             f_equiv. reflexivity.
           }
           rewrite H2.
@@ -855,9 +860,9 @@ Section interp.
       rewrite get_fun_fun.
       simpl.
       change 2 with (Nat.add (Nat.add 1 1) 0).
-      econstructor; last first.
-      { apply ssteps_tick_n. }
-      eapply sstep_reify; first (rewrite hom_vis; reflexivity).
+      eapply (steps_many _ _ _ _ _ _ _ [] []); first done; last first.
+      { apply external_steps_tick_n. }
+      eapply external_step_reify; first (rewrite hom_vis; reflexivity).
       match goal with
       | |- context G [ofe_mor_car _ _ _ (Next ?f)] => set (f' := f)
       end.
@@ -873,24 +878,27 @@ Section interp.
         intros x; simpl.
         destruct ((subEff_outs ^-1) x).
       }
-      rewrite reify_vis_eq_ctx_dep; first (rewrite Tick_eq; reflexivity).
+      rewrite (reify_vis_eq_ctx_dep _ _ _ _ _ _ _ []);
+        first (f_equiv; [rewrite Tick_eq; reflexivity|]); first done.
       simpl.
       match goal with
       | |- context G [(_, _, ?a)] => set (κ := a)
       end.
-      set (gσ := (gState_recomp σr (sR_state (σ2 : sReifier_state (sReifier_NotCtxDep_CtxDep reify_io) ♯ IT)))).
-      (* set (gσ := (gState_recomp σr (sR_state σ2))). *)
+      set (gσ := (gState_recomp σr (sR_state (σ2 : sReifier_state (sReifier_NotCtxDep_min reify_io CtxDep) ♯ IT)))).
       set (ss := gState_decomp (@sR_idx _ _ _ _ subR1) gσ).
       pose (s1 := (sR_state^-1 ss.1)). simpl in gσ, s1.
       epose proof (subReifier_reify reify_cont rs (inr (inl ()))
                     (Next (interp_val v env), Next f')
                      (Next (Tau (Next ((interp_ectx K' env) (interp_val v env)))))
-                     (Empty_setO_rec _) s1 s1 ss.2) as H'.
+                     (Empty_setO_rec _) s1 s1 ss.2 []) as H'.
       simpl in H'.
       subst κ.
-      simpl. trans (Some
+      simpl.
+      rewrite Tick_eq.
+      trans (Some
              (Next (Tau (Next (interp_ectx K' env (interp_val v env)))),
-               gState_recomp ss.2 (sR_state (s1 : sReifier_state reify_cont ♯ IT)))).
+               gState_recomp ss.2 (sR_state (s1 : sReifier_state reify_cont ♯ IT)),
+            ([] : list.listO (laterO IT)))).
       - erewrite <-H'; last reflexivity.
         rewrite /prod_map.
         f_equiv.
@@ -904,10 +912,11 @@ Section interp.
             symmetry. by apply gState_recomp_decomp.
           * intro; simpl.
             f_equiv. done.
-      - rewrite Tick_eq. repeat f_equiv.
+      - repeat f_equiv.
         unfold s1.
         setoid_rewrite ofe_iso_12.
-        by apply gState_recomp_decomp. }
+        by apply gState_recomp_decomp.
+    }    
   Qed.
 
 End interp.

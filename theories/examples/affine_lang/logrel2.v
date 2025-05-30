@@ -2,11 +2,13 @@ From iris.base_logic.lib Require Import na_invariants.
 From gitrees Require Export gitree program_logic greifiers.
 From gitrees.examples.input_lang Require Import lang interp logpred.
 From gitrees.examples.affine_lang Require Import lang logrel1.
-From gitrees.effects Require Import store.
+From gitrees.effects Require Import store fork.
 From gitrees.lib Require Import pairs.
 From gitrees.utils Require Import finite_sets.
 
 Require Import Binding.Lib Binding.Set Binding.Env.
+
+Import IF_nat.
 
 Inductive typed_glued : forall {S : Set}, (S → ty) → expr S → ty → Type :=
 (** FFI *)
@@ -52,11 +54,17 @@ Inductive typed_glued : forall {S : Set}, (S → ty) → expr S → ty → Type 
   typed_glued Ω (LitBool b) tBool
 | typed_UnitG {S : Set} (Ω : S → ty) :
   typed_glued Ω LitUnit tUnit
+(** concurrency *)
+| typed_ForkG {S1 S2 : Set} (Ω1 : S1 → ty) (Ω2 : S2 → ty) e1 e2 τ :
+  typed_glued Ω1 e1 tUnit →
+  typed_glued Ω2 e2 τ →
+  typed_glued (sum_map' Ω1 Ω2) (EFork e1 e2) τ
 .
 
 Section glue.
   Context {sz : nat}.
   Variable rs : gReifiers NotCtxDep sz.
+  Context `{!subReifier reify_fork rs}.
   Context `{!subReifier reify_store rs}.
   Context `{!subReifier reify_io rs}.
   Notation F := (gReifiers_ops rs).
@@ -66,19 +74,19 @@ Section glue.
   Context `{!SubOfe locO R}.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
-  Context `{!invGS Σ, !stateG rs R Σ, !heapG rs R Σ, !na_invG Σ}.
+  Context `{!na_invG Σ, !heapG rs R Σ, !gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
-  Definition s : stuckness := λ e, e = OtherError.
-  Variable p : na_inv_pool_name.
+  Definition s : stuckness := λ e, (e ≡ OtherError)%stdpp.
 
-  Definition valid2 {S : Set} `{HE : EqDecision S} `{!Finite S} (Ω : S → ty) (α : interp_scope (E:=F) S -n> IT)
+  Definition valid2 {S : Set} `{HE : EqDecision S} `{!Finite S} (Ω : S → ty)
+    (α : interp_scope (E:=F) S -n> IT)
     (τ : ty) : iProp :=
-     valid1 rs s (λne σ, has_substate σ ∗ na_own p ⊤)%I Ω α τ.
+    io_ctx rs -∗ valid1 rs s (λne _ : unitO, True)%I Ω α τ.
 
   Definition io_valid {S : Set} (Γ : S → io_lang.ty) α (τ' : io_lang.ty)
     : iProp :=
-    input_lang.logpred.valid1 rs s (λne _ : unitO, na_own p ⊤) Γ α τ'.
+    fork_ctx rs -∗ input_lang.logpred.valid1 rs s (λne _ : unitO, True)%I Γ α τ'.
 
   Local Opaque thunked thunkedV Thunk.
 
@@ -86,83 +94,90 @@ Section glue.
     io_valid □ α Tnat ⊢
      valid2 Ω (constO (glue2_bool _ (α ı_scope))) tBool.
   Proof.
-    iIntros "H".
-    iIntros (ss) "#Hctx Has". simpl.
-    iIntros (σ) "[Hs Hp]".
-    iSpecialize ("H" $! σ ı_scope with "Hs []").
+    iIntros "H #Hinv".
+    iIntros (ss) "#Hctx Has #Hf". simpl.
+    iIntros ([]) "_".
+    iSpecialize ("H" with "Hf").
+    iSpecialize ("H" $! ı_scope with "Hinv []").
     { iIntros ([]). }
-    iSpecialize ("H" $! tt with "Hp").
-    simpl.
+    iSpecialize ("H" $! tt with "[//]").
     iApply (wp_bind _ (IFSCtx _ _)).
-    { solve_proper. }
     iApply (wp_wand with "H").
-    iIntros (αv). iDestruct 1 as (_) "[Ha Hp]".
-    iDestruct "Ha" as (σ') "[Ha Hs]".
+    iIntros (αv). iDestruct 1 as ([]) "[Ha _]".
     iDestruct "Ha" as (n) "Ha".
     iRewrite "Ha".
     unfold IFSCtx.
     iModIntro. destruct n as [|n]; simpl.
     * rewrite IF_False ; last lia.
-      iApply wp_val; eauto with iFrame.
+      iApply wp_val.
+      iModIntro. iExists (). iSplit; first by iLeft.
+      done.
     * rewrite IF_True ; last lia.
-      iApply wp_val; eauto with iFrame.
+      iApply wp_val.
+      iModIntro. iExists (). iSplit; first by iRight.
+      done.
   Qed.
 
   Lemma compat_glue_to_affine_nat {S : Set} `{HE : EqDecision S} `{!Finite S} (Ω : S → ty) α :
     io_valid □ α Tnat ⊢
       valid2 Ω (constO (α ı_scope)) tInt.
   Proof.
-    iIntros "H".
-    iIntros (ss) "#Hctx Has". simpl.
-    iIntros (σ) "[Hs Hp]".
-    iSpecialize ("H" $! σ ı_scope with "Hs []").
+    iIntros "H #Hinv".
+    iIntros (ss) "#Hctx Has #Hf". simpl.
+    iSpecialize ("H" with "Hf").
+    iIntros ([]) "_".
+    iSpecialize ("H" $! ı_scope with "Hinv []").
     { iIntros ([]). }
-    iSpecialize ("H" $! tt with "Hp").
-    simpl.
+    iSpecialize ("H" $! tt with "[//]").
     iApply (wp_wand with "H").
-    iIntros (αv). iDestruct 1 as (_) "[Ha Hp]".
-    iDestruct "Ha" as (σ') "[Ha Hs]".
-    iModIntro. eauto with iFrame.
+    iIntros (αv). iDestruct 1 as ([]) "[Ha _]".
+    iModIntro. iExists (). eauto with iFrame.
   Qed.
 
   Lemma compat_glue_from_affine_bool α :
     valid2 □ α tBool ⊢
-      heap_ctx -∗ io_valid □ α Tnat.
+      heap_ctx rs -∗ io_valid □ α Tnat.
   Proof.
-    iIntros "H #Hctx".
-    iIntros (σ ss) "Hs Hss".
-    iIntros (?) "Hp".
-    iSpecialize ("H" $! ss with "Hctx [] [$Hs $Hp]").
+    iIntros "H #Hctx #Hf".
+    iIntros (ss) "#Hio #Hss".
+    iIntros ([]) "_".
+    iSpecialize ("H" with "Hio").
+    iSpecialize ("H" $! ss with "Hctx [] Hf").
     { iApply ssubst_valid_fin_empty1. }
-    simpl.
+    iSpecialize ("H" $! tt with "[//]").
     iApply (wp_wand with "H").
-    iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
-    iModIntro. simpl. iFrame. iExists tt,_; iFrame.
-    iDestruct "Ha" as "[Ha|Ha]"; iExists _; eauto.
+    iIntros (αv) "Ha".
+    iExists ().
+    iDestruct "Ha" as ([]) "[[Ha|Ha] _]".
+    - iModIntro. by iSplit; first by iExists 0.
+    - iModIntro. by iSplit; first by iExists 1.
   Qed.
 
   Lemma compat_glue_from_affine_nat α :
     valid2 □ α tInt ⊢
-      heap_ctx -∗ io_valid □ α Tnat.
+      heap_ctx rs -∗ io_valid □ α Tnat.
   Proof.
-    iIntros "H #Hctx".
-    iIntros (σ ss) "Hs Hss".
-    iIntros (?) "Hp".
-    iSpecialize ("H" $! ss with "Hctx [] [$Hs $Hp]").
+    iIntros "H #Hctx #Hf".
+    iIntros (ss) "#Hio #Hss".
+    iIntros ([]) "_".
+    iSpecialize ("H" with "Hio").
+    iSpecialize ("H" $! ss with "Hctx [] Hf").
     { iApply ssubst_valid_fin_empty1. }
+    iSpecialize ("H" $! tt with "[//]").
     iApply (wp_wand with "H").
-    iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
+    iIntros (αv) "Ha".
+    iDestruct "Ha" as ([]) "[Ha _]".
     iModIntro. iExists tt. eauto with iFrame.
   Qed.
 
   Lemma compat_glue_from_affine_unit α :
     valid2 □ α tUnit ⊢
-      heap_ctx -∗ io_valid □ (constO (glue_from_affine _ ty_conv_unit (α ı_scope))) Tnat.
+      heap_ctx rs -∗ io_valid □ (constO (glue_from_affine _ ty_conv_unit (α ı_scope))) Tnat.
   Proof.
-    iIntros "H #Hctx".
-    iIntros (σ ss) "Hs Hss".
-    iIntros (?) "Hp".
-    simpl. iApply wp_val.
+    iIntros "H #Hctx #Hf".
+    iIntros (ss) "#Hio #Hss".
+    iIntros ([]) "_".
+    iApply wp_val.
     iModIntro. iExists tt. iFrame. simpl.
     eauto with iFrame.
   Qed.
@@ -174,26 +189,26 @@ Section glue.
     (∀ α, io_valid □ α τ1'
             ⊢ valid2 □ (constO (glue_to_affine (α ı_scope))) τ1) →
     (∀ α,  valid2 □ (constO α) τ2
-             ⊢ heap_ctx -∗ io_valid □ (constO (glue_from_affine α)) τ2') →
+             ⊢ heap_ctx rs -∗ io_valid □ (constO (glue_from_affine α)) τ2') →
     valid2 □ (constO α) (tArr τ1 τ2)
-    ⊢ heap_ctx -∗
+    ⊢ heap_ctx rs -∗
       io_valid □
          (constO (glue_from_affine_fun _ glue_from_affine glue_to_affine α))
          (Tarr (Tarr Tnat τ1') τ2').
   Proof.
     intros G1 G2.
-    iIntros "H #Hctx".
+    iIntros "H #Hctx #Hf".
     unfold io_valid.
     unfold logpred.valid1.
-    iIntros (σ ss) "Hs ?".
-    simpl.
-    iIntros (?) "Hp".
-    iSpecialize ("H" $! ss with "Hctx [] [$Hs $Hp]").
+    iIntros (ss) "#Hio Hs".
+    iIntros ([]) "_".
+    iSpecialize ("H" with "Hio").
+    iSpecialize ("H" $! ss with "Hctx [] Hf").
     { iApply ssubst_valid_fin_empty1. }
-    simpl. iApply wp_let.
-    { solve_proper. }
+    iSpecialize ("H" $! () with "[//]").
+    iApply wp_let.
     iApply (wp_wand with "H").
-    iIntros (αv) "Ha". iDestruct "Ha" as (σ') "[Ha [Hs Hp]]".
+    iIntros (αv) "Ha". iDestruct "Ha" as ([]) "[Ha _]".
     iSimpl in "Ha".
     iSimpl. iModIntro.
     iApply wp_let.
@@ -203,92 +218,114 @@ Section glue.
     iNext. iIntros (l) "Hl".
     iApply fupd_wp.
     { solve_proper. }
-    iMod (na_inv_alloc p _ (nroot.@"yolo")
-            (pointsto l (Ret 1) ∨
-               (pointsto l (Ret 0) ∗ interp_tarr (interp_ty τ1) (interp_ty τ2) αv)) with "[Hl Ha]") as "#Hinv".
+    iSimpl.
+    iMod (inv_alloc (nroot.@"yolo") ⊤
+            ((pointsto l (Ret 1))
+             ∨
+               (pointsto l (Ret 0) ∗ interp_tarr (interp_ty τ1) (interp_ty τ2) αv))%I
+           with "[Hl Ha]") as "#Hinv".
     { iNext. iRight. by iFrame. }
-    iModIntro. simpl. iApply wp_val.
-    iModIntro. iExists tt. iFrame. iExists σ'. iFrame.
-    iModIntro. clear σ σ'. iIntros (σ βv) "Hs #Hb".
-    iIntros (?) "Hp".
-    iApply wp_lam. iNext. simpl.
+    iModIntro. iApply wp_val.
+    iModIntro. iExists tt.
+    iSplit; last done.
+    iIntros (?). iModIntro. iIntros "#Harr %_ _".
+    iApply wp_lam.
+    iNext. simpl. iIntros "Hcr".
     iApply wp_let.
     { solve_proper. }
-    iApply wp_lam. iNext. simpl.
+    iApply wp_lam. iNext. simpl. iIntros "_".
     iApply (wp_bind _ (IFSCtx _ _)).
     { solve_proper_please. }
-    iApply fupd_wp.
-    { solve_proper. }
-    iMod  (na_inv_acc with "Hinv Hp")
-      as "[Hl [Hp Hcl]]"; [ set_solver | set_solver | ].
-    iModIntro.
-    iDestruct "Hl" as "[Hl | [Hl Ha]]".
-    * iApply (wp_read with "Hctx Hl").
-      iNext. iNext. iIntros "Hl".
-      iApply wp_val.
-      iModIntro.
-      unfold IFSCtx. simpl.
-      rewrite IF_True; last lia.
-      iApply wp_err. done.
-    * iApply (wp_read with "Hctx Hl").
-      iNext. iNext. iIntros "Hl".
-      iApply wp_val.
-      iModIntro.
-      unfold IFSCtx. simpl.
-      rewrite IF_False; last lia.
-      iApply wp_seq.
-      { solve_proper_please. }
-      iApply (wp_write with "Hctx Hl").
-      iNext. iNext. iIntros "Hl".
-      iApply wp_val.
-      iMod ("Hcl" with "[Hl $Hp]") as "Hp".
-      { iNext. iLeft; eauto. }
-      iModIntro.
-      iApply wp_let.
-      { solve_proper. }
-      iSpecialize ("Hb" $! _ (RetV 0) with "Hs []").
-      { eauto with iFrame. }
-      iSpecialize ("Hb" $! tt with "Hp").
-      iApply (wp_wand with "Hb").
-      iIntros (γv). iDestruct 1 as (?) "[Hg Hp]".
-      iDestruct "Hg" as (σ') "[Hg Hst]".
-      iModIntro. simpl.
-      iApply wp_let.
-      { solve_proper. }
-      iPoseProof (G1 (constO (IT_of_V γv))) as "G1".
-      iSpecialize ("G1" with "[Hg]").
-      { iIntros (σ0 ss0) "Hs Has". simpl.
-        iApply expr_pred_ret. simpl. eauto with iFrame. }
-      iSpecialize ("G1" $! ss with "Hctx [] [$Hst $Hp]").
-      { iApply ssubst_valid_fin_empty1. }
-      iApply (wp_wand with "G1").
-      clear βv σ'.
-      iIntros (βv). iDestruct 1 as (σ') "[Hb [Hst Hp]]".
-      iModIntro. simpl.
-      iApply wp_let.
-      { solve_proper. }
-      iSpecialize ("Ha" with "Hb [$Hst $Hp]").
-      iApply (wp_wand with "Ha").
-      clear γv σ'.
-      iIntros (γv). iDestruct 1 as (σ') "[Hg [Hst Hp]]".
-      iModIntro.
-      iPoseProof (G2 (IT_of_V γv)) as "G1".
-      iSpecialize ("G1" with "[Hg] Hctx").
-      { iIntros (ss0) "_ _".
-        by iApply expr_pred_ret. }
-      iSpecialize ("G1" $! _ ı_scope with  "Hst []").
-      {
-        iIntros ([]).
-      }
-      iApply ("G1" $! tt with "Hp").
+    iApply (xchg_wp.wp_xchg_atomic_hom rs _ (Ret 1)
+              _ _ _ _ idfun with "Hctx"); first last.
+    {
+      iInv (nroot.@"yolo") as "J" "Hcl".
+      iApply (lc_fupd_add_later with "Hcr").
+      iNext.
+      iDestruct "J" as "[Hl | [Hl Ha]]".
+      - iModIntro.
+        iExists (Ret 1).
+        iFrame "Hl".
+        do 2 iNext.
+        iIntros "Hl".
+        iSpecialize ("Hcl" with "[Hl]").
+        { iNext. iLeft. iFrame "Hl". }
+        iMod "Hcl".
+        iModIntro.
+        iApply wp_val.
+        iModIntro.
+        unfold IFSCtx. simpl.
+        rewrite IF_True; last lia.
+        iApply wp_err.
+        done.
+      - iModIntro.
+        iExists (Ret 0).
+        iFrame "Hl".
+        do 2 iNext.
+        iIntros "Hl".
+        iApply wp_val.
+        unfold IFSCtx. simpl.
+        rewrite IF_False; last lia.
+        iApply wp_val.
+        do 2 iApply fupd_intro.
+        iApply wp_let.
+        { solve_proper. }
+        iSpecialize ("Harr" $! (RetV 0) with "[]").
+        { eauto with iFrame. }
+        iSpecialize ("Harr" $! tt with "[]").
+        { done. }
+        iSpecialize ("Hcl" with "[Hl]").
+        { iNext. iLeft. iFrame "Hl". }
+        iMod "Hcl".
+        iModIntro.
+        iApply (wp_wand with "Harr").
+        iIntros (γv). iDestruct 1 as ([]) "[Hg _]".
+        iModIntro.
+        iApply wp_let.
+        { solve_proper. }
+        iPoseProof (G1 (constO (IT_of_V γv))) as "G1".
+        iSpecialize ("G1" with "[Hg]").
+        {
+          iIntros "#Hf'". iIntros (ss0) "_ Has". simpl.
+          iApply expr_pred_ret. simpl. eauto with iFrame.
+        }
+        iSpecialize ("G1" with "Hio").
+        iSpecialize ("G1" $! ss with "Hctx [] Hf").
+        { iApply ssubst_valid_fin_empty1. }
+        iSpecialize ("G1" $! () with "[//]").
+        iApply (wp_wand with "G1").
+        iIntros (βv'). simpl.
+        iDestruct 1 as ([]) "[Hb _]".
+        iModIntro. simpl.
+        iApply wp_let.
+        { solve_proper. }
+        iSpecialize ("Ha" with "Hb").
+        iSpecialize ("Ha" $! () with "[//]").
+        iApply (wp_wand with "Ha").
+        iIntros (γv'). iDestruct 1 as ([]) "[Hg _]".
+        iModIntro.
+        iPoseProof (G2 (IT_of_V γv')) as "G1".
+        iSpecialize ("G1" with "[Hg] Hctx").
+        {
+          iIntros "_". iIntros (?) "_ _ _".
+          by iApply expr_pred_ret.
+        }
+        iSpecialize ("G1" with "Hf").
+        iSpecialize ("G1" $! ss with "Hio []").
+        { iIntros ([]). }
+        iSpecialize ("G1" $! () with "[//]").
+        iApply ("G1").
+    }
+    by apply ndot_ne_disjoint.
   Qed.
 
-  Lemma compat_glue_to_affine_fun {S : Set} `{HE : EqDecision S} `{!Finite S} (Ω : S → ty) (τ1 τ2 : ty)
+  Lemma compat_glue_to_affine_fun {S : Set} `{HE : EqDecision S} `{!Finite S}
+    (Ω : S → ty) (τ1 τ2 : ty)
     (τ1' τ2' : io_lang.ty) α (glue_to_affine glue_from_affine : IT -n> IT) :
     (∀ α, io_valid □ α τ2'
             ⊢ valid2 Ω (constO (glue_to_affine (α ı_scope))) τ2) →
     (∀ α,  valid2 □ (constO α) τ1
-             ⊢ heap_ctx -∗ io_valid □ (constO (glue_from_affine α)) τ1') →
+             ⊢ heap_ctx rs -∗ io_valid □ (constO (glue_from_affine α)) τ1') →
     io_valid □ α (Tarr (Tarr Tnat τ1') τ2')
       ⊢ valid2 Ω
       (constO (glue_to_affine_fun _ glue_from_affine glue_to_affine (α ı_scope)))
@@ -296,66 +333,69 @@ Section glue.
   Proof.
     intros G1 G2.
     iIntros "H".
-    iIntros (αs) "#Hctx Has".
-    iIntros (σ) "[Hs Hp]". simpl.
-    iSpecialize ("H" $! _ ı_scope with "Hs []").
+    iIntros "#Hio". iIntros (αs) "#Hctx Has #Hf".
+    iIntros (?) "_". simpl.
+    iSpecialize ("H" with "Hf").
+    iSpecialize ("H" $! ı_scope with "Hio []").
     { iIntros ([]). }
-    iSpecialize ("H" $! tt with "Hp").
+    iSpecialize ("H" $! tt with "[//]").
     simpl.
     iApply wp_let.
     { solve_proper. }
     iApply (wp_wand with "H").
-    iIntros (αv). iDestruct 1 as (_) "[Ha Hp]".
-    iDestruct "Ha" as (σ') "[Ha Hs]".
+    iIntros (αv). iDestruct 1 as (_) "[Ha _]".
     simpl. iModIntro.
     iApply wp_val. iModIntro.
-    iExists σ'. iFrame.
+    iExists ().
+    iSplit; last done.
     iIntros (βv) "Hb".
     (* preparing a thunk *)
-    iSimpl. clear σ σ'.
-    iIntros (σ) "[Hs Hp]".
+    iSimpl.
+    iIntros ([]) "_".
     iApply (wp_bind _ (AppRSCtx _)).
     iApply (wp_Thunk with "Hctx").
     { solve_proper. }
     iNext. iIntros (l) "Hl".
     unfold AppRSCtx.
     iApply wp_lam. iNext.
-    iEval(cbn-[thunked]).
+    iEval(cbn-[thunked]). iIntros "_".
     iApply wp_let.
     { solve_proper. }
     iApply wp_lam.
     (* forcing a thunk *)
-    iNext. iSimpl.
+    iNext. iSimpl. iIntros "_".
     iApply (wp_bind _ (IFSCtx _ _)).
     { solve_proper. }
-    iApply (wp_read with "Hctx Hl").
+    iApply (xchg_wp.wp_xchg_hom rs _ (Ret 0)
+              _ _ _ idfun with "Hctx [$Hl]"); first last.
     iNext. iNext. iIntros "Hl".
     iApply wp_val. iModIntro.
     unfold IFSCtx. simpl.
     rewrite IF_False; last lia.
-    iApply wp_seq.
-    { solve_proper. }
-    iApply (wp_write with "Hctx Hl").
-    iNext. iNext. iIntros "Hl".
     iApply wp_val. iModIntro.
     (* doing the glue for the argument *)
     iApply wp_let.
     { solve_proper. }
     iPoseProof (G2 (IT_of_V βv)) as "G2".
     iSpecialize ("G2" with "[Hb]").
-    { iIntros (ss) "Hss _".
-      iIntros (σ0) "Hs". simpl.
-      iApply wp_val. eauto with iFrame. }
-    iSpecialize ("G2" with "Hctx").
-    iSpecialize ("G2" $! _ ı_scope with "Hs []").
     {
-      iIntros ([]).
+      iIntros "_".
+      iIntros (ss) "_ Hss _".
+      iIntros (?) "_".
+      simpl.
+      iApply wp_val.
+      iExists ().
+      eauto with iFrame.
     }
-    iSpecialize ("G2" $! tt with "Hp").
+    iSpecialize ("G2" with "Hctx").
+    iSpecialize ("G2" with "Hf").
+    iSpecialize ("G2" $! ı_scope with "Hio []").
+    { iIntros ([]). }
+    iSpecialize ("G2" $! tt with "[//]").
     iApply (wp_wand with "G2").
     iIntros (β'v).
-    iDestruct 1 as (?) "[Hb Hp]". iModIntro.
-    simpl. clear σ. iDestruct "Hb" as (σ) "[#Hb Hs]".
+    iDestruct 1 as ([]) "[#Hb _]". iModIntro.
+    simpl.
     (* calling the original function *)
     iApply wp_let.
     { solve_proper. }
@@ -370,14 +410,16 @@ Section glue.
     { solve_proper. }
     iMod (inv_alloc (nroot.@"yolo") _ (∃ n, pointsto l' (Ret n)) with "[Hl']") as "#Hinv".
     { iNext. iExists _; done. }
-    iPoseProof ("Ha" $! _ (thunkedV (IT_of_V β'v) l') with "Hs [-Has Hp]") as "H1".
-    { iModIntro. iIntros (σ' βn) "Hs Hbm".
+    iPoseProof ("Ha" $! (thunkedV (IT_of_V β'v) l') with "[-Has]") as "H1".
+    {
+      iModIntro. iIntros (βn) "Hbm".
       iDestruct "Hbm" as (m) "Hbm".
-      iIntros (?) "Hp".
-      iApply wp_lam. iNext. iSimpl.
+      iIntros ([]) "_".
+      iApply wp_lam. iNext. iSimpl. iIntros "_".
       iApply (wp_bind _ (IFSCtx _ _)).
       { solve_proper. }
-      iApply (wp_read_atomic _ _ (⊤∖ nclose (nroot.@"storeE")) with "Hctx").
+      iApply (xchg_wp.wp_xchg_atomic_hom rs _ (Ret 1)
+                (⊤∖ nclose (nroot.@"storeE")) _ _ _ idfun with "Hctx").
       { set_solver. }
       iInv (nroot.@"yolo") as (n) "Hl'" "Hcl".
       iModIntro. iExists (Ret n). iFrame.
@@ -389,45 +431,44 @@ Section glue.
       unfold IFSCtx. simpl.
       destruct n as [|n].
       - rewrite IF_False; last lia.
-        iApply wp_seq.
-        { solve_proper. }
-        iApply (wp_write_atomic _ _ (⊤∖ nclose (nroot.@"storeE")) with "Hctx").
-        { set_solver. }
-        iInv (nroot.@"yolo") as (n) "Hl'" "Hcl".
-        iModIntro. iExists (Ret n). iFrame.
-        iNext. iNext. iIntros "Hl'".
-        iMod ("Hcl" with "[Hl']") as "_".
-        { iNext. eauto with iFrame. }
-        iModIntro. iApply wp_val.
-        iModIntro. iExists tt. eauto with iFrame.
+        iApply wp_val.
+        iModIntro. iExists tt.
+        iFrame "Hb".
       - rewrite IF_True; last lia.
-        iApply wp_err. done. }
+        iApply wp_err. done.
+    }
     iModIntro.
-    iSpecialize ("H1" $! tt with "Hp").
+    iSpecialize ("H1" $! tt with "[//]").
     iApply (wp_wand with "H1").
-    iIntros (γv). iDestruct 1 as (?) "[H2 Hp]".
-    iModIntro. simpl. iDestruct "H2" as (σ') "[#H2 Hs]".
+    iIntros (γv). iDestruct 1 as ([]) "[#H2 _]".
+    iModIntro. simpl.
     iPoseProof (G1 (constO (IT_of_V γv))) as "G1".
     iSpecialize ("G1" with "[H2]").
-    { iIntros (σ0 ss0) "Hs Has". simpl.
+    {
+      iIntros "_".
+      iIntros (ss) "_ Has".
+      simpl.
       iApply expr_pred_ret. simpl.
-      eauto with iFrame. }
-    iSpecialize ("G1" with "Hctx Has").
-    iSpecialize ("G1" with "[$Hs $Hp]").
+      eauto with iFrame.
+    }
+    iSpecialize ("G1" with "Hio").
+    iSpecialize ("G1" $! αs with "Hctx Has Hf").
+    iSpecialize ("G1" $! () with "[//]").
     simpl. done.
   Qed.
 
-  Lemma glue_to_affine_compatibility {S : Set} `{HE : EqDecision S} `{!Finite S} (Ω : S → ty) (τ1 : ty) (τ1' : io_lang.ty)
+  Lemma glue_to_affine_compatibility {S : Set} `{HE : EqDecision S} `{!Finite S}
+    (Ω : S → ty) (τ1 : ty) (τ1' : io_lang.ty)
     (Hconv : ty_conv τ1 τ1') α :
     io_valid □ α τ1' ⊢ valid2 Ω (constO (glue_to_affine _ Hconv (α ı_scope))) τ1
   with glue_from_affine_compatibility (τ1 : ty) (τ1' : io_lang.ty)
     (Hconv : ty_conv τ1 τ1') (α : IT) :
-    valid2 □ (constO α) τ1 ⊢ heap_ctx -∗ io_valid □ (constO (glue_from_affine _ Hconv α)) τ1'.
+    valid2 □ (constO α) τ1 ⊢ heap_ctx rs -∗ io_valid □ (constO (glue_from_affine _ Hconv α)) τ1'.
   Proof.
     - destruct Hconv.
       + by iApply compat_glue_to_affine_bool.
       + by iApply compat_glue_to_affine_nat.
-      + iIntros "_".
+      + iIntros "_ ?".
         simpl. iApply compat_unit.
       + simpl. iApply compat_glue_to_affine_fun.
         * by apply glue_to_affine_compatibility.
@@ -441,106 +482,205 @@ Section glue.
         * apply glue_from_affine_compatibility.
   Qed.
 
-  Lemma fundamental_affine_glued {S : Set} `{HE : EqDecision S} `{!Finite S} (Ω : S → ty) (e : expr S) τ :
+  Ltac fold_interp :=
+    match goal with
+    | |- context G [interp_expr ?a ?b] =>
+        progress fold (interp_expr (R := R) a b)
+    end.
+
+  Lemma fundamental_affine_glued {S : Set} `{HE : EqDecision S} `{!Finite S}
+    (Hfork : ⊢ fork_post (RetV ())) (Ω : S → ty) (e : expr S) τ :
     typed_glued Ω e τ →
     ⊢ valid2 Ω (interp_expr _ e) τ.
   Proof.
     intros typed.
     iStartProof.
-    iInduction typed as [| | | | | | | | | | |] "IH".
-    - iApply glue_to_affine_compatibility.
-      by iApply fundamental.
+    iInduction typed as [| | | | | | | | | | | |] "IH";
+      first (iApply glue_to_affine_compatibility;
+             iIntros "#Hf";
+             by iApply fundamental);
+      iIntros "#Hio".
     - by iApply compat_var.
-    - by iApply compat_lam.
-    - by iApply (compat_app EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-    - by iApply (compat_pair EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-    - by iApply (compat_destruct EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-    - by iApply compat_alloc.
-    - by iApply (compat_replace EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight).
-    - by iApply compat_dealloc.
+    - iApply compat_lam; fold_interp.
+      by iApply "IH".
+    - iApply (compat_app _ _ EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight);
+        fold_interp.
+      + by iApply "IH".
+      + by iApply "IH1".
+    - iApply (compat_pair _ _ EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight);
+        fold_interp.
+      + by iApply "IH".
+      + by iApply "IH1".
+    - iApply (compat_destruct _ _ EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight);
+        fold_interp.
+      + by iApply "IH".
+      + by iApply "IH1".
+    - iApply compat_alloc; fold_interp.
+      by iApply "IH".
+    - iApply (compat_replace _ _ EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight);
+        fold_interp.
+      + by iApply "IH".
+      + by iApply "IH1".
+    - iApply compat_dealloc; fold_interp.
+      by iApply "IH".
     - by iApply compat_nat.
     - by iApply compat_bool.
     - by iApply compat_unit.
+    - iApply (compat_fork _ _ EqDecisionLeft FiniteLeft EqDecisionRight FiniteRight);
+        first done; fold_interp.
+      + by iApply "IH".
+      + by iApply "IH1".
   Qed.
 
 End glue.
 
-Local Definition rs : gReifiers NotCtxDep 2
-  := gReifiers_cons reify_store
-       (gReifiers_cons reify_io gReifiers_nil).
+Local Definition rs : gReifiers NotCtxDep 3
+  := gReifiers_cons reify_fork
+       (gReifiers_cons reify_store
+          (gReifiers_cons reify_io gReifiers_nil)).
 
-Variable Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
+#[local] Parameter Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Lemma logrel2_adequacy (cr : nat) R `{!Cofe R, !SubOfe locO R, !SubOfe natO R, !SubOfe unitO R}
-  Σ `{!invGpreS Σ}`{!statePreG rs R Σ} `{!heapPreG rs R Σ} `{!na_invG Σ}
-  (τ : ty) (α : interp_scope Empty_set -n> IT (gReifiers_ops rs) R) (β : IT (gReifiers_ops rs) R) st st' k :
-  (∀ `{H1 : !invGS Σ} `{H2: !stateG rs R Σ} `{H3: !heapG rs R Σ} p,
-      (£ cr ⊢ valid2 rs p □ α τ)%I) →
-  ssteps (gReifiers_sReifier rs) (α ı_scope) st β st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
-   ∨ (β ≡ Err OtherError)%stdpp
-   ∨ (∃ βv, (IT_of_V βv ≡ β)%stdpp).
+Open Scope stdpp.
+
+Lemma logrel2_adequacy (cr : nat) Σ R
+  `{!Cofe R, !SubOfe natO R, !SubOfe unitO R, !SubOfe locO R}
+  `{!invGpreS Σ} `{!statePreG rs R Σ} `{!heapPreG rs R Σ} (τ : ty)
+  (α : interp_scope (E := (gReifiers_ops rs)) (R := R) Empty_set -n>
+         IT (gReifiers_ops rs) R)
+  (β : list.listO (IT (gReifiers_ops rs) R)) st st' k :
+  (∀ `{H1 : !gitreeGS_gen rs R Σ} `{H2 : !heapG rs R Σ},
+     (⊢@{iProp Σ} @fork_post 3 NotCtxDep rs R _ Σ H1 (RetV ())) →
+     (£ cr ⊢ valid2 rs □ α τ)%I) →
+  tp_external_steps (gReifiers_sReifier rs) [(α ı_scope)] st β st' k →
+  ∀ (e2 : (IT (gReifiers_ops rs) R)), e2 ∈ β →
+  is_Some (IT_to_V e2)
+  ∨ (∃ β1 st1 l, external_step (gReifiers_sReifier rs) e2 st' β1 st1 l)
+  ∨ (∃ e, e2 ≡ Err e ∧ s e).
 Proof.
-  intros Hlog Hst.
-  destruct (IT_to_V β) as [βv|] eqn:Hb.
-  { right. right. exists βv. apply IT_of_to_V'. rewrite Hb; eauto. }
-  cut ((∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
-      ∨ (∃ e, (β ≡ Err e)%stdpp ∧ s e)).
-  { intros [?|He]; first eauto. right. left.
-    destruct He as [? [? ->]]. done. }
-  eapply (wp_safety (S cr) _ _ NotCtxDep rs s); eauto.
-  { apply Hdisj. }
-  { by rewrite Hb. }
+  intros Hlog Hst e2 HIn.
+  eapply (wp_tp_progress_gen Σ 3 NotCtxDep rs (S (S (S cr))) (λ x, x) s
+            k (α ı_scope) β st st' e2 HIn Hdisj Hst).
   intros H1 H2.
+  pose H3 : gitreeGS_gen rs R Σ := AffineLangGitreeGS rs Σ H1 H2.
+  simpl in H3.
   exists (λ _, True)%I. split.
   { apply _. }
-  iIntros "[[Hone Hcr] Hst]".
-  pose (σ := st.1).
-  pose (ios := st.2.1).
-  iMod (new_heapG rs σ) as (H3) "H".
-  iAssert (has_substate σ ∗ has_substate ios)%I with "[Hst]" as "[Hs Hio]".
+  iExists (@state_interp_fun _ _ rs _ _ _ H3).
+  iExists (@aux_interp_fun _ _ rs _ _ _ H3).
+  iExists (@fork_post _ _ rs _ _ _ H3).
+  iExists (@fork_post_ne _ _ rs _ _ _ H3).
+  iExists (@state_interp_fun_mono _ _ rs _ _ _ H3).
+  iExists (@state_interp_fun_ne _ _ rs _ _ _ H3).
+  iExists (@state_interp_fun_decomp _ _ rs _ _ _ H3).
+  simpl.
+  iAssert (True%I) as "G"; first done; iFrame "G"; iClear "G".
+  iModIntro. iIntros "((Hone & Hone' & Hone'' & Hcr) & Hst)".
+  pose (σ := st.2.1 : gmap.gmapO locO (laterO (IT (gReifiers_ops rs) R))).
+  pose (ios := st.2.2.1).
+  pose (σfork := st.1).
+  iMod (new_heapG rs (to_agree <$> σ)) as (H4) "H".
+  iAssert (
+      has_substate σfork
+      ∗ has_substate
+        (σ : oFunctor_car
+               (sReifier_state reify_store)
+               (IT (sReifier_ops (gReifiers_sReifier rs)) R)
+               (IT (sReifier_ops (gReifiers_sReifier rs)) R))
+      ∗ has_substate ios)%I with "[Hst]"
+    as "[Hsfork [Hs Hio]]".
   { unfold has_substate, has_full_state.
     assert (of_state rs (IT (gReifiers_ops rs) _) st ≡
-            of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σ)
-            ⋅ of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state ios))%stdpp as ->; last first.
-    { rewrite -own_op. done. }
+              of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state σfork)
+            ⋅ (of_idx rs (IT (gReifiers_ops rs) _) sR_idx
+              (sR_state (σ : oFunctor_car
+                    (sReifier_state reify_store)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)))
+            ⋅ of_idx rs (IT (gReifiers_ops rs) _) sR_idx (sR_state ios)))%stdpp as ->; last first.
+    { rewrite -own_op -own_op -auth_frag_op /=. done. }
     unfold sR_idx. simpl.
     intro j.
     rewrite discrete_fun_lookup_op.
     inv_fin j.
     { unfold of_state, of_idx. simpl.
       erewrite (eq_pi _ _ _ (@eq_refl _ 0%fin)). done. }
-    intros j. inv_fin j.
+    intros j.
+    rewrite discrete_fun_lookup_op.
+    inv_fin j.
     { unfold of_state, of_idx. simpl.
       erewrite (eq_pi _ _ _ (@eq_refl _ 1%fin)). done. }
-    intros i. inversion i. }
+    intros j. inv_fin j.
+    { unfold of_state, of_idx. simpl.
+      erewrite (eq_pi _ _ _ (@eq_refl _ 2%fin)). done. }
+    intros i. inversion i.
+  }
+  iPoseProof (Hlog H3 H4 with "Hcr") as "Hlog".
+  { done. }
   iApply fupd_wp.
-  iMod (inv_alloc (nroot.@"storeE") _ (∃ σ, £ 1 ∗ has_substate σ ∗ own (heapG_name rs) (●V σ))%I with "[-Hcr Hio]") as "#Hinv".
-  { iNext. iExists _. iFrame. }
-  simpl.
-  iMod na_alloc as (p) "Hp".
-  iPoseProof (@Hlog _ _ _ p with "Hcr") as "Hlog".
+  iMod (inv_alloc (nroot.@"storeE") _
+          (∃ σ : gmap locO (laterO (IT (gReifiers_ops rs) R)),
+             £ 1 ∗ has_substate (σ : oFunctor_car
+                    (sReifier_state reify_store)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R))
+             ∗ own (heapG_name rs) (●V ((to_agree <$> σ) : gmap.gmapO loc (agreeR (laterO (IT (gReifiers_ops rs) R))))))%I
+         with "[Hone H Hs]") as "#Hinv".
+  {
+    iNext. iExists st.2.1.
+    iFrame "Hone H Hs".
+  }
+  iMod (inv_alloc (nroot.@"forkE") _ (£1 ∗ has_substate σfork)%I
+         with "[Hone' Hsfork]") as "#Hinv'".
+  {
+    iNext.
+    iFrame "Hone' Hsfork".
+  }
+  iMod (inv_alloc (nroot.@"ioE") _
+          (∃ ios,
+             £ 1 ∗ has_substate (ios : oFunctor_car
+                    (sReifier_state reify_io)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)))%I
+         with "[Hone'' Hio]") as "#Hinv''".
+  {
+    iNext. iExists _.
+    iFrame "Hone'' Hio".
+  }
+  iSpecialize ("Hlog" with "Hinv''").
   iSpecialize ("Hlog" $! ı_scope with "Hinv []").
   { iApply ssubst_valid_fin_empty1. }
-  unfold expr_pred. simpl.
-  iSpecialize ("Hlog" $! ios with "[$Hio $Hp]").
-  iModIntro. simpl.
+  destruct σfork.
+  iSpecialize ("Hlog" with "Hinv'").
+  iSpecialize ("Hlog" $! tt with "[//]").
+  iModIntro.
   iApply (wp_wand with "Hlog").
-  eauto with iFrame.
+  iIntros (βv). simpl. iDestruct 1 as (_) "[H _]".
+  done.
 Qed.
 
 Definition R := sumO locO (sumO natO unitO).
 
-Lemma logrel2_safety e τ (β : IT (gReifiers_ops rs) R) st st' k :
+Lemma logrel2_safety e τ (β : list (IT (gReifiers_ops rs) R)) st st' k :
   typed_glued □ e τ →
-  ssteps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) st β st' k →
-  (∃ β1 st1, sstep (gReifiers_sReifier rs) β st' β1 st1)
-   ∨ (β ≡ Err OtherError)%stdpp
-   ∨ (∃ βv, (IT_of_V βv ≡ β)%stdpp).
+  tp_external_steps (gReifiers_sReifier rs) [(interp_expr rs e ı_scope)] st β st' k →
+  ∀ e2, e2 ∈ β →
+  is_Some (IT_to_V e2)
+  ∨ (∃ β1 st1 l, external_step (gReifiers_sReifier rs) e2 st' β1 st1 l)
+  ∨ (e2 ≡ Err OtherError).
 Proof.
-  intros Hty Hst.
+  intros Hty Hst e2 Hin.
+  cut (is_Some (IT_to_V e2)
+       ∨ (∃ β1 st1 l, external_step (gReifiers_sReifier rs) e2 st' β1 st1 l)
+       ∨ (∃ e, e2 ≡ Err e ∧ s e)).
+  {
+    intros [| [|[err [-> H]]]]; first by left.
+    - right. left. done.
+    - right. right.
+      by rewrite H.
+  }
   pose (Σ:=#[invΣ;stateΣ rs R;heapΣ rs R;na_invΣ]).
-  eapply (logrel2_adequacy 0 R Σ); eauto.
-  iIntros (? ? ? ?) "_".
+  eapply (logrel2_adequacy 0 Σ _ τ); eauto.
+  iIntros (? ? ?) "_".
   by iApply fundamental_affine_glued.
 Qed.

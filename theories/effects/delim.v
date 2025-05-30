@@ -74,48 +74,46 @@ Section reifiers.
 
   Definition reify_shift : ((laterO X -n> laterO X) -n> laterO X) *
                               state * (laterO X -n> laterO X) →
-                            option (laterO X * state) :=
-    λ '(f, σ, k), Some ((f k): laterO X, σ : state).
+                            option (laterO X * state * listO (laterO X)) :=
+    λ '(f, σ, k), Some ((f k): laterO X, σ : state, []).
   #[export] Instance reify_shift_ne :
     NonExpansive (reify_shift :
       prodO (prodO ((laterO X -n> laterO X) -n> laterO X) state)
         (laterO X -n> laterO X) →
-      optionO (prodO (laterO X) state)).
+      optionO ((laterO X) * state * listO (laterO X))%type).
   Proof. intros ?[[]][[]][[]]. simpl in *. repeat f_equiv; auto. Qed.
 
   Definition reify_reset : (laterO X) * state * (laterO X -n> laterO X) →
-                           option (laterO X * state) :=
-    λ '(e, σ, k), Some (e, (k :: σ)).
+                           option (laterO X * state * listO (laterO X)) :=
+    λ '(e, σ, k), Some (e, (k :: σ), []).
   #[export] Instance reify_reset_ne :
     NonExpansive (reify_reset :
         prodO (prodO (laterO X) state) (laterO X -n> laterO X) →
-        optionO (prodO (laterO X) state)).
+        optionO ((laterO X) * state * listO (laterO X))%type).
   Proof. intros ?[[]][[]][[]]. simpl in *. by repeat f_equiv. Qed.
 
-
   Definition reify_pop : (laterO X) * state * (Empty_setO -n> laterO X) →
-                           option (laterO X * state) :=
+                           option (laterO X * state * listO (laterO X)) :=
     λ '(e, σ, _),
       match σ with
-      | [] => Some (e, σ)
-      | k' :: σ' => Some (k' e, σ')
+      | [] => Some (e, σ, [])
+      | k' :: σ' => Some (k' e, σ', [])
       end.
   #[export] Instance reify_pop_ne :
     NonExpansive (reify_pop :
         prodO (prodO (laterO X) state) (Empty_setO -n> laterO X) →
-        optionO (prodO (laterO X) state)).
+        optionO ((laterO X) * state * listO (laterO X))%type).
   Proof. intros ?[[]][[]][[]]. simpl in *. by repeat f_equiv. Qed.
 
-
   Definition reify_app_cont : ((laterO X * (laterO (X -n> X))) * state * (laterO X -n> laterO X)) →
-                              option (laterO X * state) :=
+                              option (laterO X * state * listO (laterO X)) :=
   λ '((e, k'), σ, k),
-    Some (((laterO_ap k' : laterO X -n> laterO X) e : laterO X), k::σ : state).
+    Some (((laterO_ap k' : laterO X -n> laterO X) e : laterO X), k::σ : state, []).
   #[export] Instance reify_app_cont_ne :
     NonExpansive (reify_app_cont :
         prodO (prodO (prodO (laterO X) (laterO (X -n> X))) state)
           (laterO X -n> laterO X) →
-        optionO (prodO (laterO X) (state))).
+        optionO ((laterO X) * (state) * listO (laterO X))%type).
   Proof.
     intros ?[[[]]][[[]]]?. rewrite /reify_app_cont.
     repeat f_equiv; apply H.
@@ -220,7 +218,7 @@ Section weakestpre.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
   Notation state := (stateF ♯ IT).
-  Context `{!invGS Σ, !stateG rs R Σ}.
+  Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
   (** * The symbolic execution rules *)
@@ -239,12 +237,18 @@ Section weakestpre.
     rewrite hom_vis.
     iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ (laterO_map 𝒫 $ f (laterO_map k)) with "Hs").
     {
-      simpl. do 2 f_equiv; last done. do 2 f_equiv.
+      simpl. do 2 f_equiv; last done.
+      f_equiv; last done.
+      do 2 f_equiv.
       rewrite ccompose_id_l. intro. simpl. by rewrite ofe_iso_21.
     }
     { exact Hp. }
-    iModIntro.
-    iApply "Ha".
+    rewrite /=.
+    iNext.
+    iIntros "Hlc Hs".
+    rewrite /wptp big_sepL2_nil.
+    iSplit; last done.
+    iApply ("Ha" with "Hlc Hs").
   Qed.
 
   Lemma wp_reset (σ : state) (e : IT) (k : IT -n> IT) {Hk : IT_hom k}
@@ -257,11 +261,16 @@ Section weakestpre.
     iIntros "Hs Ha".
     unfold RESET. simpl. rewrite hom_vis.
     iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ (Next $ 𝒫 e) with "Hs").
-    - simpl. repeat f_equiv. rewrite ccompose_id_l.
-      trans ((laterO_map k) :: σ); last reflexivity.
-      f_equiv. intro. simpl. by rewrite ofe_iso_21.
+    - simpl. f_equiv. rewrite ccompose_id_l later_map_Next.
+      trans (Next (𝒫 e), (laterO_map k) :: σ, [] : listO (laterO IT)); last reflexivity.
+      do 3 f_equiv. intro. simpl. by rewrite ofe_iso_21.
     - reflexivity.
-    - iApply "Ha".
+    - rewrite /=.
+      iNext.
+      iIntros "Hlc Hs".
+      rewrite /wptp big_sepL2_nil.
+      iSplit; last done.
+      iApply ("Ha" with "Hlc Hs").
   Qed.
 
   Lemma wp_pop_end (v : IT)
@@ -276,7 +285,12 @@ Section weakestpre.
     iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ ((Next v)) with "Hs").
     - simpl. reflexivity.
     - reflexivity.
-    - done.
+    - rewrite /=.
+      iNext.
+      iIntros "Hlc Hs".
+      rewrite /wptp big_sepL2_nil.
+      iSplit; last done.
+      iApply ("Ha" with "Hlc Hs").
   Qed.
 
   Lemma wp_pop_cons (σ : state) (v : IT) (k : IT -n> IT)
@@ -291,7 +305,12 @@ Section weakestpre.
     iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ ((laterO_map k (Next v))) with "Hs").
     - simpl. reflexivity.
     - reflexivity.
-    - done.
+    - rewrite /=.
+      iNext.
+      iIntros "Hlc Hs".
+      rewrite /wptp big_sepL2_nil.
+      iSplit; last done.
+      iApply ("Ha" with "Hlc Hs").
   Qed.
 
   Lemma wp_app_cont (σ : state) (e : laterO IT) (k' : laterO (IT -n> IT))
@@ -306,11 +325,17 @@ Section weakestpre.
     iIntros (Hb) "Hs Ha".
     unfold APP_CONT. simpl. rewrite hom_vis.
     iApply (wp_subreify_ctx_dep _ _ _ _ _ _ _ (Next β) with "Hs").
-    - cbn-[laterO_ap]. rewrite Hb. do 2 f_equiv.
-      trans (laterO_map k :: σ); last reflexivity.
+    - cbn-[laterO_ap]. rewrite Hb.
+      trans (Some (Next β, laterO_map k :: σ, [] : listO (laterO IT))); last reflexivity.
+      do 3 f_equiv.
       rewrite ccompose_id_l. f_equiv. intro. simpl. by rewrite ofe_iso_21.
     - reflexivity.
-    - iApply "Ha".
+    - rewrite /=.
+      iNext.
+      iIntros "Hlc Hs".
+      rewrite /wptp big_sepL2_nil.
+      iSplit; last done.
+      iApply ("Ha" with "Hlc Hs").
   Qed.
 
 End weakestpre.
