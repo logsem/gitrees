@@ -255,9 +255,9 @@ Program Definition AtomicE : opInterp := {|
 |}.
 
 Definition storeE : opsInterp := @[ReadE;WriteE;AllocE;DeallocE;AtomicE].
-Canonical Structure reify_store : sReifier NotCtxDep.
-Proof.
-  simple refine {| sReifier_ops := storeE |}.
+Program Canonical Structure reify_store : sReifier NotCtxDep :=
+  Build_sReifier NotCtxDep storeE stateF _ _ _.
+Next Obligation.
   intros X HX op.
   destruct op as [[]|[[]|[[]|[|[|[]]]]]]; simpl.
   - simple refine (OfeMor (state_read X)).

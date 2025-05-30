@@ -139,9 +139,9 @@ Qed.
 
 Definition CoroutineE : opsInterp := @[CreateE; ResumeE; LabelE; YieldE].
 
-Canonical Structure reify_coroutines : sReifier CtxDep.
-Proof.
-  simple refine {| sReifier_ops := CoroutineE |}.
+Program Canonical Structure reify_coroutines : sReifier CtxDep :=
+  Build_sReifier CtxDep CoroutineE _ _ _ _.
+Next Obligation.
   intros X HX op.
   destruct op as [[]|[[]|[[]|[|[]]]]]; simpl.
   - simple refine (OfeMor (coroutine_create X)).

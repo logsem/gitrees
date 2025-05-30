@@ -121,12 +121,9 @@ Section reifiers.
 
 End reifiers.
 
-Canonical Structure reify_delim : sReifier CtxDep.
-Proof.
-  simple refine {|
-             sReifier_ops := delimE;
-             sReifier_state := stateF
-           |}.
+Program Canonical Structure reify_delim : sReifier CtxDep :=
+  Build_sReifier CtxDep delimE stateF _ _ _.
+Next Obligation.
   intros X HX op.
   destruct op as [ | [ | [ | [| []]]]]; simpl.
   - simple refine (OfeMor (reify_shift)).

@@ -27,11 +27,9 @@ Proof.
   apply G.
 Qed.
 
-Canonical Structure reify_fork : sReifier NotCtxDep.
-Proof.
-  simple refine {| sReifier_ops := concE;
-                   sReifier_state := stateO
-                |}.
+Program Canonical Structure reify_fork : sReifier NotCtxDep :=
+  Build_sReifier NotCtxDep concE stateO _ _ _.
+Next Obligation.
   intros X HX op.
   destruct op as [? | []]; simpl.
   simple refine (OfeMor (reify_fork' X)).

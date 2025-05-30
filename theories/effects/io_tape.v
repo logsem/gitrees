@@ -55,11 +55,9 @@ Proof.
   repeat f_equiv; done.
 Qed.
 
-Canonical Structure reify_io : sReifier NotCtxDep.
-Proof.
-  simple refine {| sReifier_ops := ioE;
-                   sReifier_state := stateO
-                |}.
+Program Canonical Structure reify_io : sReifier NotCtxDep :=
+  Build_sReifier NotCtxDep ioE stateO _ _ _.
+Next Obligation.
   intros X HX op.
   destruct op as [[] | [ | []]]; simpl.
   - simple refine (OfeMor (reify_input X)).

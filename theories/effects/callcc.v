@@ -41,11 +41,9 @@ Proof.
   repeat f_equiv; apply H0.
 Qed.
 
-Canonical Structure reify_cont : sReifier CtxDep.
-Proof.
-  simple refine {| sReifier_ops := contE;
-                   sReifier_state := unitO
-                |}.
+Program Canonical Structure reify_cont : sReifier CtxDep :=
+  Build_sReifier CtxDep contE unitO _ _ _.
+Next Obligation.
   intros X HX op.
   destruct op as [|[|[]]]; simpl.
   - simple refine (OfeMor (reify_callcc X)).

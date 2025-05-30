@@ -239,12 +239,10 @@ Module Exc (Errors : ExcSig).
           exact (IHσ σ'' Hσ'').
         * rewrite Herr -He. reflexivity.
   Qed.      
-  
-  Canonical Structure reify_exc : sReifier CtxDep.
-  Proof.
-    simple refine {| sReifier_ops := exceptE;
-                      sReifier_state := stateF
-                  |}.
+
+  Program Canonical Structure reify_exc : sReifier CtxDep :=
+    Build_sReifier CtxDep exceptE stateF _ _ _.
+  Next Obligation.
     intros X HX op.
     destruct op as [|[|[|[]]]].
     - simple refine (OfeMor (reify_reg X)).
