@@ -4,8 +4,21 @@ From iris.prelude Require Export options prelude.
 From iris.algebra Require Import list ofe local_updates.
 From iris.bi Require Import notation.
 From iris.si_logic Require Import bi siprop.
+From iris.base_logic Require Import bi.
 From iris.proofmode Require Import classes tactics modality_instances
                                    coq_tactics reduction.
+
+(* Class BiSoundness (PROP : bi) := *)
+(*   { *)
+(*     pure_soundness : ∀ (φ : Prop), (⊢@{PROP} ⌜ φ ⌝) → φ *)
+(*   }. *)
+(* Arguments Build_BiSoundness {_}. *)
+
+(* Global Instance SiPropSound : BiSoundness siPropI *)
+(*   := Build_BiSoundness siProp.pure_soundness. *)
+
+(* Global Instance iPropSound {u} : BiSoundness (uPredI u) *)
+(*   := Build_BiSoundness uPred.pure_soundness. *)
 
 Definition sum_map' {A B C : Set} (f : A → C) (g : B → C) : sum A B → C :=
   λ x, match x with | inl x' => f x' | inr x' => g x' end.

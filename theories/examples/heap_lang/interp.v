@@ -251,7 +251,8 @@ Section interp.
 
   Program Definition interp_case {A} (a b c : A -n> IT)
     : A -n> IT :=
-    λne env, get_val (λne v, bimap_IT v (b env) (c env)) (a env).
+    λne env, get_val (λne v, bimap_ITV v (λit x, (b env) ⊙ x) (λit x, (c env) ⊙ x))
+               (a env).
   Solve All Obligations with solve_proper_please.
 
   Program Definition interp_app {A} (a b : A -n> IT)
@@ -1110,6 +1111,15 @@ Section interp.
 
 End interp.
 
+Ltac fold_interp :=
+  progress
+    match goal with
+    | |- context G [interp_expr ?c] =>
+        fold (interp_expr c)
+    | |- context G [interp_val ?c] =>
+        fold (interp_val c)
+    end.
+
 Arguments interp_expr {_ _ _ _ _ _ _ _}.
 Arguments interp_val {_ _ _ _ _ _ _ _}.
 
@@ -1127,7 +1137,7 @@ Qed.
 Next Obligation.
   intros ?? H; simpl.
   by apply bool_decide_eq_false.
-Qed.  
+Qed.
 
 Section program_logic.
   Context {sz : nat}.
@@ -1140,15 +1150,7 @@ Section program_logic.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
   Context `{!gitreeGS_gen rs R Σ, !heapG rs R Σ}.
-  
-  Ltac fold_interp :=
-    match goal with
-    | |- context G [interp_expr ?a] =>
-        progress fold (interp_expr (R := R) a)
-    | |- context G [interp_val ?a] =>
-        progress fold (interp_val (R := R) a)
-    end.
-  
+
   Lemma interp_wp_fork (n : IT) (Φ : ITV  -d> iPropO Σ) (e : expr) (env : varsO rs) :
     fork_ctx rs
     -∗ ▷ Φ (RetV ())
@@ -1158,6 +1160,40 @@ Section program_logic.
     iIntros "H G1 G2".
     iEval (unfold interp_expr at 1); fold_interp.
     iApply (wp_fork rs with "H G2 G1").
+  Qed.
+
+  Lemma interp_wp_rec f x (Φ : ITV  -d> iPropO Σ) (e : expr) (v : val)
+    (env : varsO rs) :
+    ▷ (£ 1 -∗ WP@{rs} (interp_expr e
+                         (binder_insert x
+                            (interp_val v env)
+                            (binder_insert f
+                               (interp_expr (rec: f x := e) env) env)))
+                {{ Φ }})
+    -∗ WP@{rs} (interp_expr ((rec: f x := e) v) env) {{ Φ }}.
+  Proof.
+    iIntros "H".
+    iEval (unfold interp_expr at 1); fold_interp.
+    match goal with
+    | |- context G [ interp_app _ _ (_ ?b)] =>
+        fold (interp_expr b)
+    end.
+    iEval (rewrite /interp_app /= interp_rec_unfold).
+    rewrite APP'_Fun_l /laterO_ap /= -Tick_eq.
+    iApply wp_tick.
+    iNext. iIntros "Hc".
+    by iApply "H".
+  Qed.
+
+  Lemma interp_wp_var (Φ : ITV  -d> iPropO Σ) (v : string)
+    (env : varsO rs) :
+    from_option (λ x, WP@{rs} x {{ Φ }}) (⌜notStuck RuntimeErr⌝) (env !! v)
+    -∗ WP@{rs} (interp_expr (Var v) env) {{ Φ }}.
+  Proof.
+    iIntros "H".
+    iEval (unfold interp_expr at 1; rewrite /interp_var /=).
+    destruct (env !! v) as [y |] eqn:HEQ; simpl; first done.
+    iDestruct "H" as "%H". destruct H.
   Qed.
 
   Lemma wp_cas_fail_hom (l : store.locO) α (w1 w2 : val) Φ (env : varsO rs) :

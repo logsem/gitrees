@@ -2128,7 +2128,7 @@ Proof.
         iDestruct "H" as (e') "[Ha Hs]". rewrite Ha.
         iApply (IT_vis_err_ne with "Ha").
   }
-  
+
   eapply (step_fupdN_soundness_lc _ (S (steps_sum num_later_per_step cr k))
             (cr + (steps_sum num_later_per_step cr k))).
   intros Hinv. iIntros "(Hcred1 & Hcred2)".
@@ -2150,7 +2150,7 @@ Proof.
   iPoseProof (tp_external_steps_tp_internal_steps _ _ _ _ _ _ Hstep) as "Hsteps".
   iAssert (wptp rs s [α] [Φ])%I with "[Hic]" as "Hwp".
   { by iApply big_sepL2_singleton. }
-  
+
   iMod (wp_tp_internal_steps_progress rs [α] σ e2 β σ' k s cr [Φ] HIn
                with "[$Hsteps $Hwp $Hcred2 $Hs]") as "J".
   rewrite step_fupdN_S_fupd /=.
@@ -2249,17 +2249,17 @@ Proof.
   }
   iApply (step_fupdN_wand with "J").
   iIntros ">(%nt' & J1 & J2)".
-  
+
   iDestruct (big_sepL2_app_inv_r with "J2") as (es' t2' ->) "[Hes' Ht2']".
   iDestruct (big_sepL2_length with "Ht2'") as %Hlen2.
   rewrite length_replicate in Hlen2; subst.
   iDestruct (big_sepL2_length with "Hes'") as %Hlen3.
-  
+
   iApply ("H" $! es' t2' with "J1 [] [] [] Hes' [Ht2']");
     [done | iPureIntro; by rewrite Hlen3 | |]; first last.
   { by rewrite big_sepL2_replicate_r // big_sepL_omap. }
   iIntros (e2 Hin).
-  
+
   clear Hinv sg state_interp_fun state_interp_fun_ne aux_interp_fun fork_post fork_post_ne
     state_interp_fun_mono state_interp_fun_decomp.
 
