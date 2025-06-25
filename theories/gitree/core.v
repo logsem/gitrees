@@ -830,6 +830,34 @@ Section ticks.
     - iRight. iRight. iRight. iRight. iExists op,i,k. done.
   Qed.
 
+  Lemma Next_uninj_rel {X : ofe} (x : later X) : sigO (λ a : X, x ≡ Next a).
+  Proof.
+    destruct x.
+    eexists _.
+    done.
+  Qed.
+
+  Lemma IT_dont_confuse_rel (α : IT):
+       (sig (λ e, α ≡ Err e))
+     + ((sig (λ n, α ≡ Ret n))
+     + ((sig (λ f, α ≡ Fun f))
+     + ((sig (λ β, α ≡ Tick β))
+     + (sigT (λ op, sigT (λ i, sigT (λ k, α ≡ Vis op i k))))))).
+  Proof.
+    remember (IT_unfold α) as ua.
+    assert (IT_fold ua ≡ α) as Hfold.
+    { rewrite Hequa. apply IT_fold_unfold. }
+    destruct ua as [ [ [ [ n | f ] | e ] | la ] | [op [i k] ]].
+    - right. left. exists n. done.
+    - right. right. left. exists f. done.
+    - left. exists e. done.
+    - right. right. right. left.
+      destruct (Next_uninj_rel la) as [β Hb].
+      exists β. rewrite -Hfold Hb. done.
+    - right. right. right. right.
+      exists op, i, k. done.
+  Qed.
+
 End ticks.
 
 (** semantic "values" *)

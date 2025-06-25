@@ -96,10 +96,13 @@ Lemma tp_external_steps_many_L {a} {rs : sReifier a} `{!Cofe A}
   tp_external_steps rs α1 σ1 α3 σ3 (S n2).
 Proof.
   intros G H; revert G.
-  induction H as [| ????????? IH]; intros G.
+  induction H as [| ??????????? IH]; intros G.
   - setoid_subst.
-    econstructor; last constructor; first apply G; done.
-  - by econstructor; last by apply IH; done.
+    econstructor 2; [| eassumption |]; last constructor 1; [| eassumption | |].
+    + lia.
+    + done.
+    + done.
+  - econstructor 2; [| eassumption |]; last by apply IH. lia.
 Qed.
 
 Lemma tp_internal_steps_many_L {a} {rs : sReifier a} `{!Cofe A}
@@ -117,16 +120,34 @@ Proof.
     iDestruct "H" as "(H1 & H2)".
     iRewrite "H1". iRewrite "H2".
     rewrite tp_internal_steps_S.
+    iLeft.
     iExists α3, σ3.
     iSplit; first done.
     by rewrite tp_internal_steps_0.
   - iIntros "G H".
     iEval (rewrite tp_internal_steps_S) in "H".
-    iDestruct "H" as "(%γ & %σ' & H1 & H2)".
-    iPoseProof ("IH" $! γ σ' α2 σ2 α3 σ3 with "G H2") as "J".
-    iEval (rewrite tp_internal_steps_S).
-    iExists γ, σ'.
-    by iSplit.
+    iDestruct "H" as "[H | H]".
+    {
+      iDestruct "H" as "(%γ & %σ' & H1 & H2)".
+      iPoseProof ("IH" $! γ σ' α2 σ2 α3 σ3 with "G H2") as "J".
+      iEval (rewrite tp_internal_steps_S).
+      iLeft.
+      iExists γ, σ'.
+      by iSplit.
+    }
+    {
+      iDestruct "H" as "(H1 & H2)".
+      iRewrite "H1". iRewrite "H2".
+      rewrite tp_internal_steps_unfold.
+      iRight.
+      iExists 0, α3, σ3.
+      iSplit; first by (iPureIntro; lia).
+      iFrame "G".
+      rewrite tp_internal_steps_unfold.
+      iLeft.
+      iSplit; first by (iPureIntro; lia).
+      done.
+    }
 Qed.
 
 Lemma IT_tau_err_ne' `{Cofe R} {F} α e :
@@ -266,10 +287,19 @@ Proof.
     done.
   - iIntros "G H".
     iEval (rewrite tp_internal_steps_S) in "G".
-    iDestruct "G" as "(%γ & %σ' & G1 & G2)".
-    rewrite Nat.add_succ_l -Nat.add_succ_r.
-    iDestruct (tp_internal_steps_many_L with "G1 H") as "K".
-    iApply ("IH" with "G2 K").
+    iDestruct "G" as "[G | G]".
+    {
+      iDestruct "G" as "(%γ & %σ' & G1 & G2)".
+      rewrite Nat.add_succ_l -Nat.add_succ_r.
+      iDestruct (tp_internal_steps_many_L with "G1 H") as "K".
+      iApply ("IH" with "G2 K").
+    }
+    {
+      iDestruct "G" as "(H1 & H2)".
+      iRewrite - "H1". iRewrite - "H2".
+      iApply (tp_internal_steps_grow with "H").
+      lia.
+    }
 Qed.
 
 Lemma tp_internal_steps_trans'
@@ -290,10 +320,19 @@ Proof.
     done.
   - iIntros "G H".
     iEval (rewrite tp_internal_steps_S) in "G".
-    iDestruct "G" as "(%γ & %σ' & G1 & G2)".
-    rewrite Nat.add_succ_l -Nat.add_succ_r.
-    iDestruct (tp_internal_steps_many_L with "G1 H") as "K".
-    iApply ("IH" with "G2 K").
+    iDestruct "G" as "[G | G]".
+    {
+      iDestruct "G" as "(%γ & %σ' & G1 & G2)".
+      rewrite Nat.add_succ_l -Nat.add_succ_r.
+      iDestruct (tp_internal_steps_many_L with "G1 H") as "K".
+      iApply ("IH" with "G2 K").
+    }
+    {
+      iDestruct "G" as "(H1 & H2)".
+      iRewrite - "H1". iRewrite - "H2".
+      iApply (tp_internal_steps_grow with "H").
+      lia.
+    }
 Qed.
 
 Class monoSG Σ := MONOSG { mono_inG :: mono_natG Σ; mono_name : gname }.
@@ -624,7 +663,19 @@ Section right_hand_side.
       - done.
       - apply map_Forall_lookup_2.
         intros i x H.
-        admit.
+        clear -H.
+        revert H.
+        generalize (length σ).
+        clear.
+        induction α as [| ? ? IH]; intros l H.
+        + inversion H.
+        + simpl in H.
+          destruct (decide (l = i)); first subst.
+          * rewrite lookup_insert in H.
+            inversion H; subst.
+            done.
+          * rewrite lookup_insert_ne in H; last done.
+            by eapply IH.
     }
     rewrite map_union_comm; last apply (HD 0).
     iModIntro.
@@ -655,7 +706,7 @@ Section right_hand_side.
           -- intros.
              rewrite /= lookup_insert_ne; last lia.
              apply IH; lia.
-  Admitted.
+  Qed.
 
   Lemma tpool_loc_dom l α tp :
     own (tpool_name rs R) (to_tpool rs R tp)
@@ -675,12 +726,8 @@ Section right_hand_side.
   Proof.
     iIntros "H Hl".
     iMod (own_update_2 with "H Hl") as "[$ $]"; last done.
-    apply gmap_view_update.
-    intros.
-    split.
-    - admit.
-    - admit.
-  Admitted.
+    by apply gmap_view_replace.
+  Qed.
 
   Lemma step_tick E j e :
     nclose specN ⊆ E →
@@ -1185,29 +1232,9 @@ Lemma logrel_adequacy_internal Σ cr n
                               (IT_of_V αv :: βs) st' k').
 Proof.
   intros rg F IT' ITV' Hsteps Hprf.
-  unshelve eapply (step_fupdN_soundness_lc _ (S (weakestpre.steps_sum id 0 k))
+  apply (step_fupdN_soundness_lc _ (S (weakestpre.steps_sum id 0 k))
                      ((weakestpre.steps_sum id 0 k) + (S cr))).
-  {
-    (* TODO: plain instance for fixpoints *)
-    apply exist_plain. intros x1.
-    apply exist_plain. intros x2.
-    apply exist_plain. intros x3.
-    apply exist_plain. intros x4.
-    cut (∀ n α σ β σ', Plain (tp_internal_steps (Σ := Σ) (A := A)
-                                (gReifiers_sReifier rs) α σ β σ' n)).
-    { intros H; apply H. }
-    clear x1 x2 x3 x4.
-    intros x5.
-    induction x5 as [| ? IH]; intros x1 x2 x3 x4.
-    - rewrite tp_internal_steps_0.
-      apply _.
-    - rewrite tp_internal_steps_S.
-      apply exist_plain. intros y1.
-      apply exist_plain. intros y2.
-      apply and_plain.
-      + apply _.
-      + apply IH.
-  }
+
   iIntros (H1) "(_HCred' & (_HCred & _HCred''))".
   iMod (new_state_interp σ) as (H2) "[Hs Hs2]".
   assert (G1 : (nat → ∀ σ, state_interp σ
@@ -1315,12 +1342,12 @@ Proof.
       iDestruct (option_equivI with "K") as "K".
       destruct v'.
       + iSimpl in "K".
-        iDestruct (ret_discrete_pure' (gReifiers_sReifier rs) o o0 with "K") as (β') "%J".
+        iDestruct (ret_discrete_pure (gReifiers_sReifier rs) o o0 with "K") as (β') "%J".
         iExists (core.RetV β'), tp'.
         iPureIntro. simpl.
         by rewrite J.
       + iSimpl in "K".
-        iDestruct (fun_discrete_pure' (gReifiers_sReifier rs) o o0 with "K") as (β') "%J".
+        iDestruct (fun_discrete_pure (gReifiers_sReifier rs) o o0 with "K") as (β') "%J".
         iExists (core.FunV β'), tp'.
         iPureIntro. simpl.
         by rewrite J.
@@ -1347,7 +1374,98 @@ Proof.
   iFrame "J3'".
 Qed.
 
-Lemma logrel_adequacy `{Classical} Σ cr n
+Lemma internal_steps_bounding_fun_witness (AC : Choice) Σ {a} (rs : sReifier a)
+  {A} `{!Cofe A} (α : list (IT _ A)) σ :
+  (⊢@{iProp Σ} (∃ αv βs σ' k, tp_internal_steps rs α σ (IT_of_V αv :: βs) σ' k))
+  → ∃ f : nat → nat,
+      ∀ k, uPred_holds
+             (∃ αv βs σ', tp_internal_steps (Σ := Σ) rs
+                            α σ (IT_of_V αv :: βs) σ' (f k))%I k ε.
+Proof.
+  set (R := λ k p,
+         uPred_holds
+           (∃ (αv : ITV (sReifier_ops rs) A) (βs : list (IT (sReifier_ops rs) A))
+              (σ' : sReifier_state rs ♯ IT (sReifier_ops rs) A),
+              tp_internal_steps (Σ := Σ) rs α σ (IT_of_V αv :: βs) σ' p) k ε).
+  intros H.
+  apply (AC nat nat R).
+  intros x.
+  subst R.
+  assert (Hemp : uPred_holds (emp : iProp Σ) x ε).
+  { uPred.unseal. rewrite /upred.uPred_pure_def //=. }
+  pose proof (uPred_in_entails _ _ H x ε (ucmra_unit_validN _) Hemp) as G.
+  clear H.
+  revert G.
+  uPred.unseal.
+  intros [αv [βs [σ' [k H]]]].
+  exists k, αv, βs, σ'.
+  apply H.
+Qed.
+
+Definition bounded (f : nat → nat) : Prop :=
+  ∃ n, ∀ m, f m ≤ n.
+
+Lemma bounding_fun_bounded_contra (AC : Choice) (XM : Classical) Σ {a} (rs : sReifier a)
+  {A} `{!Cofe A} (α : list (IT _ A)) σ (f : nat → nat) (Hf : bounded f → False) :
+  (∀ k, uPred_holds
+             (∃ αv βs σ', tp_internal_steps (Σ := Σ) rs
+                            α σ (IT_of_V αv :: βs) σ' (f k))%I k ε)
+  → False.
+Proof.
+  intros H.
+  unfold bounded in Hf.
+  pose proof (not_ex_all_not _ _ Hf) as Hf'.
+  simpl in Hf'.
+  assert (∀ n, ∃ m, f m > n) as Hf''.
+  {
+    intros n.
+    specialize (Hf' n).
+    apply not_all_ex_not in Hf'.
+    destruct Hf' as [m Hf'].
+    exists m.
+    lia.
+  }
+  clear Hf Hf'.
+
+Admitted.
+
+Lemma bounding_fun_bounded_reseal Σ {a} (rs : sReifier a)
+  {A} `{!Cofe A} (α : list (IT _ A)) σ (f : nat → nat) (Hf : bounded f) :
+  (∀ k, uPred_holds
+             (∃ αv βs σ', tp_internal_steps (Σ := Σ) rs
+                            α σ (IT_of_V αv :: βs) σ' (f k))%I k ε)
+  → ∃ k, ⊢@{iProp Σ} (∃ αv βs σ', tp_internal_steps rs α σ (IT_of_V αv :: βs) σ' k).
+Proof.
+  destruct Hf as [n Hf].
+  intros H.
+  exists n.
+  constructor.
+  intros m x _ _; simpl.
+  eapply (uPred_mono _ _ m m ε); last lia; last apply ucmra_unit_leastN.
+  specialize (H m).
+  revert H.
+  uPred.unseal.
+  intros H.
+  destruct H as [αv [βs [σ' H]]].
+  exists αv, βs, σ'.
+  apply (uPred_in_entails _ _
+                 (tp_internal_steps_grow (Σ := Σ) rs
+                    α (IT_of_V αv :: βs) σ σ' (f m) n (Hf _)) m
+                 ε (ucmra_unit_validN _) H).
+Qed.
+
+Lemma extract_steps `{Classical} Σ {a} (rs : sReifier a)
+  {A} `{!Cofe A} (α : list (IT _ A)) σ :
+  (∃ k, (⊢@{iProp Σ} (∃ αv βs σ', tp_internal_steps rs α σ (IT_of_V αv :: βs) σ' k)))
+       → ∃ k αv βs σ', tp_external_steps rs α σ (IT_of_V αv :: βs) σ' k.
+Proof.
+  intros [k G].
+  exists k.
+  eapply tp_internal_steps_safe_agnostic; first done.
+  apply G.
+Qed.
+
+Lemma logrel_adequacy `{Classical} `{Choice} Σ cr n
   (rs : gReifiers NotCtxDep n)
   {A} `{!Cofe A} `{!invGpreS Σ}
   `{!Inhabited (gReifiers_state rs ♯ IT (sReifier_ops (gReifiers_sReifier rs)) A)}
@@ -1364,13 +1482,21 @@ Lemma logrel_adequacy `{Classical} Σ cr n
      (⊢@{iProp Σ} (£ cr
                    -∗ @has_full_state _ _ rs _ _ _ HSTATE σ
                    -∗ (α) ⪯ₚ (β) @{ rs \ A \ s \ HSTATE })%I)) →
-  (∃ αv βs st' k', tp_external_steps (gReifiers_sReifier rs) [β] σ
+  (∃ k' αv βs st', tp_external_steps (gReifiers_sReifier rs) [β] σ
                      (IT_of_V αv :: βs) st' k').
 Proof.
   intros rg ops IT ITV Hsteps Hwp.
-  epose proof (logrel_adequacy_internal Σ cr n rs α β σ αv αs σ' s k Hsteps Hwp) as J.
-
-  epose proof (@tp_internal_steps_safe_agnostic A _ NotCtxDep rg Σ _ [β] σ).
+  eapply extract_steps.
+  pose proof (logrel_adequacy_internal Σ cr n rs α β σ αv αs σ' s k Hsteps Hwp) as J.
+  apply internal_steps_bounding_fun_witness in J; last done.
+  destruct J as [f J].
+  destruct (excluded_middle (bounded f)).
+  - apply bounding_fun_bounded_reseal in J.
+    + apply J.
+    + done.
+  - exfalso.
+    by eapply bounding_fun_bounded_contra.
+Qed.
 
 Section rules.
   Context {n : nat} (rs : gReifiers NotCtxDep n).

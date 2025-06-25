@@ -25,7 +25,7 @@ Section external_step.
     reify r α σ1 ≡ (σ2, Tick β, th) →
     external_step α σ1 β σ2 th.
 
-  #[export] Instance external_step_proper
+  Global Instance external_step_proper
     : Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (≡) ==> (iff)) external_step.
   Proof.
     intros α1 α2 Ha σ1 σ2 Hs β1 β2 Hb σ'1 σ'2 Hs' pool1 pool2 Hp.
@@ -58,7 +58,7 @@ Section external_step.
     external_steps α2 σ2 α3 σ3 l2 n2 →
     external_steps α1 σ1 α3 σ3 l3 (S n2).
 
-  #[export] Instance external_steps_proper
+  Global Instance external_steps_proper
     : Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (≡) ==> (=) ==> (iff)) external_steps.
   Proof.
     intros α α' Ha σ σ' Hs β β' Hb σ2 σ2' Hs2 l1 l2 Hl n1 n2 Hnm.
@@ -93,7 +93,7 @@ Section external_step.
     external_step e1 s1 e2 s2 en  →
     tp_external_step ρ1 s1 ρ2 s2.
 
-  #[export] Instance tp_external_step_proper
+  Global Instance tp_external_step_proper
     : Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (iff)) tp_external_step.
   Proof.
     intros α1 α2 Ha σ1 σ2 Hs β1 β2 Hb σ'1 σ'2 Hs'.
@@ -139,13 +139,14 @@ Section external_step.
   Qed.
 
   Inductive tp_external_steps : listO IT → stateO → listO IT → stateO → nat → Prop :=
-  | tp_steps_zero α β σ σ' : α ≡ β → σ ≡ σ' → tp_external_steps α σ β σ' 0
-  | tp_steps_many α1 σ1 α2 σ2 α3 σ3 n2 :
+  | tp_steps_zero α β σ σ' n : 0 <= n → α ≡ β → σ ≡ σ' → tp_external_steps α σ β σ' n
+  | tp_steps_many α1 σ1 α2 σ2 α3 σ3 n2 n3 :
+    n2 < n3 →
     tp_external_step α1 σ1 α2 σ2 →
     tp_external_steps α2 σ2 α3 σ3 n2 →
-    tp_external_steps α1 σ1 α3 σ3 (S n2).
+    tp_external_steps α1 σ1 α3 σ3 n3.
 
-  #[export] Instance tp_external_steps_proper
+  Global Instance tp_external_steps_proper
     : Proper ((≡) ==> (≡) ==> (≡) ==> (≡) ==> (=) ==> (iff)) tp_external_steps.
   Proof.
     intros α α' Ha σ σ' Hs β β' Hb σ2 σ2' Hs2 n1 n2 Hnm.
@@ -154,27 +155,31 @@ Section external_step.
     - intro HS. revert α' β' σ' σ2' Ha Hb Hs Hs2.
       induction HS=>α' β' σ'' σ2' Ha Hb Hs Hs2.
       + constructor.
+        ++ done.
         ++ rewrite -Ha -Hb//.
         ++ rewrite -Hs -Hs2//.
-      + econstructor; last first.
+      + econstructor 2; last first.
         ++ eapply IHHS; eauto.
         ++ rewrite -Ha -Hs//.
+        ++ lia.
     - intro HS. revert α β σ σ2 Ha Hb Hs Hs2.
       induction HS=>α' β' σ'' σ2' Ha Hb Hs Hs2.
       + constructor.
+        ++ done.
         ++ rewrite Ha Hb//.
         ++ rewrite Hs Hs2//.
-      + econstructor; last first.
+      + econstructor 2; last first.
         ++ eapply IHHS; eauto.
         ++ rewrite Ha Hs//.
+        ++ lia.
   Qed.
 
   Lemma tp_external_steps_mono αs σ βs σ' k
     : tp_external_steps αs σ βs σ' k → length αs <= length βs.
   Proof.
-    induction 1 as [???? H1 H2 | ??????? H1 H2 H3].
-    - by rewrite H1.
-    - etransitivity; last apply H3.
+    induction 1 as [????? H1 H2 H3 | ???????? H1 H2 H3 H4].
+    - by rewrite H2.
+    - etransitivity; last apply H4.
       eapply tp_external_step_mono; done.
   Qed.
 
@@ -187,8 +192,9 @@ Section external_step.
     induction H as [ ????? H1 H2 H3 | ?????????? H1 H2 H3 IH]; intros e2.
     - rewrite H1 H2 H3 app_nil_r.
       by constructor.
-    - econstructor.
-      + by apply external_step_tp_external_step.
+    - econstructor 2.
+      + apply Nat.lt_succ_diag_r.
+      + by eapply external_step_tp_external_step.
       + rewrite H1.
         specialize (IH (e2 ++ l1)).
         rewrite -app_assoc in IH.
@@ -212,13 +218,25 @@ Section external_step.
     induction n; first by constructor.
     change (S n) with (1+n).
     change (Tick_n (1+n) α) with (Tick $ Tick_n n α).
-    econstructor; last eassumption.
+    econstructor; last eassumption; first lia.
     apply (tp_external_step_atomic (p1 ++ Tick (Tick_n n α) :: p2)
              (p1 ++ Tick_n n α :: p2)
              σ σ (Tick (Tick_n n α)) (Tick_n n α) p1 p2 []
              (reflexivity _)).
     - by rewrite app_nil_r.
     - by constructor.
+  Qed.
+
+  Lemma tp_external_steps_grow α β σ σ' n m (Hlt : n <= m) :
+    tp_external_steps α σ β σ' n → tp_external_steps α σ β σ' m.
+  Proof.
+    intros H.
+    revert Hlt.
+    revert m.
+    induction H as [| ??????????? IH]; intros m Hlt.
+    - constructor; first lia; done.
+    - apply (tp_steps_many α1 σ1 α2 σ2 α3 σ3 n2 m); first lia; first done.
+      apply IH. lia.
   Qed.
 End external_step.
 
@@ -318,6 +336,64 @@ Section internal_step.
 
   Opaque internal_steps.
 
+  Lemma internal_steps_ind' α β σ σ' l n
+    (Φ : IT → stateO → IT → stateO → listO IT → nat → iProp)
+    {HProper :
+      ∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n ==> dist n ==> dist n) Φ}
+    :
+    (□ ((∀ α β σ σ' l n, n≡ 0 ∧ α ≡ β ∧ σ ≡ σ' ∧ l ≡ [] -∗ Φ α σ β σ' l n)
+        ∗ (∀ α β σ σ' l n, (∃ n' (γ : IT) (σ'' : stateO) (l' l'' : list IT),
+                              l ≡ l' ++ l''
+                              ∧ n ≡ S n'
+                              ∧ internal_step α σ γ σ'' l'
+                              ∧ Φ γ σ'' β σ' l'' n') -∗ Φ α σ β σ' l n)))
+    -∗ internal_steps α σ β σ' l n -∗ Φ α σ β σ' l n.
+  Proof.
+    iIntros "#H".
+    iIntros "G".
+    unshelve iApply (internal_steps_ind α β σ σ' n l
+                       (λne '(α, (σ, (β, (σ', (l, n))))), Φ α σ β σ' l n)).
+    - intros k [x1 [x2 [x3 [x4 [x5 x6]]]]] [y1 [y2 [y3 [y4 [y5 y6]]]]] [H1 [H2 [H3 [H4 [H5 H6]]]]];
+        simpl in *.
+      by apply HProper.
+    - intros k [x1 [x2 [x3 [x4 [x5 x6]]]]] [y1 [y2 [y3 [y4 [y5 y6]]]]] [H1 [H2 [H3 [H4 [H5 H6]]]]];
+        simpl in *.
+      by apply HProper.
+    - iModIntro.
+      iIntros (y).
+      destruct y as [x1 [x2 [x3 [x4 [x5 x6]]]]].
+      simpl.
+      iIntros "G".
+      iDestruct "G" as "[G | G]".
+      + iDestruct "H" as "(H & _)".
+        iApply "H". iApply "G".
+      + iDestruct "G" as (γ _n' _σ' _l' _l'') "(G1 & G2 & G3 & G4)".
+        iDestruct (least_fixpoint_unfold_1 with "G4") as "J".
+        * clear -HProper.
+          econstructor.
+          -- intros P Q HP HQ.
+             iIntros "#H %x".
+             destruct x as [y1 [y2 [y3 [y4 [y5 y6]]]]].
+             iIntros "J".
+             iSplit.
+             ++ by iDestruct "J" as "(J1 & _)".
+             ++ iDestruct "J" as "(_ & J2)".
+                by iApply (bi_mono_pred P Q).
+          -- intros.
+             intros [x1 [x2 [x3 [x4 [x5 x6]]]]] [y1 [y2 [y3 [y4 [y5 y6]]]]]
+               [H1 [H2 [H3 [H4 [H5 H6]]]]];
+               simpl in *.
+             solve_proper_prepare.
+             f_equiv; first by apply HProper.
+             solve_proper.
+        * iDestruct "J" as "(J1 & _)".
+          iDestruct "H" as "(_ & H)".
+          iApply "H".
+          iExists γ, _n', _σ', _l', _l''.
+          iFrame "G1 G2 J1 G3".
+    - iApply "G".
+  Qed.
+
   (** Properties *)
   Lemma internal_steps_0 α β σ σ' l :
     internal_steps α σ β σ' l 0 ≡ (α ≡ β ∧ σ ≡ σ' ∧ l ≡ [])%I.
@@ -348,6 +424,59 @@ Section internal_step.
       eauto with iFrame.
   Qed.
 
+  Global Instance : ∀ α σ β σ' en, Plain (internal_step α σ β σ' en).
+  Proof. apply _. Qed.
+
+  Global Instance : ∀ α σ β σ' en n, Plain (internal_steps α σ β σ' en n).
+  Proof.
+    intros. rewrite /Plain.
+    iIntros "H".
+    set (Φ := λ α σ β σ' en n,
+           (■ internal_steps α σ β σ' en n)%I).
+    assert (∀ k : nat,
+              Proper (dist k ==> dist k ==> dist k ==> dist k ==> dist k ==> dist k ==> dist k) Φ).
+    { solve_proper. }
+    iApply (internal_steps_ind' α β σ σ' en n Φ with "[] H").
+    iModIntro.
+    iSplit.
+    - clear. subst Φ. simpl.
+      iIntros (α β σ σ' l n) "(H1 & H2 & H3 & H4)".
+      iRewrite "H1". iRewrite "H2". iRewrite "H3". iRewrite "H4".
+      iModIntro. iApply internal_steps_0.
+      done.
+    - clear. subst Φ. simpl.
+      iIntros (α β σ σ' l n) "(%n' & %γ & %σ'' & %l' & %l'' & H1 & H2 & H3 & H4)".
+      iRewrite "H1". iRewrite "H2".
+      iDestruct "H3" as "[(G1 & G2 & G3) | (%op & %i & %k & #G1 & G2)]".
+      + iRewrite "G1". iRewrite "G2". iRewrite "G3".
+        iApply (plainly_wand with "[] H4").
+        iModIntro. iIntros "H".
+        rewrite app_nil_l.
+        iEval (rewrite internal_steps_unfold).
+        iRight.
+        iExists n', γ, σ'', [], l''.
+        rewrite app_nil_l.
+        iSplit; first done.
+        iSplit; first done.
+        iSplit; last done.
+        by iLeft.
+      + iRewrite "G1".
+        iEval (rewrite internal_steps_unfold).
+        iRight.
+        iExists n', γ, σ'', l', l''.
+        iSplit; first done.
+        iSplit; first done.
+        iSplit.
+        * iRight.
+          iExists op, i, k.
+          iSplit; first done.
+          iRewrite - "G1".
+          iRewrite "G2".
+          iPureIntro.
+          done.
+        * done.
+  Qed.
+
   Program Definition tp_internal_step :
     listO IT -n> stateO -n> listO IT -n> stateO -n> iProp :=
     λne α σ β σ', (∃ α0 α1 γ γ' en,
@@ -362,9 +491,9 @@ Section internal_step.
   Program Definition tp_internal_steps_pre
     (self : prodO (listO IT) (prodO stateO (prodO (listO IT) (prodO stateO natO))) -> iProp) :
     prodO (listO IT) (prodO stateO (prodO (listO IT) (prodO stateO natO))) -> iProp :=
-    λ '(α, (σ, (β, (σ'', n)))), ((n ≡ 0 ∧ α ≡ β ∧ σ ≡ σ'')
+    λ '(α, (σ, (β, (σ'', n)))), ((⌜0 <= n⌝ ∧ α ≡ β ∧ σ ≡ σ'')
                      ∨ (∃ n' γ σ',
-                          n ≡ (S n')
+                          ⌜n' < n⌝
                           ∧ tp_internal_step α σ γ σ'
                           ∧ self (γ, (σ', (β, (σ'', n'))))))%I.
 
@@ -428,9 +557,9 @@ Section internal_step.
 
   Lemma tp_internal_steps_unfold α β σ σ'' n :
     tp_internal_steps α σ β σ'' n ≡
-      ((n ≡ 0 ∧ α ≡ β ∧ σ ≡ σ'')
+      ((⌜0 <= n⌝ ∧ α ≡ β ∧ σ ≡ σ'')
        ∨ (∃ n' γ σ',
-            n ≡ (S n')
+            ⌜n' < n⌝
             ∧ tp_internal_step α σ γ σ'
             ∧ tp_internal_steps γ σ' β σ'' n'))%I.
   Proof. rewrite /tp_internal_steps /= tp_internal_steps'_unfold //=. Qed.
@@ -448,6 +577,79 @@ Section internal_step.
 
   Opaque tp_internal_steps.
 
+  Lemma tp_internal_steps_ind' α β σ σ' k
+    (Φ : listO IT → stateO → listO IT → stateO → nat → iProp)
+    {HProper :
+      ∀ n, Proper (dist n ==> dist n ==> dist n ==> dist n ==> dist n ==> dist n) Φ}
+    :
+    (□ ((∀ α β σ σ' k, ⌜0 <= k⌝ ∧ α ≡ β ∧ σ ≡ σ' -∗ Φ α σ β σ' k)
+        ∗ (∀ α β σ σ' n, (∃ n' (γ : listO IT) (σ'' : stateO),
+                            ⌜n' < n⌝
+                            ∧ tp_internal_step α σ γ σ''
+                            ∧ Φ γ σ'' β σ' n') -∗ Φ α σ β σ' n)))
+    -∗ tp_internal_steps α σ β σ' k -∗ Φ α σ β σ' k.
+  Proof.
+    iIntros "#H".
+    iIntros "G".
+    unshelve iApply (tp_internal_steps_ind α β σ σ' k
+                       (λne '(α, (σ, (β, (σ', k)))), Φ α σ β σ' k)).
+    - intros n [x1 [x2 [x3 [x4 x5]]]] [y1 [y2 [y3 [y4 y5]]]] [H1 [H2 [H3 [H4 H5]]]];
+        simpl in *.
+      solve_proper.
+    - intros n [x1 [x2 [x3 [x4 x5]]]] [y1 [y2 [y3 [y4 y5]]]] [H1 [H2 [H3 [H4 H5]]]];
+        simpl in *.
+      solve_proper.
+    - iModIntro.
+      iIntros (y).
+      destruct y as [_α [_σ [_β [_σ' _n']]]].
+      simpl.
+      iIntros "G".
+      iDestruct "G" as "[G | G]".
+      + iDestruct "H" as "(H & _)".
+        iApply "H". iApply "G".
+      + iDestruct "G" as (n' γ σ'') "(G1 & G2 & G3)".
+        iDestruct (least_fixpoint_unfold_1 with "G3") as "J".
+        * clear -HProper.
+          econstructor.
+          -- intros P Q HP HQ.
+             iIntros "#H %x".
+             destruct x as [y1 [y2 [y3 [y4 y5]]]].
+             iIntros "J".
+             iSplit.
+             ++ by iDestruct "J" as "(J1 & _)".
+             ++ iDestruct "J" as "(_ & J2)".
+                by iApply (bi_mono_pred P Q).
+          -- intros.
+             intros [x1 [x2 [x3 [x4 x5]]]] [y1 [y2 [y3 [y4 y5]]]]
+               [H1 [H2 [H3 [H4 H5]]]];
+               simpl in *.
+             solve_proper.
+        * iDestruct "J" as "(J1 & _)".
+          iDestruct "H" as "(_ & H)".
+          iApply "H".
+          iExists n', γ, σ''.
+          iFrame "G1 J1 G2".
+    - iApply "G".
+  Qed.
+
+  Lemma tp_internal_steps_grow α β σ σ' n m (Hlt : n <= m) :
+    tp_internal_steps α σ β σ' n ⊢ tp_internal_steps α σ β σ' m.
+  Proof.
+    iIntros "H".
+    rewrite tp_internal_steps_unfold.
+    iDestruct "H" as "[(%H1 & H2 & H3) | (%p & %γ & %σ'' & %H1 & H2 & H3)]".
+    - rewrite tp_internal_steps_unfold.
+      iLeft. iFrame "H2 H3".
+      iPureIntro.
+      lia.
+    - iEval (rewrite tp_internal_steps_unfold).
+      iRight.
+      iExists p, γ, σ''.
+      iFrame "H2 H3".
+      iPureIntro.
+      lia.
+  Qed.
+
   (** Properties *)
   Lemma tp_internal_steps_0 α β σ σ' :
     tp_internal_steps α σ β σ' 0 ≡ (α ≡ β ∧ σ ≡ σ')%I.
@@ -456,46 +658,41 @@ Section internal_step.
     - iDestruct 1 as "[(_ & $ & $)|H]".
       iExFalso.
       iDestruct "H" as (n' ? ?) "[% HH]".
-      fold_leibniz. lia.
+      iPureIntro. lia.
     - iDestruct 1 as "[H1 H2]". iLeft; eauto.
   Qed.
 
   Lemma tp_internal_steps_S α β σ σ'' k :
-    tp_internal_steps α σ β σ'' (S k) ≡ (∃ γ σ',
+    tp_internal_steps α σ β σ'' (S k) ≡ ((∃ γ σ',
                                 tp_internal_step α σ γ σ'
-                                ∧ tp_internal_steps γ σ' β σ'' k)%I.
+                                ∧ tp_internal_steps γ σ' β σ'' k)
+                                         ∨ (α ≡ β ∧ σ ≡ σ''))%I.
   Proof.
     rewrite tp_internal_steps_unfold. iSplit.
-    - iDestruct 1 as "[(% & _ & _)|H]"; first by fold_leibniz; lia.
-      iDestruct "H" as (n' ? ?) "[% HH]".
-      iDestruct "HH" as "(H1 & H2)".
-      fold_leibniz. assert (k = n') as -> by lia.
-      iExists _,_. eauto with iFrame.
-    - iDestruct 1 as (γ σ') "[H1 H2]".
-      iRight.
-      iExists k,γ,σ'.
-      eauto with iFrame.
+    - iDestruct 1 as "[(% & ? & ?)|H]".
+      + iRight. by iSplit.
+      + iDestruct "H" as (n' ? ?) "[% HH]".
+        iDestruct "HH" as "(H1 & H2)".
+        iLeft. iExists γ, σ'.
+        iSplitL "H1"; first done.
+        iApply tp_internal_steps_grow; last iApply "H2".
+        lia.
+    - iDestruct 1 as "[(%γ & %σ' & H1 & H2) | (H1 & H2)]".
+      + iRight.
+        iExists k, γ, σ'.
+        iSplit; first by (iPureIntro; lia).
+        by iFrame.
+      + iLeft.
+        iSplit; first by (iPureIntro; lia).
+        by iFrame.
   Qed.
 
-  #[export] Instance internal_step_persistent α σ β σ' en
-    : Persistent (internal_step α σ β σ' en).
+  Global Instance : ∀ α σ β σ', Plain (tp_internal_step α σ β σ').
   Proof. apply _. Qed.
 
-  #[export] Instance internal_steps_persistent α σ β σ' en k
-    : Persistent (internal_steps α σ β σ' en k).
+  Global Instance tp_internal_steps_persistent : ∀ α σ β σ' k, Plain (tp_internal_steps α σ β σ' k).
   Proof.
-    revert α σ en. induction k as [|k]=> α σ en.
-    - rewrite internal_steps_0. apply _.
-    - rewrite internal_steps_S. apply _.
-  Qed.
-
-  #[export] Instance tp_internal_step_persistent α σ β σ'
-    : Persistent (tp_internal_step α σ β σ').
-  Proof. apply _. Qed.
-
-  #[export] Instance tp_internal_steps_persistent α σ β σ' k
-    : Persistent (tp_internal_steps α σ β σ' k).
-  Proof.
+    intros α σ β σ' k.
     revert α σ. induction k as [|k]=> α σ.
     - rewrite tp_internal_steps_0. apply _.
     - rewrite tp_internal_steps_S. apply _.
@@ -548,11 +745,18 @@ Section internal_step.
   Proof.
     revert α σ. induction n as [| ? IH] => α σ; inversion 1; simplify_eq /=.
     - rewrite tp_internal_steps_unfold. iLeft. eauto.
+    - exfalso. lia.
+    - iStartProof.
+      rewrite tp_internal_steps_unfold. iLeft.
+      iPureIntro.
+      split; done.
     - rewrite tp_internal_steps_unfold. iRight. iExists n, _, _.
       iSplit; first eauto.
       iSplit.
       + iApply tp_external_step_tp_internal_step; eauto.
       + iApply IH; eauto.
+        eapply tp_external_steps_grow; last eassumption.
+        lia.
   Qed.
 
   Local Lemma tick_safe_externalize (α : IT) σ :
@@ -680,6 +884,7 @@ Section internal_step.
     - rewrite internal_steps_S.
       iDestruct "H" as "(%γ & %σ'' & %t & %t' & G1 & G2 & G3)".
       iApply tp_internal_steps_S.
+      iLeft.
       iExists (e1 ++ γ :: e2 ++ t), σ''.
       iSplit.
       + by iApply internal_step_tp_internal_step.
@@ -689,89 +894,73 @@ Section internal_step.
         by iApply "G".
   Qed.
 
-  (* this is true only for iProp/uPred? *)
-  Definition disjunction_property (P Q : iProp) := (⊢ P ∨ Q) → (⊢ P) ∨ (⊢ Q).
-
   Lemma internal_step_safe_external_step α σ :
-    (∀ P Q, disjunction_property P Q) →
     (⊢ ∃ β σ' en, internal_step α σ β σ' en) → ∃ β σ' en, external_step r α σ β σ' en.
   Proof.
-    intros Hdisj.
     rewrite internal_step_safe_disj.
-    intros [H|H]%Hdisj.
-    - pose proof (tick_safe_externalize _ _ H) as [β [σ' G]].
-      by exists β, σ', [].
-    - pose proof (effect_safe_externalize _ _ H) as [β [σ' [en G]]].
-      by exists β, σ', en.
+
+    destruct (IT_dont_confuse α)
+      as [[e Ha] | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
+    - setoid_rewrite Ha.
+      intros H.
+      eapply uPred.pure_soundness.
+      iExFalso.
+      iPoseProof H as "H".
+      iDestruct "H" as "[(% & % & H & _) | (% & % & % & % & % & % & H & _)]".
+      + iApply IT_tick_err_ne. iApply internal_eq_sym.
+        by iApply "H".
+      + iApply IT_vis_err_ne. iApply internal_eq_sym.
+        by iApply "H".
+    - setoid_rewrite Ha.
+      intros H.
+      eapply uPred.pure_soundness.
+      iExFalso.
+      iPoseProof H as "H".
+      iDestruct "H" as "[(% & % & H & _) | (% & % & % & % & % & % & H & _)]".
+      + iApply IT_ret_tick_ne.
+        by iApply "H".
+      + iApply IT_ret_vis_ne.
+        by iApply "H".
+    - setoid_rewrite Ha.
+      intros H.
+      eapply uPred.pure_soundness.
+      iExFalso.
+      iPoseProof H as "H".
+      iDestruct "H" as "[(% & % & H & _) | (% & % & % & % & % & % & H & _)]".
+      + iApply IT_fun_tick_ne.
+        by iApply "H".
+      + iApply IT_fun_vis_ne.
+        by iApply "H".
+    - setoid_rewrite Ha.
+      intros H.
+      exists α', σ, [].
+      by constructor.
+    - setoid_rewrite Ha.
+      destruct (reify r (Vis op i k) σ) as [[σ1 α1] en] eqn:Hr.
+      assert ((∃ α' : IT, α1 ≡ Tick α') ∨ (α1 ≡ Err RuntimeErr)) as [[α' Ha']| Ha'].
+      { eapply (reify_is_always_a_tick r op i k σ). by rewrite Hr. }
+      + exists α', σ1, en.
+        econstructor 2; first done.
+        rewrite Hr.
+        do 2 f_equiv.
+        apply Ha'.
+      + intros H.
+        eapply uPred.pure_soundness.
+        iExFalso.
+        iPoseProof H as "H".
+        iDestruct "H" as "[(% & % & H & _) | (% & % & % & % & % & % & _ & G)]".
+      * iApply IT_tick_vis_ne. iApply internal_eq_sym.
+        by iApply "H".
+      * assert (reify r (Vis op i k) σ ≡ reify r α σ) as <-.
+        { f_equiv. by rewrite Ha. }
+        rewrite Hr.
+        rewrite Ha'.
+        iPoseProof (prod_equivI with "G") as "[G'' G']".
+        iPoseProof (prod_equivI with "G''") as "[_ G''']".
+        simpl.
+        iApply IT_tick_err_ne. iApply internal_eq_sym.
+        by iApply "G'''".
   Qed.
-
-  (* Local Lemma internal_step_safe_disj''' r α σ β σ' en : *)
-  (*   (internal_step α σ β σ' en) *)
-  (*   ⊢ (∃ β σ', α ≡ Tick β ∧ σ ≡ σ') *)
-  (*     ∨ ((∃ op i k, α ≡ Vis op i k ∧ reify r α σ ≡ (σ', Tick β, en))). *)
-  (* Proof. *)
-  (*   rewrite -bi.or_exist. *)
-  (*   apply bi.exist_mono=>β. *)
-  (*   rewrite -bi.or_exist. *)
-  (*   rewrite /internal_step /=. *)
-  (*   iIntros "(%σ' & %en & [(H1 & H2 & H3) | H])". *)
-  (*   - iExists σ'; iLeft; by iFrame. *)
-  (*   - iExists σ'; iRight; by iExists en. *)
-  (* Qed. *)
-
-  (* Lemma sdfsddfds α σ β st' k' *)
-  (*   (Hdisj : ∀ P Q, disjunction_property P Q) : *)
-  (*   (⊢ tp_internal_steps α σ β st' k') *)
-  (*   → (tp_external_steps r α σ β st' k'). *)
-  (* Proof. *)
-  (*   (* revert α β σ st'. *) *)
-  (*   (* induction k' as [| IH]; intros α β σ σ'. *) *)
-  (*   intros H. *)
-  (*   rewrite tp_internal_steps_unfold in H. *)
-  (*   apply Hdisj in H. *)
-  (*   destruct H. *)
-  (*   - pose proof H as H'. *)
-  (*     rewrite bi.and_elim_l in H'. *)
-  (*     apply uPred.internal_eq_soundness in H'. *)
-  (*     rewrite H'. clear H'. *)
-  (*     pose proof H as H'. *)
-  (*     rewrite bi.and_elim_r in H'. *)
-  (*     pose proof H' as H''. *)
-  (*     rewrite bi.and_elim_l in H'. *)
-  (*     rewrite bi.and_elim_r in H''. *)
-  (*     apply uPred.internal_eq_soundness in H'. *)
-  (*     apply uPred.internal_eq_soundness in H''. *)
-  (*     rewrite H' H''. *)
-  (*     by constructor. *)
-  (*   - admit. *)
-
-  (* α ≡ α0 ++ γ :: α1 ∧ β ≡ α0 ++ γ' :: α1 ++ en ∧ internal_step γ σ γ' σ' en *)
-  (* Local Lemma tp_internal_step_safe_disj α σ : *)
-  (*   (∃ β σ', tp_internal_step α σ β σ') *)
-  (*   ⊢ (∃ β σ', α ≡ Tick β ∧ σ ≡ σ') *)
-  (*     ∨ (∃ β σ' en, (∃ op i k, α ≡ Vis op i k ∧ reify r α σ ≡ (σ', Tick β, en))). *)
-  (* Proof. *)
-  (*   rewrite -bi.or_exist. *)
-  (*   apply bi.exist_mono=>β. *)
-  (*   rewrite -bi.or_exist. *)
-  (*   rewrite /internal_step /=. *)
-  (*   iIntros "(%σ' & %en & [(H1 & H2 & H3) | H])". *)
-  (*   - iExists σ'; iLeft; by iFrame. *)
-  (*   - iExists σ'; iRight; by iExists en. *)
-  (* Qed. *)
-
-  (* Lemma tp_internal_step_safe_tp_external_step α σ : *)
-  (*   (∀ P Q, disjunction_property P Q) → *)
-  (*   (⊢ ∃ β σ', tp_internal_step α σ β σ') → ∃ β σ', tp_external_step r α σ β σ'. *)
-  (* Proof. *)
-  (*   intros Hdisj. *)
-  (*   rewrite internal_step_safe_disj. *)
-  (*   intros [H|H]%Hdisj. *)
-  (*   - pose proof (tick_safe_externalize _ _ H) as [β [σ' G]]. *)
-  (*     by exists β, σ', []. *)
-  (*   - pose proof (effect_safe_externalize _ _ H) as [β [σ' [en G]]]. *)
-  (*     by exists β, σ', en. *)
-  (* Qed. *)
 
   Local Lemma tick_safe_externalize_model (α : IT) σ :
     (∃ β σ', α ≡ Tick β ∧ σ ≡ σ' : iProp) -∗ ⌜∃ β σ', external_step r α σ β σ' []⌝.
@@ -795,7 +984,6 @@ Section internal_step.
       iApply (IT_tick_vis_ne). by iApply (internal_eq_sym with "Ha").
   Qed.
 
-  (* ctx-free steps *)
   Local Lemma effect_safe_externalize_model (α : IT) σ :
     (∃ β σ' en, (∃ op i k, α ≡ Vis op i k ∧ reify r α σ ≡ (σ', Tick β, en)) : iProp) -∗
     ⌜∃ β σ' en, external_step r α σ β σ' en⌝.
@@ -862,31 +1050,7 @@ Section internal_step.
     - iExists σ'; iRight; by iExists en.
   Qed.
 
-  Lemma ret_discrete_pure `{!OfeDiscrete A} α (β : A) :
-    (α ≡ Ret (E := F) (A := A) β -∗ ⌜α ≡ Ret β⌝ : iProp).
-  Proof.
-    iIntros "H".
-    destruct (IT_dont_confuse α)
-      as [[e Ha] | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
-    + iExFalso. rewrite Ha.
-      iApply IT_ret_err_ne. iApply internal_eq_sym.
-      by iApply "H".
-    + rewrite Ha.
-      iDestruct (Ret_inj' with "H") as "%K".
-      iPureIntro.
-      by rewrite K.
-    + iExFalso. rewrite Ha.
-      iApply IT_ret_fun_ne. iApply internal_eq_sym.
-      by iApply "H".
-    + iExFalso. rewrite Ha.
-      iApply IT_ret_tick_ne. iApply internal_eq_sym.
-      by iApply "H".
-    + iExFalso. rewrite Ha.
-      iApply IT_ret_vis_ne. iApply internal_eq_sym.
-      by iApply "H".
-  Qed.
-
-  Lemma ret_discrete_pure' α (β : A) :
+  Lemma ret_discrete_pure α (β : A) :
     (α ≡ Ret (E := F) (A := A) β -∗ ⌜∃ β, α ≡ Ret β⌝ : iProp).
   Proof.
     iIntros "H".
@@ -908,7 +1072,7 @@ Section internal_step.
       by iApply "H".
   Qed.
 
-  Lemma fun_discrete_pure' α β :
+  Lemma fun_discrete_pure α β :
     (α ≡ Fun (E := F) (A := A) β -∗ ⌜∃ β, α ≡ Fun β⌝ : iProp).
   Proof.
     iIntros "H".
@@ -929,260 +1093,6 @@ Section internal_step.
       iApply IT_fun_vis_ne. iApply internal_eq_sym.
       by iApply "H".
   Qed.
-
-  Local Lemma tick_safe_externalize_model' `{!OfeDiscrete A} (α : IT) σ β :
-    (∃ σ', α ≡ Tick (Ret β) ∧ σ ≡ σ' : iProp) -∗ ▷ ⌜∃ σ', external_step r α σ (Ret β) σ' []⌝.
-  Proof.
-    iIntros "H".
-    destruct (IT_dont_confuse α)
-      as [[e Ha] | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
-    + iExFalso.
-      iDestruct "H" as (σ') "[Ha Hs]". rewrite Ha.
-      iApply (IT_tick_err_ne). iApply internal_eq_sym.
-      by iApply "Ha".
-    + iExFalso.
-      iDestruct "H" as (σ') "[Ha Hs]". rewrite Ha.
-      iApply (IT_ret_tick_ne with "Ha").
-    + iExFalso.
-      iDestruct "H" as (σ') "[Ha Hs]". rewrite Ha.
-      iApply (IT_fun_tick_ne with "Ha").
-    + iExists σ.
-      iDestruct "H" as (σ') "[Ha Hs]".
-      iEval (rewrite Ha) in "Ha".
-      iDestruct (Tau_inj' with "Ha") as "J".
-      iDestruct (later_equivI_1 with "J") as "K".
-      iNext.
-      iDestruct (ret_discrete_pure with "K") as "%K".
-      rewrite Ha K.
-      iPureIntro.
-      by constructor.
-    + iExFalso.
-      iDestruct "H" as (σ') "[Ha Hs]". rewrite Ha.
-      iApply (IT_tick_vis_ne). by iApply (internal_eq_sym with "Ha").
-  Qed.
-
-  Local Lemma effect_safe_externalize_model' `{!OfeDiscrete A} (α : IT) σ β :
-    (∃ σ' en, (∃ op i k, α ≡ Vis op i k ∧ reify r α σ ≡ (σ', Tick (Ret β), en)) : iProp) -∗
-    ▷ ⌜∃ σ' en, external_step r α σ (Ret β) σ' en⌝.
-  Proof.
-    iIntros "H".
-    destruct (IT_dont_confuse α)
-      as [[e Ha] | [[n Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]].
-    + iExFalso.
-      iDestruct "H" as (σ' en op i k) "[Ha _]". rewrite Ha.
-      iApply (IT_vis_err_ne). iApply internal_eq_sym.
-      by iApply "Ha".
-    + iExFalso.
-      iDestruct "H" as (σ' en op i k) "[Ha _]". rewrite Ha.
-      iApply (IT_ret_vis_ne with "Ha").
-    + iExFalso.
-      iDestruct "H" as (σ' en op i k) "[Ha _]". rewrite Ha.
-      iApply (IT_fun_vis_ne with "Ha").
-    + iExFalso.
-      iDestruct "H" as (σ' en op i k) "[Ha _]". rewrite Ha.
-      iApply (IT_tick_vis_ne with "Ha").
-    + iDestruct "H" as (σ' en' op' i' k') "[_ #Hb]".
-      assert (reify r (Vis op i k) σ ≡ reify r α σ) as Har.
-      { f_equiv. by rewrite Ha. }
-      destruct (reify r (Vis op i k) σ) as [[σ1 α1] en] eqn:Hr.
-      iAssert ((α1 ≡ Tick (Ret β)))%I as "#H".
-      {
-        rewrite -Har.
-        iPoseProof (prod_equivI with "Hb") as "[Hb'' Hb']".
-        iPoseProof (prod_equivI with "Hb''") as "[_ Hb'''']".
-        iApply "Hb''''".
-      }
-      destruct (IT_dont_confuse α1)
-        as [[e'' Ha''] | [[n'' Ha''] | [ [g'' Ha''] | [[α''' Ha'']|[op'' [i'' [k'' Ha'']]]] ]]].
-      * iExFalso.
-        rewrite Ha''.
-        iDestruct (internal_eq_sym with "H") as "?".
-        iApply IT_tick_err_ne. iAssumption.
-      * iExFalso.
-        rewrite Ha''.
-        iApply IT_ret_tick_ne. iAssumption.
-      * iExFalso.
-        rewrite Ha''.
-        iApply IT_fun_tick_ne. iAssumption.
-      * rewrite Ha''.
-        iNext.
-        iDestruct (ret_discrete_pure with "H") as "%K'".
-        iPureIntro.
-        exists σ1, en.
-        econstructor.
-        ++ apply Ha.
-        ++ rewrite -Har.
-           rewrite Ha''.
-           rewrite K'.
-           done.
-      * iExFalso.
-        rewrite Ha''.
-        iDestruct (internal_eq_sym with "H") as "?".
-        iApply IT_tick_vis_ne. iAssumption.
-  Qed.
-
-  Lemma internal_step_safe_external_step_model' `{!OfeDiscrete A} α σ β :
-    (∃ σ' en, internal_step α σ (Ret β) σ' en)
-    -∗ ▷ ⌜∃ σ' en, external_step r α σ (Ret β) σ' en⌝.
-  Proof.
-    iIntros "H".
-    iDestruct (internal_step_safe_disj' α σ with "H") as "[G|G]".
-    - iPoseProof (tick_safe_externalize_model' _ _ with "G") as ">(%σ' & %G)".
-      iPureIntro.
-      by exists σ', [].
-    - iPoseProof (effect_safe_externalize_model' _ _ with "G") as ">(%σ' & %en & %G)".
-      iPureIntro.
-      by exists σ', en.
-  Qed.
-
-  Lemma tp_internal_step_safe_tp_external_step_model `{!OfeDiscrete A} α σ t :
-    (∃ β σ', tp_internal_step [α] σ (Ret t :: β) σ')
-    -∗ ▷ ⌜∃ β σ', tp_external_step r [α] σ (Ret t :: β) σ'⌝.
-  Proof.
-    iIntros "(%β & %σ' & #H)".
-    iDestruct "H" as "(%α0 & %α1 & %γ & %γ' & %en & #HEQ1 & #HEQ2 & H)".
-    iAssert (α0 ≡ nil ∧ α1 ≡ nil)%I as "(HEQ1' & HEQ2')".
-    {
-      destruct α0 as [| ? α0]; destruct α1 as [| ? α1]; first done; iExFalso.
-      - iDestruct (list_equivI with "HEQ1") as "J".
-        iSpecialize ("J" $! 1).
-        by iDestruct (option_equivI with "J") as "?".
-      - iDestruct (list_equivI with "HEQ1") as "J".
-        iSpecialize ("J" $! 1).
-        destruct α0; simpl; by iDestruct (option_equivI with "J") as "?".
-      - iDestruct (list_equivI with "HEQ1") as "J".
-        iSpecialize ("J" $! 1).
-        destruct α0; simpl; by iDestruct (option_equivI with "J") as "?".
-    }
-    iRewrite "HEQ1'" in "HEQ1"; iRewrite "HEQ1'" in "HEQ2".
-    iRewrite "HEQ2'" in "HEQ1". iRewrite "HEQ2'" in "HEQ2".
-    iSimpl in "HEQ1". iSimpl in "HEQ2".
-    iClear "HEQ1' HEQ2'".
-    iDestruct (list_equivI with "HEQ1") as "J".
-    iSpecialize ("J" $! 0). iSimpl in "J".
-    iDestruct (option_equivI with "J") as "J'".
-    iDestruct (list_equivI with "HEQ2") as "K".
-    iSpecialize ("K" $! 0). iSimpl in "K".
-    iDestruct (option_equivI with "K") as "K'".
-    iClear "HEQ1 J K".
-    iRewrite - "J'" in "H".
-    iRewrite - "K'" in "H".
-
-    iApply (bi.pure_mono (∃ σ' en, external_step r α σ (Ret t) σ' en)).
-    {
-      intros [σ'' [en' H]].
-      exists en', σ''.
-      eapply (tp_external_step_atomic r [α] (Ret t :: en') σ σ'' α (Ret t) [] [] en');
-        [done | done |].
-      apply H.
-    }
-    iClear "HEQ2 J' K'".
-    iApply internal_step_safe_external_step_model'.
-    iExists σ', en.
-    done.
-  Qed.
-
-  (* Lemma tp_internal_steps_safe_tp_external_steps_model *)
-  (*   α σ : *)
-  (*   (∃ t β σ' m, tp_internal_steps α σ (IT_of_V t :: β) σ' m) *)
-  (*   -∗ ▷ ⌜∃ t β σ' m, tp_external_steps r α σ (IT_of_V t :: β) σ' m⌝. *)
-  (* Proof. *)
-  (*   iIntros "(%t & %β & %σ' & %m & H)".     *)
-  (*   iInduction m as [| n IH] "G" forall (α σ). *)
-  (*   - rewrite tp_internal_steps_0. *)
-  (*     iDestruct "H" as "(H1 & H2)".       *)
-  (*     iExists t, β, σ, 0. *)
-  (*     iDestruct (list_equivI with "H1") as "K". *)
-  (*     iSpecialize ("K" $! 0). iSimpl in "K". *)
-  (*     iDestruct (option_equivI with "K") as "K'". *)
-  (*     iDestruct (ret_discrete_pure with "K'") as "%K". *)
-  (*     iNext. *)
-  (*     iPureIntro. *)
-  (*     rewrite K. *)
-  (*     by constructor. *)
-  (*   - rewrite tp_internal_steps_S. *)
-  (*     iDestruct "H" as "(%γ & %σ'' & #H1 & #H2)". *)
-  (*     iSpecialize ("G" $! γ σ'' with "H2"). iClear "H2". *)
-  (*     iDestruct "G" as (β' σ''') ">%G". *)
-  (*     iExists β', σ'''. *)
-
-  (*     iAssert (⌜tp_external_step r α σ γ σ''⌝)%I as "%H2". *)
-  (*     { *)
-
-  (*       admit. *)
-  (*     } *)
-  (*     iNext. *)
-  (*     iPureIntro. *)
-  (*     econstructor; last apply G. *)
-  (*     apply H2. *)
-  (* Admitted. *)
-
-
-  (* Lemma internal_steps_safe_external_steps_model *)
-  (*   `{!OfeDiscrete A} *)
-  (*   α σ β σ' en m : *)
-  (*   (internal_steps α σ (Ret β) σ' en m) *)
-  (*   -∗ ⌜∃ en σ', external_steps r α σ (Ret β) σ' en m⌝. *)
-  (* Proof. *)
-  (*   remember (Ret β) as β'. *)
-  (*   iIntros "H". *)
-  (*   iInduction m as [| n IH] "G" forall (α σ en). *)
-  (*   - rewrite internal_steps_0. *)
-  (*     iDestruct "H" as "(H1 & H2 & H3)". *)
-  (*     rewrite Heqβ'. *)
-  (*     iDestruct (ret_discrete_pure with "H1") as "%K". *)
-  (*     iExists [], σ. *)
-  (*     iPureIntro. *)
-  (*     by constructor. *)
-  (*   - rewrite internal_steps_S. *)
-  (*     iDestruct "H" as (γ σ'' l' l'') "(H1 & H2 & H3)". *)
-  (*     iSpecialize ("G" $! γ σ'' l'' with "H3"). *)
-  (*     iDestruct "G" as (en' σ''') "%H". *)
-  (*     iExists en', σ'''. *)
-
-  (* Lemma tp_internal_steps_safe_tp_external_steps_model *)
-  (*   `{!Inhabited stateO} *)
-  (*   `{!OfeDiscrete A} α σ t m : *)
-  (*   (∃ β σ', tp_internal_steps α σ (Ret t :: β) σ' m) *)
-  (*   -∗ ▷ ⌜∃ β σ', tp_external_steps r α σ (Ret t :: β) σ' m⌝. *)
-  (* Proof. *)
-  (*   iIntros "(%β & %σ' & H)".     *)
-
-  (*   iInduction m as [| n IH] "G" forall (α σ). *)
-  (*   - rewrite tp_internal_steps_0. *)
-  (*     iDestruct "H" as "(H1 & H2)". *)
-  (*     destruct α as [| x α]; *)
-  (*       first by *)
-  (*         ( *)
-  (*           iDestruct (list_equivI with "H1") as "K"; *)
-  (*           iSpecialize ("K" $! 0); iSimpl in "K"; *)
-  (*           iDestruct (option_equivI with "K") as "?" *)
-  (*         ). *)
-  (*     iExists α, σ. *)
-  (*     iDestruct (list_equivI with "H1") as "K". *)
-  (*     iSpecialize ("K" $! 0). iSimpl in "K". *)
-  (*     iDestruct (option_equivI with "K") as "K'". *)
-  (*     iDestruct (ret_discrete_pure with "K'") as "%K". *)
-  (*     iNext. *)
-  (*     iPureIntro. *)
-  (*     rewrite K. *)
-  (*     by constructor. *)
-  (*   - rewrite tp_internal_steps_S. *)
-  (*     iDestruct "H" as "(%γ & %σ'' & #H1 & #H2)".       *)
-  (*     iSpecialize ("G" $! γ σ'' with "H2"). iClear "H2". *)
-  (*     iDestruct "G" as (β' σ''') ">%G". *)
-  (*     iExists β', σ'''. *)
-
-  (*     iAssert (⌜tp_external_step r α σ γ σ''⌝)%I as "%H2". *)
-  (*     { *)
-
-  (*       admit. *)
-  (*     } *)
-  (*     iNext. *)
-  (*     iPureIntro. *)
-  (*     econstructor; last apply G. *)
-  (*     apply H2. *)
-  (* Admitted. *)
 
   Lemma internal_step_ITV α αv β σ σ' en :
     (IT_to_V α ≡ Some αv ⊢ internal_step α σ β σ' en -∗ False : iProp)%I.
@@ -1855,121 +1765,6 @@ Section internal_step.
     done.
   Qed.
 
-  Polymorphic Class FiniteExistential :=
-    can_split_or (P Q: nat → Prop):
-      (∀ a b, a < b → P b → P a) →
-      (∀ a b, a < b → Q b → Q a) →
-      (∀ a, P a ∨ Q a) → (∀ a, P a) ∨ (∀ a, Q a).
-
-  Polymorphic Class Classical : Prop :=
-    excluded_middle : ∀ P: Prop, P ∨ ¬ P.
-
-  Lemma classical_can_commute_or (P Q : nat → Prop):
-    (∀ P : Prop, P ∨ ¬ P) →
-    (∀ a b, a < b → P b → P a) →
-    (∀ a b, a < b → Q b → Q a) →
-    (∀ a, P a ∨ Q a) → (∀ a, P a) ∨ (∀ a, Q a).
-  Proof.
-    intros xm HdownP HdownQ Hsome.
-    destruct (xm (∃ a, ¬ P a)) as [[a' HP]|HP]; last first.
-    - left. intros a'. destruct (xm (P a')); auto.
-      exfalso. apply HP.
-      by exists a'.
-    - assert (Q a') by (destruct (Hsome a'); naive_solver).
-      right. intros b.
-      destruct (le_lt_dec a' b) as [J | J].
-      + destruct (le_lt_eq_dec _ _ J) as [K | K].
-        * destruct (Hsome b); auto.
-          exfalso.
-          apply HP.
-          eapply HdownP; eauto.
-        * by subst.
-      + eapply HdownQ; eauto.
-  Qed.
-
-  Global Instance classical_finite_existential `{Classical} : FiniteExistential.
-  Proof.
-    intros P Q ???. eapply classical_can_commute_or; eauto.
-  Qed.
-
-  Lemma can_commute_finite_exists `{FiniteExistential} (X : Type)
-    (P : X → nat → Prop) (Q: X → Prop) :
-    (∀ x a b, a < b → P x b → P x a)
-    → (∀ a, ∃ x, Q x ∧ P x a)
-    → pred_finite Q
-    → ∃ x, ∀ a, P x a.
-  Proof.
-    intros Hdown Hsome [Y Hfin].
-    assert (∀ a, ∃ x, x ∈ Y ∧ P x a) as Hsome'.
-    { intros a'. destruct (Hsome a') as [x [? ?]]. exists x. split; eauto. }
-    clear Hfin Hsome. induction Y as [|x Y IH].
-    - specialize (Hsome' 0) as [x [? ?]]. exfalso. by eapply not_elem_of_nil.
-    - assert ((∀ a, P x a) ∨ (∀ a : nat, ∃ x : X, x ∈ Y ∧ P x a)) as [|]; eauto.
-      eapply can_split_or; eauto.
-      + intros a' b Hab [y [HA HP]]. exists y; split; eauto.
-      + intros a'; destruct (Hsome' a') as [y [HA HP]].
-        apply elem_of_cons in HA as [<-|?]; eauto.
-  Qed.
-
-  Lemma iProp_disj `{Classical} (P Q : iProp)
-    : (⊢ P ∨ Q) → (⊢ P) ∨ ⊢ Q.
-  Proof.
-    intros J.
-    destruct (classical_can_commute_or (λ n, uPred_holds P n ε) (λ n, uPred_holds Q n ε)); eauto.
-    - intros b c Hbc K.
-      eapply uPred_mono; eauto. lia.
-    - intros b c Hbc K.
-      eapply uPred_mono; eauto. lia.
-    - intros n.
-      assert (Hemp : uPred_holds (emp : iProp) n ε).
-      { uPred.unseal. rewrite /upred.uPred_pure_def //=. }
-      pose proof (uPred_in_entails _ _ J n ε (ucmra_unit_validN _) Hemp) as G.
-      revert G.
-      uPred.unseal.
-      rewrite /= /upred.uPred_or_def /=.
-      intros [G | G]; by [left | right].
-    - left.
-      constructor.
-      intros n r' Hr Hval.
-      eapply uPred_mono; eauto.
-      apply ucmra_unit_leastN.
-    - right.
-      constructor.
-      intros n r' Hr Hval.
-      eapply uPred_mono; eauto.
-      apply ucmra_unit_leastN.
-  Qed.
-
-  Lemma iProp_finite_exists `{Classical}
-    X `{!EqDecision X} `{!finite.Finite X} (P : X → iProp)
-    : (⊢ ∃ a, P a) → ∃ a, ⊢ (P a).
-  Proof.
-    intros Hexist.
-    destruct (can_commute_finite_exists _
-                (λ a' n, uPred_holds (P a') n ε) (λ _, True)) as [x' H']; eauto.
-    - intros x b c Hbc J.
-      eapply uPred_mono; eauto. lia.
-    - intros n.
-      assert (Hemp : uPred_holds (emp : iProp) n ε).
-      { uPred.unseal. rewrite /upred.uPred_pure_def //=. }
-      pose proof (uPred_in_entails _ _ Hexist n ε (ucmra_unit_validN _) Hemp) as G.
-      revert G.
-      uPred.unseal.
-      rewrite /= /upred.uPred_exist_def /=.
-      intros [b G].
-      exists b.
-      split; first done.
-      apply G.
-    - exists (finite.enum X).
-      intros.
-      apply finite.elem_of_enum.
-    - exists x'.
-      constructor.
-      intros n x Hx Hval.
-      eapply uPred_mono; eauto.
-      apply ucmra_unit_leastN.
-  Qed.
-
   Lemma tp_internal_steps_safe_agnostic `{C : Classical} α σ k :
     (⊢ ∃ β βs σ', tp_internal_steps α σ ((IT_of_V β) :: βs) σ' k)
     → (∃ β βs σ', tp_external_steps r α σ ((IT_of_V β) :: βs) σ' k).
@@ -2017,14 +1812,72 @@ Section internal_step.
         rewrite HEQ.
         by iDestruct (option_equivI with "J") as "?".
     - setoid_rewrite tp_internal_steps_S in H.
+      destruct α as [| v αs] eqn:HEQ1.
+      {
+        apply uPred.later_soundness in H.
+        exfalso.
+        eapply uPred.pure_soundness.
+        iPoseProof H as "H".
+        iDestruct "H" as (β βs σ') "[H | H]".
+        - iDestruct "H" as (γ σ'') "(H1 & H2)".
+          iDestruct "H1" as (α0 α1 γ0 γ' en) "(H1 & _)".
+          iDestruct (list_equivI with "H1") as "J".
+          iSpecialize ("J" $! (length α0)).
+          rewrite list_lookup_middle; last done.
+          by iDestruct (option_equivI with "J") as "?".
+        - iDestruct "H" as "(H1 & _)".
+          iDestruct (list_equivI with "H1") as "J".
+          iSpecialize ("J" $! 0).
+          by iDestruct (option_equivI with "J") as "?".
+      }
+      destruct (IT_to_V v) as [v' |] eqn:HEQ2.
+      {
+        exists v', αs, σ.
+        constructor; first lia; last done.
+        rewrite IT_of_to_V'; last by erewrite HEQ2.
+        done.
+      }
+      assert (H' :
+               ⊢@{iProp}
+                  ▷ ∃ (β : ITV) (βs : list IT) (σ' : stateO),
+                    (∃ (γ : listO IT) (σ'0 : stateO),
+                       tp_internal_step α σ γ σ'0
+                       ∧ tp_internal_steps γ σ'0 (IT_of_V β :: βs) σ' m)).
+      {
+        iStartProof.
+        iPoseProof H as "H".
+        iNext.
+        iDestruct "H" as (β βs σ') "[H | H]".
+        - iExists β, βs, σ'.
+          rewrite HEQ1.
+          done.
+        - iExFalso.
+          iDestruct "H" as "(H1 & _)".
+          iDestruct (list_equivI with "H1") as "J".
+          iSpecialize ("J" $! 0).
+          iDestruct (option_equivI with "J") as "K".
+          iDestruct (f_equivI IT_to_V with "K") as "I".
+          rewrite HEQ2.
+          rewrite IT_to_of_V.
+          by iDestruct (option_equivI with "I") as "?".
+      }
+      clear H.
+      rename H' into H.
+      rewrite -HEQ1.
+      clear HEQ1 HEQ2.
+      clear αs v.
+
       cut (∃ (β : ITV) (βs : list IT) (σ' : stateO),
              ∃ γ σ'', tp_external_step r α σ γ σ''
                       ∧ tp_external_steps r γ σ'' (IT_of_V β :: βs) σ' m).
       {
         intros [β [βs [σ' [γ [σ'' [H1 H2]]]]]].
         exists β, βs, σ'.
-        eapply tp_steps_many; eassumption.
+        eapply tp_steps_many; last eassumption.
+        - lia.
+        - assumption.
       }
+
       rename H into H'.
       assert (⊢ ▷ ∃ (x : list IT * list IT * IT),
                     α ≡ x.1.1 ++ x.2 :: x.1.2

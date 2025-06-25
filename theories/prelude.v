@@ -4,21 +4,164 @@ From iris.prelude Require Export options prelude.
 From iris.algebra Require Import list ofe local_updates.
 From iris.bi Require Import notation.
 From iris.si_logic Require Import bi siprop.
-From iris.base_logic Require Import bi.
+From iris.base_logic Require Import bi lib.iprop.
 From iris.proofmode Require Import classes tactics modality_instances
                                    coq_tactics reduction.
 
-(* Class BiSoundness (PROP : bi) := *)
-(*   { *)
-(*     pure_soundness : ∀ (φ : Prop), (⊢@{PROP} ⌜ φ ⌝) → φ *)
-(*   }. *)
-(* Arguments Build_BiSoundness {_}. *)
+Polymorphic Class FiniteExistential :=
+  can_split_or (P Q : nat → Prop):
+    (∀ a b, a < b → P b → P a) →
+    (∀ a b, a < b → Q b → Q a) →
+    (∀ a, P a ∨ Q a) → (∀ a, P a) ∨ (∀ a, Q a).
 
-(* Global Instance SiPropSound : BiSoundness siPropI *)
-(*   := Build_BiSoundness siProp.pure_soundness. *)
+Polymorphic Class Classical : Prop :=
+  excluded_middle : ∀ P : Prop, P ∨ ¬ P.
 
-(* Global Instance iPropSound {u} : BiSoundness (uPredI u) *)
-(*   := Build_BiSoundness uPred.pure_soundness. *)
+Lemma classical_can_commute_or (P Q : nat → Prop):
+  (∀ P : Prop, P ∨ ¬ P) →
+  (∀ a b, a < b → P b → P a) →
+  (∀ a b, a < b → Q b → Q a) →
+  (∀ a, P a ∨ Q a) → (∀ a, P a) ∨ (∀ a, Q a).
+Proof.
+  intros xm HdownP HdownQ Hsome.
+  destruct (xm (∃ a, ¬ P a)) as [[a' HP]|HP]; last first.
+  - left. intros a'. destruct (xm (P a')); auto.
+    exfalso. apply HP.
+    exists a'; done.
+  - assert (Q a') by (destruct (Hsome a'); naive_solver).
+    right. intros b.
+    destruct (le_lt_dec a' b) as [J | J].
+    + destruct (le_lt_eq_dec _ _ J) as [K | K].
+      * destruct (Hsome b); auto.
+        exfalso.
+        apply HP.
+        eapply HdownP; eauto.
+      * by subst.
+    + eapply HdownQ; eauto.
+Qed.
+
+Global Instance classical_finite_existential `{Classical} : FiniteExistential.
+Proof.
+  intros P Q ???. eapply classical_can_commute_or; eauto.
+Qed.
+
+Lemma can_commute_finite_exists `{FiniteExistential} (X : Type)
+  (P : X → nat → Prop) (Q: X → Prop) :
+  (∀ x a b, a < b → P x b → P x a)
+  → (∀ a, ∃ x, Q x ∧ P x a)
+  → pred_finite Q
+  → ∃ x, ∀ a, P x a.
+Proof.
+  intros Hdown Hsome [Y Hfin].
+  assert (∀ a, ∃ x, x ∈ Y ∧ P x a) as Hsome'.
+  { intros a'. destruct (Hsome a') as [x [? ?]]. exists x. split; eauto. }
+  clear Hfin Hsome. induction Y as [|x Y IH].
+  - specialize (Hsome' 0) as [x [? ?]]. exfalso. by eapply not_elem_of_nil.
+  - assert ((∀ a, P x a) ∨ (∀ a : nat, ∃ x : X, x ∈ Y ∧ P x a)) as [|]; eauto.
+    eapply can_split_or; eauto.
+    + intros a' b Hab [y [HA HP]]. exists y; split; eauto.
+    + intros a'; destruct (Hsome' a') as [y [HA HP]].
+      apply elem_of_cons in HA as [<-|?]; eauto.
+Qed.
+
+Lemma iProp_disj {Σ} `{Classical} (P Q : iProp Σ)
+  : (⊢ P ∨ Q) → (⊢ P) ∨ ⊢ Q.
+Proof.
+  intros J.
+  destruct (classical_can_commute_or (λ n, uPred_holds P n ε) (λ n, uPred_holds Q n ε)); eauto.
+  - intros b c Hbc K.
+    eapply uPred_mono; eauto. lia.
+  - intros b c Hbc K.
+    eapply uPred_mono; eauto. lia.
+  - intros n.
+    assert (Hemp : uPred_holds (emp : iProp Σ) n ε).
+    { uPred.unseal. rewrite /upred.uPred_pure_def //=. }
+    pose proof (uPred_in_entails _ _ J n ε (ucmra_unit_validN _) Hemp) as G.
+    revert G.
+    uPred.unseal.
+    rewrite /= /upred.uPred_or_def /=.
+    intros [G | G]; by [left | right].
+  - left.
+    constructor.
+    intros n r' Hr Hval.
+    eapply uPred_mono; eauto.
+    apply ucmra_unit_leastN.
+  - right.
+    constructor.
+    intros n r' Hr Hval.
+    eapply uPred_mono; eauto.
+    apply ucmra_unit_leastN.
+Qed.
+
+Lemma iProp_finite_exists {Σ} `{Classical}
+  X `{!EqDecision X} `{!finite.Finite X} (P : X → iProp Σ)
+  : (⊢ ∃ a, P a) → ∃ a, ⊢ (P a).
+Proof.
+  intros Hexist.
+  destruct (can_commute_finite_exists _
+              (λ a' n, uPred_holds (P a') n ε) (λ _, True)) as [x' H']; eauto.
+  - intros x b c Hbc J.
+    eapply uPred_mono; eauto. lia.
+  - intros n.
+    assert (Hemp : uPred_holds (emp : iProp Σ) n ε).
+    { uPred.unseal. rewrite /upred.uPred_pure_def //=. }
+    pose proof (uPred_in_entails _ _ Hexist n ε (ucmra_unit_validN _) Hemp) as G.
+    revert G.
+    uPred.unseal.
+    rewrite /= /upred.uPred_exist_def /=.
+    intros [b G].
+    exists b.
+    split; first done.
+    apply G.
+  - exists (finite.enum X).
+    intros.
+    apply finite.elem_of_enum.
+  - exists x'.
+    constructor.
+    intros n x Hx Hval.
+    eapply uPred_mono; eauto.
+    apply ucmra_unit_leastN.
+Qed.
+
+Polymorphic Class Choice : Prop :=
+  ac :: ∀ (A B : Type) (R : A → B → Prop),
+  (∀ x : A, ∃ y : B, R x y) →
+  ∃ f : A → B, (∀ x : A, R x (f x)).
+
+Lemma NNPP `{Classical} : ∀ p : Prop, ¬ ¬ p → p.
+Proof.
+  unfold not; intros p G; elim (excluded_middle p); auto.
+  intro NP; elim (G NP).
+Qed.
+
+Lemma not_all_not_ex `{Classical} U :
+  ∀ P : U → Prop, ¬ (∀ n : U, ¬ P n) → ∃ n : U, P n.
+Proof.
+  intros P notall.
+  apply NNPP.
+  intro abs.
+  apply notall.
+  intros n G.
+  apply abs; exists n; exact G.
+Qed.
+
+Lemma not_ex_all_not U :
+  ∀ P : U → Prop, ¬ (∃ n : U, P n) → ∀ n : U, ¬ P n.
+Proof.
+  unfold not; intros P notex n abs.
+  apply notex.
+  exists n; trivial.
+Qed.
+
+Lemma not_all_ex_not `{Classical} U :
+  ∀ P : U → Prop, ¬ (∀ n : U, P n) → ∃ n : U, ¬ P n.
+Proof.
+  intros P notall.
+  apply not_all_not_ex with (P:=fun x => ~ P x).
+  intro all; apply notall.
+  intro n; apply NNPP.
+  apply all.
+Qed.
 
 Definition sum_map' {A B C : Set} (f : A → C) (g : B → C) : sum A B → C :=
   λ x, match x with | inl x' => f x' | inr x' => g x' end.
