@@ -1426,6 +1426,7 @@ Proof.
     lia.
   }
   clear Hf Hf'.
+  rename Hf'' into Hf.
 
 Admitted.
 
@@ -1580,6 +1581,66 @@ Section rules.
     iApply IT_Rel_Tick_l'.
     iNext.
     by iIntros "_".
+  Qed.
+
+  Lemma nfalse_bottom m (α : IT) : ▷^m False ⊢@{iProp} Tick_n m α ≡ core.Bottom.
+  Proof.
+    induction m as [| m' IH].
+    - by iIntros "?".
+    - iIntros "H".
+      rewrite Bottom_unfold /=.
+      rewrite Tick_eq.
+      iApply Tau_inj'.
+      iNext.
+      by iApply IH.
+  Qed.
+
+  Lemma IT_Rel_bottom_r `{!SubOfe nat R} `{HSTATE : !stateG rs R Σ}
+    : £ 1 ⊢ (Ret 0) ⪯ₚ (core.Bottom) @{ rs \ R \ s \ HSTATE }.
+  Proof.
+    iIntros "HCred HInv".
+    iIntros (j K) "Hpt".
+    iApply wp_val.
+    iAssert (∃ n, ▷^n False)%I as (m) "HF".
+    {
+      iLöb as "IH".
+      iDestruct "IH" as (m) "IH".
+      iExists (S m).
+      by iNext.
+    }
+    iRewrite - (nfalse_bottom m (Ret 0) with "HF") in "Hpt".
+    iExists (RetV 0).
+    iMod (step_steps_not_stateful _ _ _ emp%I _ _ _ (K (Ret 0)) [] m
+           with "[$HCred $HInv $Hpt]") as "(_ & J & _)".
+    - done.
+    - iSplit; first done.
+      iIntros (σ).
+      iClear "HF".
+      iInduction m as [| m' IH].
+      + iApply internal_steps_0.
+        done.
+      + iApply internal_steps_S.
+        iExists (K (Tick_n m' (Ret 0))), σ, [], [].
+        iSplit; first done.
+        iSplit.
+        * iLeft.
+          iSimpl.
+          rewrite hom_tick.
+          done.
+        * iApply "IH".
+    - rewrite IT_of_V_Ret.
+      iFrame "J".
+      iModIntro.
+      rewrite IT_Val_Rel_unfold.
+      iLeft.
+      iExists ((subOfe_in (inl 0))), ((subOfe_in (inl 0))).
+      iSplit.
+      + rewrite IT_of_V_Ret.
+        by iPureIntro.
+      + iSplit.
+        * rewrite IT_of_V_Ret.
+          by iPureIntro.
+        * done.
   Qed.
 
   Lemma IT_Rel_bottom_l `{HSTATE : !stateG rs R Σ} e
