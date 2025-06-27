@@ -1038,6 +1038,165 @@ Section internal_step.
       by exists β, σ', en.
   Qed.
 
+  Lemma Tick_shape (x y : IT) :
+    ⊢@{iProp} x ≡ Tick y -∗ ⌜∃ z, x ≡ Tick z⌝.
+  Proof.
+    destruct (IT_dont_confuse x)
+      as [[e Ha] | [[m Ha] | [ [g Ha] | [[α' Ha]|[op [i [k Ha]]]] ]]];
+      iIntros "H"; setoid_subst.
+    + iExFalso.
+      iApply (IT_tick_err_ne).
+      iApply internal_eq_sym.
+      by iApply "H".
+    + iExFalso.
+      iApply (IT_ret_tick_ne).
+      by iApply "H".
+    + iExFalso.
+      iApply (IT_fun_tick_ne).
+      by iApply "H".
+    + iExists α'.
+      done.
+    + iExFalso.
+      iApply (IT_tick_vis_ne).
+      iApply internal_eq_sym.
+      by iApply "H".
+  Qed.
+
+  Lemma Vis_shape (x : IT) op i k :
+    ⊢@{iProp} x ≡ Vis op i k -∗ ∃ _i _k, ⌜x ≡ Vis op _i _k⌝
+                                         ∗ i ≡ _i
+                                         ∗ k ≡ _k.
+  Proof.
+    destruct (IT_dont_confuse x)
+      as [[e Ha] | [[m Ha] | [ [g Ha] | [[α' Ha]|[op' [i' [k' Ha]]]] ]]];
+      iIntros "#H"; setoid_subst.
+    + iExFalso.
+      iApply (IT_vis_err_ne).
+      iApply internal_eq_sym.
+      by iApply "H".
+    + iExFalso.
+      iApply (IT_ret_vis_ne).
+      by iApply "H".
+    + iExFalso.
+      iApply (IT_fun_vis_ne).
+      by iApply "H".
+    + iExFalso.
+      iApply (IT_tick_vis_ne).
+      by iApply "H".
+    + iDestruct (Vis_inj_op' with "H") as "->".
+      iDestruct (Vis_inj' with "H") as "(G1 & G2)".
+      iExists i', k'.
+      iSplit; first done.
+      iRewrite "G1". iRewrite "G2".
+      done.
+  Qed.
+
+  Lemma internal_step_safe_external_step_model' α σ β σ' en :
+    internal_step α σ β σ' en -∗ ∃ _β _σ' _en, ⌜external_step r α σ _β _σ' _en⌝
+                                               ∗ ▷ (_β ≡ β)
+                                               ∗ _σ' ≡ σ'
+                                               ∗ _en ≡ en.
+  Proof.
+    iIntros "H".
+    iDestruct "H" as "[(H1 & H2 & H3) | H]".
+    - iDestruct (Tick_shape with "H1") as (_β) "%H1".
+      iExists _β, σ, [].
+      iSplit; first (iPureIntro; rewrite H1; by constructor).
+      iRewrite "H2". iRewrite "H3".
+      iSplit; last done.
+      rewrite H1.
+      by iNext.
+    - iDestruct "H" as (op i k) "(H1 & H2)".
+      iDestruct (Vis_shape with "H1") as (_i _k) "(%G1 & G2 & G3)".
+      destruct (reify r (Vis op _i _k) σ) as [[σ1 α1] _en] eqn:Hr.
+      assert ((∃ α' : IT, α1 ≡ Tick α') ∨ (α1 ≡ Err RuntimeErr)) as [[α' Ha']| Ha'].
+      { eapply (reify_is_always_a_tick r op _i _k σ). by rewrite Hr. }
+      + iExists α', σ1, _en.
+        iSplit.
+        * iPureIntro.
+          eapply external_step_reify; eauto.
+          rewrite -Ha' -Hr; repeat f_equiv; eauto.
+        * assert (reify r (Vis op _i _k) σ ≡ reify r α σ) as Har.
+          { f_equiv. f_equiv. by rewrite G1. }
+          rewrite -Har Hr.
+          iPoseProof (prod_equivI with "H2") as "[Hb'' Hb']".
+          iPoseProof (prod_equivI with "Hb''") as "[H2 Hb'''']".
+          iFrame "H2 Hb'".
+          rewrite /= Ha'.
+          by iNext.
+      + iExFalso.
+        assert (reify r (Vis op _i _k) σ ≡ reify r α σ) as Har.
+        { f_equiv. f_equiv. by rewrite G1. }
+        iEval (rewrite -Har) in "H2".
+        iEval (rewrite Hr) in "H2".
+        iPoseProof (prod_equivI with "H2") as "[Hb'' Hb']".
+        iPoseProof (prod_equivI with "Hb''") as "[H2 Hb'''']".
+        simpl. rewrite Ha'.
+        iApply (IT_tick_err_ne). iApply (internal_eq_sym with "Hb''''").
+  Qed.
+
+  (* Lemma internal_steps_safe_external_step_model *)
+  (*   `{Inhabited stateO} *)
+  (*   α σ β σ' en k : *)
+  (*   internal_steps α σ β σ' en k -∗ ∃ _β _σ' _en, *)
+  (*                                       (⌜external_steps r α σ _β _σ' _en k⌝ *)
+  (*                                        ∗ (_β ≡ β) *)
+  (*                                        ∗ _σ' ≡ σ' *)
+  (*                                        ∗ _en ≡ en). *)
+  (* Proof. *)
+  (*   revert α σ β σ' en. *)
+  (*   induction k as [| k IH]; intros α σ β σ' en. *)
+  (*   - iIntros "H".     *)
+  (*     rewrite internal_steps_0. *)
+  (*     iExists α, σ, []. *)
+  (*     iSplit; first by iPureIntro; constructor. *)
+  (*     iDestruct "H" as "(H1 & H2 & H3)". *)
+  (*     iFrame "H2". *)
+  (*     iSplitR "H3"; last by iApply internal_eq_sym. *)
+  (*     done. *)
+  (*   - iIntros "H". *)
+  (*     rewrite internal_steps_S. *)
+  (*     iDestruct "H" as (γ σ'' l' l'') "(H1 & H2 & H3)". *)
+  (*     iDestruct (internal_step_safe_external_step_model' with "H2") as *)
+  (*       (_β _σ _en) "(%G1 & G2 & G3 & G4)". *)
+  (*     iRewrite - "G4" in "H1". *)
+  (*     iRewrite - "G3" in "H3". *)
+  (*     iNext. *)
+  (*     iDestruct (IH with "H3") as "H3". *)
+  (*     iDestruct "H3" as (_β' _σ' _en') "(K1 & K2 & K3 & K4)". *)
+  (*     iExists _β', _σ', en. *)
+
+  (*     iExists _β. *)
+
+  (*     iDestruct "H" as (op i k) "(H1 & H2)". *)
+  (*     iDestruct (Vis_shape with "H1") as (_i _k) "(%G1 & G2 & G3)". *)
+  (*     destruct (reify r (Vis op _i _k) σ) as [[σ1 α1] _en] eqn:Hr. *)
+  (*     assert ((∃ α' : IT, α1 ≡ Tick α') ∨ (α1 ≡ Err RuntimeErr)) as [[α' Ha']| Ha']. *)
+  (*     { eapply (reify_is_always_a_tick r op _i _k σ). by rewrite Hr. } *)
+  (*     + iExists α', σ1, _en. *)
+  (*       iSplit. *)
+  (*       * iPureIntro. *)
+  (*         eapply external_step_reify; eauto. *)
+  (*         rewrite -Ha' -Hr; repeat f_equiv; eauto. *)
+  (*       * assert (reify r (Vis op _i _k) σ ≡ reify r α σ) as Har. *)
+  (*         { f_equiv. f_equiv. by rewrite G1. } *)
+  (*         rewrite -Har Hr. *)
+  (*         iPoseProof (prod_equivI with "H2") as "[Hb'' Hb']". *)
+  (*         iPoseProof (prod_equivI with "Hb''") as "[H2 Hb'''']". *)
+  (*         iFrame "H2 Hb'". *)
+  (*         rewrite /= Ha'. *)
+  (*         by iNext. *)
+  (*     + iExFalso. *)
+  (*       assert (reify r (Vis op _i _k) σ ≡ reify r α σ) as Har. *)
+  (*       { f_equiv. f_equiv. by rewrite G1. } *)
+  (*       iEval (rewrite -Har) in "H2". *)
+  (*       iEval (rewrite Hr) in "H2". *)
+  (*       iPoseProof (prod_equivI with "H2") as "[Hb'' Hb']". *)
+  (*       iPoseProof (prod_equivI with "Hb''") as "[H2 Hb'''']". *)
+  (*       simpl. rewrite Ha'. *)
+  (*       iApply (IT_tick_err_ne). iApply (internal_eq_sym with "Hb''''"). *)
+  (* Qed. *)
+
   Local Lemma internal_step_safe_disj' α σ β :
     (∃ σ' en, internal_step α σ (Ret β) σ' en)
     ⊢ (∃ σ', α ≡ Tick (Ret β) ∧ σ ≡ σ')
