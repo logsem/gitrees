@@ -302,6 +302,37 @@ Proof.
     }
 Qed.
 
+Lemma tp_external_steps_trans
+  {a} {rs : sReifier a} `{!Cofe A}
+  (α1 : listO (IT (sReifier_ops rs) A)) σ1 α2 σ2 α3 σ3 n2 m2 :
+  tp_external_steps  rs α2 σ2 α3 σ3 m2
+    → tp_external_steps rs α1 σ1 α2 σ2 n2
+    → tp_external_steps rs α1 σ1 α3 σ3 (m2 + n2).
+Proof.
+  revert α1 σ1 α2 σ2 α3 σ3 n2.
+  induction m2 as [| m2 IH];
+    intros α1 σ1 α2 σ2 α3 σ3 n2.
+  - intros G H.
+    rewrite Nat.add_0_l.
+    inversion G; subst; last by (exfalso; lia).
+    setoid_subst.
+    done.
+  - intros G H.
+    inversion G; subst; setoid_subst.
+    + eapply tp_external_steps_grow; last eassumption.
+      lia.
+    + pose proof (tp_external_steps_many_L
+                    _ _ _ _ _ _ _ H1 H).
+      assert (n0 ≤ m2); first by lia.
+      eapply tp_external_steps_grow in H2; last apply H4.
+      epose proof  (IH _ _ _ _ _ _ _ H2 H3).
+
+      pose proof (tp_external_steps_many_L
+                    _ _ _ _ _ _ _ H1 H).
+      rewrite plus_n_Sm.
+      apply H5.
+Qed.
+
 Lemma tp_internal_steps_trans'
   {n} {rs : gReifiers NotCtxDep n} `{!Cofe A} {Σ}
   (α1 : listO (IT (gReifiers_ops rs) A)) σ1 α2 σ2 α3 σ3 n2 m2 :
@@ -687,6 +718,19 @@ Section right_hand_side.
     by rewrite option_equivI.
   Qed.
 
+  Lemma tpool_loc_dom' l α tp :
+    own (tpool_name rs R) (to_tpool rs R tp)
+    -∗ tpool_pointsto l α -∗ ∃ β, ⌜tp !! l = Some β⌝ ∗ α ≡ β.
+  Proof.
+    iIntros "Hinv Hloc".
+    iPoseProof (tpool_read with "Hinv Hloc") as "Hl".
+    destruct (tp !! l) as [γ |]; eauto.
+    - iExists γ. iSplit; first done.
+      rewrite option_equivI.
+      by iApply internal_eq_sym.
+    - by rewrite option_equivI.
+  Qed.
+
   Lemma tpool_write l α β σ :
     own (tpool_name rs R) (to_tpool rs R σ)
     -∗ tpool_pointsto l α
@@ -899,202 +943,144 @@ Section right_hand_side.
     - iApply "H".
   Qed.
 
-  (* Lemma one_step E j (e e' : IT) σ σ' l : *)
-  (*   nclose specN ⊆ E → *)
-  (*   £ 1 *)
-  (*   ∗ spec_ctx *)
-  (*   ∗ has_full_state σ *)
-  (*   ∗ internal_step (gReifiers_sReifier rs) e σ e' σ' l *)
-  (*   ∗ ▷ j ⤇ e *)
-  (*   ={E}=∗ j ⤇ e' *)
-  (*        ∗ ([∗ list] i ∈ l, ∃ k : natO, k ⤇ i) *)
-  (*        ∗ has_full_state σ'. *)
-  (* Proof. *)
-  (*   iIntros (HSub) "(HCred & #Hspec & Hstate & #HStep & HPt)". *)
-  (*   iDestruct "HStep" as "[(H1 & H2 & H3) | (%op & %i & %k & H1 & H2)]". *)
-  (*   - iRewrite "H1" in "HPt". *)
-  (*     iMod (step_tick emp with "[$Hspec $HCred $HPt]") as "(_ & J)"; *)
-  (*       first done; first done. *)
-  (*     iFrame "J". *)
-  (*     iModIntro. *)
-  (*     iRewrite "H2" in "Hstate". *)
-  (*     iFrame "Hstate". *)
-  (*     destruct l as [| x l]. *)
-  (*     + done. *)
-  (*     + iExFalso. *)
-  (*       iDestruct (list_equivI with "H3") as "H3'". *)
-  (*       iSpecialize ("H3'" $! 0). *)
-  (*       by iDestruct (option_equivI with "H3'") as "?". *)
-  (*   - iRewrite "H1" in "HPt". *)
+  Lemma one_step E j (e e' : IT) σ σ' l :
+    nclose specN ⊆ E →
+    £ 1
+    ∗ spec_ctx
+    ∗ has_full_state σ
+    ∗ internal_step (gReifiers_sReifier rs) e σ e' σ' l
+    ∗ ▷ j ⤇ e
+    ={E}=∗ j ⤇ e'
+         ∗ ([∗ list] i ∈ l, ∃ k : natO, k ⤇ i)
+         ∗ has_full_state σ'.
+  Proof.
+    iIntros (HSub) "(HCred & #Hspec & Hstate & #HStep & HPt)".
+    iDestruct "Hspec" as (tp σ'') "Hspec".
+    iInv specN as "H" "HClose".
+    iApply (lc_fupd_add_later with "HCred").
+    iNext.
+    iDestruct "H" as (tp' σ''' m) "[H [HS %HStep']]".
+    iDestruct (state_interp_has_full_state_agree with "HS Hstate") as "#HSEQ".
+    iRewrite - "HSEQ" in "HStep".
+    iAssert (∃ γ, ⌜tp' !! j = Some γ⌝ ∗ e ≡ γ)%I as (x) "(%Hdom & #Hlookup)".
+    { iApply (tpool_loc_dom' with "H HPt"). }
+    iRewrite "Hlookup" in "HPt".
+    iRewrite "Hlookup" in "HStep".
+    iDestruct (internal_step_safe_external_step_model' with "HStep")
+      as (β' st' en') "(%HStep & H1 & H2 & H3)".
+    iMod (tpool_write _ _ e' with "H HPt") as "[Hh Hp]".
+    iMod (tpool_alloc_big l (<[j := e']>tp') with "[Hh]") as "[Hh Hps]".
+    {
+      rewrite /to_tpool /to_tpool' /=.
+      rewrite to_tpool_go_comm_insert; last by apply lookup_lt_is_Some_1.
+      done.
+    }
+    iFrame "Hp".
+    iFrame "Hps".
+    iMod (state_interp_has_full_state_update σ' with "HS Hstate") as "[HS HSt]".
+    iFrame "HSt".
+    iMod ("HClose" with "[HS Hh]") as "_"; last by iModIntro.
+    iNext.
+    iEval (rewrite -to_tpool_go_comm_union) in "Hh".
+    iExists (<[j:=β']> tp' ++ en'), st', (S m).
+    iRewrite - "H1" in "Hh".
+    iRewrite - "H2" in "HS".
+    iRewrite - "H3" in "Hh".
+    iFrame "Hh HS".
+    iPureIntro.
+    eapply tp_external_steps_many_L; last done.
+    unshelve epose proof (take_drop_middle tp' j x _) as H; first done.
+    rewrite -H; clear H.
+    rewrite insert_app_r_alt; last (rewrite length_take; lia).
+    rewrite length_take_le; last first.
+    { eapply Nat.lt_le_incl, lookup_lt_Some; eassumption. }
+    econstructor; first reflexivity; last eassumption.
+    rewrite Nat.sub_diag.
+    rewrite -app_assoc //=.
+  Qed.
 
-
-  (*     assert (op ≡ (subEff_opid ^-1) (subEff_opid op)) as ->. *)
-
-  (*                (subEff_opid op) (subEff_ins x) *)
-  (*     iMod (step_reify emp with "[$Hspec $HCred $HPt]") as "(_ & J)"; *)
-  (*       first done; first done. *)
-  (*     iRewrite "H3". *)
-
-  (* Lemma step_steps E j (e e' : IT) P σ σ' l m : *)
-  (*   nclose specN ⊆ E → *)
-  (*   ▷^m P *)
-  (*   ∗ £ m *)
-  (*   ∗ spec_ctx *)
-  (*   ∗ ▷^m has_full_state σ *)
-  (*   ∗ internal_steps (gReifiers_sReifier rs) e σ e' σ' l m *)
-  (*   ∗ ▷^m j ⤇ e *)
-  (*   ={E}=∗ P *)
-  (*        ∗ j ⤇ e' *)
-  (*        ∗ ([∗ list] i ∈ l, ∃ k : natO, k ⤇ i) *)
-  (*        ∗ has_full_state σ'. *)
-  (* Proof. *)
-  (*   iIntros (HSub) "(P & HCred & #Hspec & Hstate & #HSteps & HPt)". *)
-  (*   iInduction m as [| m IH]. *)
-  (*   - rewrite internal_steps_0. *)
-  (*     iDestruct "HSteps" as "(H1 & H2 & H3)". *)
-  (*     iRewrite "H1" in "HPt". *)
-  (*     iRewrite "H2" in "Hstate". *)
-  (*     iFrame "P Hstate HPt". *)
-  (*     destruct l as [| x l]. *)
-  (*     + by iModIntro. *)
-  (*     + iExFalso. *)
-  (*       iDestruct (list_equivI with "H3") as "H3'". *)
-  (*       iSpecialize ("H3'" $! 0). *)
-  (*       by iDestruct (option_equivI with "H3'") as "?". *)
-  (*   - rewrite internal_steps_S. *)
-  (*     iDestruct "HSteps" as (γ σ'' l' l'') "(H1 & H2 & H3)". *)
-  (*     iDestruct "HCred" as "(HCred & HCreds)". *)
-  (*     iMod (). *)
-  (*     unshelve iDestruct (internal_eq_rewrite *)
-  (*                           (<[j:=β]> tp' ++ (Tau <$> l)) *)
-  (*                           (<[j:=_β]> tp' ++ _en) *)
-  (*                           (λne x, own (tpool_name rs R) (●V to_tpool_go rs R 0 x))%I with *)
-  (*         "[] Hh") as "H1". *)
-  (*     { solve_proper. } *)
-  (*     { iRewrite "J4". by iRewrite "J2". } *)
-  (*     iFrame "H1". *)
-
-  (*     iRewrite "H3". *)
-  (*   iDestruct "Hspec" as (tp st) "Hspec". *)
-  (*   iInv specN as "H" "HClose". *)
-  (*   iApply (lc_fupd_add_later with "HCred"). *)
-  (*   iNext. *)
-  (*   iDestruct "H" as (tp' st' p) "[H [HS %HSteps']]". *)
-  (*   iAssert (⌜is_Some (tp' !! j)⌝)%I as "%Hdom". *)
-  (*   { iApply (tpool_loc_dom with "H HPt"). } *)
-  (*   destruct Hdom as [x' Hx]. *)
-  (*   iAssert ((tp' !! j ≡ Some e))%I *)
-  (*     as "#Hlookup". *)
-  (*   { iApply (tpool_read with "H HPt"). } *)
-  (*   iAssert (st' ≡ σ)%I with "[HS Hstate]" as "#Hss". *)
-  (*   { iApply (state_interp_has_full_state_agree with "HS Hstate"). } *)
-  (*   iAssert (e ≡ x')%I as "HEQ". *)
-  (*   { *)
-  (*     rewrite Hx. *)
-  (*     iDestruct (internal_eq_sym with "Hlookup") as "Hlookup'". *)
-  (*     iApply (option_equivI with "Hlookup'"). *)
-  (*   } *)
-  (*   iRewrite "HEQ" in "HPt"; iRewrite "HEQ" in "HSteps"; *)
-  (*     iClear "Hlookup HEQ"; clear e. *)
-  (*   iMod (tpool_write _ _ e' with "H HPt") as "[H HPt]". *)
-  (*   iMod (tpool_alloc_big l (<[j := e']>tp') with "[H]") as "[H Hpool]". *)
-  (*   { *)
-  (*     rewrite /to_tpool /to_tpool' /=. *)
-  (*     rewrite to_tpool_go_comm_insert; first done. *)
-  (*     apply lookup_lt_is_Some_1. *)
-  (*     eexists _; eassumption. *)
-  (*   } *)
-  (*   iMod (state_interp_has_full_state_update σ' with "HS Hstate") *)
-  (*     as "[HS Hstate]". *)
-  (*   iFrame "HPt Hpool Hstate P". *)
-  (*   iApply "HClose". *)
-  (*   (* iRewrite "Hss" in "HSteps'"; iRewrite "Hss" in "HS"; iRewrite "Hss" in "HClose"; *) *)
-  (*   (*   iClear "Hss"; clear st'. *) *)
-
-  (*   iExists (<[j := e']>tp' ++ l), σ', (p + m). *)
-  (*   iFrame "HS". *)
-  (*   rewrite /to_tpool /to_tpool'. *)
-  (*   rewrite -to_tpool_go_comm_union. *)
-  (*   iFrame "H". *)
-  (*   iNext. *)
-  (*   unshelve epose proof (take_drop_middle tp' j x' _) as H; first done. *)
-  (*   rewrite -H; clear H. *)
-  (*   iPoseProof (internal_steps_tp_internal_steps with "HSteps") as "K". *)
-  (*   iPoseProof (tp_internal_steps_trans with "K HSteps'") as "J". *)
-  (*   iEval (rewrite Nat.add_comm). *)
-  (*   iEval (rewrite insert_app_r_alt; last (rewrite length_take; lia)). *)
-  (*   iEval (rewrite -app_assoc). *)
-  (*   assert (j - length (take j tp') = 0) as ->. *)
-  (*   { *)
-  (*     rewrite length_take_le; first lia. *)
-  (*     eapply Nat.lt_le_incl, lookup_lt_Some; eassumption. *)
-  (*   } *)
-  (*   iApply "J". *)
-  (* Qed. *)
-
-  (* Lemma step_steps_not_stateful P E j *)
-  (*   (e e' : IT) l m : *)
-  (*   nclose specN ⊆ E → *)
-  (*   ▷ P *)
-  (*   ∗ £ 1 *)
-  (*   ∗ spec_ctx *)
-  (*   ∗ (∀ σ, internal_steps (gReifiers_sReifier rs) e σ e' σ l m) *)
-  (*   ∗ ▷ j ⤇ e *)
-  (*   ={E}=∗ P *)
-  (*        ∗ j ⤇ e' *)
-  (*        ∗ ([∗ list] i ∈ l, ∃ k : natO, k ⤇ i). *)
-  (* Proof. *)
-  (*   iIntros (HSub) "(P & HCred & #Hspec & #HSteps & HPt)". *)
-  (*   iDestruct "Hspec" as (tp st) "Hspec". *)
-  (*   iInv specN as "H" "HClose". *)
-  (*   iApply (lc_fupd_add_later with "HCred"). *)
-  (*   iNext. *)
-  (*   iDestruct "H" as (tp' st' p) "[H [HS #HSteps']]". *)
-  (*   iAssert (⌜is_Some (tp' !! j)⌝)%I as "%Hdom". *)
-  (*   { iApply (tpool_loc_dom with "H HPt"). } *)
-  (*   destruct Hdom as [x' Hx]. *)
-  (*   iAssert ((tp' !! j ≡ Some e))%I *)
-  (*     as "#Hlookup". *)
-  (*   { iApply (tpool_read with "H HPt"). } *)
-  (*   iSpecialize ("HSteps" $! st'). *)
-  (*   iAssert (e ≡ x')%I as "HEQ". *)
-  (*   { *)
-  (*     rewrite Hx. *)
-  (*     iDestruct (internal_eq_sym with "Hlookup") as "Hlookup'". *)
-  (*     iApply (option_equivI with "Hlookup'"). *)
-  (*   } *)
-  (*   iRewrite "HEQ" in "HPt"; iRewrite "HEQ" in "HSteps"; *)
-  (*     iClear "Hlookup HEQ"; clear e. *)
-  (*   iMod (tpool_write _ _ e' with "H HPt") as "[H HPt]". *)
-  (*   iMod (tpool_alloc_big l (<[j := e']>tp') with "[H]") as "[H Hpool]". *)
-  (*   { *)
-  (*     rewrite /to_tpool /to_tpool' /=. *)
-  (*     rewrite to_tpool_go_comm_insert; first done. *)
-  (*     apply lookup_lt_is_Some_1. *)
-  (*     eexists _; eassumption. *)
-  (*   } *)
-  (*   iFrame "HPt Hpool P". *)
-  (*   iApply "HClose". *)
-  (*   iExists (<[j := e']>tp' ++ l), st', (p + m). *)
-  (*   iFrame "HS". *)
-  (*   rewrite /to_tpool /to_tpool'. *)
-  (*   rewrite -to_tpool_go_comm_union. *)
-  (*   iFrame "H". *)
-  (*   iNext. *)
-  (*   unshelve epose proof (take_drop_middle tp' j x' _) as H; first done. *)
-  (*   rewrite -H; clear H. *)
-  (*   iPoseProof (internal_steps_tp_internal_steps with "HSteps") as "K". *)
-  (*   iPoseProof (tp_internal_steps_trans with "K HSteps'") as "J". *)
-  (*   iEval (rewrite Nat.add_comm). *)
-  (*   iEval (rewrite insert_app_r_alt; last (rewrite length_take; lia)). *)
-  (*   iEval (rewrite -app_assoc). *)
-  (*   assert (j - length (take j tp') = 0) as ->. *)
-  (*   { *)
-  (*     rewrite length_take_le; first lia. *)
-  (*     eapply Nat.lt_le_incl, lookup_lt_Some; eassumption. *)
-  (*   } *)
-  (*   iApply "J". *)
-  (* Qed. *)
+  Lemma many_steps E j (e e' : IT) σ σ' l k :
+    nclose specN ⊆ E →
+    £ k
+    ∗ spec_ctx
+    ∗ has_full_state σ
+    ∗ internal_steps (gReifiers_sReifier rs) e σ e' σ' l k
+    ∗ j ⤇ e
+    ={E}=∗ j ⤇ e'
+         ∗ ([∗ list] i ∈ l, ∃ k : natO, k ⤇ i)
+         ∗ has_full_state σ'.
+  Proof.
+    iIntros (HSub) "(HCred & #Hspec & Hstate & #HStep & HPt)".
+    destruct k as [| k].
+    {
+      rewrite internal_steps_0.
+      iModIntro.
+      iDestruct "HStep" as "(H1 & H2 & H3)".
+      iRewrite - "H1".
+      iFrame "HPt".
+      unshelve
+        iDestruct (internal_eq_rewrite σ σ'
+                     (λne x, has_full_state x)%I with
+          "H2 Hstate") as "J1".
+      { solve_proper. }
+      iSimpl in "J1".
+      iAssert (⌜l = []⌝)%I as "->".
+      {
+        destruct l; first done.
+        iDestruct (list_equivI with "H3") as "J".
+        iSpecialize ("J" $! 0).
+        by iDestruct (option_equivI with "J") as "?".
+      }
+      iFrame "J1".
+      done.
+    }
+    iDestruct "Hspec" as (tp σ'') "Hspec".
+    iInv specN as "H" "HClose".
+    iApply (lc_fupd_add_laterN with "HCred").
+    iNext.
+    iDestruct "H" as (tp' σ''' m) "[H [HS %HStep']]".
+    iDestruct (state_interp_has_full_state_agree with "HS Hstate") as "#HSEQ".
+    iRewrite - "HSEQ" in "HStep".
+    iAssert (∃ γ, ⌜tp' !! j = Some γ⌝ ∗ e ≡ γ)%I as (x) "(%Hdom & #Hlookup)".
+    { iApply (tpool_loc_dom' with "H HPt"). }
+    iRewrite "Hlookup" in "HPt".
+    iRewrite "Hlookup" in "HStep".
+    iDestruct (internal_steps_safe_external_step_model with "HStep")
+      as "HStep'".
+    iNext.
+    iMod (tpool_write _ _ e' with "H HPt") as "[Hh Hp]".
+    iMod (tpool_alloc_big l (<[j := e']>tp') with "[Hh]") as "[Hh Hps]".
+    {
+      rewrite /to_tpool /to_tpool' /=.
+      rewrite to_tpool_go_comm_insert; last by apply lookup_lt_is_Some_1.
+      done.
+    }
+    iFrame "Hp".
+    iFrame "Hps".
+    iMod (state_interp_has_full_state_update σ' with "HS Hstate") as "[HS HSt]".
+    iFrame "HSt".
+    iMod ("HClose" with "[HS Hh]") as "_"; last by iModIntro.
+    iNext.
+    iDestruct "HStep'" as (β' st' en') "(%HStep & H1 & H2 & H3)".
+    iEval (rewrite -to_tpool_go_comm_union) in "Hh".
+    iExists (<[j:=β']> tp' ++ en'), st', (S k + m).
+    iRewrite - "H1" in "Hh".
+    iRewrite - "H2" in "HS".
+    iRewrite - "H3" in "Hh".
+    iFrame "Hh HS".
+    iPureIntro.
+    unshelve epose proof (take_drop_middle tp' j x _) as H; first done.
+    rewrite -H.
+    rewrite insert_app_r_alt; last (rewrite length_take; lia).
+    rewrite length_take_le; last first.
+    { eapply Nat.lt_le_incl, lookup_lt_Some; eassumption. }
+    rewrite Nat.sub_diag /=.
+    rewrite -H in HStep'.
+    rewrite -plus_Sn_m.
+    rewrite -app_assoc.
+    unshelve eapply (tp_external_steps_trans _ _ _ _ _ _ _ _ _ HStep').
+    apply (external_steps_tp_external_steps _ _ _ _ _ _  _ _ _ HStep).
+  Qed.
 
 End right_hand_side.
 
@@ -1495,37 +1481,6 @@ Section rules.
     by iIntros "_".
   Qed.
 
-  Lemma nfalse_bottom m (α : IT) : ▷^m False ⊢@{iProp} Tick_n m α ≡ core.Bottom.
-  Proof.
-    induction m as [| m' IH].
-    - by iIntros "?".
-    - iIntros "H".
-      rewrite Bottom_unfold /=.
-      rewrite Tick_eq.
-      iApply Tau_inj'.
-      iNext.
-      by iApply IH.
-  Qed.
-
-  Lemma IT_Rel_bottom_r `{!SubOfe nat R} `{HSTATE : !stateG rs R Σ}
-    : £ 1 ⊢ (Ret 0) ⪯ₚ (core.Bottom) @{ rs \ R \ s \ HSTATE }.
-  Proof.
-    iIntros "HCred HInv".
-    iIntros (j K) "Hpt".
-    iApply wp_val.
-    iAssert (∃ n, ▷^n False)%I as (m) "HF".
-    {
-      iLöb as "IH".
-      iDestruct "IH" as (m) "IH".
-      iExists (S m).
-      by iNext.
-    }
-    iRewrite - (nfalse_bottom m (Ret 0) with "HF") in "Hpt".
-    iExists (RetV 0).
-    rewrite IT_of_V_Ret. rewrite hom_tick_n.
-
-  Abort.
-
   Lemma IT_Rel_bottom_l `{HSTATE : !stateG rs R Σ} e
     : ⊢ (core.Bottom) ⪯ₚ (e) @{ rs \ R \ s \ HSTATE }.
   Proof.
@@ -1584,7 +1539,6 @@ Section rules.
     iModIntro.
     iApply ("H" with "J2 J3 HInv J1").
   Qed.
-
 End rules.
 
 Require Import gitrees.gitree.subofe.
@@ -1708,6 +1662,7 @@ Section example.
             ∗ own (heapG_name rs) (●V (fmap (M := gmap locO) to_agree σ)))%I.
 
   Example prog5_prog5_rel
+    `{!Inhabited (gReifiers_state rs ♯ IT)}
     `{!Inhabited (gState_rest sR_idx rs ♯
                     ITF_solution.IT (sReifier_ops (gReifiers_sReifier rs)) R)}
     : heap_ctx rs -∗ heap_ctx_rel
@@ -1727,14 +1682,11 @@ Section example.
     iEval (rewrite !APP'_Fun_l /= -!Tick_eq).
     iApply (IT_Rel_Tick_l with "[H] HInv").
     iNext. iIntros "Hlc".
+    iApply (IT_Rel_Tick_r with "Hlc").
     iIntros "_ %j %K Hpt".
 
-    rewrite hom_tick.
     iApply fupd_wp; first solve_proper.
     iApply (fupd_mask_mono (nclose specN)); first done.
-    iMod (step_tick _ _ _ emp%I with "[$Hlc $HInv $Hpt]") as "(_ & J)";
-      first done; first done.
-
     iApply (wp_alloc with "HHeap"); first solve_proper.
     iModIntro.
 
@@ -1805,8 +1757,3 @@ Section example.
   Abort.
 
 End example.
-
-(* Inductive class : (IT -> IT) -> Prop := *)
-(* | id : class idfun *)
-(* | comp f g : class f -> class g -> class (compose f g) *)
-(* | tricky (C' : IT -> IT -n> IT) : (∀ x, class (C' x)) -> class (λ x, Fun (Next (C' x))). *)
