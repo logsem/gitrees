@@ -39,6 +39,7 @@ theories/effects/exceptions.v
 theories/effects/delim.v
 theories/effects/fork.v
 theories/effects/coroutines.v
+theories/effects/prng.v
 
 theories/lib/pairs.v
 theories/lib/sums.v
@@ -86,6 +87,11 @@ theories/examples/heap_lang/metatheory.v
 theories/examples/heap_lang/notation.v
 theories/examples/heap_lang/pretty.v
 theories/examples/heap_lang/tactics.v
+
+theories/examples/prng_lang/lang.v
+theories/examples/prng_lang/interp.v
+theories/examples/prng_lang/logpred.v
+theories/examples/prng_lang/logrel.v
 
 theories/utils/finite_sets.v
 theories/utils/clwp.v
