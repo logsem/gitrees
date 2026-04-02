@@ -335,6 +335,10 @@ Inductive head_step {S} : expr S → state → expr S → state → nat*nat → 
   n = 0 →
   head_step (If (Val (LitV n)) e1 e2) σ
             e2 σ (0,0)
+| NatOpS op v1 v2 v3 σ :
+  nat_op_interp op v1 v2 = Some v3 →
+  head_step (NatOp op (Val v1) (Val v2)) σ
+            (Val v3) σ (0,0)
 .
 
 Lemma head_step_prng_01 {S} (e1 e2 : expr S) σ1 σ2 n m :
