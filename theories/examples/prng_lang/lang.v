@@ -27,7 +27,7 @@ with ectx {X : Set} :=
 | EmptyK : ectx
 | DelPrngK (K : ectx) : ectx
 | SeedKl (K : ectx) (e : expr) : ectx
-| SeedKs (e : expr) (K : ectx) : ectx
+| SeedKs (v : val) (K : ectx) : ectx
 | RandK (K : ectx) : ectx
 | IfK (K : ectx) (e₁ : expr) (e₂ : expr) : ectx
 | AppLK (K : ectx) (v : val) : ectx
@@ -65,7 +65,7 @@ Fixpoint kmap {A B : Set} (f : A [→] B) (K : ectx A) : ectx B :=
   | EmptyK => EmptyK
   | DelPrngK K => DelPrngK (kmap f K)
   | SeedKl K s => SeedKl (kmap f K) (emap f s)
-  | SeedKs l K => SeedKs (emap f l) (kmap f K)
+  | SeedKs l K => SeedKs (vmap f l) (kmap f K)
   | RandK K => RandK (kmap f K)
   | IfK K e₁ e₂ => IfK (kmap f K) (emap f e₁) (emap f e₂)
   | AppLK K v => AppLK (kmap f K) (vmap f v)
@@ -103,7 +103,7 @@ Fixpoint kbind {A B : Set} (f : A [⇒] B) (K : ectx A) : ectx B :=
   | EmptyK => EmptyK
   | DelPrngK K => DelPrngK (kbind f K)
   | SeedKl K s => SeedKl (kbind f K) (ebind f s)
-  | SeedKs l K => SeedKs (ebind f l) (kbind f K)
+  | SeedKs l K => SeedKs (vbind f l) (kbind f K)
   | RandK K => RandK (kbind f K)
   | IfK K e₁ e₂ => IfK (kbind f K) (ebind f e₁) (ebind f e₂)
   | AppLK K v => AppLK (kbind f K) (vbind f v)
@@ -284,7 +284,7 @@ Fixpoint fill {X : Set} (K : ectx X) (e : expr X) : expr X :=
   | EmptyK => e
   | DelPrngK K => DelPrng (fill K e)
   | SeedKl K s => Seed (fill K e) s
-  | SeedKs l K => Seed l (fill K e)
+  | SeedKs l K => Seed (Val l) (fill K e)
   | RandK K => Rand (fill K e)
   | IfK K e₁ e₂ => If (fill K e) e₁ e₂
   | AppLK K v => App (fill K e) (Val v)
@@ -617,10 +617,10 @@ Global Instance RandNotationK {S : Set}
 Class SeedNotation (A B C : Type) := { __seed : A -> B -> C }.
 Global Instance SeedNotationExpr {S : Set} {F G : Set -> Type} `{AsSynExpr F, AsSynExpr G}
 : SeedNotation (F S) (G S) (expr S) := { __seed el es := Seed (__asSynExpr el) (__asSynExpr es) }.
-Global Instance SeedNotationLK {S : Set}
+Global Instance SeedNotationKloc {S : Set}
 : SeedNotation (ectx S) (val S) (ectx S) := { __seed K v := SeedKl K v }.
-Global Instance SeedNotationRK {S : Set} {F : Set -> Type} `{AsSynExpr F}
-: SeedNotation (F S) (ectx S) (ectx S) := { __seed e K := SeedKs (__asSynExpr e) K }.
+Global Instance SeedNotationKseed {S : Set} {F : Set -> Type} `{AsSynExpr F}
+: SeedNotation (val S) (ectx S) (ectx S) := { __seed v K := SeedKs v K }.
 
 Notation of_val := Val (only parsing).
 
