@@ -1,6 +1,7 @@
 From gitrees Require Import gitree lang_generic.
 From gitrees.effects Require Export prng.
 From gitrees.examples.prng_lang Require Import lang.
+From gitrees.examples.prng_lang Require Import prng_seed_combinator.
 
 Require Import Binding.Lib Binding.Set.
 
@@ -14,6 +15,10 @@ Section interp.
   Notation IT := (IT F R).
   Notation ITV := (ITV F R).
 
+  Definition SeedGit' : IT -> IT -> IT := SeedGit rs.
+  Definition SeedGitCtxL' : IT -> IT -> IT := SeedGitCtxL rs.
+  Definition SeedGitCtxS' : IT -> IT -> IT := SeedGitCtxS rs.
+
   Global Instance denot_cont_ne (κ : IT -n> IT) :
     NonExpansive (λ x : IT, Tau (laterO_map κ (Next x))).
   Proof.
@@ -21,10 +26,6 @@ Section interp.
   Qed.
 
   (** Interpreting individual operators *)
-  (* TODO: these interpretation might be unsound.
-     Problems with evaluation order.
-     Problems with "going under Tau/Vis constructor"
-  *)
   Program Definition interp_new {A} : A -n> IT :=
     λne env, PRNG_NEW Ret.
   Program Definition interp_del {A} (l : A -n> IT) : A -n> IT :=
@@ -32,38 +33,17 @@ Section interp.
   Program Definition interp_rand {A} (l : A -n> IT) : A -n> IT :=
     λne env, get_ret (PRNG_GEN) (l env).
 
-  Program Definition SEED_FUN : IT -n> IT -n> IT :=
-    λne s, get_ret (λne vLoc : locO, get_ret (PRNG_SEED vLoc) s).
-  Solve All Obligations with solve_proper_please.
-  Program Definition SEED_IT : IT := λit s l, SEED_FUN s l.
-  Solve All Obligations with solve_proper_please.
-
   (* NOTE:
      1. The interpretation should be a homomorphism in both arguments.
      2. The PRNG location should be evaluated first.
-
-     APP is left-associative.
   *)
   Program Definition interp_seed {A} (l s : A -n> IT) : A -n> IT :=
-    λne env, SEED_IT ⊙ (s env) ⊙ (l env).
+    λne env, SeedGit' (l env) (s env).
   Solve All Obligations with solve_proper_please.
 
-  Lemma seed_it_app_ret_ret (l : locO) (s : natO) :
-    SEED_IT ⊙ (Ret s) ⊙ (Ret l) ≡ Tick_n 2 $ PRNG_SEED l s.
-  Proof.
-    rewrite (APP'_Ret_r (SEED_IT ⊙ (Ret s))).
-    rewrite (APP'_Ret_r SEED_IT).
-    rewrite APP_Fun.
-    rewrite APP_Tick.
-    rewrite APP_Fun.
-    simpl.
-    f_equiv.
-    rewrite get_ret_ret.
-    simpl.
-    rewrite get_ret_ret.
-    simpl.
-    done.
-  Qed.
+  Global Instance interp_seed_ne A : NonExpansive2 (@interp_seed A).
+  Proof. solve_proper. Qed.
+  Typeclasses Opaque interp_seed.
 
   Program Definition interp_natop {A} (op : nat_op) (t1 t2 : A -n> IT) : A -n> IT :=
     λne env, NATOP (do_natop op) (t1 env) (t2 env).
@@ -294,8 +274,8 @@ Section interp.
     - destruct e; simpl; intros ?; simpl.
       + reflexivity.
       + repeat f_equiv; by apply interp_ectx_ren.
-      + repeat f_equiv; [by apply interp_expr_ren | by apply interp_ectx_ren].
-      + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_val_ren].
+      + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_expr_ren].
+      + repeat f_equiv; [by apply interp_val_ren | by apply interp_ectx_ren].
       + repeat f_equiv; by apply interp_ectx_ren.
       + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_expr_ren | by apply interp_expr_ren].
       + repeat f_equiv; [by apply interp_ectx_ren | by apply interp_val_ren].
@@ -308,7 +288,7 @@ Section interp.
     interp_expr (fill K e) env ≡ (interp_ectx K) env ((interp_expr e) env).
   Proof.
     revert env.
-    induction K; simpl; intros env; first reflexivity; try (by rewrite IHK).
+    induction K; simpl; intros env; first reflexivity; rewrite IHK //.
   Qed.
 
   Program Definition sub_scope {S S'} (δ : S [⇒] S') (env : interp_scope S')
@@ -374,8 +354,8 @@ Section interp.
     - destruct e; simpl; intros ?; simpl.
       + reflexivity.
       + repeat f_equiv; by apply interp_ectx_subst.
-      + repeat f_equiv; [by apply interp_expr_subst | by apply interp_ectx_subst].
-      + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_val_subst].
+      + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_expr_subst].
+      + repeat f_equiv; [by apply interp_val_subst | by apply interp_ectx_subst].
       + repeat f_equiv; by apply interp_ectx_subst.
       + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_expr_subst | by apply interp_expr_subst].
       + repeat f_equiv; [by apply interp_ectx_subst | by apply interp_val_subst].
@@ -423,31 +403,26 @@ Section interp.
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (SeedKl K eSeed) env).
   Proof.
-    intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - by rewrite !hom_tick.
-    - rewrite !hom_vis.
+    intros.
+    simple refine (IT_HOM _ _ _ _ _); intros; simpl.
+    - by rewrite !hom_tick /SeedGit' SeedGit_TickL.
+    - rewrite hom_vis /SeedGit' SeedGit_VisL.
       f_equiv. intro. simpl. rewrite -laterO_map_compose.
       do 2 f_equiv. by intro.
-    - by rewrite !hom_err.
+    - by rewrite hom_err /SeedGit' SeedGit_ErrL.
   Qed.
 
   #[local] Instance interp_ectx_hom_seedks {S} (vprng : val S) (K : ectx S) env :
     IT_hom (interp_ectx K env) ->
     IT_hom (interp_ectx (SeedKs vprng K) env).
   Proof.
+    pose proof (@interp_val_asval S env vprng) as Hval.
     intros. simple refine (IT_HOM _ _ _ _ _); intros; simpl.
-    - rewrite !hom_tick.
-      erewrite APP'_Tick_l; first done.
-      by apply interp_val_asval.
-    - rewrite hom_vis.
-      rewrite APP'_Vis_r.
-      rewrite APP'_Vis_l.
-      f_equiv.
-      intros ?. simpl. by rewrite -laterO_map_compose.
-    - rewrite hom_err.
-      rewrite APP'_Err_r.
-      rewrite APP'_Err_l.
-      done.
+    - by rewrite !hom_tick.
+    - rewrite hom_vis /SeedGit' SeedGit_ITV_VisS.
+      f_equiv. intro. simpl. rewrite -laterO_map_compose.
+      do 2 f_equiv. by intro.
+    - by rewrite hom_err /SeedGit' SeedGit_ErrS.
   Qed.
 
 
@@ -667,22 +642,12 @@ Section interp.
       repeat f_equiv; last done. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.
       by rewrite ofe_iso_21.
-    - trans (reify (gReifiers_sReifier rs) (Tick_n 2 $ PRNG_SEED_k l n0 (interp_ectx K env ◎ Ret)) (gState_recomp σr (sR_state σ))).
+    - trans (reify (gReifiers_sReifier rs) (PRNG_SEED_k l n0 (interp_ectx K env ◎ Ret)) (gState_recomp σr (sR_state σ))).
       {
-        f_equiv; last done; f_equiv.
-        rewrite seed_it_app_ret_ret.
-        rewrite !hom_tick.
+        repeat f_equiv.
+        rewrite /SeedGit' SeedGit_Ret.
         rewrite hom_SEED_k.
-        simpl; do 4 f_equiv.
-        intro; simpl; done.
-      }
-      trans (reify (gReifiers_sReifier rs)
-      (PRNG_SEED_k l n0 (Tick ◎ Tick ◎ interp_ectx K env ◎ Ret))
-      (gState_recomp σr (sR_state σ))).
-      {
-        do 2 f_equiv.
-        (* FIXME: maybe this interpretation of [Seed] does not work ?? *)
-        admit.
+        f_equiv; first done. by intro.
       }
       rewrite reify_vis_eq_ctx_indep //; last first.
       {
@@ -695,8 +660,8 @@ Section interp.
       }
       repeat f_equiv; last done. rewrite Tick_eq/=. repeat f_equiv.
       rewrite interp_comp.
-      by rewrite ofe_iso_21.
-  Admitted.
+      rewrite ofe_iso_21 //.
+  Qed.
 
   Lemma soundness {S} (e1 e2 : expr S) σ1 σ2 (σr : gState_rest sR_idx rs ♯ IT) n m (env : interp_scope S) :
     prim_step e1 σ1 e2 σ2 (n,m) →
@@ -721,8 +686,10 @@ Section interp.
         { constructor; reflexivity. }
         2:{ rewrite app_nil_r; reflexivity. }
         eapply external_step_reify.
-        { Transparent PRNG_NEW. unfold PRNG_NEW. simpl.
-          f_equiv. reflexivity. }
+        {
+          Transparent PRNG_NEW. unfold PRNG_NEW. Opaque PRNG_NEW.
+          simpl. by f_equiv.
+        }
         simpl in H2.
         rewrite -H2.
         repeat f_equiv; eauto.
@@ -736,12 +703,13 @@ Section interp.
         { constructor; reflexivity. }
         2:{ rewrite app_nil_r; reflexivity. }
         eapply external_step_reify.
-        { Transparent PRNG_DEL_k. unfold PRNG_DEL_k. simpl.
-          f_equiv. reflexivity. }
+        {
+          Transparent PRNG_DEL_k. unfold PRNG_DEL_k. Opaque PRNG_DEL_k.
+          simpl. by f_equiv.
+        }
         simpl in H2.
         rewrite -H2.
         repeat f_equiv; eauto.
-        Opaque PRNG_DEL_k.
         rewrite interp_comp /= get_ret_ret hom_DEL_k.
         eauto.
       + eapply (interp_expr_fill_yes_reify K env _ _ _ _ σr) in H2.
@@ -752,17 +720,31 @@ Section interp.
         { constructor; reflexivity. }
         2:{ rewrite app_nil_r; reflexivity. }
         eapply external_step_reify.
-        { Transparent PRNG_GEN_k. unfold PRNG_GEN_k. simpl.
-          f_equiv. reflexivity. }
+        {
+          Transparent PRNG_GEN_k. unfold PRNG_GEN_k. Opaque PRNG_GEN_k.
+          simpl. by f_equiv.
+        }
         simpl in H2.
         rewrite -H2.
         repeat f_equiv; eauto.
-        Opaque PRNG_GEN_k.
         rewrite interp_comp /= get_ret_ret hom_GEN_k.
         eauto.
       + eapply (interp_expr_fill_yes_reify K env _ _ _ _ σr) in H2.
         rewrite interp_comp. simpl.
-        rewrite seed_it_app_ret_ret; rewrite !Tick_n_S Tick_n_O.
-    Admitted.
+        rewrite /SeedGit' SeedGit_Ret.
+        rewrite hom_SEED_k.
+        change 1 with (Nat.add 1 0). econstructor; last first.
+        { constructor; reflexivity. }
+        2:{ rewrite app_nil_r; reflexivity. }
+        eapply external_step_reify.
+        {
+          Transparent PRNG_SEED_k. unfold PRNG_SEED_k. Opaque PRNG_SEED_k.
+          simpl. by f_equiv.
+        }
+        simpl in H2.
+        rewrite -H2.
+        repeat f_equiv; eauto.
+        rewrite interp_comp /= /SeedGit' SeedGit_Ret hom_SEED_k //.
+      Qed.
 End interp.
 #[global] Opaque PRNG_NEW PRNG_DEL_k PRNG_GEN_k PRNG_SEED_k.
