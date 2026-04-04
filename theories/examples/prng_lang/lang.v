@@ -326,7 +326,7 @@ Inductive head_step {S} : expr S → state → expr S → state → nat*nat → 
   head_step (Rand $ Val $ LitPrng l)  σ (Val $ LitV n) σ' (1,1)
 | SeedS σ l n σ' :
   state_seed σ l n = Some ((), σ') →
-  head_step (Seed (Val $ LitPrng l) (Val $ LitV n))  σ (Val $ UnitV) σ' (1,1)
+  head_step (Seed (Val $ LitPrng l) (Val $ LitV n))  σ (Val $ UnitV) σ' (3,1)
 | IfTrueS n e1 e2 σ :
   n > 0 →
   head_step (If (Val (LitV n)) e1 e2) σ
@@ -345,7 +345,7 @@ Lemma head_step_prng_01 {S} (e1 e2 : expr S) σ1 σ2 n m :
   head_step e1 σ1 e2 σ2 (n,m) → m = 0 ∨ m = 1.
 Proof.  inversion 1; eauto. Qed.
 Lemma head_step_unfold_01 {S} (e1 e2 : expr S) σ1 σ2 n m :
-  head_step e1 σ1 e2 σ2 (n,m) → n = 0 ∨ n = 1.
+  head_step e1 σ1 e2 σ2 (n,m) → n = 0 ∨ n = 1 ∨ n = 3.
 Proof.  inversion 1; eauto. Qed.
 Lemma head_step_pure {S} (e1 e2 : expr S) σ1 σ2 n :
   head_step e1 σ1 e2 σ2 (n,0) → σ1 = σ2.
