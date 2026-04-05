@@ -537,11 +537,11 @@ with typed_val {S : Set} (Γ : S -> ty) : val S → ty → Prop :=
   typed_val Γ UnitV Tunit
 | typed_Lit n :
   typed_val Γ (LitV n) Tnat
-| typed_Loc l :
-  typed_val Γ (LitPrng l) Tprng
 | typed_RecV (τ1 τ2 : ty) (e : expr (inc (inc S))) :
   typed (Γ ▹ (Tarr τ1 τ2) ▹ τ1) e τ2 →
   typed_val Γ (RecV e) (Tarr τ1 τ2)
+  (* NOTE: PRNG location literals cannot be statically created *)
+  (* | typed_Loc l : typed_val Γ (LitPrng l) Tprng *)
 .
 
 Declare Scope syn_scope.
