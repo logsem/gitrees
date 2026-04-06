@@ -25,6 +25,8 @@ Section prng_logrel.
   Context {A : ofe}.
   Variable (P : A -n> iProp).
 
+  Definition prng_logrel_NS : namespace := nroot .@ "prng-logrel".
+
   (* expr_pred: gitree value predicate -> gitree predicate *)
   Local Notation expr_pred := (expr_pred s rs P).
 
@@ -33,7 +35,7 @@ Section prng_logrel.
   Program Definition val_unit : ITV -n> iProp := λne αv,
     (αv ≡ RetV ())%I.
   Program Definition val_prng : ITV -n> iProp := λne αv,
-    (∃ (l : loc) (n : nat), αv ≡ RetV l ∗ has_prng_state l n)%I.
+    (∃ (l : loc), αv ≡ RetV l ∗ inv (prng_logrel_NS .@ l) (∃ (n : nat), has_prng_state l n))%I.
   Solve All Obligations with solve_proper.
 
   Program Definition val_arr (Φ1 Φ2 : ITV -n> iProp) := λne αv,
@@ -51,9 +53,9 @@ Section prng_logrel.
   (* subst_valid: (S : Names) (Γ : Context S) -> interptation of Γ -> iProp *)
   Notation ssubst_valid := (ssubst_valid1 rs ty val_pred expr_pred).
 
-  (*[Tprng] is not persistent*)
+  (* we made [Tprng] persistent by wrapping the [pointsto]/[has_prng_state] predicate in an invariant *)
   #[global] Instance prng_lang_val_pred_persist τ βv : Persistent (val_pred τ βv).
-  Proof. induction τ; try apply _. Abort.
+  Proof. induction τ; try apply _. Qed.
 
   Program Definition valid1 {S : Set} (Γ : S → ty) (α : interp_scope S -n> IT) (τ : ty) : iProp :=
     (∀ ss, prng_ctx rs
@@ -113,18 +115,6 @@ Section prng_logrel.
   Qed.
 
 
-  Lemma val_prng_loc_literal {S : Set} (Γ : S → ty) (l : loc) (n : nat) :
-    ⊢ has_prng_state l n -∗
-      valid1 Γ (interp_loc rs l) Tprng.
-  Proof.
-    iIntros "Hstate" (αs) "#Hctx Has".
-    iApply expr_pred_ret.
-    iExists l,n.
-    by iFrame.
-  Qed.
-
-  (* TODO: use the derived WP rules to prove that the effect interpretations are semantically well-typed *)
-
   (* [typed_NewPrng] *)
   Lemma compat_NewPrng {S : Set} {Γ : S → ty} :
     ⊢ valid1 Γ (interp_new rs) Tprng.
@@ -133,11 +123,17 @@ Section prng_logrel.
     iApply expr_pred_frame.
     iApply (wp_new rs Ret s with "Hctx").
     iIntros (l).
-    iIntros "!> !> Hrng".
+    iIntros "!> !> Hprng".
+    iAssert ((∃ n, has_prng_state l n)%I) with "[Hprng]" as "HprngEx";
+    first by iExists 0.
+    iMod (inv_alloc (prng_logrel_NS .@ l) with "HprngEx") as "#HprngInv".
     iApply wp_val.
-    iExists l,0.
-    by iFrame.
+    iModIntro.
+    iExists l.
+    by iSplit.
   Qed.
+
+  (* TODO: invariant open problem *)
 
   (* [typed_DelPrng] *)
   Lemma compat_DelPrng {S : Set} {Γ : S → ty} α :
@@ -147,13 +143,17 @@ Section prng_logrel.
     iIntros "H1" (ss) "#Hctx #Has".
     iSpecialize ("H1" $! ss with "Hctx Has").
     iApply (expr_pred_bind (get_ret PRNG_DEL) with "H1").
-    iIntros (αv) "(%l & %n & Heq & Hprng) /=".
-    iRewrite "Heq".
+    iIntros (αv) "(%l & Heq & HprngInv) /=".
+    iRewrite "Heq". rewrite IT_of_V_Ret get_ret_ret.
     iApply expr_pred_frame.
-    rewrite IT_of_V_Ret get_ret_ret.
-    iApply (wp_del rs l n s with "Hctx Hprng").
-    done.
-  Qed.
+    (* FIXME: deleting a potentially shared PRNG state is generally unsafe.
+       it is only safe to delete with exclusive ownership.
+
+       let rng := new_prng in
+       let rng_share := rng in
+       delete rng; rand rng_share
+    *)
+  Admitted.
 
   (* [typed_Rand] *)
   Lemma compat_Rand {S : Set} {Γ : S → ty} α :
@@ -163,15 +163,17 @@ Section prng_logrel.
     iIntros "H1" (ss) "#Hctx #Has".
     iSpecialize ("H1" $! ss with "Hctx Has").
     iApply (expr_pred_bind (get_ret PRNG_GEN) with "H1").
-    iIntros (αv) "(%l & %n & Heq & Hprng) /=".
-    iRewrite "Heq".
+    iIntros (αv) "(%l & Heq & HprngInv) /=".
+    iRewrite "Heq". rewrite IT_of_V_Ret get_ret_ret.
     iApply expr_pred_frame.
-    rewrite IT_of_V_Ret get_ret_ret.
+    (*
     iApply (wp_gen rs l n s with "Hctx Hprng").
     iIntros "!> !> Hprng'".
     iApply wp_val.
     by iExists (read_lcg n).
   Qed.
+     *)
+  Admitted.
 
   (* [typed_Seed] *)
   Lemma compat_Seed {S : Set} {Γ : S → ty} α β :
@@ -183,16 +185,19 @@ Section prng_logrel.
     iSpecialize ("H1" $! ss with "Hctx Has").
     iSpecialize ("H2" $! ss with "Hctx Has").
     iApply (expr_pred_bind (SeedGitCtxL rs (β ss)) with "H1").
-    iIntros (αv) "(%l & %n & Heq & Hprng) /=".
+    iIntros (αv) "(%l & Heq & HprngInv) /=".
     iRewrite "Heq"; rewrite IT_of_V_Ret.
     iApply (expr_pred_bind (SeedGitCtxS rs (Ret l)) with "H2").
     iIntros (βv) "(%sd & Heq)".
     iRewrite "Heq"; rewrite IT_of_V_Ret /SeedGitCtxS SeedGit_Ret.
     iApply expr_pred_frame.
+    (*
     iApply (wp_seed rs l n sd with "Hctx Hprng").
     iIntros "!> !> Hprng'".
     done.
   Qed.
+    *)
+  Admitted.
 
   Lemma compat_app {S : Set} (Γ : S → ty) α β τ1 τ2 :
     ⊢ valid1 Γ α (Tarr τ1 τ2) -∗
@@ -224,7 +229,7 @@ Section prng_logrel.
     iRewrite "Hf". iApply expr_pred_ret. simpl.
     iModIntro.
     iLöb as "IH". iSimpl.
-    iIntros (βv) "Hw".
+    iIntros (βv) "#Hw".
     iIntros (x) "Hx".
     iApply wp_lam.
     iIntros "!> Hcl".
@@ -235,12 +240,7 @@ Section prng_logrel.
       iIntros ([| [|]]); term_simpl.
       - iModIntro.
         iApply expr_pred_ret.
-        (* FIXME: [Hw : val_pred τ1 βv] is not persistent
-
-           a PRNG state cannot be shared easily.
-           PRNG state update is not an atomic operator.
-        *)
-        admit.
+        iExact "Hw".
       - iModIntro.
         iRewrite "Hf".
         iIntros (x') "Hx".
@@ -254,7 +254,7 @@ Section prng_logrel.
     }
     unfold f.
     by iApply "H".
-  Admitted.
+  Qed.
 
   Lemma compat_natop {S : Set} (Γ : S → ty) op α β :
     ⊢ valid1 Γ α Tnat -∗
