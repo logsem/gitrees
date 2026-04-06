@@ -522,9 +522,8 @@ Inductive typed {S : Set} (Γ : S -> ty) : expr S → ty → Prop :=
   typed Γ (If e0 e1 e2) τ
 | typed_NewPrng :
   typed Γ NewPrng Tprng
-| typed_DelPrng e :
-  typed Γ e Tprng →
-  typed Γ (DelPrng e) Tunit
+  (* NOTE: PRNG location can be duplicated/shared through function application. It is unsafe to delete except for exclusive ownership *)
+  (* | typed_DelPrng e : typed Γ e Tprng → typed Γ (DelPrng e) Tunit *)
 | typed_Rand e :
   typed Γ e Tprng →
   typed Γ (Rand e) Tnat
