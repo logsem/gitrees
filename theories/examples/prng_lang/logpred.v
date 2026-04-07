@@ -35,7 +35,7 @@ Section prng_logrel.
   Program Definition val_unit : ITV -n> iProp := λne αv,
     (αv ≡ RetV ())%I.
   Program Definition val_prng : ITV -n> iProp := λne αv,
-    (∃ (l : loc), αv ≡ RetV l ∗ inv (prng_logrel_NS .@ l) (∃ (n : nat), has_prng_state l n))%I.
+    (∃ (l : loc), αv ≡ RetV l ∗ known_prng l )%I.
   Solve All Obligations with solve_proper.
 
   Program Definition val_arr (Φ1 Φ2 : ITV -n> iProp) := λne αv,
@@ -122,38 +122,26 @@ Section prng_logrel.
     iIntros (ss) "#Hctx #Has".
     iApply expr_pred_frame.
     iApply (wp_new rs Ret s with "Hctx").
-    iIntros (l).
-    iIntros "!> !> Hprng".
-    iAssert ((∃ n, has_prng_state l n)%I) with "[Hprng]" as "HprngEx";
-    first by iExists 0.
-    iMod (inv_alloc (prng_logrel_NS .@ l) with "HprngEx") as "#HprngInv".
+    iIntros (l) "!> !> Hprng".
     iApply wp_val.
-    iModIntro.
     iExists l.
-    by iSplit.
+    by iFrame.
   Qed.
 
-  (* TODO: invariant open problem *)
+  (* [typed_DelPrng] has been removed.
+     Deleting a potentially shared PRNG state is generally unsafe.
+     it is only safe to delete with exclusive ownership.
 
-  (* [typed_DelPrng] *)
-  Lemma compat_DelPrng {S : Set} {Γ : S → ty} α :
-    ⊢ valid1 Γ α Tprng -∗
-      valid1 Γ (interp_del rs α) Tunit.
-  Proof.
-    iIntros "H1" (ss) "#Hctx #Has".
-    iSpecialize ("H1" $! ss with "Hctx Has").
-    iApply (expr_pred_bind (get_ret PRNG_DEL) with "H1").
-    iIntros (αv) "(%l & Heq & HprngInv) /=".
-    iRewrite "Heq". rewrite IT_of_V_Ret get_ret_ret.
-    iApply expr_pred_frame.
-    (* FIXME: deleting a potentially shared PRNG state is generally unsafe.
-       it is only safe to delete with exclusive ownership.
+     Consider the following counterexample program.
 
-       let rng := new_prng in
-       let rng_share := rng in
-       delete rng; rand rng_share
-    *)
-  Admitted.
+     let rng := new_prng in
+     let rng_share := rng in
+     delete rng; rand rng_share
+
+     We have to make a choice. 
+     Either be affine and lose the ability of manual deallocation
+     or be linear and restrict sharing.
+   *)
 
   (* [typed_Rand] *)
   Lemma compat_Rand {S : Set} {Γ : S → ty} α :
@@ -163,17 +151,13 @@ Section prng_logrel.
     iIntros "H1" (ss) "#Hctx #Has".
     iSpecialize ("H1" $! ss with "Hctx Has").
     iApply (expr_pred_bind (get_ret PRNG_GEN) with "H1").
-    iIntros (αv) "(%l & Heq & HprngInv) /=".
+    iIntros (αv) "(%l & Heq & #Hprng) /=".
     iRewrite "Heq". rewrite IT_of_V_Ret get_ret_ret.
     iApply expr_pred_frame.
-    (*
-    iApply (wp_gen rs l n s with "Hctx Hprng").
-    iIntros "!> !> Hprng'".
-    iApply wp_val.
-    by iExists (read_lcg n).
+    iApply (wp_gen rs l with "Hctx Hprng").
+    iIntros "!> !> Hprng' %n".
+    by iExists n.
   Qed.
-     *)
-  Admitted.
 
   (* [typed_Seed] *)
   Lemma compat_Seed {S : Set} {Γ : S → ty} α β :
@@ -185,19 +169,16 @@ Section prng_logrel.
     iSpecialize ("H1" $! ss with "Hctx Has").
     iSpecialize ("H2" $! ss with "Hctx Has").
     iApply (expr_pred_bind (SeedGitCtxL rs (β ss)) with "H1").
-    iIntros (αv) "(%l & Heq & HprngInv) /=".
+    iIntros (αv) "(%l & Heq & #Hprng) /=".
     iRewrite "Heq"; rewrite IT_of_V_Ret.
     iApply (expr_pred_bind (SeedGitCtxS rs (Ret l)) with "H2").
     iIntros (βv) "(%sd & Heq)".
     iRewrite "Heq"; rewrite IT_of_V_Ret /SeedGitCtxS SeedGit_Ret.
     iApply expr_pred_frame.
-    (*
-    iApply (wp_seed rs l n sd with "Hctx Hprng").
+    iApply (wp_seed rs l with "Hctx Hprng").
     iIntros "!> !> Hprng'".
     done.
   Qed.
-    *)
-  Admitted.
 
   Lemma compat_app {S : Set} (Γ : S → ty) α β τ1 τ2 :
     ⊢ valid1 Γ α (Tarr τ1 τ2) -∗
@@ -291,7 +272,7 @@ Section prng_logrel.
       + iApply compat_natop; iApply fundamental; eauto.
       + iApply compat_if;  iApply fundamental; eauto.
       + iApply compat_NewPrng.
-      + iApply compat_DelPrng; iApply fundamental; eauto.
+        (* + iApply compat_DelPrng; iApply fundamental; eauto. *)
       + iApply compat_Rand; iApply fundamental; eauto.
       + iApply compat_Seed; iApply fundamental; eauto.
     - destruct 1.
