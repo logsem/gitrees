@@ -1,5 +1,5 @@
 (** pseudo random number generator effect *)
-From iris.algebra Require Import gmap excl auth gmap_view list.
+From iris.algebra Require Import gmap gmap_view excl auth.
 From iris.proofmode Require Import classes tactics.
 From iris.base_logic Require Import algebra.
 From iris.heap_lang Require Export locations.
@@ -175,6 +175,7 @@ Section prng_combinators.
   Proof. solve_hom_easy PRNG_SEED_k. Qed.
 End prng_combinators.
 
+(* NOTE: we cannot give a spec to delete *)
 Section wp.
   Context {grs_sz : nat}.
   Context {a : is_ctx_dep}.
@@ -186,23 +187,31 @@ Section wp.
   Notation ITV := (ITV F R).
   Notation stateO := (stateF ♯ IT).
 
-  Definition istate := gmap_viewR loc natO.
-  Class prngPreG Σ := PrngPreG { PrngPreG_inG :: inG Σ istate }.
+  Definition entryR := prodR (agreeR unit) (optionR (exclR nat)).
+  Definition prngR := gmap_viewR loc entryR.
+
+  Definition owner_entry n : entryR := (to_agree (), Some (Excl n)).
+  Definition borrow_entry  : entryR := (to_agree (), None).
+  Definition owner_store (m : gmapR loc nat) := owner_entry <$> m.
+
+  Class prngPreG Σ := PrngPreG { PrngPreG_inG :: inG Σ prngR }.
   Class prngG Σ := PrngG {
-      prngG_inG :: inG Σ istate;
+      prngG_inG :: inG Σ prngR;
       prngG_name : gname;
     }.
-  Definition prngΣ : gFunctors := GFunctor istate.
+  Definition prngΣ : gFunctors := GFunctor prngR.
   #[export] Instance subG_prngΣ {Σ} : subG prngΣ Σ → prngPreG Σ.
   Proof. solve_inG. Qed.
 
-  Lemma new_prngG σ `{!prngPreG Σ} :
+  Lemma new_storeG σ `{!prngPreG Σ} :
     (⊢ |==> ∃ `{!prngG Σ}, own prngG_name (●V σ): iProp Σ)%I.
   Proof.
     iMod (own_alloc (●V σ)) as (γ) "H".
-    { apply gmap_view_auth_valid. }
-    pose (sg := {| prngG_inG := _; prngG_name := γ |}).
-    iModIntro. iExists sg. by iFrame.
+    {
+      apply gmap_view_auth_valid.
+    }
+    set {| prngG_inG := PrngPreG_inG; prngG_name := γ |} as sg.
+    by iExists sg.
   Qed.
 
   Context `{!subReifier (sReifier_NotCtxDep_min reify_prng a) rs}.
@@ -211,76 +220,59 @@ Section wp.
 
   Context `{!prngG Σ}.
 
-  Program Definition prng_ctx :=
-    inv (nroot.@"prngE")
-      (∃ σ, £ 1 ∗ has_substate σ ∗ own prngG_name (●V σ))%I.
+  Notation own := (own prngG_name).
+  Definition has_prngs (σ : gmapR loc nat) :=
+    own $ gmap_view_auth (DfracOwn 1) (owner_store σ).
+  Definition known_prng (l : loc) :=
+    own $ gmap_view_frag l DfracDiscarded borrow_entry.
+  Definition prng_ctx := inv (nroot.@"prngE") (∃ σ, £ 1 ∗ has_substate σ ∗ has_prngs σ)%I.
 
-  Program Definition has_prng_state (l : loc) (s : nat) : iProp :=
-    own prngG_name $ gmap_view_frag l (DfracOwn 1) s.
-  Global Instance has_state_proper l : Proper ((≡) ==> (≡)) (has_prng_state l).
-  Proof. solve_proper. Qed.
-  Global Instance has_state_ne l : NonExpansive (has_prng_state l).
-  Proof. solve_proper. Qed.
+  (* TODO: find some library functions for proving frame preserving updates of gmap fragmental view weakening *)
 
-  Lemma istate_alloc n l σ :
+  Lemma istate_alloc (n : nat) l σ :
     σ !! l = None →
-    own prngG_name (●V σ) ==∗ own prngG_name (●V (<[l:=n]>σ))
-                   ∗ has_prng_state l n.
+    has_prngs σ ==∗ has_prngs (<[l:=n]> σ) ∗ known_prng l.
   Proof.
     iIntros (Hl) "H".
-    iMod (own_update with "H") as "[$ $]".
-    { by apply (gmap_view_alloc _ l (DfracOwn 1) n); eauto. }
-    done.
-  Qed.
+    iMod (own_update with "H") as "[Hauth Hfrag]".
+    {
+      apply (gmap_view_alloc (owner_store σ) l (DfracOwn 1) (owner_entry n)).
+      - rewrite lookup_fmap Hl //.
+      - done.
+      - done.
+    }
+    iSplitL "Hauth"; first rewrite /has_prngs /owner_store fmap_insert //.
+    iMod (own_update with "Hfrag") as "$".
+  Admitted.
 
-  Lemma istate_read l n σ :
-    own prngG_name (●V σ) -∗ has_prng_state l n
-    -∗ (σ !! l) ≡ Some n.
+  Lemma istate_read l σ :
+    has_prngs σ
+    -∗ known_prng l
+    -∗ ∃ n, (σ !! l) ≡ Some n.
   Proof.
     iIntros "Ha Hf".
     iPoseProof (own_valid_2 with "Ha Hf") as "H".
-    rewrite gmap_view_both_validI.
-    iDestruct "H" as "[%H [Hval HEQ]]".
-    done.
-  Qed.
+    rewrite gmap_view_both_dfrac_validI.
+    iDestruct "H" as (n dq Hvalid1 Hlookup Hvalid2 OtherPart) "%Heq".
+    rewrite lookup_fmap in Hlookup.
+  Admitted.
 
-  Lemma istate_loc_dom l n σ :
-    own prngG_name (●V σ) -∗ has_prng_state l n -∗ ⌜is_Some (σ !! l)⌝.
-  Proof.
-    iIntros "Hinv Hloc".
-    iPoseProof (istate_read with "Hinv Hloc") as "Hl".
-    destruct (σ !! l) ; eauto.
-    by rewrite option_equivI.
-  Qed.
-
-  Lemma istate_write l n n' σ :
-    own prngG_name (●V σ) -∗ has_prng_state l n
-    ==∗ own prngG_name (●V <[l:=n']>σ)
-      ∗ has_prng_state l n'.
+  Lemma istate_write l n' σ :
+    has_prngs σ
+    -∗ known_prng l
+    ==∗ has_prngs (<[l:=n']> σ) ∗ known_prng l.
   Proof.
     iIntros "H Hl".
     iMod (own_update_2 with "H Hl") as "[$ $]"; last done.
-    by apply gmap_view_replace.
-  Qed.
-
-  Lemma istate_delete l n σ :
-    own prngG_name (●V σ) -∗ has_prng_state l n ==∗ own prngG_name (●V delete l σ).
-  Proof.
-    iIntros "H Hl".
-    iMod (own_update_2 with "H Hl") as "$".
-    { apply gmap_view_delete. }
-    done.
-  Qed.
-
+  Admitted.
 
   Lemma wp_new_hom (k : locO -n> IT) s Φ `{!NonExpansive Φ} (κ : IT -n> IT) `{!IT_hom κ} :
     prng_ctx -∗
-    ▷▷ (∀ l, has_prng_state l 0 -∗ WP@{rs} κ (k l) @ s {{ Φ }}) -∗
+    ▷▷ (∀ l, known_prng l -∗ WP@{rs} κ (k l) @ s {{ Φ }}) -∗
     WP@{rs} κ (PRNG_NEW k) @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Ha".
-    unfold PRNG_NEW; simpl.
-    rewrite hom_vis.
+    rewrite /PRNG_NEW hom_vis.
     iApply wp_subreify_ctx_indep_lift''.
     iInv (nroot.@"prngE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
     simpl.
@@ -291,7 +283,7 @@ Section wp.
     iExists σ,l,(<[l:=0]>σ),(κ $ k l),[].
     iFrame "Hs".
     iSplit; first done.
-    iSplit; first by rewrite later_map_Next ofe_iso_21.
+    iSplit; first rewrite later_map_Next ofe_iso_21 //.
     iNext.
     iMod (istate_alloc 0 l with "Hh") as "[Hh Hp]".
     {
@@ -311,135 +303,81 @@ Section wp.
 
   Lemma wp_new (k : locO -n> IT) s Φ `{!NonExpansive Φ} :
     prng_ctx -∗
-    ▷▷ (∀ l, has_prng_state l 0 -∗ WP@{rs} k l @ s {{ Φ }}) -∗
+    ▷▷ (∀ l, known_prng l -∗ WP@{rs} k l @ s {{ Φ }}) -∗
     WP@{rs} PRNG_NEW k @ s {{ Φ }}.
   Proof.
     iIntros "Hh H".
     iApply (wp_new_hom _ _ _ idfun with "Hh H").
   Qed.
 
-  Lemma wp_del_k_hom (l : loc) (cont : unitO -n> IT) n s Φ (κ : IT -n> IT) `{!IT_hom κ} :
+  Lemma wp_gen_k_hom (l : loc) (cont : natO -n> IT) s Φ (κ : IT -n> IT) `{!IT_hom κ} :
     prng_ctx -∗
-    ▷ has_prng_state l n -∗
-    ▷▷ WP@{rs} κ (cont ()) @ s {{ β, Φ β }} -∗
-    WP@{rs} κ (PRNG_DEL_k l cont) @ s {{ Φ }}.
-  Proof.
-    iIntros "#Hctx Hp Ha".
-    unfold PRNG_DEL_k; simpl.
-    rewrite hom_vis.
-    iApply wp_subreify_ctx_indep_lift''.
-    iInv (nroot.@"prngE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
-    simpl.
-    iApply (lc_fupd_elim_later with "Hlc").
-    iNext.
-    iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom".
-    { iApply (istate_loc_dom with "Hh Hp"). }
-    destruct Hdom as [x Hx].
-    (* current state, reification results, new state, continuation, thread pool additions *)
-    iExists σ,(),(delete l σ),(κ $ cont ()),[].
-    iFrame "Hs".
-    iSplit.
-    {
-      iPoseProof (istate_read l n σ with "Hh Hp") as "%Hread".
-      unfold lift_post, state_del.
-      by rewrite Hread.
-    }
-    iSplit; first by rewrite later_map_Next ofe_iso_21.
-    iNext.
-    iMod (istate_delete l n σ with "Hh Hp") as "Hh".
-    iIntros "Hlc Hs".
-    iMod ("Hcl" with "[Hlc Hh Hs]") as "Hemp".
-    { iExists _. iFrame. }
-    iModIntro.
-    iSplit.
-    - by iApply "Ha".
-    - by iFrame.
-  Qed.
-
-  Lemma wp_del (l : loc) n s Φ :
-    prng_ctx -∗
-    ▷ has_prng_state l n -∗
-    ▷ ▷ Φ (RetV ()) -∗
-    WP@{rs} PRNG_DEL l @ s {{ Φ }}.
-  Proof.
-    iIntros "#Hctx Hl H".
-    iApply (wp_del_k_hom _ _ _ _ _ idfun with "Hctx Hl [H]").
-    do 2 iNext.
-    iApply wp_val.
-    iModIntro. done.
-  Qed.
-
-  Lemma wp_gen_k_hom (l : loc) (cont : natO -n> IT) n s Φ (κ : IT -n> IT) `{!IT_hom κ} :
-    prng_ctx -∗
-    ▷ has_prng_state l n -∗
-    ▷▷ (has_prng_state l (update_lcg n) -∗ WP@{rs} κ (cont $ read_lcg n) @ s {{ Φ }}) -∗
+    ▷ known_prng l -∗
+    ▷▷ (known_prng l -∗ ∀ n : nat, WP@{rs} κ (cont n) @ s {{ Φ }}) -∗
     WP@{rs} κ (PRNG_GEN_k l cont) @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Hp Ha".
-    unfold PRNG_GEN_k; simpl.
-    rewrite hom_vis.
+    rewrite /PRNG_GEN_k hom_vis.
     iApply wp_subreify_ctx_indep_lift''.
+    iSimpl.
     iInv (nroot.@"prngE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
-    simpl.
+    iSimpl.
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
+    iPoseProof (istate_read l σ with "Hh Hp") as (m) "%Hread".
     (* current state, reification results, new state, continuation, thread pool additions *)
-    iExists σ,(read_lcg n),(<[l:=update_lcg n]>σ),(κ (cont $ read_lcg n)),[].
+    iExists σ,(read_lcg m),(<[l:=update_lcg m]>σ),(κ (cont $ read_lcg m)),[].
     iFrame "Hs".
-    iSplit.
-    {
-      iPoseProof (istate_read l n σ with "Hh Hp") as "%Hread".
-      unfold lift_post, state_gen.
-      by rewrite Hread.
-    }
-    iSplit; first by rewrite ofe_iso_21 later_map_Next.
+    iSplit; first rewrite /lift_post /state_gen Hread //.
+    iSplit; first rewrite ofe_iso_21 later_map_Next //.
     iNext.
-    iMod (istate_write l n (update_lcg n) σ with "Hh Hp") as "[Hh Hp]".
+    iMod (istate_write l (update_lcg m) σ with "Hh Hp") as "[Hh Hp]".
     iIntros "Hlc Hs".
     iMod ("Hcl" with "[Hlc Hh Hs]") as "Hemp".
     { iExists _. iFrame. }
     iModIntro.
     iSplit.
-    - by iApply "Ha".
+    - iApply ("Ha" with "Hp").
     - by iFrame.
   Qed.
 
-  Lemma wp_gen (l : loc) (n : nat) s Φ :
+  Lemma wp_gen (l : loc) s Φ :
     prng_ctx -∗
-    ▷ has_prng_state l n -∗
-    ▷ ▷ (has_prng_state l (update_lcg n) -∗ WP@{rs} (Ret $ read_lcg n) @ s {{ Φ }}) -∗
+    ▷ known_prng l -∗
+    ▷▷ (known_prng l -∗ ∀ n : nat, Φ (RetV n)) -∗
     WP@{rs} PRNG_GEN l @ s {{ Φ }}.
   Proof.
     iIntros "#Hcxt Hp Ha".
-    iApply (wp_gen_k_hom l Ret _ _ _ idfun with "Hcxt Hp Ha").
+    iApply (wp_gen_k_hom _ _ _ _ idfun with "Hcxt Hp").
+    iIntros "!> !> Hl %n".
+    iApply wp_val.
+    iApply ("Ha" with "Hl").
   Qed.
 
-  Lemma wp_seed_k_hom (l : loc) n (cont : unitO -n> IT) n' s Φ (κ : IT -n> IT) `{!IT_hom κ} :
+  Lemma wp_seed_k_hom (l : loc) (cont : unitO -n> IT) m s Φ (κ : IT -n> IT) `{!IT_hom κ} :
     prng_ctx -∗
-    ▷ has_prng_state l n -∗
-    ▷▷ (has_prng_state l n' -∗ WP@{rs} κ (cont ()) @ s {{ Φ }}) -∗
-    WP@{rs} κ (PRNG_SEED_k l n' cont) @ s {{ Φ }}.
+    ▷ known_prng l -∗
+    ▷▷ (known_prng l -∗ WP@{rs} κ (cont ()) @ s {{ Φ }}) -∗
+    WP@{rs} κ (PRNG_SEED_k l m cont) @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Hp Ha".
-    unfold PRNG_SEED_k; simpl.
-    rewrite hom_vis.
+    rewrite /PRNG_SEED_k hom_vis.
     iApply wp_subreify_ctx_indep_lift''.
     iInv (nroot.@"prngE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
-    simpl.
+    iSimpl.
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
     (* current state, reification results, new state, continuation, thread pool additions *)
-    iExists σ,(),(<[l:=n']>σ),(κ (cont ())),[].
+    iExists σ,(),(<[l:=m]>σ),(κ (cont ())),[].
     iFrame "Hs".
     iSplit.
     {
-      iPoseProof (istate_read l n σ with "Hh Hp") as "%Hread".
-      unfold lift_post, state_seed.
-      by rewrite Hread.
+      iPoseProof (istate_read l σ with "Hh Hp") as (?) "%Hread".
+      rewrite /lift_post /state_seed Hread //.
     }
-    iSplit; first by rewrite ofe_iso_21 later_map_Next.
+    iSplit; first rewrite ofe_iso_21 later_map_Next //.
     iNext.
-    iMod (istate_write l n n' σ with "Hh Hp") as "[Hh Hp]".
+    iMod (istate_write l m σ with "Hh Hp") as "[Hh Hp]".
     iIntros "Hlc Hs".
     iMod ("Hcl" with "[Hlc Hh Hs]") as "Hemp".
     { iExists _. iFrame. }
@@ -449,14 +387,14 @@ Section wp.
     - by iFrame.
   Qed.
 
-  Lemma wp_seed (l : loc) n n' s Φ :
+  Lemma wp_seed (l : loc) m s Φ :
     prng_ctx -∗
-    ▷ has_prng_state l n -∗
-    ▷▷ (has_prng_state l n' -∗ Φ (RetV ())) -∗
-    WP@{rs} PRNG_SEED l n' @ s {{ Φ }}.
+    ▷ known_prng l -∗
+    ▷▷ (known_prng l -∗ Φ (RetV ())) -∗
+    WP@{rs} PRNG_SEED l m @ s {{ Φ }}.
   Proof.
     iIntros "#Hctx Hp Ha".
-    iApply (wp_seed_k_hom l n Ret _ _ _ idfun with "Hctx Hp [Ha]").
+    iApply (wp_seed_k_hom l _ _ _ _ idfun with "Hctx Hp [Ha]").
     do 2 iNext.
     iIntros "H".
     iDestruct ("Ha" with "H") as "G".
@@ -467,6 +405,6 @@ Section wp.
 End wp.
 
 Arguments prng_ctx {_ _} rs {_ _ _ _ _ _}.
-Arguments has_prng_state {_ _} _ _.
+Arguments known_prng {_ _} _.
 #[global] Opaque PRNG_NEW PRNG_DEL_k PRNG_GEN_k PRNG_SEED_k.
 
