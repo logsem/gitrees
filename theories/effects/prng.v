@@ -1,5 +1,5 @@
 (** pseudo random number generator effect *)
-From iris.algebra Require Import gmap gmap_view excl auth.
+From iris.algebra Require Import gmap gset gmap_view excl agree auth.
 From iris.proofmode Require Import classes tactics.
 From iris.base_logic Require Import algebra.
 From iris.heap_lang Require Export locations.
@@ -187,28 +187,37 @@ Section wp.
   Notation ITV := (ITV F R).
   Notation stateO := (stateF ♯ IT).
 
-  Definition entryR := prodR (agreeR unit) (optionR (exclR nat)).
-  Definition prngR := gmap_viewR loc entryR.
+  (*
+     an insert-only store with anonymous pointsto predicate
 
-  Definition owner_entry n : entryR := (to_agree (), Some (Excl n)).
-  Definition borrow_entry  : entryR := (to_agree (), None).
-  Definition owner_store (m : gmapR loc nat) := owner_entry <$> m.
+     pointsto l -∗ pointsto l ∗ pointsto l
+     store σ ∗ pointsto l -∗ ∃ n, σ !! l ≡ Some n
+     store σ ∗ pointsto l ==∗ <[l:=v]> σ ∗ pointsto l
+  *)
 
-  Class prngPreG Σ := PrngPreG { PrngPreG_inG :: inG Σ prngR }.
+  Definition entryUR := prodUR (optionUR (agreeR unit)) (optionUR (exclR natO)).
+  Definition prngUR := authUR (gmapUR loc entryUR).
+
+  Definition owner_entry n : entryUR := (Some (to_agree ()), Excl' n).
+  Definition borrow_entry  : entryUR := (Some (to_agree ()), None).
+  Definition owner_store σ  : prngUR := ● (owner_entry <$> σ).
+  Definition borrow_store l : prngUR := ◯ {[l := borrow_entry]}.
+
+  Class prngPreG Σ := PrngPreG { PrngPreG_inG :: inG Σ prngUR }.
   Class prngG Σ := PrngG {
-      prngG_inG :: inG Σ prngR;
+      prngG_inG :: inG Σ prngUR;
       prngG_name : gname;
     }.
-  Definition prngΣ : gFunctors := GFunctor prngR.
+  Definition prngΣ : gFunctors := GFunctor prngUR.
   #[export] Instance subG_prngΣ {Σ} : subG prngΣ Σ → prngPreG Σ.
   Proof. solve_inG. Qed.
 
-  Lemma new_storeG σ `{!prngPreG Σ} :
-    (⊢ |==> ∃ `{!prngG Σ}, own prngG_name (●V σ): iProp Σ)%I.
+  Lemma new_storeG `{!prngPreG Σ} :
+    (⊢ |==> ∃ `{!prngG Σ}, own prngG_name (owner_store ∅): iProp Σ)%I.
   Proof.
-    iMod (own_alloc (●V σ)) as (γ) "H".
+    iMod (own_alloc (owner_store ∅)) as (γ) "H1".
     {
-      apply gmap_view_auth_valid.
+      rewrite /owner_store auth_auth_valid //.
     }
     set {| prngG_inG := PrngPreG_inG; prngG_name := γ |} as sg.
     by iExists sg.
@@ -222,12 +231,10 @@ Section wp.
 
   Notation own := (own prngG_name).
   Definition has_prngs (σ : gmapR loc nat) :=
-    own $ gmap_view_auth (DfracOwn 1) (owner_store σ).
+    own $ owner_store σ.
   Definition known_prng (l : loc) :=
-    own $ gmap_view_frag l DfracDiscarded borrow_entry.
+    own $ borrow_store l.
   Definition prng_ctx := inv (nroot.@"prngE") (∃ σ, £ 1 ∗ has_substate σ ∗ has_prngs σ)%I.
-
-  (* TODO: find some library functions for proving frame preserving updates of gmap fragmental view weakening *)
 
   Lemma istate_alloc (n : nat) l σ :
     σ !! l = None →
@@ -236,34 +243,70 @@ Section wp.
     iIntros (Hl) "H".
     iMod (own_update with "H") as "[Hauth Hfrag]".
     {
-      apply (gmap_view_alloc (owner_store σ) l (DfracOwn 1) (owner_entry n)).
-      - rewrite lookup_fmap Hl //.
-      - done.
-      - done.
+      apply (auth_update_alloc (owner_entry <$> σ) (owner_entry <$> <[l:=n]> σ) {[l := owner_entry n]}).
+      rewrite fmap_insert.
+      apply alloc_local_update; last done.
+      rewrite lookup_fmap Hl //.
     }
-    iSplitL "Hauth"; first rewrite /has_prngs /owner_store fmap_insert //.
-    iMod (own_update with "Hfrag") as "$".
-  Admitted.
+    unfold has_prngs, owner_store, borrow_store, known_prng.
+    iMod (own_update with "Hauth") as "[$ $]"; last done.
+    {
+      apply auth_update_dfrac_alloc.
+      {
+        apply gmap_core_id.
+        intros i x H.
+        rewrite lookup_singleton_Some in H.
+        destruct H as [<- <-].
+        rewrite /CoreId /borrow_entry //.
+      }
+      apply singleton_included_l.
+      exists (owner_entry n).
+      rewrite lookup_fmap lookup_insert.
+      split; first done.
+      apply Some_included_mono.
+      exists (owner_entry n).
+      unfold owner_entry, borrow_entry.
+      rewrite -pair_op -Some_op.
+      split; cbn; trivial.
+      by rewrite agree_idemp.
+    }
+  Qed.
 
   Lemma istate_read l σ :
     has_prngs σ
     -∗ known_prng l
-    -∗ ∃ n, (σ !! l) ≡ Some n.
+    -∗ has_prngs σ ∗ ∃ n, (σ !! l) ≡ Some n.
   Proof.
     iIntros "Ha Hf".
-    iPoseProof (own_valid_2 with "Ha Hf") as "H".
-    rewrite gmap_view_both_dfrac_validI.
-    iDestruct "H" as (n dq Hvalid1 Hlookup Hvalid2 OtherPart) "%Heq".
-    rewrite lookup_fmap in Hlookup.
-  Admitted.
+    iPoseProof (own_valid_2 with "Ha Hf") as "%H".
+    iFrame.
+    rewrite /owner_store /borrow_store auth_both_valid_discrete in H.
+    destruct H as [H _].
+    apply singleton_included_l in H.
+    destruct H as ([] & H1 & H2).
+    rewrite lookup_fmap in H1.
+    destruct (σ !! l) as [x|] eqn:Hlookup.
+    - by iExists x.
+    - rewrite Hlookup in H1.
+      simpl in H1.
+      inversion H1.
+  Qed.
 
   Lemma istate_write l n' σ :
     has_prngs σ
     -∗ known_prng l
-    ==∗ has_prngs (<[l:=n']> σ) ∗ known_prng l.
+    ==∗ has_prngs (<[l:=n']> σ).
   Proof.
-    iIntros "H Hl".
-    iMod (own_update_2 with "H Hl") as "[$ $]"; last done.
+    iIntros "H #Hl".
+    iPoseProof (istate_read l σ with "H Hl") as "(H & [%n %Hlookup])".
+    iMod (own_update_2 with "H Hl") as "[$ _]"; last done.
+    unfold owner_store, borrow_store.
+    rewrite fmap_insert.
+    apply auth_update.
+    eapply singleton_local_update.
+    - rewrite lookup_fmap Hlookup //.
+    - unfold owner_entry, borrow_entry.
+      apply prod_local_update; simpl.
   Admitted.
 
   Lemma wp_new_hom (k : locO -n> IT) s Φ `{!NonExpansive Φ} (κ : IT -n> IT) `{!IT_hom κ} :
@@ -316,7 +359,7 @@ Section wp.
     ▷▷ (known_prng l -∗ ∀ n : nat, WP@{rs} κ (cont n) @ s {{ Φ }}) -∗
     WP@{rs} κ (PRNG_GEN_k l cont) @ s {{ Φ }}.
   Proof.
-    iIntros "#Hctx Hp Ha".
+    iIntros "#Hctx #Hp Ha".
     rewrite /PRNG_GEN_k hom_vis.
     iApply wp_subreify_ctx_indep_lift''.
     iSimpl.
@@ -324,14 +367,14 @@ Section wp.
     iSimpl.
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
-    iPoseProof (istate_read l σ with "Hh Hp") as (m) "%Hread".
+    iPoseProof (istate_read l σ with "Hh Hp") as "(Hh & %m & %Hread)".
     (* current state, reification results, new state, continuation, thread pool additions *)
     iExists σ,(read_lcg m),(<[l:=update_lcg m]>σ),(κ (cont $ read_lcg m)),[].
     iFrame "Hs".
     iSplit; first rewrite /lift_post /state_gen Hread //.
     iSplit; first rewrite ofe_iso_21 later_map_Next //.
     iNext.
-    iMod (istate_write l (update_lcg m) σ with "Hh Hp") as "[Hh Hp]".
+    iMod (istate_write l (update_lcg m) σ with "Hh Hp") as "Hh".
     iIntros "Hlc Hs".
     iMod ("Hcl" with "[Hlc Hh Hs]") as "Hemp".
     { iExists _. iFrame. }
@@ -360,7 +403,7 @@ Section wp.
     ▷▷ (known_prng l -∗ WP@{rs} κ (cont ()) @ s {{ Φ }}) -∗
     WP@{rs} κ (PRNG_SEED_k l m cont) @ s {{ Φ }}.
   Proof.
-    iIntros "#Hctx Hp Ha".
+    iIntros "#Hctx #Hp Ha".
     rewrite /PRNG_SEED_k hom_vis.
     iApply wp_subreify_ctx_indep_lift''.
     iInv (nroot.@"prngE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
@@ -372,12 +415,12 @@ Section wp.
     iFrame "Hs".
     iSplit.
     {
-      iPoseProof (istate_read l σ with "Hh Hp") as (?) "%Hread".
+      iPoseProof (istate_read l σ with "Hh Hp") as "(Hh & %mm & %Hread)".
       rewrite /lift_post /state_seed Hread //.
     }
     iSplit; first rewrite ofe_iso_21 later_map_Next //.
     iNext.
-    iMod (istate_write l m σ with "Hh Hp") as "[Hh Hp]".
+    iMod (istate_write l m σ with "Hh Hp") as "Hh".
     iIntros "Hlc Hs".
     iMod ("Hcl" with "[Hlc Hh Hs]") as "Hemp".
     { iExists _. iFrame. }
