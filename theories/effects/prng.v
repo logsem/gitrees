@@ -1,5 +1,5 @@
 (** pseudo random number generator effect *)
-From iris.algebra Require Import gmap gset gmap_view excl agree auth.
+From iris.algebra Require Import gmap gset mono_nat gmap_view excl agree auth.
 From iris.proofmode Require Import classes tactics.
 From iris.base_logic Require Import algebra.
 From iris.heap_lang Require Export locations.
@@ -195,32 +195,36 @@ Section wp.
      store σ ∗ pointsto l ==∗ <[l:=v]> σ ∗ pointsto l
   *)
 
-  Definition entryUR := prodUR (optionUR (agreeR unit)) (optionUR (exclR natO)).
-  Definition prngUR := authUR (gmapUR loc entryUR).
+  Definition storeR := exclR (gmapUR loc nat).
+  Definition locR   := authR (gsetR loc).
 
-  Definition owner_entry n : entryUR := (Some (to_agree ()), Excl' n).
-  Definition borrow_entry  : entryUR := (Some (to_agree ()), None).
-  Definition owner_store σ  : prngUR := ● (owner_entry <$> σ).
-  Definition borrow_store l : prngUR := ◯ {[l := borrow_entry]}.
-
-  Class prngPreG Σ := PrngPreG { PrngPreG_inG :: inG Σ prngUR }.
+  Class prngPreG Σ := PrngPreG {
+    PrngPreG_V_inG :: inG Σ storeR;
+    PrngPreG_K_inG :: inG Σ locR;
+  }.
   Class prngG Σ := PrngG {
-      prngG_inG :: inG Σ prngUR;
-      prngG_name : gname;
+      prngG_V_inG :: inG Σ storeR;
+      prngG_K_inG :: inG Σ locR;
+      prngG_nameV : gname;
+      prngG_nameK : gname;
     }.
-  Definition prngΣ : gFunctors := GFunctor prngUR.
+  Definition prngΣ : gFunctors := #[GFunctor storeR; GFunctor locR].
   #[export] Instance subG_prngΣ {Σ} : subG prngΣ Σ → prngPreG Σ.
   Proof. solve_inG. Qed.
 
   Lemma new_storeG `{!prngPreG Σ} :
-    (⊢ |==> ∃ `{!prngG Σ}, own prngG_name (owner_store ∅): iProp Σ)%I.
+    ⊢ |==> ∃ `{!prngG Σ}, own prngG_nameV (Excl ∅)
+                        ∗ own prngG_nameK (● ∅ ⋅ ◯ ∅).
   Proof.
-    iMod (own_alloc (owner_store ∅)) as (γ) "H1".
-    {
-      rewrite /owner_store auth_auth_valid //.
-    }
-    set {| prngG_inG := PrngPreG_inG; prngG_name := γ |} as sg.
-    by iExists sg.
+    iMod (own_alloc (Excl ∅)) as (gn1) "H1"; first done.
+    iMod (own_alloc (● ∅ ⋅ ◯ ∅)) as (gn2) "H2"; first by apply auth_both_valid.
+    iModIntro.
+    set {|
+      prngG_V_inG := PrngPreG_V_inG; prngG_nameV := gn1;
+      prngG_K_inG := PrngPreG_K_inG; prngG_nameK := gn2;
+    |} as sg.
+    iExists sg.
+    iFrame.
   Qed.
 
   Context `{!subReifier (sReifier_NotCtxDep_min reify_prng a) rs}.
@@ -229,47 +233,32 @@ Section wp.
 
   Context `{!prngG Σ}.
 
-  Notation own := (own prngG_name).
-  Definition has_prngs (σ : gmapR loc nat) :=
-    own $ owner_store σ.
-  Definition known_prng (l : loc) :=
-    own $ borrow_store l.
+  Notation ownV := (own prngG_nameV).
+  Notation ownK := (own prngG_nameK).
+  Definition has_prngs (σ : gmap loc nat) : iProp := ownV (Excl σ) ∗ ownK (● (dom σ)).
+  Definition known_prng (l : loc) := ownK (◯ {[ l ]}).
   Definition prng_ctx := inv (nroot.@"prngE") (∃ σ, £ 1 ∗ has_substate σ ∗ has_prngs σ)%I.
 
   Lemma istate_alloc (n : nat) l σ :
     σ !! l = None →
     has_prngs σ ==∗ has_prngs (<[l:=n]> σ) ∗ known_prng l.
   Proof.
-    iIntros (Hl) "H".
-    iMod (own_update with "H") as "[Hauth Hfrag]".
+    iIntros (Hl) "[HV HK]".
+
+    iMod (own_update _ _ (Excl $ <[l:=n]>σ) with "HV") as "$".
     {
-      apply (auth_update_alloc (owner_entry <$> σ) (owner_entry <$> <[l:=n]> σ) {[l := owner_entry n]}).
-      rewrite fmap_insert.
-      apply alloc_local_update; last done.
-      rewrite lookup_fmap Hl //.
+      by intros ?[[]|][].
     }
-    unfold has_prngs, owner_store, borrow_store, known_prng.
-    iMod (own_update with "Hauth") as "[$ $]"; last done.
+    rewrite dom_insert.
+    iMod (own_update with "HK") as "[$ HK']".
     {
-      apply auth_update_dfrac_alloc.
-      {
-        apply gmap_core_id.
-        intros i x H.
-        rewrite lookup_singleton_Some in H.
-        destruct H as [<- <-].
-        rewrite /CoreId /borrow_entry //.
-      }
-      apply singleton_included_l.
-      exists (owner_entry n).
-      rewrite lookup_fmap lookup_insert.
-      split; first done.
-      apply Some_included_mono.
-      exists (owner_entry n).
-      unfold owner_entry, borrow_entry.
-      rewrite -pair_op -Some_op.
-      split; cbn; trivial.
-      by rewrite agree_idemp.
+      apply auth_update_alloc.
+      apply gset_local_update.
+      apply union_subseteq_r.
     }
+    assert ({[l]} ∪ dom σ ≡ {[l]} ⋅ dom σ) as -> by done.
+    iDestruct "HK'" as "[? ?]".
+    by iFrame.
   Qed.
 
   Lemma istate_read l σ :
@@ -277,19 +266,23 @@ Section wp.
     -∗ known_prng l
     -∗ has_prngs σ ∗ ∃ n, (σ !! l) ≡ Some n.
   Proof.
-    iIntros "Ha Hf".
-    iPoseProof (own_valid_2 with "Ha Hf") as "%H".
+    iIntros "[HV HK] Hf".
+    iPoseProof (own_valid_2 with "HK Hf") as "%H".
     iFrame.
-    rewrite /owner_store /borrow_store auth_both_valid_discrete in H.
-    destruct H as [H _].
-    apply singleton_included_l in H.
-    destruct H as ([] & H1 & H2).
-    rewrite lookup_fmap in H1.
-    destruct (σ !! l) as [x|] eqn:Hlookup.
-    - by iExists x.
-    - rewrite Hlookup in H1.
-      simpl in H1.
-      inversion H1.
+    iPureIntro.
+    apply auth_both_valid_discrete in H.
+    destruct H as [[] _].
+    assert (l ∈ dom σ) as Hin.
+    {
+      rewrite H.
+      apply elem_of_union_l.
+      apply elem_of_singleton.
+      done.
+    }
+    pose proof (elem_of_dom σ l) as [Hlk _].
+    pose proof (Hlk Hin) as [? ?].
+    exists x0.
+    by rewrite H0.
   Qed.
 
   Lemma istate_write l n' σ :
@@ -298,16 +291,22 @@ Section wp.
     ==∗ has_prngs (<[l:=n']> σ).
   Proof.
     iIntros "H #Hl".
-    iPoseProof (istate_read l σ with "H Hl") as "(H & [%n %Hlookup])".
-    iMod (own_update_2 with "H Hl") as "[$ _]"; last done.
-    unfold owner_store, borrow_store.
-    rewrite fmap_insert.
-    apply auth_update.
-    eapply singleton_local_update.
-    - rewrite lookup_fmap Hlookup //.
-    - unfold owner_entry, borrow_entry.
-      apply prod_local_update; simpl.
-  Admitted.
+    iPoseProof (istate_read l σ with "H Hl") as "([HV HK] & [%n %Hlookup])".
+    unfold has_prngs.
+
+    iMod (own_update _ _ (Excl $ <[l:=n']>σ) with "HV") as "$".
+    {
+      by intros ?[[]|][].
+    }
+    rewrite dom_insert.
+    iMod (own_update with "HK") as "[$ HK']".
+    {
+      apply auth_update_alloc.
+      apply gset_local_update.
+      apply union_subseteq_r.
+    }
+    done.
+  Qed.
 
   Lemma wp_new_hom (k : locO -n> IT) s Φ `{!NonExpansive Φ} (κ : IT -n> IT) `{!IT_hom κ} :
     prng_ctx -∗
