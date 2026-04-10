@@ -25,8 +25,6 @@ Section prng_logrel.
   Context {A : ofe}.
   Variable (P : A -n> iProp).
 
-  Definition prng_logrel_NS : namespace := nroot .@ "prng-logrel".
-
   (* expr_pred: gitree value predicate -> gitree predicate *)
   Local Notation expr_pred := (expr_pred s rs P).
 
@@ -53,7 +51,6 @@ Section prng_logrel.
   (* subst_valid: (S : Names) (Γ : Context S) -> interptation of Γ -> iProp *)
   Notation ssubst_valid := (ssubst_valid1 rs ty val_pred expr_pred).
 
-  (* we made [Tprng] persistent by wrapping the [pointsto]/[has_prng_state] predicate in an invariant *)
   #[global] Instance prng_lang_val_pred_persist τ βv : Persistent (val_pred τ βv).
   Proof. induction τ; try apply _. Qed.
 
@@ -300,7 +297,7 @@ Local Definition rs : gReifiers NotCtxDep _ := gReifiers_cons reify_prng gReifie
 
 #[local] Parameter Hdisj : ∀ (Σ : gFunctors) (P Q : iProp Σ), disjunction_property P Q.
 
-Program Definition InputLangGitreeGS {R} `{!Cofe R}
+Program Definition PrngLangGitreeGS {R} `{!Cofe R}
   {a : is_ctx_dep} {n} (rs : gReifiers a n)
   (Σ : gFunctors)
   (H1 : invGS Σ) (H2 : stateG rs R Σ)
@@ -324,18 +321,16 @@ Next Obligation.
   - by iDestruct "H" as "(_ & ?)".
 Qed.
 
-(* TODO: adeequacy and safety proof for the PRNG lang
-   adapt the proofs for input-lang.
-*)
+(* XXX: need this command to typecheck [β ≡ Err e] *)
+Open Scope stdpp.
 
-(*
-Lemma logpred_adequacy cr Σ R
-  `{!Cofe R, !SubOfe natO R, !SubOfe logO R, !SubOfe unitO R}
+Lemma logpred_adequacy (cr : nat) Σ R
+  `{!Cofe R, !SubOfe natO R, !SubOfe unitO R, !SubOfe locO R}
   `{!invGpreS Σ} `{!statePreG rs R Σ} `{!prngPreG Σ}
   (τ : ty)
   (α : interp_scope ∅ -n> IT (gReifiers_ops rs) R)
   (β : IT (gReifiers_ops rs) R) st st' k :
-  (∀ `{H1 : !gitreeGS_gen rs R Σ},
+  (∀ `{H1 : !gitreeGS_gen rs R Σ} `{H2 : !prngG Σ},
       (£ cr ⊢ valid1 rs notStuck (λne _ : unitO, True)%I □ α τ)%I) →
   external_steps (gReifiers_sReifier rs) (α ı_scope) st β st' [] k →
   is_Some (IT_to_V β)
@@ -346,9 +341,10 @@ Proof.
   eapply (wp_progress_gen Σ 1 NotCtxDep rs (S cr) (λ x, x) notStuck
             [] k (α ı_scope) β st st' Hdisj Hst).
   intros H1 H2.
-  pose H3 : gitreeGS_gen rs R Σ := InputLangGitreeGS rs Σ H1 H2.
+  pose H3 : gitreeGS_gen rs R Σ := PrngLangGitreeGS rs Σ H1 H2.
   simpl in H3.
-  exists (val_pred (s:=notStuck) (P:=(λne _:unitO, True)) τ)%I. split.
+  exists (λ _, True)%I. split.
+  (*exists (val_pred (s:=notStuck) (P:=(λne _:unitO, True)) τ)%I. split.*)
   { apply _. }
   iExists (@state_interp_fun _ _ rs _ _ _ H3).
   iExists (@aux_interp_fun _ _ rs _ _ _ H3).
@@ -360,7 +356,6 @@ Proof.
   simpl.
   iAssert (True%I) as "G"; first done; iFrame "G"; iClear "G".
   iModIntro. iIntros "((Hone & Hcr) & Hst)".
-  iPoseProof (Hlog H3 with "Hcr") as "Hlog".
   destruct st as [σ []].
   iAssert (has_substate σ) with "[Hst]" as "Hs".
   {
@@ -379,32 +374,44 @@ Proof.
     rewrite (eq_pi _ _ Heq eq_refl)//.
   }
   iApply fupd_wp.
-  iMod (inv_alloc (nroot.@"ioE") _
-          (∃ σ,
+  iMod (new_prngG σ) as (H4) "Hprng".
+  iMod (inv_alloc (nroot.@"prngE") _
+          (∃ σ : state,
              £ 1 ∗ has_substate (σ : oFunctor_car
-                    (sReifier_state reify_io)
+                    (sReifier_state reify_prng)
                     (IT (sReifier_ops (gReifiers_sReifier rs)) R)
-                    (IT (sReifier_ops (gReifiers_sReifier rs)) R)))%I
-         with "[Hone Hs]") as "#Hinv".
+                    (IT (sReifier_ops (gReifiers_sReifier rs)) R))
+                    ∗ has_prngs σ)%I
+         with "[Hone Hs Hprng]") as "#Hinv".
   {
-    iNext. iExists σ.
-    iFrame "Hone Hs".
+    iNext. iExists σ. iFrame.
   }
-  iSpecialize ("Hlog" with "Hinv []").
-  {
-    iIntros (x).
-    destruct x.
-  }
-  iSpecialize ("Hlog" $! tt with "[//]").
-  iApply (wp_wand with"Hlog").
+  iSimpl in "Hinv".
+  iPoseProof (Hlog H3 with "Hcr") as "Hlog".
+  iSpecialize ("Hlog" $! ı_scope).
+  iSpecialize ("Hlog" with "Hinv").
+  iAssert (ssubst_valid1 rs ty val_pred
+           (expr_pred notStuck rs (λne _ : unitO, True)%I) □ ı_scope) as "Hvalid".
+           {
+             by iIntros "%Hempty".
+           }
+  iSpecialize ("Hlog" with "Hvalid").
+  iSpecialize ("Hlog" $! () I).
+  iApply (wp_wand with "Hlog").
   iModIntro.
-  iIntros ( βv). simpl. iDestruct 1 as (_) "[H _]".
-  by iFrame.
+  iIntros (βv) "_".
+  done.
 Qed.
 
-Lemma prng_lang_safety e τ σ st' (β : IT (sReifier_ops (gReifiers_sReifier rs)) natO) k :
+Let R := sumO natO (sumO unitO locO).
+Let sRef := gReifiers_sReifier rs.
+Let sOps := sReifier_ops sRef.
+Let IT := IT sOps R.
+Let fullState := sReifier_state sRef ♯ IT.
+
+Lemma prng_lang_safety e τ (st st' : fullState) (β : IT) k :
   typed □ e τ →
-  external_steps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) (σ, ()) β st' [] k →
+  external_steps (gReifiers_sReifier rs) (interp_expr rs e ı_scope) st β st' [] k →
   is_Some (IT_to_V β)
   ∨ (∃ β1 st1 l, external_step (gReifiers_sReifier rs) β st' β1 st1 l).
 Proof.
@@ -418,15 +425,14 @@ Proof.
     - by right.
     - done.
   }
-  pose (Σ:=#[invΣ;stateΣ rs natO]).
-  assert (invGpreS Σ).
-  { apply _. }
-  assert (statePreG rs natO Σ).
-  { apply _. }
+  pose (Σ:=#[invΣ;stateΣ rs R;prngΣ]).
+  assert (invGpreS Σ) by apply _.
+  assert (statePreG rs R Σ) by apply _.
+  assert (prngPreG Σ) by apply _.
   eapply (logpred_adequacy 0 Σ); eauto.
-  intros ?. iIntros "_".
+  intros ??. iIntros "_".
   by iApply fundamental.
 Qed.
 
-*)
 End safety_adeqaucy.
+Print Assumptions prng_lang_safety.

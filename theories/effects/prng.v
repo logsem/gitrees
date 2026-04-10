@@ -212,12 +212,12 @@ Section wp.
   #[export] Instance subG_prngΣ {Σ} : subG prngΣ Σ → prngPreG Σ.
   Proof. solve_inG. Qed.
 
-  Lemma new_storeG `{!prngPreG Σ} :
-    ⊢ |==> ∃ `{!prngG Σ}, own prngG_nameV (Excl ∅)
-                        ∗ own prngG_nameK (● ∅ ⋅ ◯ ∅).
+  Lemma new_prngG σ `{!prngPreG Σ} :
+    ⊢ |==> ∃ `{!prngG Σ}, own prngG_nameV (Excl σ)
+                        ∗ own prngG_nameK (● dom σ).
   Proof.
-    iMod (own_alloc (Excl ∅)) as (gn1) "H1"; first done.
-    iMod (own_alloc (● ∅ ⋅ ◯ ∅)) as (gn2) "H2"; first by apply auth_both_valid.
+    iMod (own_alloc (Excl σ)) as (gn1) "H1"; first done.
+    iMod (own_alloc (● dom σ)) as (gn2) "H2"; first by apply auth_auth_valid.
     iModIntro.
     set {|
       prngG_V_inG := PrngPreG_V_inG; prngG_nameV := gn1;
