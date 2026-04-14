@@ -264,7 +264,7 @@ Section wp.
   Lemma istate_read l σ :
     has_prngs σ
     -∗ known_prng l
-    -∗ has_prngs σ ∗ ∃ n, (σ !! l) ≡ Some n.
+    -∗ ∃ n, (σ !! l) ≡ Some n.
   Proof.
     iIntros "[HV HK] Hf".
     iPoseProof (own_valid_2 with "HK Hf") as "%H".
@@ -291,9 +291,9 @@ Section wp.
     ==∗ has_prngs (<[l:=n']> σ).
   Proof.
     iIntros "H #Hl".
-    iPoseProof (istate_read l σ with "H Hl") as "([HV HK] & [%n %Hlookup])".
+    iPoseProof (istate_read l σ with "H Hl") as "[%n %Hlk]".
     unfold has_prngs.
-
+    iDestruct "H" as "[HV HK]".
     iMod (own_update _ _ (Excl $ <[l:=n']>σ) with "HV") as "$".
     {
       by intros ?[[]|][].
@@ -366,7 +366,7 @@ Section wp.
     iSimpl.
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
-    iPoseProof (istate_read l σ with "Hh Hp") as "(Hh & %m & %Hread)".
+    iPoseProof (istate_read l σ with "Hh Hp") as "(%m & %Hread)".
     (* current state, reification results, new state, continuation, thread pool additions *)
     iExists σ,(read_lcg m),(<[l:=update_lcg m]>σ),(κ (cont $ read_lcg m)),[].
     iFrame "Hs".
@@ -414,7 +414,7 @@ Section wp.
     iFrame "Hs".
     iSplit.
     {
-      iPoseProof (istate_read l σ with "Hh Hp") as "(Hh & %mm & %Hread)".
+      iPoseProof (istate_read l σ with "Hh Hp") as "(%mm & %Hread)".
       rewrite /lift_post /state_seed Hread //.
     }
     iSplit; first rewrite ofe_iso_21 later_map_Next //.
@@ -444,6 +444,111 @@ Section wp.
     by iModIntro.
   Qed.
 
+  (* [wp_new_state], [wp_gen_state], and [wp_seed_state] are proof rules with explict and exclusive state ownership *)
+
+  Lemma wp_new_state (k : locO -n> IT) s σ Φ `{!NonExpansive Φ} :
+    let l:=Loc.fresh (dom σ) in
+    has_substate σ -∗
+    has_prngs σ -∗
+    ▷▷ (has_substate (<[l := 0]>σ) -∗
+        has_prngs (<[l := 0]>σ) -∗
+        known_prng l -∗
+        WP@{rs} k l @ s {{ Φ }}) -∗
+    WP@{rs} PRNG_NEW k @ s {{ Φ }}.
+  Proof.
+    iIntros (l) "Hs Hp Ha".
+    iApply wp_subreify_ctx_indep_lift''.
+    iExists σ,l,(<[l:=0]>σ),_,[].
+    iFrame "Hs".
+    iModIntro.
+    iSplit; first done.
+    iSplit; first done.
+    iNext.
+    iMod (istate_alloc 0 l with "Hp") as "[Hp Hl]".
+    {
+      apply not_elem_of_dom_1.
+      rewrite -(Loc.add_0 l).
+      by apply Loc.fresh_fresh.
+    }
+    iIntros "Hlc Hs".
+    iModIntro.
+    iSplit.
+    {
+      rewrite ofe_iso_21.
+      iApply fupd_wp.
+      iApply (lc_fupd_elim_later with "Hlc").
+      iNext.
+      iApply ("Ha" with "Hs Hp Hl").
+    }
+    by cbn.
+  Qed.
+
+  Lemma wp_gen_state l n s σ Φ :
+    let n' := update_lcg n in
+    σ !! l = Some n →
+    has_substate σ -∗
+    has_prngs σ -∗
+    known_prng l -∗
+    ▷▷ (has_substate (<[l := n']>σ) -∗
+        has_prngs (<[l := n']>σ) -∗
+        known_prng l -∗
+        Φ (RetV $ read_lcg n)) -∗
+    WP@{rs} PRNG_GEN l @ s {{ Φ }}.
+  Proof.
+    iIntros (n' Hlk) "Hs Hp #Hl Ha".
+    iApply wp_subreify_ctx_indep_lift''.
+    iExists σ,(read_lcg n),(<[l:=n']>σ),_,[].
+    iFrame "Hs".
+    iModIntro.
+    iSplit; first rewrite /= /state_gen Hlk //.
+    iSplit; first done.
+    iNext.
+    iIntros "Hlc Hs".
+    iMod (istate_write l (update_lcg n) σ with "Hp Hl") as "Hp".
+    iModIntro.
+    iSplit.
+    {
+      rewrite ofe_iso_21.
+      iApply wp_val.
+      iApply (lc_fupd_elim_later with "Hlc").
+      iNext.
+      iApply ("Ha" with "Hs Hp Hl").
+    }
+    by cbn.
+  Qed.
+
+  Lemma wp_seed_state l m s σ Φ :
+    has_substate σ -∗
+    has_prngs σ -∗
+    known_prng l -∗
+    ▷▷ (has_substate (<[l := m]>σ) -∗
+        has_prngs (<[l := m]>σ) -∗
+        known_prng l -∗
+        Φ (RetV ())) -∗
+    WP@{rs} PRNG_SEED l m @ s {{ Φ }}.
+  Proof.
+    iIntros "Hs Hp #Hl Ha".
+    iPoseProof (istate_read l σ with "Hp Hl") as "(%n & %Hread)".
+    iApply wp_subreify_ctx_indep_lift''.
+    iExists σ,(),(<[l:=m]>σ),_,[].
+    iFrame "Hs".
+    iModIntro.
+    iSplit; first rewrite /= /state_seed Hread //.
+    iSplit; first done.
+    iNext.
+    iIntros "Hlc Hs".
+    iMod (istate_write l m σ with "Hp Hl") as "Hp".
+    iModIntro.
+    iSplit.
+    {
+      rewrite ofe_iso_21.
+      iApply wp_val.
+      iApply (lc_fupd_elim_later with "Hlc").
+      iNext.
+      iApply ("Ha" with "Hs Hp Hl").
+    }
+    by cbn.
+  Qed.
 End wp.
 
 Arguments prng_ctx {_ _} rs {_ _ _ _ _ _}.

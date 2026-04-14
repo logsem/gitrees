@@ -93,6 +93,7 @@ theories/examples/prng_lang/prng_examples.v
 theories/examples/prng_lang/lang.v
 theories/examples/prng_lang/interp.v
 theories/examples/prng_lang/logpred.v
+theories/examples/prng_lang/logrel.v
 
 theories/utils/finite_sets.v
 theories/utils/clwp.v
