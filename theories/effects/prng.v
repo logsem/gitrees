@@ -7,30 +7,28 @@ From gitrees Require Import prelude.
 From gitrees Require Import gitree.
 From gitrees.lib Require Import eq.
 
+Class Prng (S O : Type) := {
+  default_seed : S;
+  next_state : S -> S;
+  add_entropy : S -> S -> S;
+  read_out : S -> O;
+}.
+
 Section prng_effect.
 
 Opaque laterO_map.
 
 Canonical Structure locO := leibnizO loc.
 
-(*
-   TODO: keep track of the state update and read out functions represented as GIT
-   [stateF : oFunctor := (gmapOF locO ((▶ ∙) * (▶ ∙)))%OF;]
-   [Ins := ((▶ ∙) * (▶ ∙))%OF;]
- *)
 (* finite map of PRNG states: [Some seed] or [None] for deleted or unallocated. *)
 Definition state := gmap loc nat.
 Definition stateO : ofe := state.
 Definition stateF : oFunctor := constOF state.
 
-Definition read_lcg : natO -n> natO := λne n, n.
-Definition update_lcg : natO -n> natO := λne n, (13 * n + 7) mod 23.
-#[global] Opaque read_lcg update_lcg.
-
-Definition state_new (σ : state) := let l := Loc.fresh (dom σ) in Some (l, <[l := 0]> σ).
-Definition state_del (σ : state) (l : loc) := _ ← σ !! l; Some ((), delete l σ).
-Definition state_gen (σ : state) (l : loc) := n ← σ !! l; Some (read_lcg n, <[l := update_lcg n]> σ).
-Definition state_seed (σ : state) (l : loc) (sd : nat) := _ ← σ !! l; Some ((), <[l := sd]> σ).
+Definition state_new  `{Prng nat nat} (σ : state) := let l := Loc.fresh (dom σ) in Some (l, <[l := default_seed]> σ).
+Definition state_del  `{Prng nat nat} (σ : state) (l : loc) := _ ← σ !! l; Some ((), delete l σ).
+Definition state_gen  `{Prng nat nat} (σ : state) (l : loc) := n ← σ !! l; Some (read_out n, <[l := next_state n]> σ).
+Definition state_seed `{Prng nat nat} (σ : state) (l : loc) (sd : nat) := n ← σ !! l; Some ((), <[l := add_entropy n sd]> σ).
 
 Definition lift_post {A B} : option (A * state) -> option (A * state * list B)
   := option_map (fun '(a,st) => (a,st,[])).
@@ -50,11 +48,11 @@ Program Definition NewPrngE : opInterp :=  {|
   Ins := unitO;
   Outs := locO;
 |}.
-Definition reify_new X `{Cofe X}
+Definition reify_new `{Prng nat nat} X `{Cofe X}
   : (Ins NewPrngE ♯ X) * (stateF ♯ X)
   → option (Outs NewPrngE ♯ X * (stateF ♯ X) * listO (laterO X))
   := λ '((),s), lift_post $ state_new s.
-#[export] Instance reify_new_ne X `{!Cofe X} :
+#[export] Instance reify_new_ne `{Prng nat nat} X `{!Cofe X} :
   NonExpansive (reify_new X : prodO (Ins NewPrngE ♯ X) (stateF ♯ X)
                             → optionO (Outs NewPrngE ♯ X * (stateF ♯ X) * listO (laterO X))%type).
 Proof. solve_proper. Qed.
@@ -64,11 +62,11 @@ Program Definition DelPrngE : opInterp :=  {|
   Ins := locO;
   Outs := unitO;
 |}.
-Definition reify_del X `{Cofe X}
+Definition reify_del `{Prng nat nat} X `{Cofe X}
   : (Ins DelPrngE ♯ X) * (stateF ♯ X)
   → option (Outs DelPrngE ♯ X * (stateF ♯ X) * listO (laterO X))
   := λ '(l,s), lift_post $ state_del s l.
-#[export] Instance reify_del_ne X `{!Cofe X} :
+#[export] Instance reify_del_ne `{Prng nat nat} X `{!Cofe X} :
   NonExpansive (reify_del X : prodO (Ins DelPrngE ♯ X) (stateF ♯ X)
                             → optionO (Outs DelPrngE ♯ X * (stateF ♯ X) * listO (laterO X))%type).
 Proof. solve_proper. Qed.
@@ -78,11 +76,11 @@ Program Definition GenPrngE : opInterp :=  {|
   Ins := locO;
   Outs := natO;
 |}.
-Definition reify_gen X `{Cofe X}
+Definition reify_gen `{Prng nat nat} X `{Cofe X}
   : (Ins GenPrngE ♯ X) * (stateF ♯ X)
   → option (Outs GenPrngE ♯ X * (stateF ♯ X) * listO (laterO X))
   := λ '(l,s), lift_post $ state_gen s l.
-#[export] Instance reify_gen_ne X `{!Cofe X} :
+#[export] Instance reify_gen_ne `{Prng nat nat} X `{!Cofe X} :
   NonExpansive (reify_gen X : prodO (Ins GenPrngE ♯ X) (stateF ♯ X)
                             → optionO (Outs GenPrngE ♯ X * (stateF ♯ X) * listO (laterO X))%type).
 Proof. solve_proper. Qed.
@@ -91,21 +89,21 @@ Program Definition SeedPrngE : opInterp :=  {|
   Ins := locO * natO;
   Outs := unitO;
 |}.
-Definition reify_seed X `{Cofe X}
+Definition reify_seed `{Prng nat nat} X `{Cofe X}
   : (Ins SeedPrngE ♯ X) * (stateF ♯ X)
   → option (Outs SeedPrngE ♯ X * (stateF ♯ X) * listO (laterO X))
   := λ '((l,n),s), lift_post $ state_seed s l n.
-#[export] Instance reify_seed_ne X `{!Cofe X} :
+#[export] Instance reify_seed_ne `{Prng nat nat} X `{!Cofe X} :
   NonExpansive (reify_seed X : prodO (Ins SeedPrngE ♯ X) (stateF ♯ X)
                              → optionO (Outs SeedPrngE ♯ X * (stateF ♯ X) * listO (laterO X))%type).
 Proof. solve_proper. Qed.
 
 
-Definition prngE : opsInterp := @[NewPrngE;DelPrngE;GenPrngE;SeedPrngE].
-Program Canonical Structure reify_prng : sReifier NotCtxDep :=
-  Build_sReifier NotCtxDep prngE stateF _ _ _.
+Definition prngE `(Prng nat nat) : opsInterp := @[NewPrngE;DelPrngE;GenPrngE;SeedPrngE].
+Program Canonical Structure reify_prng `(Rng : Prng nat nat) : sReifier NotCtxDep :=
+  Build_sReifier NotCtxDep (prngE Rng) stateF _ _ _.
 Next Obligation.
-  intros X HX op.
+  intros Rng X HX op.
   destruct op as [| [| [| [| []]]]]; simpl.
   - simple refine (OfeMor (reify_new X)).
   - simple refine (OfeMor (reify_del X)).
@@ -116,13 +114,14 @@ Defined.
 End prng_effect.
 
 Section prng_combinators.
-  Context {E : opsInterp}.
-  Context `{!subEff prngE E}.
+  Context {E : opsInterp} {Rng : Prng nat nat}.
+  Context `{!subEff (prngE Rng) E}.
   Context {R} `{!Cofe R}.
   Context `{Base_nat : !SubOfe natO R} `{Base_unit : !SubOfe unitO R}.
   Notation IT := (IT E R).
   Notation ITV := (ITV E R).
 
+  Notation prngE := (prngE Rng).
   Notation opid_new := (inl ()).
   Notation opid_del := (inr opid_new).
   Notation opid_gen := (inr opid_del).
@@ -227,7 +226,8 @@ Section wp.
     iFrame.
   Qed.
 
-  Context `{!subReifier (sReifier_NotCtxDep_min reify_prng a) rs}.
+  Context `{Rng : Prng nat nat}.
+  Context `{!subReifier (sReifier_NotCtxDep_min (reify_prng Rng) a) rs}.
   Context `{!gitreeGS_gen rs R Σ}.
   Notation iProp := (iProp Σ).
 
@@ -322,12 +322,12 @@ Section wp.
     iNext.
     set (l:=Loc.fresh (dom σ)).
     (* current state, reification results, new state, continuation, thread pool additions *)
-    iExists σ,l,(<[l:=0]>σ),(κ $ k l),[].
+    iExists σ,l,(<[l:=default_seed]>σ),(κ $ k l),[].
     iFrame "Hs".
     iSplit; first done.
     iSplit; first rewrite later_map_Next ofe_iso_21 //.
     iNext.
-    iMod (istate_alloc 0 l with "Hh") as "[Hh Hp]".
+    iMod (istate_alloc default_seed l with "Hh") as "[Hh Hp]".
     {
       apply (not_elem_of_dom_1 (M:=gmap loc)).
       rewrite -(Loc.add_0 l).
@@ -368,12 +368,12 @@ Section wp.
     iNext.
     iPoseProof (istate_read l σ with "Hh Hp") as "(%m & %Hread)".
     (* current state, reification results, new state, continuation, thread pool additions *)
-    iExists σ,(read_lcg m),(<[l:=update_lcg m]>σ),(κ (cont $ read_lcg m)),[].
+    iExists σ,(read_out m),(<[l:=next_state m]>σ),(κ (cont $ read_out m)),[].
     iFrame "Hs".
     iSplit; first rewrite /lift_post /state_gen Hread //.
     iSplit; first rewrite ofe_iso_21 later_map_Next //.
     iNext.
-    iMod (istate_write l (update_lcg m) σ with "Hh Hp") as "Hh".
+    iMod (istate_write l (next_state m) σ with "Hh Hp") as "Hh".
     iIntros "Hlc Hs".
     iMod ("Hcl" with "[Hlc Hh Hs]") as "Hemp".
     { iExists _. iFrame. }
@@ -410,16 +410,13 @@ Section wp.
     iApply (lc_fupd_elim_later with "Hlc").
     iNext.
     (* current state, reification results, new state, continuation, thread pool additions *)
-    iExists σ,(),(<[l:=m]>σ),(κ (cont ())),[].
+    iPoseProof (istate_read l σ with "Hh Hp") as "(%mm & %Hread)".
+    iExists σ,(),(<[l:=add_entropy mm m]>σ),(κ (cont ())),[].
     iFrame "Hs".
-    iSplit.
-    {
-      iPoseProof (istate_read l σ with "Hh Hp") as "(%mm & %Hread)".
-      rewrite /lift_post /state_seed Hread //.
-    }
+    iSplit; first rewrite /lift_post /state_seed Hread //.
     iSplit; first rewrite ofe_iso_21 later_map_Next //.
     iNext.
-    iMod (istate_write l m σ with "Hh Hp") as "Hh".
+    iMod (istate_write l (add_entropy mm m) σ with "Hh Hp") as "Hh".
     iIntros "Hlc Hs".
     iMod ("Hcl" with "[Hlc Hh Hs]") as "Hemp".
     { iExists _. iFrame. }
@@ -450,21 +447,21 @@ Section wp.
     let l:=Loc.fresh (dom σ) in
     has_substate σ -∗
     has_prngs σ -∗
-    ▷▷ (has_substate (<[l := 0]>σ) -∗
-        has_prngs (<[l := 0]>σ) -∗
+    ▷▷ (has_substate (<[l := default_seed]>σ) -∗
+        has_prngs (<[l := default_seed]>σ) -∗
         known_prng l -∗
         WP@{rs} k l @ s {{ Φ }}) -∗
     WP@{rs} PRNG_NEW k @ s {{ Φ }}.
   Proof.
     iIntros (l) "Hs Hp Ha".
     iApply wp_subreify_ctx_indep_lift''.
-    iExists σ,l,(<[l:=0]>σ),_,[].
+    iExists σ,l,(<[l:=default_seed]>σ),_,[].
     iFrame "Hs".
     iModIntro.
     iSplit; first done.
     iSplit; first done.
     iNext.
-    iMod (istate_alloc 0 l with "Hp") as "[Hp Hl]".
+    iMod (istate_alloc default_seed l with "Hp") as "[Hp Hl]".
     {
       apply not_elem_of_dom_1.
       rewrite -(Loc.add_0 l).
@@ -484,7 +481,7 @@ Section wp.
   Qed.
 
   Lemma wp_gen_state l n s σ Φ :
-    let n' := update_lcg n in
+    let n' := next_state n in
     σ !! l = Some n →
     has_substate σ -∗
     has_prngs σ -∗
@@ -492,19 +489,19 @@ Section wp.
     ▷▷ (has_substate (<[l := n']>σ) -∗
         has_prngs (<[l := n']>σ) -∗
         known_prng l -∗
-        Φ (RetV $ read_lcg n)) -∗
+        Φ (RetV $ read_out n)) -∗
     WP@{rs} PRNG_GEN l @ s {{ Φ }}.
   Proof.
     iIntros (n' Hlk) "Hs Hp #Hl Ha".
     iApply wp_subreify_ctx_indep_lift''.
-    iExists σ,(read_lcg n),(<[l:=n']>σ),_,[].
+    iExists σ,(read_out n),(<[l:=n']>σ),_,[].
     iFrame "Hs".
     iModIntro.
     iSplit; first rewrite /= /state_gen Hlk //.
     iSplit; first done.
     iNext.
     iIntros "Hlc Hs".
-    iMod (istate_write l (update_lcg n) σ with "Hp Hl") as "Hp".
+    iMod (istate_write l (next_state n) σ with "Hp Hl") as "Hp".
     iModIntro.
     iSplit.
     {
@@ -517,27 +514,27 @@ Section wp.
     by cbn.
   Qed.
 
-  Lemma wp_seed_state l m s σ Φ :
+  Lemma wp_seed_state l n m s σ Φ :
+    σ !! l = Some n →
     has_substate σ -∗
     has_prngs σ -∗
     known_prng l -∗
-    ▷▷ (has_substate (<[l := m]>σ) -∗
-        has_prngs (<[l := m]>σ) -∗
+    ▷▷ (has_substate (<[l := add_entropy n m]>σ) -∗
+        has_prngs (<[l := add_entropy n m]>σ) -∗
         known_prng l -∗
         Φ (RetV ())) -∗
     WP@{rs} PRNG_SEED l m @ s {{ Φ }}.
   Proof.
-    iIntros "Hs Hp #Hl Ha".
-    iPoseProof (istate_read l σ with "Hp Hl") as "(%n & %Hread)".
+    iIntros "%Hread Hs Hp #Hl Ha".
     iApply wp_subreify_ctx_indep_lift''.
-    iExists σ,(),(<[l:=m]>σ),_,[].
+    iExists σ,(),(<[l:=add_entropy n m]>σ),_,[].
     iFrame "Hs".
     iModIntro.
     iSplit; first rewrite /= /state_seed Hread //.
     iSplit; first done.
     iNext.
     iIntros "Hlc Hs".
-    iMod (istate_write l m σ with "Hp Hl") as "Hp".
+    iMod (istate_write l (add_entropy n m) σ with "Hp Hl") as "Hp".
     iModIntro.
     iSplit.
     {

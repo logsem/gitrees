@@ -312,7 +312,7 @@ Qed.
 (*** Operational semantics *)
 
 (* counter: (unfold ticks, pure/effect) *)
-Inductive head_step {S} : expr S → state → expr S → state → nat*nat → Prop :=
+Inductive head_step `{Prng nat nat} {S} : expr S → state → expr S → state → nat*nat → Prop :=
 | BetaS e1 v2 σ :
   head_step (App (Val $ RecV e1) (Val v2)) σ (subst (Inc := inc) ((subst (F := expr) (Inc := inc) e1) (Val (shift (Inc := inc) v2))) (Val (RecV e1))) σ (1,0)
 | NewPrngS σ l σ' :
@@ -341,13 +341,13 @@ Inductive head_step {S} : expr S → state → expr S → state → nat*nat → 
             (Val v3) σ (0,0)
 .
 
-Lemma head_step_prng_01 {S} (e1 e2 : expr S) σ1 σ2 n m :
+Lemma head_step_prng_01 `{Prng nat nat} {S} (e1 e2 : expr S) σ1 σ2 n m :
   head_step e1 σ1 e2 σ2 (n,m) → m = 0 ∨ m = 1.
 Proof.  inversion 1; eauto. Qed.
-Lemma head_step_unfold_01 {S} (e1 e2 : expr S) σ1 σ2 n m :
+Lemma head_step_unfold_01 `{Prng nat nat} {S} (e1 e2 : expr S) σ1 σ2 n m :
   head_step e1 σ1 e2 σ2 (n,m) → n = 0 ∨ n = 1.
 Proof.  inversion 1; eauto. Qed.
-Lemma head_step_pure {S} (e1 e2 : expr S) σ1 σ2 n :
+Lemma head_step_pure `{Prng nat nat} {S} (e1 e2 : expr S) σ1 σ2 n :
   head_step e1 σ1 e2 σ2 (n,0) → σ1 = σ2.
 Proof.  inversion 1; eauto. Qed.
 
@@ -361,7 +361,7 @@ Lemma fill_item_val {S} Ki (e : expr S) :
   is_Some (to_val (fill Ki e)) → is_Some (to_val e).
 Proof. intros [v ?]. induction Ki; simplify_option_eq; eauto. Qed.
 
-Lemma val_head_stuck {S} (e1 : expr S) σ1 e2 σ2 m : head_step e1 σ1 e2 σ2 m → to_val e1 = None.
+Lemma val_head_stuck `{Prng nat nat} {S} (e1 : expr S) σ1 e2 σ2 m : head_step e1 σ1 e2 σ2 m → to_val e1 = None.
 Proof. destruct 1; naive_solver. Qed.
 
 Fixpoint ectx_compose {S} (K1 K2 : ectx S) : ectx S
@@ -433,20 +433,20 @@ Proof.
     rewrite /Inj; naive_solver.
 Qed.
 
-Inductive prim_step {S} (e1 : expr S) (σ1 : state)
+Inductive prim_step `{Prng nat nat} {S} (e1 : expr S) (σ1 : state)
           (e2 : expr S) (σ2 : state) (n : nat*nat) : Prop:=
   Ectx_step (K : ectx S) e1' e2' :
     e1 = fill K e1' → e2 = fill K e2' →
     head_step e1' σ1 e2' σ2 n → prim_step e1 σ1 e2 σ2 n.
 
-Lemma prim_step_pure {S} (e1 e2 : expr S) σ1 σ2 n :
+Lemma prim_step_pure `{Prng nat nat} {S} (e1 e2 : expr S) σ1 σ2 n :
   prim_step e1 σ1 e2 σ2 (n,0) → σ1 = σ2.
 Proof.
   inversion 1; simplify_eq/=.
-  inversion H2; eauto.
+  inversion H3; eauto.
 Qed.
 
-Inductive prim_steps {S} : expr S → state → expr S → state → nat*nat → Prop :=
+Inductive prim_steps `{Prng nat nat} {S} : expr S → state → expr S → state → nat*nat → Prop :=
 | prim_steps_zero e σ :
   prim_steps e σ e σ (0,0)
 | prim_steps_abit e1 σ1 e2 σ2 e3 σ3 n1 m1 n2 m2 :
@@ -455,11 +455,11 @@ Inductive prim_steps {S} : expr S → state → expr S → state → nat*nat →
   prim_steps e1 σ1 e3 σ3 (n1+n2,m1+m2)
 .
 
-Lemma Ectx_step' {S} (K : ectx S) e1 σ1 e2 σ2 efs :
+Lemma Ectx_step' `{Prng nat nat} {S} (K : ectx S) e1 σ1 e2 σ2 efs :
   head_step e1 σ1 e2 σ2 efs → prim_step (fill K e1) σ1 (fill K e2) σ2 efs.
 Proof. econstructor; eauto. Qed.
 
-Lemma prim_step_ctx {S} (K : ectx S) e1 σ1 e2 σ2 efs :
+Lemma prim_step_ctx `{Prng nat nat} {S} (K : ectx S) e1 σ1 e2 σ2 efs :
   prim_step e1 σ1 e2 σ2 efs → prim_step (fill K e1) σ1 (fill K e2) σ2 efs.
 Proof.
   destruct 1 as [K2 u1 u2 HK2].
@@ -467,13 +467,13 @@ Proof.
   by econstructor; eauto.
 Qed.
 
-Lemma prim_steps_ctx {S} (K : ectx S) e1 σ1 e2 σ2 efs :
+Lemma prim_steps_ctx `{Prng nat nat} {S} (K : ectx S) e1 σ1 e2 σ2 efs :
   prim_steps e1 σ1 e2 σ2 efs → prim_steps (fill K e1) σ1 (fill K e2) σ2 efs.
 Proof.
   induction 1; econstructor; eauto using prim_step_ctx.
 Qed.
 
-Lemma prim_steps_app {S} nm1 nm2 (e1 e2 e3 : expr S) σ1 σ2 σ3 :
+Lemma prim_steps_app `{Prng nat nat} {S} nm1 nm2 (e1 e2 e3 : expr S) σ1 σ2 σ3 :
   prim_steps e1 σ1 e2 σ2 nm1 → prim_steps e2 σ2 e3 σ3 nm2 →
   prim_steps e1 σ1 e3 σ3 (nm1.1 + nm2.1, nm1.2 + nm2.2).
 Proof.
@@ -484,7 +484,7 @@ Proof.
   by apply (IHHst (n',m')).
 Qed.
 
-Lemma prim_step_steps {S} nm (e1 e2 : expr S) σ1 σ2 :
+Lemma prim_step_steps `{Prng nat nat} {S} nm (e1 e2 : expr S) σ1 σ2 :
   prim_step e1 σ1 e2 σ2 nm → prim_steps e1 σ1 e2 σ2 nm.
 Proof.
   destruct nm as [n m]. intro Hs.

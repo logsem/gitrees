@@ -31,10 +31,11 @@ Section get_ret2_generalized.
 End get_ret2_generalized.
 
 Section prng_seed_workaround.
+  Context {Rng : Prng nat nat}.
   Context {sz : nat}.
   Locate NotCtxDep.
   Variable (rs : gReifiers NotCtxDep sz).
-  Context {subR : subReifier reify_prng rs}.
+  Context {subR : subReifier (reify_prng Rng) rs}.
   Context {R} `{CR : !Cofe R}.
   Context `{!SubOfe natO R} `{!SubOfe locO R} `{!SubOfe unitO R}.
   Notation F := (gReifiers_ops rs).

@@ -7,9 +7,10 @@ From gitrees.effects Require Import prng store.
 From gitrees.lib Require Import while.
 
 Section prng_examples.
+  Context {Rng : Prng nat nat}.
   Context {sz : nat} (rs : gReifiers NotCtxDep sz).
   Context `{!subReifier reify_store rs}.
-  Context `{!subReifier reify_prng rs}.
+  Context `{!subReifier (reify_prng Rng) rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R, !SubOfe unitO R, !SubOfe locO R}.
@@ -41,7 +42,7 @@ Section prng_examples.
 
   Lemma wp_las_vegas_ITF (f : nat -> bool) (fIT : IT) (sd : nat) (init : nat) :
     heap_ctx rs
-    -∗ prng_ctx rs
+    -∗ prng_ctx rs _
     -∗ □ (∀ n, WP@{rs} fIT ⊙ (Ret n) {{ β, β ≡ RetV (if f n then 1 else 0) }})
     -∗ WP@{rs} las_vegas_ITF sd init fIT {{ β, ∃ n, β ≡ RetV n ∧  f n ≡ true }}.
   Proof with (try solve_proper).

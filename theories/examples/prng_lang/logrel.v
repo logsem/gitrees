@@ -12,9 +12,10 @@ Require Import Binding.Lib Binding.Set Binding.Env.
 Import IF_nat.
 
 Section prng_logrel.
+  Context {Rng : Prng nat nat}.
   Context {sz : nat}.
   Variable rs : gReifiers NotCtxDep sz.
-  Context `{!subReifier reify_prng rs}.
+  Context `{!subReifier (reify_prng Rng) rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R} `{!SubOfe locO R} `{!SubOfe unitO R} .
@@ -270,7 +271,7 @@ Section prng_logrel.
     iPoseProof (istate_read l with "Hp Hl") as "(%n & %Hlk)".
     iApply (wp_gen l n with "Hs Hp Hl"); first done.
     iIntros "!>!> Hs Hp Hl".
-    iExists (1,1),(LitV $ read_lcg n),_.
+    iExists (1,1),(LitV $ read_out n),_.
     iFrame.
     iSplit; last by iExists _.
     iPureIntro.
@@ -303,7 +304,7 @@ Section prng_logrel.
     rewrite /SeedGitCtxS !IT_of_V_Ret SeedGit_Ret.
     iIntros (σ1) "Hs Hp".
     iPoseProof (istate_read l with "Hp Hl") as "(%n & %Hlk)".
-    iApply (wp_seed l m with "Hs Hp Hl").
+    iApply (wp_seed l n with "Hs Hp Hl"); first done.
     iIntros "!>!> Hs Hp Hl".
     iExists (1,1),UnitV,_.
     iFrame.
@@ -446,6 +447,9 @@ Section prng_logrel.
 End prng_logrel.
 
 Section reduction_correspondence_adeqaucy.
+
+Context {Rng : Prng nat nat}.
+Notation reify_prng := (reify_prng Rng).
 
 Local Definition rs : gReifiers NotCtxDep _ := gReifiers_cons reify_prng gReifiers_nil.
 

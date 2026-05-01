@@ -6,9 +6,10 @@ From gitrees.examples.prng_lang Require Import prng_seed_combinator.
 Require Import Binding.Lib Binding.Set.
 
 Section interp.
+  Context `{Rng : Prng nat nat}.
   Context {sz : nat}.
   Variable (rs : gReifiers NotCtxDep sz).
-  Context {subR : subReifier reify_prng rs}.
+  Context {subR : subReifier (reify_prng Rng) rs}.
   Context {R} `{CR : !Cofe R}.
   Context `{!SubOfe natO R} `{!SubOfe locO R} `{!SubOfe unitO R}.
   Notation F := (gReifiers_ops rs).
@@ -565,6 +566,8 @@ Section interp.
   Notation opid_del := (inr opid_new).
   Notation opid_gen := (inr opid_del).
   Notation opid_seed := (inr opid_gen).
+
+  Notation reify_prng := (reify_prng Rng).
 
   (* TODO: streamline the repetitive proof script *)
   Lemma interp_expr_fill_yes_reify {S} K env (e e' : expr S)

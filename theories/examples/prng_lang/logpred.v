@@ -9,9 +9,10 @@ Require Import Binding.Lib Binding.Set Binding.Env.
 Import IF_nat.
 
 Section prng_logrel.
+  Context {Rng : Prng nat nat}.
   Context {sz : nat}.
   Variable rs : gReifiers NotCtxDep sz.
-  Context `{!subReifier reify_prng rs}.
+  Context `{!subReifier (reify_prng Rng) rs}.
   Notation F := (gReifiers_ops rs).
   Context {R} `{!Cofe R}.
   Context `{!SubOfe natO R} `{!SubOfe locO R} `{!SubOfe unitO R} .
@@ -55,7 +56,7 @@ Section prng_logrel.
   Proof. induction τ; try apply _. Qed.
 
   Program Definition valid1 {S : Set} (Γ : S → ty) (α : interp_scope S -n> IT) (τ : ty) : iProp :=
-    (∀ ss, prng_ctx rs
+    (∀ ss, prng_ctx rs _
            -∗ ssubst_valid Γ ss
            -∗ expr_pred (α ss) (λne v, val_pred τ v))%I.
   Solve Obligations with solve_proper.
@@ -292,6 +293,9 @@ Arguments val_arr {_ _ _ _ _ _ _ _ _} Φ1 Φ2.
    We prove this by the safety of GIT interpretation (of typed closed programs) and adequacy
  *)
 Section safety_adeqaucy.
+
+Context {Rng : Prng nat nat}.
+Notation reify_prng := (reify_prng Rng).
 
 Local Definition rs : gReifiers NotCtxDep _ := gReifiers_cons reify_prng gReifiers_nil.
 
