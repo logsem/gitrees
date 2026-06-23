@@ -47,6 +47,7 @@ theories/lib/factorial.v
 theories/lib/iter.v
 theories/lib/eq.v
 theories/lib/generators.v
+theories/lib/counter.v
 
 theories/examples/delim_lang/lang.v
 theories/examples/delim_lang/typing.v

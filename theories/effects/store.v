@@ -953,6 +953,96 @@ Section wp.
       iApply "Hback".
   Qed.
 
+  Lemma wp_atomic_atomic_hom'
+    (f : IT -n> prodO IT IT)
+    (l : loc) E1 E2 s Φ (κ : IT -n> IT) `{!IT_hom κ} :
+      nclose (nroot.@"storeE") ## E1 →
+      heap_ctx
+      -∗ (|={E1,E2}=> ∃ α w1 w2, ▷ pointsto l α
+                           ∗ ▷ (f α ≡ (w1, w2))
+                           ∗ ▷ ▷ (pointsto l w2
+                                  ={E2,E1}=∗ WP@{rs} (κ w1) @ s {{ Φ }}))
+      -∗ WP@{rs} κ (ATOMIC l f) @ s {{ Φ }}.
+  Proof.
+    iIntros (Hee) "#Hcxt H".
+    unfold ATOMIC; simpl.
+    rewrite hom_vis.
+    iApply wp_subreify_ctx_indep_lift''.
+    iInv (nroot.@"storeE") as (σ) "[>Hlc [Hs Hh]]" "Hcl".
+    iApply (fupd_mask_weaken E1).
+    { set_solver. }
+    iIntros "Hwk".
+    iMod "H" as (α w1 w2) "[Hp [#Hcond Hback]]".
+    iApply (lc_fupd_elim_later with "Hlc").
+    iNext.
+    iAssert (⌜is_Some (σ !! l)⌝)%I as "%Hdom".
+    { iApply (istate_loc_dom with "Hh Hp"). }
+    destruct Hdom as [x Hx].
+    iAssert ((σ !! l ≡ Some (Next α)))%I as "#Hlookup".
+    { iApply (istate_read with "Hh Hp"). }
+    destruct (Next_uninj x) as [β' Hb'].
+    assert (σ !! l ≡ Some (Next β')) as Hx'.
+    { by rewrite Hx Hb'. }
+    iExists σ, (Next w1), (<[l:=Next w2]>σ), (κ w1), [].
+    iFrame "Hs".
+    repeat iSplit.
+    - rewrite /=.
+      match goal with
+      | |- context G [_ ≫= ?F] =>
+          set (F' := F)
+      end.
+      iApply (internal_eq_rewrite _ _
+                (λ x : option (later IT),
+                    (x ≫= F' ≡ Some (Next w1, (<[l:=Next w2]>σ), []))%I)
+               with "[Hlookup]").
+      {
+        intros m ?? G.
+        f_equiv.
+        apply option_mbind_ne.
+        - subst F'.
+          intros ?? H.
+          solve_proper_prepare.
+          do 3 f_equiv.
+          + f_equiv.
+            apply Next_contractive.
+            destruct m.
+            * apply dist_later_0.
+            * apply dist_later_S.
+              f_equiv.
+              apply H; lia.
+          + do 2 f_equiv.
+            apply Next_contractive.
+            destruct m.
+            * apply dist_later_0.
+            * apply dist_later_S.
+              f_equiv.
+              apply H; lia.
+        - done.
+      }
+      {
+        iApply internal_eq_sym.
+        rewrite Hx'.
+        iApply "Hlookup".
+      }
+      {
+        subst F'.
+        rewrite /=.
+        iRewrite "Hcond".
+        rewrite !later_map_Next /=.
+        done.
+      }
+    - iPureIntro. by rewrite /= ofe_iso_21 laterO_map_Next.
+    - iNext. iIntros "Hlc Hs".
+      iMod (istate_write l α w2 with "Hh Hp") as "[Hh Hp]".
+      iMod ("Hback" with "Hp") as "Hback".
+      iMod "Hwk" .
+      iMod ("Hcl" with "[Hlc Hh Hs]") as "_".
+      { iExists _. rewrite -(fmap_insert to_agree σ). by iFrame. }
+      iModIntro.
+      iSplit; last done.
+      iApply "Hback".
+  Qed.
+
   Lemma wp_atomic_hom (f : IT -n> prodO IT IT)
     (l : loc) α w1 w2 s Φ (κ : IT -n> IT) `{!IT_hom κ} :
     heap_ctx
@@ -1191,6 +1281,28 @@ Module faa_wp.
       iNext; simpl.
       rewrite get_ret_ret /= get_ret_ret /=.
       done.
+    Qed.
+
+    Lemma wp_faa_atomic_hom (f : A -n> A -n> A) (l : loc) (w : A) E1 E2 s Φ
+      (κ : IT -n> IT) `{!IT_hom κ} :
+      nclose (nroot.@"storeE") ## E1 →
+      heap_ctx rs
+      -∗ (|={E1,E2}=> ∃ α : A, ▷ pointsto l (Ret α)
+                      ∗ ▷ ▷ (pointsto l (Ret (f w α))
+                             ={E2,E1}=∗ WP@{rs} (κ (Ret α)) @ s {{ Φ }}))
+      -∗ WP@{rs} κ (FAA f l (Ret w)) @ s {{ Φ }}.
+    Proof.
+      iIntros (Hee) "#Hctx H".
+      unfold FAA.
+      iApply (wp_atomic_atomic_hom' rs (faa_compute f (Ret w)) l E1 E2 s Φ κ Hee
+                with "Hctx [H]").
+      iMod "H" as (α) "[Hp Hback]".
+      iModIntro.
+      iExists (Ret α), (Ret α), (Ret (f w α)).
+      iFrame "Hp".
+      iSplitR "Hback".
+      - iNext. simpl. rewrite get_ret_ret /= get_ret_ret /=. done.
+      - iApply "Hback".
     Qed.
   End wp.
   #[global] Opaque FAA.
